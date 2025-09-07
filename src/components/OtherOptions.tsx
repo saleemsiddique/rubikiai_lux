@@ -22,8 +22,8 @@ const OtherOptions: React.FC = () => {
       image: '/dupleksas2.png',
     },
     {
-      name: 'Lake House',
-      path: '/lake-house',
+      name: 'EŽERO NAMELIS',
+      path: '/ezero-namelis',
       image: '/lake-house1.png',
     },
   ];

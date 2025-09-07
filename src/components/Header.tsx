@@ -11,7 +11,7 @@ const Header: React.FC = () => {
   const pageTitles: Record<string, string> = {
     '/': 'INICIO',
     '/dupleksas': 'DUPLEKSAS',
-    '/lake-house': 'LAKE HOUSE',
+    '/ezero-namelis': 'EŽERO NAMELIS',
     '/reservations': 'RESERVATIONS',
     '/coupons': 'COUPONS',
     '/faq': 'FAQ',
@@ -25,7 +25,7 @@ const Header: React.FC = () => {
   const navLinks = [
     { name: 'Home', href: '/' },
     { name: 'Dupleksas', href: '/dupleksas' },
-    { name: 'Lake House', href: '/lake-house' },
+    { name: 'EŽERO NAMELIS', href: '/ezero-namelis' },
     { name: 'Reservations', href: '/reservations' },
     { name: 'Coupons', href: '/coupons' },
     { name: 'FAQ', href: '/faq' },

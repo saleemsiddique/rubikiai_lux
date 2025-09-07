@@ -8,13 +8,23 @@ const Header: React.FC = () => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const pathname = usePathname();
 
+  const pageTitles: Record<string, string> = {
+    '/': 'INICIO',
+    '/dupleksas': 'DUPLEKSAS',
+    '/lake-house': 'LAKE HOUSE',
+    '/reservations': 'RESERVATIONS',
+    '/coupons': 'COUPONS',
+    '/faq': 'FAQ',
+    '/contacts': 'CONTACTS'
+  };
+
   const toggleDrawer = () => {
     setIsDrawerOpen(!isDrawerOpen);
   };
 
   const navLinks = [
     { name: 'Home', href: '/' },
-    { name: 'Duplex', href: '/duplex' },
+    { name: 'Dupleksas', href: '/dupleksas' },
     { name: 'Lake House', href: '/lake-house' },
     { name: 'Reservations', href: '/reservations' },
     { name: 'Coupons', href: '/coupons' },
@@ -25,27 +35,35 @@ const Header: React.FC = () => {
   return (
     <>
       <header className="fixed w-full z-50 py-6 px-8 flex justify-between items-center bg-[var(--color-background-main)] shadow-sm transition-colors duration-500">
-        {/* Hamburger Menu Button (Left) */}
-        <button
-          onClick={toggleDrawer}
-          className="text-[var(--color-highlight)] hover:text-[var(--color-primary-dark)] focus:outline-none transition-colors"
-          aria-label="Toggle navigation menu"
-        >
-          <svg
-            className="w-8 h-8"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
+        {/* Left Side: Menu Button + Page Title */}
+        <div className="flex items-center gap-4">
+          <button
+            onClick={toggleDrawer}
+            className="text-[var(--color-highlight)] hover:text-[var(--color-primary-dark)] focus:outline-none transition-colors"
+            aria-label="Toggle navigation menu"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M4 6h16M4 12h16m-7 6h7"
-            ></path>
-          </svg>
-        </button>
+            <svg
+              className="w-8 h-8"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M4 6h16M4 12h16m-7 6h7"
+              ></path>
+            </svg>
+          </button>
+
+          {/* Page Title */}
+          <span className="text-[var(--color-highlight)] text-lg font-light tracking-wide">
+            {pageTitles[pathname] || ''}
+          </span>
+        </div>
+
 
         {/* Centered Logo */}
         <div className="absolute left-1/2 transform -translate-x-1/2">
@@ -65,16 +83,15 @@ const Header: React.FC = () => {
 
       {/* Drawer (Sliding Menu) */}
       <div
-        className={`fixed top-0 left-0 h-full w-full md:w-1/3 bg-[var(--color-background-main)] shadow-2xl transform transition-transform duration-500 ease-in-out z-40 overflow-y-auto ${
-          isDrawerOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
+        className={`fixed top-0 left-0 h-full w-full md:w-1/3 bg-[var(--color-background-main)] shadow-2xl transform transition-transform duration-500 ease-in-out z-40 overflow-y-auto ${isDrawerOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
       >
-        <div className="p-12 h-full flex flex-col justify-between">
+        <div className="p-12 pt-30 h-full flex flex-col justify-between">
           {/* Close Button */}
           <div className="flex justify-end">
             <button
               onClick={toggleDrawer}
-              className="text-[var(--color-highlight)] hover:text-[var(--color-primary-dark)] focus:outline-none"
+              className="text-[var(--color-text)] hover:text-[var(--color-primary)] focus:outline-none transition-transform duration-200 hover:scale-110 cursor-pointer"
               aria-label="Close menu"
             >
               <svg
@@ -119,11 +136,10 @@ const Header: React.FC = () => {
 
       {/* Main Page Content */}
       <div
-        className={`transform transition-transform duration-500 ease-in-out z-20 ${
-          isDrawerOpen ? 'translate-x-full md:translate-x-[33.33%] pointer-events-none' : 'translate-x-0'
-        }`}
+        className={`transform transition-transform duration-500 ease-in-out z-20 ${isDrawerOpen ? 'translate-x-full md:translate-x-[33.33%] pointer-events-none' : 'translate-x-0'
+          }`}
       >
-      {/* The rest of your page goes here (Hero, About, etc.) */}
+        {/* The rest of your page goes here (Hero, About, etc.) */}
       </div>
     </>
   );
@@ -135,9 +151,8 @@ const NavLink: React.FC<{ href: string; children: React.ReactNode; onClick: () =
     <Link
       href={href}
       onClick={onClick}
-      className={`font-sans text-[var(--color-highlight)] text-3xl md:text-4xl font-light hover:text-[var(--color-primary-dark)] transition-colors duration-200 uppercase ${
-        isActive ? 'text-[var(--color-primary-dark)] font-medium' : ''
-      }`}
+      className={`font-sans text-[var(--color-highlight)] text-3xl md:text-4xl font-light hover:text-[var(--color-primary-dark)] transition-colors duration-200 uppercase ${isActive ? 'text-[var(--color-primary-dark)] font-medium' : ''
+        }`}
     >
       {children}
     </Link>

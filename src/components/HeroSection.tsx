@@ -52,7 +52,7 @@ const HeroSection: React.FC = () => {
           MAGIŠKOMS AKIMIRKOMS.
         </p>
 
-        <ReservationForm onReserve={() => console.log('Reserva enviada')} />
+        <ReservationForm showResults={false} />
       </div>
     </section>
   );

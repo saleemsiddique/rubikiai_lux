@@ -8,7 +8,6 @@ import AccommodationsSection from '../components/Accommodations';
 const HomePage: React.FC = () => {
   return (
     <div className="bg-cream-bg">
-      <Header />
       <main>
         <HeroSection />
         <AboutSection />

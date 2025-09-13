@@ -10,7 +10,7 @@ const DuplexSelectionPage: React.FC = () => {
     <div className="bg-gray-100 min-h-screen flex flex-col md:flex-row">
 
       {/* Opción 1: Dúplex N°1 */}
-      <Link href="/dupleksas/elniu-aptvaro" className="relative flex-1 group overflow-hidden cursor-pointer h-screen">
+      <Link href="/dupleksas/salia-elniu-aptvaro" className="relative flex-1 group overflow-hidden cursor-pointer h-screen">
         <Image
           src="/dupleksas1.png"
           alt="Dúplex N°1 - Šalia Elnių Aptvaro"
@@ -32,7 +32,7 @@ const DuplexSelectionPage: React.FC = () => {
       </Link>
 
       {/* Opción 2: Dúplex N°2 */}
-      <Link href="/dupleksas/elniu-panorama" className="relative flex-1 group overflow-hidden cursor-pointer h-screen">
+      <Link href="/dupleksas/salia-elniu-panorama" className="relative flex-1 group overflow-hidden cursor-pointer h-screen">
         <Image
           src="/dupleksas2.png"
           alt="Dúplex N°2 - Elnių Panorama"

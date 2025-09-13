@@ -1,4 +1,4 @@
-// app/dupleksas/elniu-aptvaro/page.tsx
+// app/dupleksas/salia-elniu-aptvaro/page.tsx
 "use client";
 
 import React from 'react';

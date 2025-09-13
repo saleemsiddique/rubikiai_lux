@@ -1,35 +1,9 @@
 "use client";
 
 import React, { useState } from 'react';
-import DatePicker from 'react-datepicker';
-import 'react-datepicker/dist/react-datepicker.css';
 import ReservationForm from './ReservationForm';
 
 const HeroSection: React.FC = () => {
-  const [startDate, setStartDate] = useState<Date | null>(null);
-  const [endDate, setEndDate] = useState<Date | null>(null);
-  const [guests, setGuests] = useState(2);
-  const [propertyType, setPropertyType] = useState('duplex');
-  // Estados separados para controlar cada calendario
-  const [openPicker, setOpenPicker] = useState<"arrival" | "departure" | null>(null);
-
-
-  const onChange = (dates: [Date | null, Date | null]) => {
-    const [start, end] = dates;
-    setStartDate(start);
-    setEndDate(end);
-
-    if (start && !end) {
-      setOpenPicker("departure");
-    } else {
-      setOpenPicker(null);
-    }
-  };
-
-
-  const handleGuestsChange = (increment: number) => {
-    setGuests(prev => Math.max(1, prev + increment));
-  };
 
   return (
     <section

@@ -13,12 +13,12 @@ const OtherOptions: React.FC = () => {
   const otherProperties = [
     {
       name: 'Duplex N°1 - Šalia Elnių Aptvaro',
-      path: '/dupleksas/elniu-aptvaro',
+      path: '/dupleksas/salia-elniu-aptvaro',
       image: '/dupleksas1.png',
     },
     {
       name: 'Duplex N°2 - Elnių Panorama',
-      path: '/dupleksas/elniu-panorama',
+      path: '/dupleksas/salia-elniu-panorama',
       image: '/dupleksas2.png',
     },
     {

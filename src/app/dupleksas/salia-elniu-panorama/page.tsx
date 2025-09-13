@@ -1,4 +1,4 @@
-// app/dupleksas/elniu-panorama/page.tsx
+// app/dupleksas/salia-elniu-panorama/page.tsx
 "use client";
 
 import React from 'react';

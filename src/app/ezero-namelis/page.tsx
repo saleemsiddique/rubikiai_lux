@@ -1,25 +1,68 @@
 // app/lake-house/page.tsx
 "use client";
 
-import React from 'react';
-import Image from 'next/image';
-import ImageGallery from '@/components/ImageGallery';
-import Link from 'next/link';
-import OtherOptions from '@/components/OtherOptions';
-import { FaBed, FaUserFriends, FaRulerCombined, FaCheck } from 'react-icons/fa';
+import React from "react";
+import Image from "next/image";
+import ImageGallery from "@/components/ImageGallery";
+import OtherOptions from "@/components/OtherOptions";
+import { FaBed, FaUserFriends, FaRulerCombined, FaCheck } from "react-icons/fa";
+import { useRouter, useSearchParams } from "next/navigation";
 
 const images = [
-  '/lake-house/img1.avif',
-  '/lake-house/img2.avif',
-  '/lake-house/img3.avif',
-  '/lake-house/img4.avif',
-  '/lake-house/img5.avif',
-  '/lake-house/img6.avif',
-  '/lake-house/img7.avif',
-  '/lake-house/img8.avif',
+  "/lake-house/img1.avif",
+  "/lake-house/img2.avif",
+  "/lake-house/img3.avif",
+  "/lake-house/img4.avif",
+  "/lake-house/img5.avif",
+  "/lake-house/img6.avif",
+  "/lake-house/img7.avif",
+  "/lake-house/img8.avif",
 ];
 
+const formatDateFriendly = (iso?: string) => {
+  if (!iso) return null;
+  try {
+    const d = new Date(iso);
+    // ejemplo: 13 Sep 2025
+    return d.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
+  } catch {
+    return null;
+  }
+};
+
 const EzeroNamelisPage: React.FC = () => {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Leemos posibles query params enviados desde el buscador
+  const startParam = searchParams?.get("start") ?? null;
+  const endParam = searchParams?.get("end") ?? null;
+  const guestsParam = searchParams?.get("guests") ?? "2";
+  const typeParam = searchParams?.get("type") ?? "ezero namelis";
+
+ const startFriendly = formatDateFriendly(startParam ?? undefined);
+const endFriendly   = formatDateFriendly(endParam ?? undefined);
+
+
+  // Identificador/slug de esta casa para pasar a la confirmación
+  const houseSlug = "lake-house"; // cambia si prefieres otro slug
+
+  const handleReserveNow = () => {
+    // si no hay fechas en query, mandamos a la página de reservas sin params (o podrías abrir un modal)
+    if (!startParam || !endParam) {
+      router.push("/reservations");
+      return;
+    }
+
+    const q = `start=${encodeURIComponent(startParam)}&end=${encodeURIComponent(
+      endParam
+    )}&guests=${encodeURIComponent(guestsParam)}&type=${encodeURIComponent(
+      typeParam
+    )}&house=${encodeURIComponent(houseSlug)}`;
+
+    router.push(`/reservations?${q}`);
+  };
+
   return (
     <main className="bg-gray-100 text-[var(--color-text)]">
       {/* Hero Section */}
@@ -27,8 +70,8 @@ const EzeroNamelisPage: React.FC = () => {
         <Image
           src="/lake-house1.png"
           alt="Ežero Namelis - Lake House"
-          layout="fill"
-          objectFit="cover"
+          fill
+          style={{ objectFit: "cover" }}
           className="absolute inset-0 z-0"
         />
         <div className="absolute inset-0 bg-black opacity-40 z-10"></div>
@@ -64,16 +107,31 @@ const EzeroNamelisPage: React.FC = () => {
                 <div className="space-y-4 font-sans mb-6">
                   <div>
                     <h4 className="font-bold">Check-in:</h4>
-                    <p className="text-lg">04:00 PM</p>
+                    {startFriendly ? (
+                      <p className="text-lg">{startFriendly} — 04:00 PM</p>
+                    ) : (
+                      <p className="text-lg">04:00 PM</p>
+                    )}
                   </div>
                   <div>
                     <h4 className="font-bold">Check-out:</h4>
-                    <p className="text-lg">11:00 AM</p>
+                    {endFriendly ? (
+                      <p className="text-lg">{endFriendly} — 11:00 AM</p>
+                    ) : (
+                      <p className="text-lg">11:00 AM</p>
+                    )}
                   </div>
                 </div>
-                <Link href="/Reservations" className="bg-[var(--color-primary)] hover:bg-[var(--color-primary-dark)] text-white font-bold py-3 px-8 rounded-md transition-colors w-full text-center font-sans block">
-                  Reserve now
-                </Link>
+
+                <button
+                  onClick={handleReserveNow}
+                  disabled={!startParam || !endParam}
+                  className={`${
+                    !startParam || !endParam ? "opacity-60 cursor-not-allowed" : "bg-[var(--color-primary)] hover:bg-[var(--color-primary-dark)]"
+                  } text-white font-bold py-3 px-8 rounded-md transition-colors w-full text-center font-sans block`}
+                >
+                  {startParam && endParam ? "Reserve now" : "Select dates to reserve"}
+                </button>
               </div>
             </div>
           </div>
@@ -138,7 +196,6 @@ const EzeroNamelisPage: React.FC = () => {
             Find us on Google Maps to plan your trip.
           </p>
           <div className="relative w-full h-96 rounded-lg overflow-hidden shadow-lg">
-            {/* Embedded Google Maps iframe */}
             <iframe
               src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d157835.4326558231!2d25.43715878297757!3d55.45785055042656!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x46e72c8f8d228c21%3A0x633d7c5b61a4c905!2sRubikiai%20lake!5e0!3m2!1sen!2ses!4v1698716301138!5m2!1sen!2ses"
               width="100%"
@@ -155,7 +212,6 @@ const EzeroNamelisPage: React.FC = () => {
 
       {/* Other Options */}
       <OtherOptions />
-
     </main>
   );
 };

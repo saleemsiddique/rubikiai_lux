@@ -59,6 +59,15 @@ function addDays(d: Date, days: number) {
   return r;
 }
 
+function pad2(n: number) {
+  return n < 10 ? `0${n}` : `${n}`;
+}
+function formatDateDDMMYYYY(d: Date) {
+  if (!d) return "";
+  return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
+}
+
+
 function rangeOverlapsOccupied(start: Date, end: Date, occupiedSet: Set<string>) {
   let cur = new Date(start);
   while (cur < end) {
@@ -129,7 +138,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
   const [openHouseId, setOpenHouseId] = useState<string | null>(null);
   // occupiedDatesByHouse now always comes from Firestore reservations
   const [occupiedDatesByHouse, setOccupiedDatesByHouse] = useState<Record<string, Set<string>>>({});
-  const [carouselOffsetByHouse, setCarouselOffsetByHouse] = useState<Record<string, number>>({});
+  const [carouselOffsetByHouse, setCarouselOffsetByHouse] = useState<Record<string, { arrival: number; departure: number }>>({});
 
   const didAutoSearchRef = useRef(false);
 
@@ -262,15 +271,23 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       return;
     }
     setOpenHouseId(houseId);
-    setCarouselOffsetByHouse((p) => ({ ...p, [houseId]: p[houseId] ?? 0 }));
+    setCarouselOffsetByHouse((p) => {
+      const cur = p[houseId] ?? { arrival: 0, departure: 0 };
+      return { ...p, [houseId]: cur };
+    });
     const setFetched = await fetchOccupiedDatesForHouse(houseId, true);
     recomputeHousesAvailability(startDate, endDate, houses, { ...occupiedDatesByHouse, [houseId]: setFetched });
   };
 
-  const shiftCarousel = (houseId: string, days: number) => {
+  const getOffset = (houseId: string, mode: "arrival" | "departure") => {
+    const o = carouselOffsetByHouse[houseId];
+    return o ? (o[mode] ?? 0) : 0;
+  };
+
+  const shiftCarousel = (houseId: string, days: number, mode: "arrival" | "departure") => {
     setCarouselOffsetByHouse((p) => {
-      const cur = p[houseId] ?? 0;
-      return { ...p, [houseId]: cur + days };
+      const cur = p[houseId] ?? { arrival: 0, departure: 0 };
+      return { ...p, [houseId]: { ...cur, [mode]: (cur[mode] ?? 0) + days } };
     });
   };
 
@@ -309,14 +326,26 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
   const handleSelectArrival = (houseId: string, d: Date) => {
     const iso = dateIso(d);
     if (isOccupied(houseId, iso)) return;
-    if (endDate) {
+
+    const newStart = d;
+    let newEnd = endDate;
+
+    if (!endDate) {
+      newEnd = addDays(d, 1);
+    } else {
       const endIso = dateIso(endDate);
-      if (!isBefore(iso, endIso)) return;
+      if (!isBefore(iso, endIso)) {
+        newEnd = addDays(d, 1);
+      }
     }
-    setStartDate(d);
-    if (!endDate) setEndDate(addDays(d, 1));
-    setTimeout(() => recomputeHousesAvailability(addDays(d, 0), endDate), 0);
+
+    setStartDate(newStart);
+    if (newEnd) setEndDate(newEnd);
+
+    setTimeout(() => recomputeHousesAvailability(newStart, newEnd ?? endDate), 0);
   };
+
+
 
   const handleSelectDeparture = (houseId: string, d: Date) => {
     const iso = dateIso(d);
@@ -493,22 +522,49 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
   // Render carousel with price badges
   const renderCarouselForHouse = (house: HouseLight, mode: "arrival" | "departure") => {
     const houseId = house.id;
-    const offset = carouselOffsetByHouse[houseId] ?? 0;
-    const base = startDate ? new Date(startDate) : new Date();
-    if (mode === "departure" && endDate) base.setDate(endDate.getDate() + offset);
-    else base.setDate(base.getDate() + offset);
-    const days: Date[] = Array.from({ length: DATE_WINDOW_DAYS }).map((_, i) => addDays(base, i));
+    const offset = getOffset(houseId, mode);
+
+    // baseCandidate: para arrival usamos startDate, para departure preferimos endDate si existe
+    const baseCandidate =
+      mode === "departure" && endDate ? new Date(endDate) : (startDate ? new Date(startDate) : new Date());
+    const base = addDays(baseCandidate, offset);
+
+    let finalBase = new Date(base);
+
+    // Ajuste para departure: intentar incluir startDate SOLO si el usuario NO ha desplazado manualmente (offset === 0)
+    if (mode === "departure" && startDate && getOffset(houseId, "departure") === 0) {
+      const windowStart = new Date(base);
+      const windowEnd = addDays(windowStart, DATE_WINDOW_DAYS - 1);
+
+      // si startDate está fuera a la izquierda -> desplazar ventana hacia atrás si es posible
+      if (startDate < windowStart) {
+        const diffDays = Math.ceil((windowStart.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+        const candidate = addDays(finalBase, -diffDays);
+        const minAllowed = addDays(new Date(), -1);
+        if (candidate >= minAllowed) finalBase = candidate;
+      }
+
+      // si startDate está fuera a la derecha -> desplazar ventana hacia adelante si es posible
+      const newWindowEnd = addDays(finalBase, DATE_WINDOW_DAYS - 1);
+      if (startDate > newWindowEnd) {
+        const candidate = addDays(startDate, -(DATE_WINDOW_DAYS - 1));
+        const minAllowed = addDays(new Date(), -1);
+        if (candidate >= minAllowed) finalBase = candidate;
+      }
+    }
+
+    const days: Date[] = Array.from({ length: DATE_WINDOW_DAYS }).map((_, i) => addDays(finalBase, i));
     const occupiedSet = occupiedDatesByHouse[houseId] ?? new Set<string>();
 
     return (
       <div className="w-full mt-3">
         <div className="flex items-center justify-between mb-2">
           <div className="flex gap-2 items-center text-sm text-gray-700">
-            <button onClick={() => shiftCarousel(houseId, -7)} className="px-2 py-1 border rounded">◀</button>
+            <button onClick={() => shiftCarousel(houseId, -7, mode)} className="px-2 py-1 border rounded">◀</button>
             <div className="font-medium">{mode === "arrival" ? "Select arrival" : "Select departure"}</div>
           </div>
           <div>
-            <button onClick={() => shiftCarousel(houseId, 7)} className="px-2 py-1 border rounded">▶</button>
+            <button onClick={() => shiftCarousel(houseId, 7, mode)} className="px-2 py-1 border rounded">▶</button>
           </div>
         </div>
 
@@ -518,19 +574,22 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
               const ds = dateIso(d);
               const occupied = occupiedSet.has(ds);
               let disabled = false;
+
+              // bloquear fechas pasadas
               if (!isAfter(ds, dateIso(addDays(new Date(), -1)))) disabled = true;
+              // bloquear si ocupado
               if (occupied) disabled = true;
+
               if (mode === "arrival") {
-                if (endDate) {
-                  const endIso = dateIso(endDate);
-                  if (!isBefore(ds, endIso)) disabled = true;
-                }
+                // arrival: permitimos elegir incluso si pasa la current endDate (la corrección de endDate se hace en handler)
               } else {
+                // departure: debe ser strictly after startDate (igual que antes)
                 if (startDate) {
                   const startIso = dateIso(startDate);
                   if (!isAfter(ds, startIso)) disabled = true;
                 }
               }
+
               const selectedArrival = startDate && dateIso(startDate) === ds;
               const selectedDeparture = endDate && dateIso(endDate) === ds;
               const inRange = startDate && endDate && dateIso(startDate) <= ds && ds <= dateIso(endDate);
@@ -554,7 +613,8 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                     else handleSelectDeparture(houseId, d);
                   }}
                 >
-                  <div className="text-sm font-semibold">{d.getDate()}/{d.getMonth() + 1}</div>
+                  {/* fecha completa dd/mm/yyyy */}
+                  <div className="text-sm font-semibold">{formatDateDDMMYYYY(d)}</div>
                   <div className="text-xs text-gray-500">{d.toLocaleString(undefined, { weekday: "short" })}</div>
                   <div className="mt-2"><PriceBadgeLocal houseId={house.id} date={d} /></div>
                   <div className="text-xs mt-2">{occupied ? "Booked" : mode === "arrival" ? "Arrive" : "Depart"}</div>
@@ -566,6 +626,8 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       </div>
     );
   };
+
+
 
   // ---- Main render ----
   return (
@@ -621,8 +683,8 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
               customInput={
                 <div className="p-2 bg-transparent text-[var(--color-text)] font-sans text-xl cursor-pointer">
                   {startDate
-                    ? startDate.toLocaleDateString('en-US', { day: '2-digit', month: '2-digit' })
-                    : 'MM/DD'}
+                    ? formatDateDDMMYYYY(startDate)
+                    : 'DD/MM/YYYY'}
                 </div>
               }
             />
@@ -644,8 +706,8 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
               customInput={
                 <div className="p-2 bg-transparent text-[var(--color-text)] font-sans text-xl cursor-pointer">
                   {endDate
-                    ? endDate.toLocaleDateString('en-US', { day: '2-digit', month: '2-digit' })
-                    : 'MM/DD'}
+                    ? formatDateDDMMYYYY(endDate)
+                    : 'DD/MM/YYYY'}
                 </div>
               }
             />

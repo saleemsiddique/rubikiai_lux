@@ -69,6 +69,12 @@ const ElniuPanoramaPage: React.FC = () => {
     }
   }, [houseSlug]);
 
+  // ---- nuevo: guestNum calculado y memoizado ----
+  const guestNum = useMemo(() => {
+    const n = parseInt(guestsParam || "4", 10);
+    return Number.isNaN(n) ? 4 : n;
+  }, [guestsParam]);
+
   // price state (server authoritative)
   const [loadingPrice, setLoadingPrice] = useState(false);
   const [priceError, setPriceError] = useState<string | null>(null);
@@ -118,7 +124,9 @@ const ElniuPanoramaPage: React.FC = () => {
         houseId: houseIdFromMapping,
         startDate: startParam,
         endDate: endParam,
-        guests: parseInt(guestsParam || "4", 10),
+        // enviamos guestNum (y mantenemos 'guests' para compatibilidad)
+        guestNum: guestNum,
+        guests: guestNum,
         type: typeParam,
       };
 
@@ -170,7 +178,7 @@ const ElniuPanoramaPage: React.FC = () => {
     return () => {
       mounted = false;
     };
-  }, [startParam, endParam, guestsParam, typeParam, houseIdFromMapping]);
+  }, [startParam, endParam, guestsParam, typeParam, houseIdFromMapping, guestNum]);
 
   const handleReserveNow = () => {
     if (!startParam || !endParam) {

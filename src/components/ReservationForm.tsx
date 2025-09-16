@@ -30,7 +30,7 @@ interface HouseLight {
 
 /* Props */
 interface ReservationFormProps {
-  onReserve?: (houseId: string, startDate: Date, endDate: Date) => void;
+  onReserve?: (houseId: string, startDate: Date, endDate: Date, guests: number) => void;
   showResults?: boolean;
 }
 
@@ -770,7 +770,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                         const slug = slugify(house.name);
                         if (!startDate || !endDate) { router.push(house.type === "dupleksas" ? `/dupleksas/${slug}` : `/${slug}`); return; }
                         const q = `start=${encodeURIComponent(startDate.toISOString())}&end=${encodeURIComponent(endDate.toISOString())}&guests=${encodeURIComponent(String(guests))}&type=${encodeURIComponent(house.type ?? '')}&house=${encodeURIComponent(slug)}`;
-                        if (onReserve) { onReserve(house.id, startDate, endDate); return; }
+                        if (onReserve) { onReserve(house.id, startDate, endDate, guests); return; }
                         router.push(`${house.type === "dupleksas" ? `/dupleksas/${slug}` : `/${slug}`}?${q}`);
                       }}
                       className={`w-full py-2 rounded-md text-white ${isHouseAvailableNow(house) ? "bg-[var(--color-primary)] hover:opacity-95" : "bg-red-500 opacity-70 cursor-not-allowed"}`}
@@ -796,7 +796,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                       const slug = slugify(house.name);
                       if (!startDate || !endDate) { router.push(house.type === "dupleksas" ? `/dupleksas/${slug}` : `/${slug}`); return; }
                       const q = `start=${encodeURIComponent(startDate.toISOString())}&end=${encodeURIComponent(endDate.toISOString())}&guests=${encodeURIComponent(String(guests))}&type=${encodeURIComponent(house.type ?? '')}&house=${encodeURIComponent(slug)}`;
-                      if (onReserve) { onReserve(house.id, startDate, endDate); return; }
+                      if (onReserve) { onReserve(house.id, startDate, endDate, guests); return; }
                       router.push(`${house.type === "dupleksas" ? `/dupleksas/${slug}` : `/${slug}`}?${q}`);
                     }}
                     className={`w-full py-2 rounded-md text-white ${isHouseAvailableNow(house) ? "bg-[var(--color-primary)]" : "bg-red-500 opacity-70 cursor-not-allowed"}`}

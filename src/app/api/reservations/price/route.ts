@@ -63,13 +63,17 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { houseId, houseParam, startDate, endDate, guests = 2 } = body;
 
+    console.log("[price] incoming body:", { houseId, houseParam, startDate, endDate, guests });
+
     if (!startDate || !endDate) {
+      console.log("[price] missing dates");
       return NextResponse.json({ error: "startDate and endDate required" }, { status: 400 });
     }
 
-    const start = new Date(startDate); start.setHours(0,0,0,0);
-    const end = new Date(endDate); end.setHours(0,0,0,0);
+    const start = new Date(startDate); start.setHours(0, 0, 0, 0);
+    const end = new Date(endDate); end.setHours(0, 0, 0, 0);
     if (!(start < end)) {
+      console.log("[price] invalid date range", { start: start.toISOString(), end: end.toISOString() });
       return NextResponse.json({ error: "invalid date range" }, { status: 400 });
     }
 
@@ -81,23 +85,43 @@ export async function POST(req: Request) {
       const housesRef = collection(db, "houses");
       const q = query(housesRef, where("alias", "==", houseParam));
       const snap = await getDocs(q);
-      if (snap.empty) return NextResponse.json({ error: "house not found" }, { status: 404 });
+      if (snap.empty) {
+        console.log("[price] houseParam not found:", houseParam);
+        return NextResponse.json({ error: "house not found" }, { status: 404 });
+      }
       ids = [snap.docs[0].id];
     } else {
+      console.log("[price] no houseId or houseParam provided");
       return NextResponse.json({ error: "houseId or houseParam required" }, { status: 400 });
     }
 
     // dedupe
     ids = Array.from(new Set(ids));
-    if (ids.length === 0) return NextResponse.json({ error: "no house ids" }, { status: 400 });
+    if (ids.length === 0) {
+      console.log("[price] no house ids after dedupe");
+      return NextResponse.json({ error: "no house ids" }, { status: 400 });
+    }
+
+    console.log("[price] resolved house ids:", ids);
 
     // fetch docs
     const housesData: any[] = [];
     for (const id of ids) {
       const h = await fetchHouseDoc(id);
-      if (!h) return NextResponse.json({ error: `house ${id} not found` }, { status: 404 });
+      if (!h) {
+        console.log("[price] house doc not found for id:", id);
+        return NextResponse.json({ error: `house ${id} not found` }, { status: 404 });
+      }
       housesData.push(h);
     }
+
+    // Log brief info about each house doc (included/max)
+    const housesSummary = housesData.map((h) => ({
+      id: h.id,
+      includedGuests: typeof h.includedGuests === "number" ? h.includedGuests : undefined,
+      maxGuests: typeof h.maxGuests === "number" ? h.maxGuests : undefined,
+    }));
+    console.log("[price] housesData summary:", housesSummary);
 
     // Build occupied union (we keep availability check across all provided ids so any occupied half blocks the dates)
     const occupiedUnion = new Set<string>();
@@ -107,10 +131,13 @@ export async function POST(req: Request) {
       s.forEach((d) => occupiedUnion.add(d));
     }
 
+    console.log("[price] occupied dates count (union):", occupiedUnion.size);
+
     // check availability
     let cur = new Date(start);
     while (cur < end) {
       if (occupiedUnion.has(dateIso(cur))) {
+        console.log("[price] date unavailable:", dateIso(cur));
         return NextResponse.json({ error: "Selected dates are unavailable" }, { status: 409 });
       }
       cur = addDays(cur, 1);
@@ -142,15 +169,20 @@ export async function POST(req: Request) {
       }
     }
 
+    console.log("[price] pricingHouses used:", pricingHouses.map((h) => h.id));
+
     // INCLUDED BASE: use pricingHouses to compute includedGuests (and fallbacks)
     const includedBase = pricingHouses.reduce((acc, h) => {
       if (typeof h.includedGuests === "number") return acc + h.includedGuests;
-      if (typeof h.maxGuests === "number") return acc + h.maxGuests; // use maxGuests as included when doc defines it
+      // fallback por defecto: 2 personas incluidas
       return acc + 2;
+
     }, 0);
 
     const extraGuests = Math.max(0, guestsNum - includedBase);
     const perNightSurcharge = extraGuests * EXTRA_GUEST_PRICE;
+
+    console.log("[price] guestsNum:", guestsNum, "includedBase:", includedBase, "extraGuests:", extraGuests, "perNightSurcharge:", perNightSurcharge);
 
     // Detailed breakdown for debugging (optional)
     const perNightBreakdown: { date: string; perUnit: Array<{ id: string; price: number | null }>; nightTotal: number | null }[] = [];
@@ -171,9 +203,12 @@ export async function POST(req: Request) {
         nightTotal += p;
       }
       if (nightTotal === null) {
+        console.log("[price] missing price for some night, date:", dateIso(cur), "perUnit:", perUnit);
         return NextResponse.json({ total: null, first: null, nights, variable: true, debug: { reason: "missing price for some night", perNightBreakdown } });
       }
       nightTotal += perNightSurcharge;
+      // log per night detail
+      console.log("[price] night", dateIso(cur), "perUnit:", perUnit, "surcharge:", perNightSurcharge, "nightTotal:", nightTotal);
       total += nightTotal;
       perNightBreakdown.push({ date: dateIso(cur), perUnit, nightTotal });
       cur = addDays(cur, 1);
@@ -186,6 +221,14 @@ export async function POST(req: Request) {
       firstNight += (getPriceForDate(h, firstDay) ?? 0);
     }
     firstNight += perNightSurcharge;
+
+    console.log("[price] result summary:", {
+      total: Math.round(total),
+      first: Math.round(firstNight),
+      nights,
+      extraGuests,
+      includedBase,
+    });
 
     return NextResponse.json({
       total: Math.round(total),

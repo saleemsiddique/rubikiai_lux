@@ -25,7 +25,7 @@ export default function ReservationPage() {
     return d instanceof Date && !Number.isNaN(d.getTime());
   };
 
-  const handleReserve = (houseId: string, startDate: Date, endDate: Date) => {
+  const handleReserve = (houseId: string, startDate: Date, endDate: Date, guests: number) => {
     // seguridad: validar fechas
     if (!isValidDate(startDate) || !isValidDate(endDate)) {
       router.push("/reservations");
@@ -42,9 +42,11 @@ export default function ReservationPage() {
     // buscar override por id en el mapping centralizado
     const override = HOUSE_ROUTE_OVERRIDES_BY_ID[houseId];
     if (override) {
-      const q = `start=${encodeURIComponent(startDate.toISOString())}&end=${encodeURIComponent(endDate.toISOString())}${
-        override.houseParam ? `&house=${encodeURIComponent(override.houseParam)}` : ""
-      }`;
+      const q = `houseId=${encodeURIComponent(houseId)}&start=${encodeURIComponent(
+        startDate.toISOString()
+      )}&end=${encodeURIComponent(endDate.toISOString())}&guests=${encodeURIComponent(
+        guests
+      )}`;
       router.push(`${override.path}?${q}`);
       return;
     }

@@ -71,6 +71,13 @@ const ElniuAptvaroPage: React.FC = () => {
     }
   }, [houseSlug]);
 
+  // Parseo seguro de guests como entero (usaremos esto para la request)
+  const guestsNum = useMemo(() => {
+    const n = parseInt(guestsParam || "4", 10);
+    if (Number.isNaN(n) || n < 1) return 1;
+    return n;
+  }, [guestsParam]);
+
   // precio obtenido del servidor (server authoritative)
   const [loadingPrice, setLoadingPrice] = useState(false);
   const [priceError, setPriceError] = useState<string | null>(null);
@@ -119,7 +126,7 @@ const ElniuAptvaroPage: React.FC = () => {
         houseId: houseIdFromMapping,
         startDate: startParam,
         endDate: endParam,
-        guests: parseInt(guestsParam || "4", 10),
+        guests: guestsNum, // <-- ahora enviamos un entero seguro
         type: typeParam,
       };
 
@@ -171,7 +178,7 @@ const ElniuAptvaroPage: React.FC = () => {
     return () => {
       mounted = false;
     };
-  }, [startParam, endParam, guestsParam, typeParam, houseIdFromMapping]);
+  }, [startParam, endParam, guestsNum, typeParam, houseIdFromMapping]); // dependemos de guestsNum ahora
 
   const handleReserveNow = () => {
     if (!startParam || !endParam) {
@@ -180,7 +187,7 @@ const ElniuAptvaroPage: React.FC = () => {
     }
 
     let q = `start=${encodeURIComponent(startParam)}&end=${encodeURIComponent(endParam)}&guests=${encodeURIComponent(
-      guestsParam
+      String(guestsNum)
     )}&type=${encodeURIComponent(typeParam)}&house=${encodeURIComponent(houseSlug)}`;
 
     // No usamos los precios de la query para mostrarlos — el servidor manda el precio.

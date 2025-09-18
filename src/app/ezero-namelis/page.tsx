@@ -1,10 +1,7 @@
-// ----------------------------
-// Example page: app/dupleksas/salia-elniu-panorama/page.tsx
-// ----------------------------
-
-"use client";
-
+// app/dupleksas/salia-elniu-panorama/page.tsx
+// server component - valida guests en server y redirige si hay overflow
 import React from "react";
+import { redirect } from "next/navigation";
 import HousePage from "@/components/HousePage";
 
 const panoramaImages = [
@@ -18,18 +15,37 @@ const panoramaImages = [
   "/duplex-2/img8.avif",
 ];
 
-export default function ElniuPanoramaPage() {
+const ACCOMMODATES = 4;
+const DEFAULT_GUESTS = "4";
+
+export default function Page({
+  searchParams,
+}: {
+  searchParams?: { [key: string]: string | string[] | undefined };
+}) {
+  // lee guests (si viene en array toma el primero)
+  const guestsRaw = Array.isArray(searchParams?.guests)
+    ? searchParams!.guests[0]
+    : searchParams?.guests ?? DEFAULT_GUESTS;
+
+  const guests = parseInt(String(guestsRaw), 10);
+
+  // si es un número válido y supera accommodates -> redirige en server
+  if (!Number.isNaN(guests) && Number.isFinite(guests) && guests > ACCOMMODATES) {
+    redirect("/error-page");
+  }
+
   return (
     <HousePage
       heroSrc="/dupleksas2.png"
       title="N°2 - Elnių Panorama"
       subtitle="Experience magical moments by the Rubikiai lake."
-      accommodates={4}
+      accommodates={ACCOMMODATES}
       size="40 sq m"
       beds="2 Singles, 1 Double"
       images={panoramaImages}
       houseSlug="salia-elniu-panorama"
-      defaultGuests="4"
+      defaultGuests={DEFAULT_GUESTS}
       defaultType="dupleksas"
       amenitiesSections={[
         { title: "Amenities", items: ["A/C", "WiFi", "TV", "Shower", "Kitchen", "Towels", "Jacuzzi"] },

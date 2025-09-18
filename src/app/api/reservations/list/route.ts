@@ -1,18 +1,15 @@
+// app/api/reservations/list/route.ts
+export const runtime = "nodejs";
 import { NextResponse } from "next/server";
-import { db } from "@/lib/firestore";
-import { collection, getDocs } from "firebase/firestore";
+import { adminDb } from "@/lib/firebase-admin";
 
 export async function GET() {
   try {
-    // Referencia a la colección
-    const reservationsRef = collection(db, "reservations");
-    // Traer todos los documentos
-    const snapshot = await getDocs(reservationsRef);
-    // Mapear a array
-    const reservations = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const snap = await adminDb.collection("reservations").get();
+    const reservations = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
     return NextResponse.json({ reservations });
   } catch (err) {
-    console.error(err);
+    console.error("reservations/list error:", err);
     return NextResponse.json({ error: "Failed to fetch reservations" }, { status: 500 });
   }
 }

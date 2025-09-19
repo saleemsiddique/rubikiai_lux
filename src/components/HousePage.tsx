@@ -184,18 +184,50 @@ export default function HousePage(props: HousePageProps) {
     };
   }, [startParam, endParam, guestsParam, typeParam, houseIdFromMapping, defaultGuests]);
 
-  const handleReserveNow = () => {
-    if (!startParam || !endParam) {
-      router.push("/reservations");
-      return;
+// dentro de HousePage.tsx (reemplaza la función existente)
+const handleReserveNow = async () => {
+  if (!startParam || !endParam) {
+    router.push("/reservations");
+    return;
+  }
+
+  if (!houseIdFromMapping) {
+    alert("House mapping not found. Try again or contact support.");
+    return;
+  }
+
+  try {
+    setLoadingPrice(true); // reutilizamos loadingPrice para bloqueo visual
+    const body = {
+      houseId: houseIdFromMapping,
+      start: startParam,
+      end: endParam,
+      guests: parseInt(guestsParam || defaultGuests, 10),
+      type: typeParam,
+    };
+
+    const res = await fetch("/api/create-checkout-session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    const data = await res.json();
+    if (res.ok && data.url) {
+      // redirige al Checkout de stripe
+      window.location.href = data.url;
+    } else {
+      console.error("create-checkout-session error", data);
+      alert(data?.error || "No se pudo crear la sesión de pago. Intenta de nuevo.");
     }
+  } catch (err) {
+    console.error("handleReserveNow error", err);
+    alert("Error creando sesión de pago. Revisa la consola.");
+  } finally {
+    setLoadingPrice(false);
+  }
+};
 
-    let q = `start=${encodeURIComponent(startParam)}&end=${encodeURIComponent(endParam)}&guests=${encodeURIComponent(
-      guestsParam
-    )}&type=${encodeURIComponent(typeParam)}&house=${encodeURIComponent(houseSlug)}`;
-
-    router.push(`/reservations?${q}`);
-  };
 
   // utility to show a safe guests number
   const guestsDisplay = (() => {

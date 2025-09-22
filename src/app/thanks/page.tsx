@@ -1,15 +1,78 @@
 // app/reservations/thanks/page.tsx
-import React from "react";
-import Link from "next/link";
+'use client';
 
-export default function Page({ searchParams }: { searchParams?: { reservationId?: string } }) {
-  const reservationId = searchParams?.reservationId;
+import React, { useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+
+export default function Page() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const reservationId = searchParams.get("reservationId") ?? undefined;
+  const sessionId = searchParams.get("session_id") ?? undefined;
+
+  const [loading, setLoading] = useState(true);
+  const [reservationStatus, setReservationStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      if (!reservationId) {
+        router.replace(`/cancel?reason=missing_reservation`);
+        return;
+      }
+      try {
+        const res = await fetch(`/api/reservation-status?reservationId=${encodeURIComponent(reservationId)}`);
+        if (!res.ok) {
+          router.replace(`/cancel?reservationId=${reservationId}&reason=not_found`);
+          return;
+        }
+        const json = await res.json();
+        const reservation = json.reservation as { status: "pending" | "reserved" | "expired"; expiresAtIso?: string };
+
+        setReservationStatus(reservation.status);
+
+        if (reservation.status === "expired") {
+          router.replace(`/cancel?reservationId=${reservationId}&reason=expired`);
+          return;
+        }
+
+        if (reservation.expiresAtIso) {
+          const expMs = new Date(reservation.expiresAtIso).getTime();
+          if (expMs <= Date.now()) {
+            router.replace(`/cancel?reservationId=${reservationId}&reason=expired`);
+            return;
+          }
+        }
+
+        setLoading(false);
+      } catch (err) {
+        console.error("Error checking reservation status:", err);
+        router.replace(`/cancel?reservationId=${reservationId}&reason=server_error`);
+      }
+    })();
+    // depend on reservationId only; router is stable from next/navigation
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reservationId]);
+
+  if (loading) {
+    return (
+      <main className="min-h-screen flex items-center justify-center" style={{ background: "var(--color-background-main)" }}>
+        <div className="max-w-3xl w-full mx-4 p-10 rounded-2xl shadow-lg" style={{ background: "white", borderRadius: 18 }}>
+          <div className="flex flex-col items-center text-center gap-6">
+            <div>Comprobando estado de la reserva…</div>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  const idToShow = reservationId ?? "";
 
   return (
     <main className="min-h-screen flex items-center justify-center" style={{ background: "var(--color-background-main)" }}>
       <div className="max-w-3xl w-full mx-4 p-10 rounded-2xl shadow-lg" style={{ background: "white", borderRadius: 18 }}>
         <div className="flex flex-col items-center text-center gap-6">
-          {/* Icon */}
           <div
             className="w-28 h-28 rounded-full flex items-center justify-center"
             style={{ background: "linear-gradient(180deg, var(--color-primary)/12, transparent)" }}
@@ -21,17 +84,19 @@ export default function Page({ searchParams }: { searchParams?: { reservationId?
           </div>
 
           <h1 className="text-3xl md:text-4xl font-extrabold" style={{ color: "var(--color-text)" }}>
-            ¡Reserva confirmada
+            {reservationStatus === "reserved" ? "¡Reserva confirmada!" : "Reserva en proceso"}
           </h1>
 
           <p className="max-w-xl text-sm md:text-base" style={{ color: "var(--color-text)" }}>
-            Gracias por tu reserva en Rubikiai. Hemos recibido tu pago y tu reserva está confirmada.
-            {reservationId ? " — ID: " : ""}
-            <span className="font-mono ml-1" style={{ color: "var(--color-highlight)" }}>{reservationId ?? ""}</span>
+            {reservationStatus === "reserved"
+              ? `Gracias por tu reserva en Rubikiai. Hemos recibido tu pago y tu reserva está confirmada.`
+              : `Tu pago está siendo procesado. Recibirás un e-mail cuando la reserva esté confirmada.`}
+            {idToShow ? " — ID: " : ""}
+            <span className="font-mono ml-1" style={{ color: "var(--color-highlight)" }}>{idToShow}</span>
           </p>
 
           <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
-            <Link href={`/reservations?reservationId=${encodeURIComponent(reservationId ?? "")}`} className="block">
+            <Link href={`/reservations?reservationId=${encodeURIComponent(idToShow)}`} className="block">
               <button
                 className="w-full py-3 rounded-lg font-semibold"
                 style={{

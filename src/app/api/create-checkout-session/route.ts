@@ -14,142 +14,259 @@ if (!admin.apps.length) {
 }
 const db = admin.firestore();
 
-function dateOnlyIso(value: string) {
-  const d = new Date(value);
-  d.setHours(0, 0, 0, 0);
-  return d.toISOString().split("T")[0];
+// helpers (igual que los tuyos)
+function pad2(n: number) {
+  return n < 10 ? `0${n}` : String(n);
+}
+function dateOnlyIso(value: any) {
+  if (value === undefined || value === null || value === "") {
+    throw new Error(`Invalid date value (empty): ${String(value)}`);
+  }
+  if (typeof value?.toDate === "function") {
+    const d = value.toDate();
+    if (Number.isNaN(d.getTime())) throw new Error(`Invalid Firestore Timestamp: ${String(value)}`);
+    const y = d.getUTCFullYear();
+    const m = d.getUTCMonth() + 1;
+    const day = d.getUTCDate();
+    return `${y}-${pad2(m)}-${pad2(day)}`;
+  }
+  if (typeof value === "object" && (typeof value.seconds === "number" || typeof value._seconds === "number")) {
+    const seconds = typeof value.seconds === "number" ? value.seconds : value._seconds;
+    const d = new Date(seconds * 1000);
+    if (Number.isNaN(d.getTime())) throw new Error(`Invalid seconds-based timestamp: ${String(value)}`);
+    const y = d.getUTCFullYear();
+    const m = d.getUTCMonth() + 1;
+    const day = d.getUTCDate();
+    return `${y}-${pad2(m)}-${pad2(day)}`;
+  }
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) throw new Error(`Invalid Date object: ${String(value)}`);
+    const d = value;
+    const y = d.getUTCFullYear();
+    const m = d.getUTCMonth() + 1;
+    const day = d.getUTCDate();
+    return `${y}-${pad2(m)}-${pad2(day)}`;
+  }
+  if (typeof value === "string") {
+    const onlyDateMatch = /^\d{4}-\d{2}-\d{2}$/.test(value);
+    if (onlyDateMatch) {
+      const [y, m, d] = value.split("-").map(Number);
+      const dd = new Date(Date.UTC(y, (m || 1) - 1, d || 1));
+      if (Number.isNaN(dd.getTime())) throw new Error(`Invalid date string: ${value}`);
+      return value;
+    }
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) {
+      const maybe = value.split("T")[0];
+      const d2 = new Date(maybe);
+      if (Number.isNaN(d2.getTime())) throw new Error(`Invalid date string: ${value}`);
+      const y2 = d2.getUTCFullYear();
+      const m2 = d2.getUTCMonth() + 1;
+      const day2 = d2.getUTCDate();
+      return `${y2}-${pad2(m2)}-${pad2(day2)}`;
+    }
+    const y = d.getUTCFullYear();
+    const m = d.getUTCMonth() + 1;
+    const day = d.getUTCDate();
+    return `${y}-${pad2(m)}-${pad2(day)}`;
+  }
+  const d = new Date(String(value));
+  if (Number.isNaN(d.getTime())) throw new Error(`Invalid date value (unparseable): ${String(value)}`);
+  const y = d.getUTCFullYear();
+  const m = d.getUTCMonth() + 1;
+  const day = d.getUTCDate();
+  return `${y}-${pad2(m)}-${pad2(day)}`;
 }
 function addDays(d: Date, days: number) {
-  const r = new Date(d);
-  r.setDate(r.getDate() + days);
-  return r;
+  const res = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + days));
+  return res;
+}
+function dateFromIsoDateOnlyString(isoDateOnly: string) {
+  const [y, m, day] = (isoDateOnly || "").split("-").map(Number);
+  if (![y, m, day].every(Number.isFinite)) throw new Error(`Invalid ISO date-only string: ${isoDateOnly}`);
+  return new Date(Date.UTC(y, m - 1, day));
 }
 
-/**
- * Devuelve:
- *  - total: importe total de toda la estancia (suma por noche de cada casa + extras)
- *  - nights: número de noches
- *  - firstNightBase: suma de precios solo para la PRIMERA noche (sin extras)
- */
+async function resolveHouseIds(values: string[]): Promise<string[]> {
+  const out: string[] = [];
+  for (const v of values) {
+    const idCandidate = String(v);
+    const doc = await db.collection("houses").doc(idCandidate).get();
+    if (doc.exists) { out.push(doc.id); continue; }
+    const q = await db.collection("houses").where("alias", "==", idCandidate).limit(1).get();
+    if (!q.empty) { out.push(q.docs[0].id); continue; }
+    const q2 = await db.collection("houses").where("type", "==", idCandidate).limit(1).get();
+    if (!q2.empty) { out.push(q2.docs[0].id); continue; }
+    throw new Error(`House identifier not found as docId or alias: ${v}`);
+  }
+  return out;
+}
+
 async function calculateTotalAndNights(houseIds: string[], startIso: string, endIso: string, guests: number) {
-  // Calcula nights
-  const s = new Date(startIso);
-  const e = new Date(endIso);
+  const sIso = dateOnlyIso(startIso);
+  const eIso = dateOnlyIso(endIso);
+  const s = dateFromIsoDateOnlyString(sIso);
+  const e = dateFromIsoDateOnlyString(eIso);
   const nights = Math.round((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24));
   if (nights <= 0) throw new Error("Invalid date range");
-
-  // iterar por noches y casas para sumar precio total
   let total = 0;
   let firstNightBase = 0;
-
   for (let i = 0; i < nights; i++) {
-    const cur = addDays(new Date(startIso), i);
+    const cur = addDays(s, i);
     const weekday = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"][cur.getDay()];
-
     for (const id of houseIds) {
       const doc = await db.collection("houses").doc(id).get();
       if (!doc.exists) throw new Error(`House ${id} not found`);
       const h: any = doc.data();
       const p = h?.pricePerNight?.[weekday];
       if (typeof p !== "number") throw new Error(`Price missing for house ${id} on ${weekday}`);
-
       total += p;
-      if (i === 0) firstNightBase += p; // solo la primera noche
+      if (i === 0) firstNightBase += p;
     }
   }
-
-  const includedBase = houseIds.length > 1 ? 4 : 2;
-  const EXTRA_GUEST_PRICE = 40; // sincroniza con tu constante
+  const INCLUDED_BASE_SINGLE = 2;
+  const INCLUDED_BASE_DUO = 4;
+  const EXTRA_GUEST_PRICE = 40;
+  const includedBase = houseIds.length > 1 ? INCLUDED_BASE_DUO : INCLUDED_BASE_SINGLE;
   const extraGuests = Math.max(0, guests - includedBase);
-
-  // total incluye el recargo por extraGuests en cada noche
   total += extraGuests * EXTRA_GUEST_PRICE * nights;
-
-  // firstNightCharge: primera noche + recargo por extras (solo 1 noche)
   const firstNightCharge = firstNightBase + extraGuests * EXTRA_GUEST_PRICE;
-
+  console.debug("calculateTotalAndNights ->", { houseIds, startIso: sIso, endIso: eIso, nights, firstNightBase, total, extraGuests, firstNightCharge });
   return { total, nights, firstNightBase, firstNightCharge };
-}
-
-/** básico: comprobación de solapamiento (considera confirmed y pending no expiradas) */
-async function anyOverlap(houseIds: string[], startIso: string, endIso: string) {
-  const reservationsRef = db.collection("reservations");
-  for (const id of houseIds) {
-    const q = reservationsRef.where("houseId", "==", id).where("status", "in", ["confirmed", "pending"]);
-    const snap = await q.get();
-    for (const doc of snap.docs) {
-      const data: any = doc.data();
-      const ci = dateOnlyIso(data.checkIn);
-      const co = dateOnlyIso(data.checkOut);
-      // overlap check: not (co <= start || ci >= end)
-      if (!(co <= startIso || ci >= endIso)) return true;
-    }
-  }
-  return false;
 }
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { houseId, start, end, guests } = body;
-    if (!houseId || !start || !end) return NextResponse.json({ error: "Missing params" }, { status: 400 });
+    console.debug("create-checkout-session body:", body);
+
+    let { houseId, start, end, guests, houseSlug } = body || {};
+
+    try {
+      const startIsoTest = dateOnlyIso(start);
+      const endIsoTest = dateOnlyIso(end);
+      if (new Date(endIsoTest).getTime() <= new Date(startIsoTest).getTime()) {
+        return NextResponse.json({ error: "Invalid date range: end must be after start" }, { status: 400 });
+      }
+    } catch (e: any) {
+      console.error("Invalid start/end passed to checkout:", e?.message);
+      return NextResponse.json({ error: `Invalid start/end date: ${e?.message}` }, { status: 400 });
+    }
+
+    if (!houseId && !houseSlug) {
+      return NextResponse.json({ error: "Missing params: houseId or houseSlug required" }, { status: 400 });
+    }
+    if (!start || !end) return NextResponse.json({ error: "Missing params start/end" }, { status: 400 });
+
+    const rawValue = houseId || houseSlug;
+    const rawParts = String(rawValue).includes("__") ? String(rawValue).split("__").filter(Boolean) : [String(rawValue)];
+    const houseIds = await resolveHouseIds(rawParts);
 
     const startIso = dateOnlyIso(start);
     const endIso = dateOnlyIso(end);
 
-    // resolve duo id: si se manda duo asume join por __
-    const houseIds = String(houseId).includes("__") ? String(houseId).split("__").filter(Boolean) : [String(houseId)];
+    // re-check overlap rápido
+    const reservationsRef = db.collection("reservations");
+    for (const id of houseIds) {
+      const q = reservationsRef.where("houseId", "==", id).where("status", "in", ["confirmed", "pending"]);
+      const snap = await q.get();
+      for (const doc of snap.docs) {
+        const data: any = doc.data();
+        const ci = dateOnlyIso(data.checkIn);
+        const co = dateOnlyIso(data.checkOut);
+        if (!(co <= startIso || ci >= endIso)) {
+          return NextResponse.json({ error: "Dates already booked" }, { status: 409 });
+        }
+      }
+    }
 
-    // 1) re-check overlap antes de reservar (simple)
-    const overlap = await anyOverlap(houseIds, startIso, endIso);
-    if (overlap) return NextResponse.json({ error: "Dates already booked" }, { status: 409 });
+    const guestsNum = Number.isFinite(Number(guests)) ? parseInt(String(guests || 2), 10) : 2;
+    if (!Number.isFinite(guestsNum) || guestsNum <= 0) {
+      return NextResponse.json({ error: "Invalid guests number" }, { status: 400 });
+    }
 
-    // 2) calcular total, noches y primer cargo
-    const guestsNum = parseInt(String(guests || 2), 10);
     const { total, nights, firstNightBase, firstNightCharge } = await calculateTotalAndNights(houseIds, startIso, endIso, guestsNum);
-
     const totalCents = Math.round(total * 100);
     const firstChargeCents = Math.round(firstNightCharge * 100);
 
-    // 3) crear reserva pending dentro de transaction para evitar race
-    const reservationsRef = db.collection("reservations");
-    const reservationRef = reservationsRef.doc();
+    const reservationsRef2 = db.collection("reservations");
+    const reservationRef = reservationsRef2.doc();
     const now = admin.firestore.Timestamp.now();
     const expiresAt = admin.firestore.Timestamp.fromDate(new Date(Date.now() + 15 * 60 * 1000)); // 15 min
 
+    // 1) crear reserva pending dentro de una tx (igual que antes)
     await db.runTransaction(async (tx) => {
-      // re-check quickly (read conflicting docs)
-      const stillOverlap = await anyOverlap(houseIds, startIso, endIso);
-      if (stillOverlap) throw new Error("Dates taken (race)");
+      for (const id of houseIds) {
+        const q = db.collection("reservations").where("houseId", "==", id).where("status", "in", ["confirmed", "pending"]);
+        const snap = await tx.get(q);
+        for (const doc of snap.docs) {
+          const data: any = doc.data();
+          const ci = dateOnlyIso(data.checkIn);
+          const co = dateOnlyIso(data.checkOut);
+          if (!(co <= startIso || ci >= endIso)) throw new Error("Dates taken (race)");
+        }
+      }
+      const storeHouseId = houseIds.length === 1 ? houseIds[0] : houseIds.join("__");
       tx.set(reservationRef, {
-        houseId,
+        houseId: storeHouseId,
         houseIds,
         checkIn: startIso,
         checkOut: endIso,
         guests: guestsNum,
         nights,
-        total, // total de toda la estancia (para mostrar más tarde)
+        total,
         currency: "EUR",
         status: "pending",
         createdAt: now,
         expiresAt,
-        // guardamos info del primer cargo para referencia
         firstNightBase,
         firstNightCharge,
       } as any);
     });
 
-    // 4) crear sesión de checkout cobrando SOLO el primer cargo (firstNightCharge)
+    // 2) leer la reserva justo después de crearla y comprobar que sigue pendiente y no expiró
+    const freshSnap = await reservationRef.get();
+    if (!freshSnap.exists) {
+      console.error("Reservation disappeared after creation (unexpected)");
+      return NextResponse.json({ error: "Reservation creation failed" }, { status: 500 });
+    }
+    const freshData: any = freshSnap.data();
+
+    // si por alguna razón no está pending o ya expiró, marcar expired y devolver error
+    const nowDate = new Date();
+    if (freshData.status !== "pending") {
+      console.warn("Reservation not pending after creation:", reservationRef.id, freshData.status);
+      return NextResponse.json({ error: "Reservation not available", status: 409 }, { status: 409 });
+    }
+    if (freshData.expiresAt && typeof freshData.expiresAt.toDate === "function") {
+      const exp = freshData.expiresAt.toDate();
+      if (exp.getTime() <= nowDate.getTime()) {
+        // marcar explicitamente expired
+        await reservationRef.update({ status: "expired", expiredAt: admin.firestore.Timestamp.now(), paymentRejectedReason: "expired_before_checkout" });
+        return NextResponse.json({ error: "Reservation expired", status: 409 }, { status: 409 });
+      }
+    }
+
+    // seguridad: comprobar importe mínimo antes de llamar a Stripe
+    if (firstChargeCents < 50) {
+      console.error("First charge too small for Stripe", { firstNightCharge, firstChargeCents });
+      return NextResponse.json({ error: "Calculated first charge too small" }, { status: 400 });
+    }
+
+    // 3) crear sesión checkout en Stripe **sin capturar** (autorization / manual capture)
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       payment_method_types: ["card"],
+      payment_intent_data: {
+        capture_method: "manual"
+      },
       line_items: [
         {
           price_data: {
             currency: "eur",
             product_data: {
-              name: `Reservation ${houseId} ${startIso} → ${endIso}`,
-              description: `First night (${startIso}) — charges first night only`,
+              name: `Reservation ${rawValue} ${startIso} → ${endIso}`,
+              description: `First night (${startIso}) — authorization only (will capture after validation)`,
             },
             unit_amount: firstChargeCents,
           },
@@ -158,14 +275,53 @@ export async function POST(req: Request) {
       ],
       metadata: {
         reservationId: reservationRef.id,
+        firstNightCharge: String(firstNightCharge),
+        total: String(total),
+        guests: String(guestsNum),
       },
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/thanks?reservationId=${reservationRef.id}`,
+      // redirigimos a nuestro endpoint que validará y realizará el capture si procede
+      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/checkout-complete?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/cancel?reservationId=${reservationRef.id}`,
     }, { idempotencyKey: reservationRef.id });
 
-    // attach stripe session id / url
-    await reservationRef.update({ stripeSessionId: session.id, stripeCheckoutUrl: session.url });
+    // 4) justo antes de devolver al cliente, asegurarnos dentro de una tx que la reserva sigue pendiente y no expiró,
+    // y si es así escribir stripeSessionId/stripeCheckoutUrl. Si no, marcar expired y no devolver la URL.
+    let sessionCommitted = false;
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(reservationRef);
+      if (!snap.exists) {
+        throw new Error("Reservation missing while committing session");
+      }
+      const data: any = snap.data();
+      // si ya no está pending -> marcar expired (si procede) y no commit de stripeSessionId
+      if (data.status !== "pending") {
+        if (data.status !== "expired") {
+          console.warn("Reservation changed status before committing stripe session:", reservationRef.id, data.status);
+        }
+        tx.update(reservationRef, { status: "expired", paymentRejectedReason: "expired_before_session_commit", expiredAt: admin.firestore.Timestamp.now(), stripeSessionId: session.id });
+        sessionCommitted = false;
+        return;
+      }
+      // comprobar expiresAt
+      if (data.expiresAt && typeof data.expiresAt.toDate === "function") {
+        const exp = data.expiresAt.toDate();
+        if (exp.getTime() <= Date.now()) {
+          tx.update(reservationRef, { status: "expired", paymentRejectedReason: "expired_before_session_commit", expiredAt: admin.firestore.Timestamp.now(), stripeSessionId: session.id });
+          sessionCommitted = false;
+          return;
+        }
+      }
+      // ok: escribir stripeSessionId y stripeCheckoutUrl
+      tx.update(reservationRef, { stripeSessionId: session.id, stripeCheckoutUrl: session.url });
+      sessionCommitted = true;
+    });
 
+    if (!sessionCommitted) {
+      console.warn("Session created but reservation expired before commit, not returning session URL", reservationRef.id);
+      return NextResponse.json({ error: "Reservation expired while creating session" }, { status: 409 });
+    }
+
+    console.debug("create-checkout: houseIds resolved", houseIds, "total", total, "firstCharge", firstNightCharge);
     return NextResponse.json({ url: session.url });
   } catch (err: any) {
     console.error("create-checkout-session error:", err);

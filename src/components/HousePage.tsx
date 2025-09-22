@@ -184,49 +184,63 @@ export default function HousePage(props: HousePageProps) {
     };
   }, [startParam, endParam, guestsParam, typeParam, houseIdFromMapping, defaultGuests]);
 
-// dentro de HousePage.tsx (reemplaza la función existente)
-const handleReserveNow = async () => {
-  if (!startParam || !endParam) {
-    router.push("/reservations");
-    return;
-  }
-
-  if (!houseIdFromMapping) {
-    alert("House mapping not found. Try again or contact support.");
-    return;
-  }
-
-  try {
-    setLoadingPrice(true); // reutilizamos loadingPrice para bloqueo visual
-    const body = {
-      houseId: houseIdFromMapping,
-      start: startParam,
-      end: endParam,
-      guests: parseInt(guestsParam || defaultGuests, 10),
-      type: typeParam,
-    };
-
-    const res = await fetch("/api/create-checkout-session", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-
-    const data = await res.json();
-    if (res.ok && data.url) {
-      // redirige al Checkout de stripe
-      window.location.href = data.url;
-    } else {
-      console.error("create-checkout-session error", data);
-      alert(data?.error || "No se pudo crear la sesión de pago. Intenta de nuevo.");
+  // dentro de HousePage.tsx (reemplaza la función existente)
+  const handleReserveNow = async () => {
+    if (!startParam || !endParam) {
+      router.push("/reservations");
+      return;
     }
-  } catch (err) {
-    console.error("handleReserveNow error", err);
-    alert("Error creando sesión de pago. Revisa la consola.");
-  } finally {
-    setLoadingPrice(false);
-  }
-};
+
+    if (!houseIdFromMapping) {
+      alert("House mapping not found. Try again or contact support.");
+      return;
+    }
+
+    try {
+      setLoadingPrice(true);
+      const body = {
+        houseId: houseIdFromMapping, // puede ser docId o alias según mapping
+        houseSlug, // envío también el slug real de la página para fallback
+        start: startParam,
+        end: endParam,
+        guests: parseInt(guestsParam || defaultGuests, 10),
+        type: typeParam,
+      };
+
+      // debug: ver en consola qué enviamos
+      console.debug("Reserve body ->", body);
+
+      console.debug("Reserve body ->", {
+        houseId: houseIdFromMapping,
+        houseSlug,
+        start: startParam,
+        end: endParam,
+        guests: guestsParam,
+        type: typeParam,
+      });
+
+
+      const res = await fetch("/api/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.url) {
+        window.location.href = data.url;
+      } else {
+        console.error("create-checkout-session error", data);
+        alert(data?.error || "No se pudo crear la sesión de pago. Intenta de nuevo.");
+      }
+    } catch (err) {
+      console.error("handleReserveNow error", err);
+      alert("Error creando sesión de pago. Revisa la consola.");
+    } finally {
+      setLoadingPrice(false);
+    }
+  };
+
 
 
   // utility to show a safe guests number

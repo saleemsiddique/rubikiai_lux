@@ -161,6 +161,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
 
   const [houses, setHouses] = useState<HouseLight[]>([]);
   const [openHouseId, setOpenHouseId] = useState<string | null>(null);
+  const [lastApiResults, setLastApiResults] = useState<HouseLight[]>([]);
 
   // occupiedDatesByHouse: houseId -> Set<ISO date>
   const [occupiedDatesByHouse, setOccupiedDatesByHouse] = useState<Record<string, Set<string>>>({});
@@ -198,11 +199,33 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     setTimeout(() => recomputeHousesAvailability(start, end), 0);
   };
 
-  const handleGuestsChange = (inc: number) =>
-    setGuests((p) => {
-      const next = Math.max(1, p + inc);
-      return Math.min(MAX_GUESTS_GLOBAL, next);
+  const handleGuestsChange = (inc: number) => {
+    setGuests((prev) => {
+      const next = Math.max(1, Math.min(MAX_GUESTS_GLOBAL, prev + inc));
+
+      // Si hay fechas seleccionadas -> preferimos regenerar localmente usando lastApiResults (si existe)
+      if (startDate && endDate) {
+        if (lastApiResults && lastApiResults.length > 0) {
+          // regenerar localmente (rápido, sin depender de la API)
+          void regenerateResultsForGuests(next, startDate, endDate, propertyType);
+        } else {
+          // si no hay lastApiResults (primera búsqueda) -> llamar a la API
+          void searchHouses(startDate, endDate, next, propertyType);
+        }
+      } else {
+        // Sin fechas: filtrar localmente la lista actual por capacidad
+        setHouses((prevHouses) => prevHouses.filter((h) => (h.maxGuests ?? 0) >= next));
+        // y recalcular flags de disponibilidad localmente
+        setTimeout(() => {
+          recomputeHousesAvailability(startDate, endDate, undefined, undefined, next);
+        }, 0);
+      }
+
+      return next;
     });
+  };
+
+
 
   /* ---------------- Search / availability (calls backend) ---------------- */
   const searchHouses = async (sDateParam?: Date, eDateParam?: Date, guestsParam?: number, propertyTypeParam?: string) => {
@@ -221,6 +244,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       });
       const data = await res.json();
       const apiResults = (data.results || []) as HouseLight[];
+      setLastApiResults(apiResults);
 
       // keep results, possibly generate duo combos locally for UX
       let results = apiResults.slice();
@@ -249,12 +273,22 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       // filter by capacity
       results = results.filter((h) => (h.maxGuests ?? 0) >= effectiveGuests);
 
+      // set preliminary results so UI doesn't flicker too much
       setHouses(results);
 
-      // prefetch occupied dates for results
-      const fetchPromises = results.map((h) => fetchOccupiedDatesForHouse(h.id));
-      await Promise.all(fetchPromises);
-      recomputeHousesAvailability(sDate, eDate, results);
+      // --- PREFETCH OCCUPIED DATES AND USE THEM IMMEDIATELY ---
+      // fetchOccupiedDatesForHouse devuelve un Set<string>
+      const occupiedSetsArray = await Promise.all(results.map((h) => fetchOccupiedDatesForHouse(h.id)));
+      const occupiedMap: Record<string, Set<string>> = {};
+      results.forEach((h, idx) => {
+        occupiedMap[h.id] = occupiedSetsArray[idx] ?? new Set<string>();
+      });
+
+      // Merge into state (so futuras operaciones lo tengan)
+      setOccupiedDatesByHouse((prev) => ({ ...prev, ...occupiedMap }));
+
+      // Recompute availability usando el mapa recién obtenido (override)
+      recomputeHousesAvailability(sDate, eDate, results, { ...occupiedDatesByHouse, ...occupiedMap });
     } catch (err) {
       console.error("searchHouses error:", err);
       setHouses([]);
@@ -287,6 +321,66 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     }
   };
 
+  /**
+ * Regenera _localmente_ los resultados a partir del último apiResults
+ * - genera combos duplex (pares)
+ * - filtra por capacidad
+ * - prefetch de occupiedDates para esos resultados
+ * - actualiza houses y occupiedDatesByHouse y recomputa disponibilidad
+ */
+  const regenerateResultsForGuests = async (guestsCount: number, sDate?: Date | null, eDate?: Date | null, type?: string) => {
+    const effectiveType = type ?? propertyType;
+    const apiResults = lastApiResults ?? [];
+
+    // generar combos (igual que searchHouses)
+    let results = apiResults.slice();
+
+    if (guestsCount > 4 && effectiveType !== "ezero namelis") {
+      const duplexes = apiResults.filter((r) => r.type === "dupleksas");
+      const combos: HouseLight[] = [];
+      for (let i = 0; i < duplexes.length; i++) {
+        for (let j = i + 1; j < duplexes.length; j++) {
+          const a = duplexes[i];
+          const b = duplexes[j];
+          const combo: HouseLight = {
+            id: `${a.id}__${b.id}`,
+            name: `${a.name ?? ""} + ${b.name ?? ""}`,
+            maxGuests: (a.maxGuests ?? 0) + (b.maxGuests ?? 0),
+            images: [...(a.images ?? []), ...(b.images ?? [])].slice(0, 6),
+            type: "dupleksas",
+            description: `${a.description ?? ""} / ${b.description ?? ""}`,
+          };
+          if ((combo.maxGuests ?? 0) >= guestsCount) combos.push(combo);
+        }
+      }
+      results = [...results, ...combos];
+    }
+
+    // filtrar por capacidad
+    results = results.filter((h) => (h.maxGuests ?? 0) >= guestsCount);
+
+    // actualizar resultados (preliminar)
+    setHouses(results);
+
+    // PREFETCH occupied dates para estos resultados
+    try {
+      const occupiedSetsArray = await Promise.all(results.map((h) => fetchOccupiedDatesForHouse(h.id)));
+      const occupiedMap: Record<string, Set<string>> = {};
+      results.forEach((h, idx) => {
+        occupiedMap[h.id] = occupiedSetsArray[idx] ?? new Set<string>();
+      });
+
+      // merge to state
+      setOccupiedDatesByHouse((prev) => ({ ...prev, ...occupiedMap }));
+
+      // recompute availability using the newly fetched occupied map
+      recomputeHousesAvailability(sDate ?? startDate, eDate ?? endDate, results, { ...occupiedDatesByHouse, ...occupiedMap }, guestsCount);
+    } catch (err) {
+      console.error("regenerateResultsForGuests error:", err);
+    }
+  };
+
+
   const toggleOpenHouse = async (houseId: string) => {
     if (openHouseId === houseId) {
       setOpenHouseId(null);
@@ -315,20 +409,37 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
   };
 
   /* Availability computation */
-  function computeAvailabilityForHouse(house: HouseLight, sDate: Date | null, eDate: Date | null, occupiedMap: Record<string, Set<string>>) {
-    const isCapacityOk = (house.maxGuests ?? 0) >= (guests ?? 0);
+  function computeAvailabilityForHouse(
+    house: HouseLight,
+    sDate: Date | null,
+    eDate: Date | null,
+    occupiedMap: Record<string, Set<string>>,
+    guestsOverride?: number
+  ) {
+    const guestsToUse = typeof guestsOverride === "number" ? guestsOverride : guests;
+    const isCapacityOk = (house.maxGuests ?? 0) >= (guestsToUse ?? 0);
     if (!sDate || !eDate) return { ...house, isCapacityOk, isAvailable: false } as any;
     const occupiedSet = occupiedMap[house.id] ?? new Set<string>();
     const overlaps = rangeOverlapsOccupied(sDate, eDate, occupiedSet);
     return { ...house, isCapacityOk, isAvailable: !overlaps } as any;
   }
 
-  function recomputeHousesAvailability(sDate: Date | null, eDate: Date | null, housesList?: HouseLight[], occupiedMapOverride?: Record<string, Set<string>>) {
+
+  function recomputeHousesAvailability(
+    sDate: Date | null,
+    eDate: Date | null,
+    housesList?: HouseLight[],
+    occupiedMapOverride?: Record<string, Set<string>>,
+    guestsOverride?: number
+  ) {
     const baseHouses = housesList ?? houses;
     const occupiedMap = occupiedMapOverride ?? occupiedDatesByHouse;
-    const newHouses = baseHouses.map((h) => computeAvailabilityForHouse(h, sDate, eDate, occupiedMap));
+    const newHouses = baseHouses.map((h) =>
+      computeAvailabilityForHouse(h, sDate, eDate, occupiedMap, guestsOverride)
+    );
     setHouses(newHouses);
   }
+
 
   function isHouseAvailableNow(house: HouseLight) {
     if ((house as any).isAvailable !== undefined) return (house as any).isAvailable;

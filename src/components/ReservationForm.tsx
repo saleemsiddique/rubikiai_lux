@@ -2,11 +2,11 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
 import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
 import { useRouter, useSearchParams } from "next/navigation";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "@/lib/firestore";
 import { useHouse } from "@/context/HouseContext";
+
 
 /**
  * Nota: mappings de rutas / slugs y la lógica de cálculo seguro de precio
@@ -36,6 +36,8 @@ interface ReservationFormProps {
 
 /* ---------------- Config / constants (local) ---------------- */
 const DATE_WINDOW_DAYS = 14;
+const MAX_AHEAD_DAYS = 365; // <-- nuevo: límite máximo hacia adelante (1 año)
+const getGlobalMaxDate = () => addDays(new Date(), MAX_AHEAD_DAYS);
 export const EXTRA_GUEST_PRICE = 40; // € per extra person per night
 const MAX_GUESTS_GLOBAL = 8;
 
@@ -123,9 +125,25 @@ function getPriceForDate(house: any, d: Date): number | null {
 /* ---------------- Firestore helpers ---------------- */
 async function fetchReservations(houseId: string) {
   const reservationsRef = collection(db, "reservations");
-  const q = query(reservationsRef, where("houseId", "==", houseId));
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map((doc) => doc.data());
+
+  // 1) q1: reservas con campo houseId === houseId (incluye documentos que guardaron el id combinado "a__b")
+  const q1 = query(reservationsRef, where("houseId", "==", houseId));
+  const snap1 = await getDocs(q1);
+
+  // 2) q2: reservas cuyo array houseIds contiene el id (incluye reservas duales que listan componentes)
+  const q2 = query(reservationsRef, where("houseIds", "array-contains", houseId));
+  const snap2 = await getDocs(q2);
+
+  // combinar resultados (por id de documento) para evitar duplicados
+  const mapByDocId = new Map<string, any>();
+  for (const doc of snap1.docs) {
+    mapByDocId.set(doc.id, doc.data());
+  }
+  for (const doc of snap2.docs) {
+    mapByDocId.set(doc.id, doc.data());
+  }
+
+  return Array.from(mapByDocId.values());
 }
 
 /** Turn reservation docs (with checkIn/checkOut) into set of occupied ISO days */
@@ -166,6 +184,19 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
   // occupiedDatesByHouse: houseId -> Set<ISO date>
   const [occupiedDatesByHouse, setOccupiedDatesByHouse] = useState<Record<string, Set<string>>>({});
   const [carouselOffsetByHouse, setCarouselOffsetByHouse] = useState<Record<string, { arrival: number; departure: number }>>({});
+
+  const setOffset = (houseId: string, mode: "arrival" | "departure", newOffset: number) => {
+    setCarouselOffsetByHouse((prev) => ({
+      ...prev,
+      [houseId]: {
+        arrival: prev[houseId]?.arrival ?? 0,
+        departure: prev[houseId]?.departure ?? 0,
+        [mode]: newOffset,
+      },
+    }));
+  };
+  const [checkoutLoadingByHouse, setCheckoutLoadingByHouse] = useState<Record<string, boolean>>({});
+
 
   const didAutoSearchRef = useRef(false);
 
@@ -225,6 +256,81 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     });
   };
 
+  // helper para indicar loading por houseId
+  const setCheckoutLoading = (houseId: string, v: boolean) =>
+    setCheckoutLoadingByHouse((p) => ({ ...p, [houseId]: v }));
+
+  /** Crea sesión en backend y redirige al checkout (Stripe) */
+  const createCheckoutAndRedirect = async (
+    houseIdOrSlug: string,
+    s: Date,
+    e: Date,
+    guestsNum: number,
+    houseSlug?: string
+  ) => {
+    try {
+      setCheckoutLoading(houseIdOrSlug, true);
+      const body = {
+        houseId: houseIdOrSlug,
+        start: s.toISOString(),
+        end: e.toISOString(),
+        guests: guestsNum,
+        houseSlug: houseSlug ?? undefined,
+      };
+      const res = await fetch("/api/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        console.error("create-checkout-session failed", data);
+        alert(data.error || "Error creating checkout session");
+        setCheckoutLoading(houseIdOrSlug, false);
+        return;
+      }
+
+      if (data.url) {
+        // redirigir a Stripe
+        window.location.href = data.url;
+        return;
+      }
+
+      alert("No checkout URL returned");
+      setCheckoutLoading(houseIdOrSlug, false);
+    } catch (err) {
+      console.error("createCheckoutAndRedirect error:", err);
+      alert("Network error creating checkout session");
+      setCheckoutLoading(houseIdOrSlug, false);
+    }
+  };
+
+  /** Handler unificado para Reserve now (desktop + mobile) */
+  const handleReserveClick = async (house: HouseLight) => {
+    if (!isHouseAvailableNow(house)) return;
+
+    const slug = slugify(house.name);
+    // si no hay fechas, comportarse como antes (ir a la página de la casa)
+    if (!startDate || !endDate) {
+      router.push(house.type === "dupleksas" ? `/dupleksas/${slug}` : `/${slug}`);
+      return;
+    }
+
+    // Si es duo (id con "__") y hay más de 4 guests -> crear sesión de checkout
+    if (isDuoId(house.id) && guests > 4) {
+      await createCheckoutAndRedirect(house.id, startDate, endDate, guests, slug);
+      return;
+    }
+
+    // comportamiento anterior: onReserve callback o push con query
+    const q = `start=${encodeURIComponent(startDate.toISOString())}&end=${encodeURIComponent(endDate.toISOString())}&guests=${encodeURIComponent(String(guests))}&type=${encodeURIComponent(house.type ?? '')}&house=${encodeURIComponent(slug)}`;
+    if (onReserve) {
+      onReserve(house.id, startDate, endDate, guests);
+      return;
+    }
+    router.push(`${house.type === "dupleksas" ? `/dupleksas/${slug}` : `/${slug}`}?${q}`);
+  };
 
 
   /* ---------------- Search / availability (calls backend) ---------------- */
@@ -642,44 +748,95 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
   /* ---------------- Carousel rendering (trimmed) ---------------- */
   const renderCarouselForHouse = (house: HouseLight, mode: "arrival" | "departure") => {
     const houseId = house.id;
-    const offset = getOffset(houseId, mode);
+    const offset = getOffset(houseId, mode); // offset actual (puede ser negativo/positivo)
+    const STEP = 7; // paso al avanzar/retroceder (7 días como en tu uso original)
 
+    // baseCandidate: punto de referencia desde el que aplicamos offset
     const baseCandidate =
       mode === "departure" && endDate ? new Date(endDate) : (startDate ? new Date(startDate) : new Date());
-    const base = addDays(baseCandidate, offset);
+
+    // helpers locales
+    const stripTime = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const msPerDay = 24 * 60 * 60 * 1000;
+    const diffDays = (a: Date, b: Date) => Math.round((stripTime(a).getTime() - stripTime(b).getTime()) / msPerDay);
+
+    const today = stripTime(new Date());
+    const globalMax = stripTime(getGlobalMaxDate()); // hoy + 1 año
+
+    // mínimos y máximos permitidos para mostrar tarjetas (siempre [hoy, hoy+1año])
+    const minAllowed = today;
+    const maxAllowed = globalMax;
+
+    // para departure no mostrar antes de la llegada (si existe)
+    const minForMode = mode === "departure" && startDate ? stripTime(new Date(startDate)) : minAllowed;
+
+    // determinamos el rango válido para la "primera fecha" de la ventana (firstDay)
+    // Queremos: firstDay >= minForMode  && lastDay <= maxAllowed
+    // lastDay = firstDay + (DATE_WINDOW_DAYS - 1) => firstDay <= maxAllowed - (DATE_WINDOW_DAYS - 1)
+    const maxStartBaseCandidate = stripTime(addDays(maxAllowed, -(DATE_WINDOW_DAYS - 1)));
+    const maxStartBase = maxStartBaseCandidate < minForMode ? minForMode : maxStartBaseCandidate;
+    const minStartBase = minForMode;
+
+    // offsets permitidos respecto a baseCandidate
+    const allowedOffsetMin = diffDays(minStartBase, baseCandidate);
+    const allowedOffsetMax = diffDays(maxStartBase, baseCandidate);
+
+    // clamp the rendering offset in case external state is out-of-range
+    const effectiveOffset = Math.min(Math.max(offset, allowedOffsetMin), allowedOffsetMax);
+
+    // flags para habilitar/deshabilitar botones
+    const canPrev = effectiveOffset > allowedOffsetMin;
+    const canNext = effectiveOffset < allowedOffsetMax;
+
+    // handlers que clampean el offset antes de setearlo
+    const goPrev = () => {
+      if (!canPrev) return;
+      const target = Math.max(effectiveOffset - STEP, allowedOffsetMin);
+      setOffset(houseId, mode, target);
+    };
+
+    const goNext = () => {
+      if (!canNext) return;
+      const target = Math.min(effectiveOffset + STEP, allowedOffsetMax);
+      setOffset(houseId, mode, target);
+    };
+
+    // construimos la base final según effectiveOffset (no mutamos el offset original)
+    const base = addDays(baseCandidate, effectiveOffset);
     let finalBase = new Date(base);
 
-    if (mode === "departure" && startDate && getOffset(houseId, "departure") === 0) {
-      const windowStart = new Date(base);
-      const windowEnd = addDays(windowStart, DATE_WINDOW_DAYS - 1);
+    // generamos el array de días y lo filtramos para que respete [minForMode, maxAllowed]
+    let days: Date[] = Array.from({ length: DATE_WINDOW_DAYS }).map((_, i) => addDays(finalBase, i));
+    days = days.filter((d) => {
+      const sd = stripTime(d);
+      return sd.getTime() >= stripTime(minForMode).getTime() && sd.getTime() <= stripTime(maxAllowed).getTime();
+    });
 
-      if (startDate < windowStart) {
-        const diffDays = Math.ceil((windowStart.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-        const candidate = addDays(finalBase, -diffDays);
-        const minAllowed = addDays(new Date(), -1);
-        if (candidate >= minAllowed) finalBase = candidate;
-      }
-
-      const newWindowEnd = addDays(finalBase, DATE_WINDOW_DAYS - 1);
-      if (startDate > newWindowEnd) {
-        const candidate = addDays(startDate, -(DATE_WINDOW_DAYS - 1));
-        const minAllowed = addDays(new Date(), -1);
-        if (candidate >= minAllowed) finalBase = candidate;
-      }
-    }
-
-    const days: Date[] = Array.from({ length: DATE_WINDOW_DAYS }).map((_, i) => addDays(finalBase, i));
     const occupiedSet = occupiedDatesByHouse[houseId] ?? new Set<string>();
 
     return (
       <div className="w-full mt-3">
         <div className="flex items-center justify-between mb-2">
           <div className="flex gap-2 items-center text-sm text-gray-700">
-            <button onClick={() => shiftCarousel(houseId, -7, mode)} className="px-2 py-1 border rounded">◀</button>
+            <button
+              onClick={goPrev}
+              disabled={!canPrev}
+              className={`px-2 py-1 border rounded ${!canPrev ? "opacity-40 cursor-not-allowed" : "hover:bg-neutral-100"}`}
+              aria-label="Anterior"
+            >
+              ◀
+            </button>
             <div className="font-medium">{mode === "arrival" ? "Select arrival" : "Select departure"}</div>
           </div>
           <div>
-            <button onClick={() => shiftCarousel(houseId, 7, mode)} className="px-2 py-1 border rounded">▶</button>
+            <button
+              onClick={goNext}
+              disabled={!canNext}
+              className={`px-2 py-1 border rounded ${!canNext ? "opacity-40 cursor-not-allowed" : "hover:bg-neutral-100"}`}
+              aria-label="Siguiente"
+            >
+              ▶
+            </button>
           </div>
         </div>
 
@@ -690,15 +847,16 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
               const occupied = occupiedSet.has(ds);
               let disabled = false;
 
-              // bloquear fechas pasadas
-              if (!isAfter(ds, dateIso(addDays(new Date(), -1)))) disabled = true;
+              // bloquear fechas pasadas (comparando con ayer): si d < today entonces bloquear
+              if (stripTime(d).getTime() < stripTime(new Date()).getTime()) disabled = true;
+
               // bloquear si ocupado
               if (occupied) disabled = true;
 
               if (mode === "departure") {
                 if (startDate) {
-                  const startIso = dateIso(startDate);
-                  if (!isAfter(ds, startIso)) disabled = true;
+                  const startIsoDate = stripTime(new Date(startDate));
+                  if (stripTime(d).getTime() < startIsoDate.getTime()) disabled = true;
                 }
               }
 
@@ -737,6 +895,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       </div>
     );
   };
+
 
   /* ---------------- Render ---------------- */
   return (
@@ -786,6 +945,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
               endDate={endDate}
               selectsRange
               minDate={new Date()}
+              maxDate={getGlobalMaxDate()}                // límite: hoy + 1 año
               open={openPicker === "arrival"}
               onInputClick={() => setOpenPicker("arrival")}
               onClickOutside={() => setOpenPicker(null)}
@@ -807,6 +967,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
               endDate={endDate}
               selectsRange
               minDate={startDate || new Date()}
+              maxDate={getGlobalMaxDate()}                // límite: hoy + 1 año
               open={openPicker === "departure"}
               onInputClick={() => setOpenPicker("departure")}
               onClickOutside={() => setOpenPicker(null)}
@@ -875,19 +1036,13 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
 
                   <div className="w-full">
                     <button
-                      disabled={!isHouseAvailableNow(house)}
-                      onClick={() => {
-                        if (!isHouseAvailableNow(house)) return;
-                        const slug = slugify(house.name);
-                        if (!startDate || !endDate) { router.push(house.type === "dupleksas" ? `/dupleksas/${slug}` : `/${slug}`); return; }
-                        const q = `start=${encodeURIComponent(startDate.toISOString())}&end=${encodeURIComponent(endDate.toISOString())}&guests=${encodeURIComponent(String(guests))}&type=${encodeURIComponent(house.type ?? '')}&house=${encodeURIComponent(slug)}`;
-                        if (onReserve) { onReserve(house.id, startDate, endDate, guests); return; }
-                        router.push(`${house.type === "dupleksas" ? `/dupleksas/${slug}` : `/${slug}`}?${q}`);
-                      }}
+                      disabled={!isHouseAvailableNow(house) || !!checkoutLoadingByHouse[house.id]}
+                      onClick={() => void handleReserveClick(house)}
                       className={`w-full py-2 rounded-md text-white ${isHouseAvailableNow(house) ? "bg-[var(--color-primary)] hover:opacity-95" : "bg-red-500 opacity-70 cursor-not-allowed"}`}
                     >
-                      {isHouseAvailableNow(house) ? "Reserve now" : "Unavailable"}
+                      {checkoutLoadingByHouse[house.id] ? "Processing…" : (isHouseAvailableNow(house) ? "Reserve now" : "Unavailable")}
                     </button>
+
 
                     <button onClick={() => toggleOpenHouse(house.id)} className="mt-2 w-full py-2 border rounded">{openHouseId === house.id ? "Close dates" : "View dates"}</button>
                   </div>
@@ -901,18 +1056,11 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                 </div>
                 <div className="w-48">
                   <button
-                    disabled={!isHouseAvailableNow(house)}
-                    onClick={() => {
-                      if (!isHouseAvailableNow(house)) return;
-                      const slug = slugify(house.name);
-                      if (!startDate || !endDate) { router.push(house.type === "dupleksas" ? `/dupleksas/${slug}` : `/${slug}`); return; }
-                      const q = `start=${encodeURIComponent(startDate.toISOString())}&end=${encodeURIComponent(endDate.toISOString())}&guests=${encodeURIComponent(String(guests))}&type=${encodeURIComponent(house.type ?? '')}&house=${encodeURIComponent(slug)}`;
-                      if (onReserve) { onReserve(house.id, startDate, endDate, guests); return; }
-                      router.push(`${house.type === "dupleksas" ? `/dupleksas/${slug}` : `/${slug}`}?${q}`);
-                    }}
+                    disabled={!isHouseAvailableNow(house) || !!checkoutLoadingByHouse[house.id]}
+                    onClick={() => void handleReserveClick(house)}
                     className={`w-full py-2 rounded-md text-white ${isHouseAvailableNow(house) ? "bg-[var(--color-primary)]" : "bg-red-500 opacity-70 cursor-not-allowed"}`}
                   >
-                    {isHouseAvailableNow(house) ? "Reserve now" : "Unavailable"}
+                    {checkoutLoadingByHouse[house.id] ? "Processing…" : (isHouseAvailableNow(house) ? "Reserve now" : "Unavailable")}
                   </button>
                 </div>
               </div>

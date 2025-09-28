@@ -968,6 +968,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
               selectsRange
               minDate={startDate || new Date()}
               maxDate={getGlobalMaxDate()}                // límite: hoy + 1 año
+              openToDate={startDate ?? new Date()}
               open={openPicker === "departure"}
               onInputClick={() => setOpenPicker("departure")}
               onClickOutside={() => setOpenPicker(null)}

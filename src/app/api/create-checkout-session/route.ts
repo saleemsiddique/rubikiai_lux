@@ -168,7 +168,8 @@ export async function POST(req: Request) {
     // re-check overlap rápido
     const reservationsRef = db.collection("reservations");
     for (const id of houseIds) {
-      const q = reservationsRef.where("houseId", "==", id).where("status", "in", ["confirmed", "pending"]);
+      // CHANGED: incluye 'reserved' además de 'pending'
+      const q = reservationsRef.where("houseId", "==", id).where("status", "in", ["reserved", "pending"]);
       const snap = await q.get();
       for (const doc of snap.docs) {
         const data: any = doc.data();
@@ -197,7 +198,7 @@ export async function POST(req: Request) {
     // 1) crear reserva pending dentro de una tx (igual que antes)
     await db.runTransaction(async (tx) => {
       for (const id of houseIds) {
-        const q = db.collection("reservations").where("houseId", "==", id).where("status", "in", ["confirmed", "pending"]);
+        const q = db.collection("reservations").where("houseId", "==", id).where("status", "in", ["reserved", "pending"]); // CHANGED
         const snap = await tx.get(q);
         for (const doc of snap.docs) {
           const data: any = doc.data();
@@ -253,12 +254,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Calculated first charge too small" }, { status: 400 });
     }
 
-    // 3) crear sesión checkout en Stripe **sin capturar** (autorization / manual capture)
+    // 3) crear sesión checkout en Stripe **sin capturar** (authorization / manual capture)
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       payment_method_types: ["card"],
+      // CHANGED: fuerza creación/adjunción de Customer con email recogido por Checkout
+      customer_creation: "always",
       payment_intent_data: {
-        capture_method: "manual"
+        capture_method: "manual",
       },
       line_items: [
         {
@@ -266,7 +269,7 @@ export async function POST(req: Request) {
             currency: "eur",
             product_data: {
               name: `Reservation ${rawValue} ${startIso} → ${endIso}`,
-              description: `First night (${startIso}) — authorization only (will capture after validation)`,
+              description: `First night (${startIso})`,
             },
             unit_amount: firstChargeCents,
           },
@@ -293,7 +296,6 @@ export async function POST(req: Request) {
         throw new Error("Reservation missing while committing session");
       }
       const data: any = snap.data();
-      // si ya no está pending -> marcar expired (si procede) y no commit de stripeSessionId
       if (data.status !== "pending") {
         if (data.status !== "expired") {
           console.warn("Reservation changed status before committing stripe session:", reservationRef.id, data.status);
@@ -302,7 +304,6 @@ export async function POST(req: Request) {
         sessionCommitted = false;
         return;
       }
-      // comprobar expiresAt
       if (data.expiresAt && typeof data.expiresAt.toDate === "function") {
         const exp = data.expiresAt.toDate();
         if (exp.getTime() <= Date.now()) {

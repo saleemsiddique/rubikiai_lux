@@ -17,7 +17,6 @@ const db = admin.firestore();
 
 function getSessionPaymentIntentId(session: Stripe.Checkout.Session | null): string | null {
   if (!session) return null;
-  // payment_intent puede ser string | PaymentIntent | null
   if (typeof session.payment_intent === "string") return session.payment_intent;
   if (session.payment_intent && typeof (session.payment_intent as any).id === "string") {
     return (session.payment_intent as Stripe.PaymentIntent).id;
@@ -35,8 +34,8 @@ async function safeCancelPI(
   try {
     await stripe.paymentIntents.cancel(
       paymentIntentId,
-      { cancellation_reason: "abandoned" }, // params
-      { idempotencyKey: `cancel_${reservationId}_${paymentIntentId}_${extra}` } // requestOptions
+      { cancellation_reason: "abandoned" },
+      { idempotencyKey: `cancel_${reservationId}_${paymentIntentId}_${extra}` }
     );
     await resRef.update({
       paymentIntentCancelled: true,
@@ -52,6 +51,58 @@ async function safeCancelPI(
   }
 }
 
+/**
+ * Busca el mejor email posible para recibo (Checkout → Customer → PaymentMethod → Charge).
+ * Devuelve también el customerId si existe.
+ */
+async function findBestReceiptEmail(
+  stripe: Stripe,
+  session: Stripe.Checkout.Session | null,
+  paymentIntentId: string
+): Promise<{ email: string | null; customerId: string | null }> {
+  // 1) Email que el usuario escribió en la página de Checkout
+  const checkoutEmail = session?.customer_details?.email || session?.customer_email || null;
+
+  // 2) Email del Customer (si Checkout creó/adjuntó uno)
+  let customerEmail: string | null = null;
+  let customerId: string | null = null;
+  if (typeof session?.customer === "string") {
+    customerId = session.customer;
+    try {
+      const cust = await stripe.customers.retrieve(session.customer);
+      if ((cust as any).deleted !== true) {
+        customerEmail = (cust as Stripe.Customer).email || null;
+      }
+    } catch {
+      // no-op
+    }
+  }
+
+  // 3) Email del PaymentMethod del PaymentIntent
+  let pmEmail: string | null = null;
+  try {
+    const pi = await stripe.paymentIntents.retrieve(paymentIntentId, { expand: ["payment_method"] });
+    const pm = pi.payment_method as Stripe.PaymentMethod | null;
+    if (pm && typeof pm !== "string") {
+      pmEmail = pm.billing_details?.email || null;
+    }
+
+    // 4) Si hay cargo previo (autorización), intenta también el email del Charge
+    if (!pmEmail && pi.latest_charge && typeof pi.latest_charge === "string") {
+      const ch = await stripe.charges.retrieve(pi.latest_charge);
+      pmEmail = ch.billing_details?.email || ch.receipt_email || null;
+    } else if (!pmEmail && pi.latest_charge && typeof pi.latest_charge !== "string") {
+      const ch = pi.latest_charge as Stripe.Charge;
+      pmEmail = ch.billing_details?.email || ch.receipt_email || null;
+    }
+  } catch {
+    // no-op
+  }
+
+  const email = checkoutEmail || customerEmail || pmEmail || null;
+  return { email, customerId };
+}
+
 // --------------------------------------------------------------------------
 
 export async function GET(req: Request) {
@@ -62,7 +113,7 @@ export async function GET(req: Request) {
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/cancel?reason=missing_session`);
     }
 
-    // Recuperar session de Stripe para obtener reservationId y payment_intent
+    // Recuperar sesión de Stripe para obtener reservationId, payment_intent y datos de cliente
     let stripeSession: Stripe.Checkout.Session | null = null;
     try {
       stripeSession = await stripe.checkout.sessions.retrieve(sessionId);
@@ -82,25 +133,25 @@ export async function GET(req: Request) {
     }
     const data: any = snap.data();
 
-    // If already reserved -> redirect to thanks
+    // Si ya está reservado → gracias
     if (data.status === "reserved") {
       return NextResponse.redirect(
         `${process.env.NEXT_PUBLIC_APP_URL}/thanks?reservationId=${reservationId}&session_id=${encodeURIComponent(sessionId)}`
       );
     }
 
-    // If already expired -> redirect cancel
+    // Si ya está expirado → cancel
     if (data.status === "expired") {
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/cancel?reservationId=${reservationId}&reason=expired`);
     }
 
-    // If pending -> check expiresAt.
+    // Si está pendiente → comprobar expiresAt
     const nowMs = Date.now();
     const expiresAtDate =
       data.expiresAt && typeof data.expiresAt.toDate === "function" ? data.expiresAt.toDate() : null;
 
     if (expiresAtDate && expiresAtDate.getTime() <= nowMs) {
-      // mark expired and cancel payment_intent if exists
+      // Marcar expirado y cancelar el PI (liberar hold) si existe
       await resRef.update({
         status: "expired",
         expiredAt: admin.firestore.Timestamp.now(),
@@ -108,7 +159,6 @@ export async function GET(req: Request) {
         stripeSessionId: stripeSession?.id ?? null,
       });
 
-      // cancel the payment_intent if present (libera el hold)
       const sessionPI = getSessionPaymentIntentId(stripeSession);
       const paymentIntentId = sessionPI ?? (data.stripePaymentIntentId ? String(data.stripePaymentIntentId) : null);
 
@@ -117,7 +167,7 @@ export async function GET(req: Request) {
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/cancel?reservationId=${reservationId}&reason=expired`);
     }
 
-    // TX set status -> 'capturing' ONLY if still pending and not expired
+    // Lock de captura: pasar a 'capturing' solo si sigue 'pending' y no expiró
     await db.runTransaction(async (tx) => {
       const s = await tx.get(resRef);
       if (!s.exists) throw new Error("Reservation disappeared during capture lock");
@@ -134,12 +184,12 @@ export async function GET(req: Request) {
       tx.update(resRef, { status: "capturing", stripeSessionId: stripeSession?.id ?? null });
     });
 
-    // 2) Perform capture
+    // 2) Captura
     const sessionPI = getSessionPaymentIntentId(stripeSession);
     const paymentIntentId = sessionPI ?? (data.stripePaymentIntentId ? String(data.stripePaymentIntentId) : null);
 
     if (!paymentIntentId) {
-      // restore to pending and redirect to cancel
+      // Volver a pending y cancelar el flujo
       await resRef.update({
         status: "pending",
         stripeSessionId: stripeSession?.id ?? null,
@@ -147,12 +197,22 @@ export async function GET(req: Request) {
         paymentCaptureErrorAt: admin.firestore.Timestamp.now(),
       });
 
-      // Intenta liberar si había un PI guardado en el doc
+      // Intentar liberar si había un PI guardado en el doc
       await safeCancelPI(data?.stripePaymentIntentId ? String(data.stripePaymentIntentId) : null, reservationId, resRef, "missing_pi");
 
       return NextResponse.redirect(
         `${process.env.NEXT_PUBLIC_APP_URL}/cancel?reservationId=${reservationId}&reason=no_payment_intent`
       );
+    }
+
+    // Asegurar email en el PaymentIntent antes de capturar (para que Stripe envíe recibo al capturar)
+    const { email: receiptEmail, customerId } = await findBestReceiptEmail(stripe, stripeSession, paymentIntentId);
+    if (receiptEmail) {
+      try {
+        await stripe.paymentIntents.update(paymentIntentId, { receipt_email: receiptEmail });
+      } catch (e) {
+        console.warn("Could not set receipt_email on PaymentIntent:", e);
+      }
     }
 
     let captured: Stripe.Response<Stripe.PaymentIntent> | null = null;
@@ -163,7 +223,7 @@ export async function GET(req: Request) {
         { idempotencyKey: `capture_${reservationId}_${paymentIntentId}` } // requestOptions
       );
     } catch (err: any) {
-      // capture failed -> try to cancel authorization to free hold
+      // Si la captura falla, intenta cancelar la autorización para liberar el hold
       console.error("PaymentIntent capture failed:", err);
 
       await safeCancelPI(paymentIntentId, reservationId, resRef, "capture_failed");
@@ -179,25 +239,32 @@ export async function GET(req: Request) {
       );
     }
 
-    // 3) finalize reservation: mark reserved and remove expiresAt
+    // 3) Finalizar reserva: marcar reserved y quitar expiresAt
     await db.runTransaction(async (tx) => {
       const s = await tx.get(resRef);
       if (!s.exists) throw new Error("Reservation disappeared while finalizing capture");
       const d: any = s.data();
-      // only finalize if status is capturing
+
+      const updates: any = {
+        stripePaymentIntentId: captured?.id ? String(captured.id) : (d.stripePaymentIntentId || admin.firestore.FieldValue.delete()),
+      };
+
+      // Persistir customerId / customerEmail si los tenemos
+      if (customerId && !d.stripeCustomerId) updates.stripeCustomerId = customerId;
+      if (receiptEmail && !d.customerEmail) updates.customerEmail = receiptEmail;
+
       if (d.status !== "capturing") {
-        // Unexpected state — but we'll not overwrite if it changed
-        await tx.update(resRef, {
-          stripePaymentIntentId: captured?.id ? String(captured.id) : (d.stripePaymentIntentId || admin.firestore.FieldValue.delete()),
-        } as any);
+        // Estado inesperado — sincroniza ids pero no sobreescribas estado
+        await tx.update(resRef, updates as any);
         return;
       }
-      const updates: any = {
+
+      Object.assign(updates, {
         status: "reserved",
         paidAt: admin.firestore.Timestamp.now(),
-        stripePaymentIntentId: captured?.id ? String(captured.id) : undefined,
         expiresAt: admin.firestore.FieldValue.delete(),
-      };
+      });
+
       tx.update(resRef, updates);
     });
 

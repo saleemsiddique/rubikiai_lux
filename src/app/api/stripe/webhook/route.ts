@@ -30,12 +30,18 @@ export async function POST(req: Request) {
       const session = event.data.object as Stripe.Checkout.Session;
       const reservationId = session.metadata?.reservationId;
       if (!reservationId) {
-        // nothing to do
         return NextResponse.json({ ok: true });
       }
 
       const resRef = db.collection("reservations").doc(reservationId);
       let paymentIntentId: string | null = session.payment_intent ? String(session.payment_intent) : null;
+
+      // NEW: captar datos de cliente/email para sincronizarlos
+      const customerId = typeof session.customer === "string" ? session.customer : null;
+      const customerEmail =
+        session.customer_details?.email ||
+        session.customer_email ||
+        null;
 
       await db.runTransaction(async (tx) => {
         const snap = await tx.get(resRef);
@@ -48,15 +54,16 @@ export async function POST(req: Request) {
 
         // If already reserved or capturing, skip or sync stripeSessionId
         if (data?.status === "reserved" || data?.status === "capturing") {
-          // sync stripeSessionId if missing
           const updates: any = {};
           if (!data.stripeSessionId) updates.stripeSessionId = session.id;
           if (!data.stripePaymentIntentId && paymentIntentId) updates.stripePaymentIntentId = paymentIntentId;
+          if (customerId && !data.stripeCustomerId) updates.stripeCustomerId = customerId; // NEW
+          if (customerEmail && !data.customerEmail) updates.customerEmail = customerEmail; // NEW
           if (Object.keys(updates).length) tx.update(resRef, updates);
           return;
         }
 
-        // If already expired, ensure stripeSessionId saved and attempt to cancel payment_intent
+        // If already expired, ensure stripeSessionId saved
         if (data?.status === "expired") {
           const updates: any = { stripeSessionId: session.id };
           if (paymentIntentId && !data.paymentIntentCancelled) {
@@ -71,7 +78,6 @@ export async function POST(req: Request) {
           if (data.expiresAt && typeof data.expiresAt.toDate === "function") {
             const expiresDate = data.expiresAt.toDate();
             if (expiresDate.getTime() < Date.now()) {
-              // mark expired, record session id (do not throw)
               tx.update(resRef, {
                 status: "expired",
                 stripeSessionId: session.id,
@@ -81,12 +87,13 @@ export async function POST(req: Request) {
               return;
             }
           }
-          // session completed and reservation still pending & not expired:
-          // just save session id and payment_intent (we DO NOT capture here; capture is performed in checkout-complete)
+          // session completed y reserva aún válida -> sincroniza ids
           const updates: any = {
             stripeSessionId: session.id,
           };
           if (paymentIntentId) updates.stripePaymentIntentId = paymentIntentId;
+          if (customerId) updates.stripeCustomerId = customerId;       // NEW
+          if (customerEmail) updates.customerEmail = customerEmail;     // NEW
           tx.update(resRef, updates);
           return;
         }
@@ -95,14 +102,15 @@ export async function POST(req: Request) {
         tx.update(resRef, { stripeSessionId: session.id });
       });
 
-      // Note: We purposely do NOT call stripe.paymentIntents.capture here. Capture is performed
-      // in the user's redirect handler (/api/checkout-complete) to ensure we validate expiresAt first.
+      // NO capturamos aquí; la captura se hace en /api/checkout-complete
     } else if (event.type === "checkout.session.expired") {
       const session = event.data.object as Stripe.Checkout.Session;
       const reservationId = session.metadata?.reservationId;
       if (reservationId) {
-        // If session expired, mark reservation expired
-        await db.collection("reservations").doc(reservationId).update({ status: "expired" });
+        await db.collection("reservations").doc(reservationId).update({
+          status: "expired",
+          paymentRejectedReason: "checkout_session_expired", // NEW: motivo informativo
+        });
       }
     }
 

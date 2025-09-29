@@ -1,4 +1,3 @@
-// app/api/stripe/webhook/route.ts
 import Stripe from "stripe";
 import admin from "firebase-admin";
 import { NextResponse } from "next/server";
@@ -7,9 +6,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY! as string);
 
 if (!admin.apps.length) {
   const cred = process.env.FIREBASE_ADMIN_SDK ? JSON.parse(process.env.FIREBASE_ADMIN_SDK) : undefined;
-  admin.initializeApp({
-    credential: cred ? admin.credential.cert(cred) : admin.credential.applicationDefault(),
-  });
+  admin.initializeApp({ credential: cred ? admin.credential.cert(cred) : admin.credential.applicationDefault() });
 }
 const db = admin.firestore();
 
@@ -28,52 +25,53 @@ export async function POST(req: Request) {
   try {
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
-      const reservationId = session.metadata?.reservationId;
-      if (!reservationId) {
-        return NextResponse.json({ ok: true });
+      const type = session.metadata?.type;
+
+      if (type === "coupon") {
+        const orderId = session.metadata?.orderId;
+        if (!orderId) return NextResponse.json({ ok: true });
+        const ref = db.collection("coupon_orders").doc(orderId);
+        await ref.set(
+          {
+            stripeSessionId: session.id,
+            buyerEmail: session.customer_details?.email || session.customer_email || null,
+            updatedAt: admin.firestore.Timestamp.now(),
+          },
+          { merge: true }
+        );
+        return NextResponse.json({ received: true });
       }
 
+      // === Keep your reservation flow handling here if you still use it ===
+      const reservationId = session.metadata?.reservationId;
+      if (!reservationId) return NextResponse.json({ ok: true });
       const resRef = db.collection("reservations").doc(reservationId);
       let paymentIntentId: string | null = session.payment_intent ? String(session.payment_intent) : null;
-
-      // NEW: captar datos de cliente/email para sincronizarlos
       const customerId = typeof session.customer === "string" ? session.customer : null;
-      const customerEmail =
-        session.customer_details?.email ||
-        session.customer_email ||
-        null;
+      const customerEmail = session.customer_details?.email || session.customer_email || null;
 
       await db.runTransaction(async (tx) => {
         const snap = await tx.get(resRef);
-        if (!snap.exists) {
-          console.warn("Reservation not found (webhook):", reservationId);
-          return;
-        }
-
+        if (!snap.exists) return;
         const data: any = snap.data();
 
-        // If already reserved or capturing, skip or sync stripeSessionId
         if (data?.status === "reserved" || data?.status === "capturing") {
           const updates: any = {};
           if (!data.stripeSessionId) updates.stripeSessionId = session.id;
           if (!data.stripePaymentIntentId && paymentIntentId) updates.stripePaymentIntentId = paymentIntentId;
-          if (customerId && !data.stripeCustomerId) updates.stripeCustomerId = customerId; // NEW
-          if (customerEmail && !data.customerEmail) updates.customerEmail = customerEmail; // NEW
+          if (customerId && !data.stripeCustomerId) updates.stripeCustomerId = customerId;
+          if (customerEmail && !data.customerEmail) updates.customerEmail = customerEmail;
           if (Object.keys(updates).length) tx.update(resRef, updates);
           return;
         }
 
-        // If already expired, ensure stripeSessionId saved
         if (data?.status === "expired") {
           const updates: any = { stripeSessionId: session.id };
-          if (paymentIntentId && !data.paymentIntentCancelled) {
-            updates.paymentIntentCancelAttempted = true;
-          }
+          if (paymentIntentId && !data.paymentIntentCancelled) updates.paymentIntentCancelAttempted = true;
           tx.update(resRef, updates);
           return;
         }
 
-        // Only for pending: check expiresAt
         if (data?.status === "pending") {
           if (data.expiresAt && typeof data.expiresAt.toDate === "function") {
             const expiresDate = data.expiresAt.toDate();
@@ -87,29 +85,30 @@ export async function POST(req: Request) {
               return;
             }
           }
-          // session completed y reserva aún válida -> sincroniza ids
-          const updates: any = {
-            stripeSessionId: session.id,
-          };
+          const updates: any = { stripeSessionId: session.id };
           if (paymentIntentId) updates.stripePaymentIntentId = paymentIntentId;
-          if (customerId) updates.stripeCustomerId = customerId;       // NEW
-          if (customerEmail) updates.customerEmail = customerEmail;     // NEW
+          if (customerId) updates.stripeCustomerId = customerId;
+          if (customerEmail) updates.customerEmail = customerEmail;
           tx.update(resRef, updates);
           return;
         }
 
-        // fallback: sync session id
         tx.update(resRef, { stripeSessionId: session.id });
       });
-
-      // NO capturamos aquí; la captura se hace en /api/checkout-complete
     } else if (event.type === "checkout.session.expired") {
       const session = event.data.object as Stripe.Checkout.Session;
-      const reservationId = session.metadata?.reservationId;
+      const type = session.metadata?.type;
+      if (type === "coupon") {
+        const orderId = session.metadata?.orderId;
+        if (orderId) await db.collection("coupon_orders").doc(orderId).update({ status: "expired" });
+        return NextResponse.json({ received: true });
+      }
+
+      const reservationId = (event.data.object as any)?.metadata?.reservationId;
       if (reservationId) {
         await db.collection("reservations").doc(reservationId).update({
           status: "expired",
-          paymentRejectedReason: "checkout_session_expired", // NEW: motivo informativo
+          paymentRejectedReason: "checkout_session_expired",
         });
       }
     }

@@ -3,10 +3,32 @@ import React, { JSX, useState } from "react";
 
 const AMOUNTS = [100, 150, 200, 300] as const;
 
+type LookupResult = {
+  coupon: {
+    id: string;
+    code: string;
+    currency: string;
+    unitAmount: number;
+    remaining: number;
+    status: string;
+    purchasedAtIso: string | null;
+    expiresAtIso: string | null;
+    orderId: string | null;
+    buyerEmail: string | null;
+  };
+  state: "active" | "expired" | "used" | "disabled";
+};
+
 export default function CouponPage(): JSX.Element {
   const [selected, setSelected] = useState<number>(AMOUNTS[0]);
   const [quantity, setQuantity] = useState<number>(1);
   const [loading, setLoading] = useState(false);
+
+  // Lookup states
+  const [codeInput, setCodeInput] = useState("");
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [lookupError, setLookupError] = useState<string | null>(null);
+  const [lookup, setLookup] = useState<LookupResult | null>(null);
 
   const handleBuy = async () => {
     try {
@@ -33,6 +55,64 @@ export default function CouponPage(): JSX.Element {
     }
   };
 
+  const handleLookup = async () => {
+    const raw = codeInput.trim();
+    if (!raw) {
+      setLookupError("Introduce un código de cupón");
+      setLookup(null);
+      return;
+    }
+    try {
+      setLookupLoading(true);
+      setLookupError(null);
+      setLookup(null);
+      const res = await fetch(`/api/coupons/lookup?code=${encodeURIComponent(raw)}`);
+      if (res.status === 404) {
+        setLookupError("Cupón no encontrado");
+        return;
+      }
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j?.error || "No se pudo consultar el cupón");
+      }
+      const data: LookupResult = await res.json();
+      setLookup(data);
+    } catch (e: any) {
+      console.error(e);
+      setLookupError(e?.message || "No se pudo consultar el cupón");
+    } finally {
+      setLookupLoading(false);
+    }
+  };
+
+  const formatDate = (iso: string | null) => {
+    if (!iso) return "—";
+    try {
+      return new Date(iso).toLocaleDateString("es-ES", { year: "numeric", month: "2-digit", day: "2-digit" });
+    } catch {
+      return iso;
+    }
+  };
+
+  const statePill = (state?: LookupResult["state"]) => {
+    const map: Record<LookupResult["state"], string> = {
+      active: "bg-emerald-100 text-emerald-700 border-emerald-200",
+      used: "bg-amber-100 text-amber-700 border-amber-200",
+      expired: "bg-rose-100 text-rose-700 border-rose-200",
+      disabled: "bg-gray-100 text-gray-700 border-gray-200",
+    };
+    const label: Record<LookupResult["state"], string> = {
+      active: "Activo",
+      used: "Agotado",
+      expired: "Caducado",
+      disabled: "Inactivo",
+    };
+    if (!state) return null;
+    return (
+      <span className={`px-2 py-1 text-xs font-semibold rounded-full border ${map[state]}`}>{label[state]}</span>
+    );
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center pt-24 px-4 md:px-8" style={{ '--color-primary': '#bfa58b', '--color-primary-dark': '#8f6e52', '--color-secondary': '#7b8ed6', '--color-background-main': '#f4efe9', '--color-background-soft': '#fafafa', '--color-text': '#0f172a', '--color-highlight': '#214235' } as React.CSSProperties}>
       <div className="w-full max-w-6xl">
@@ -45,6 +125,7 @@ export default function CouponPage(): JSX.Element {
       </div>
 
       <main className="w-full max-w-6xl mt-12 grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Comprar cupones */}
         <section className="lg:col-span-2 bg-[var(--color-background-soft)] rounded-2xl p-6 shadow-xl border border-[var(--color-primary)]/40">
           <div className="flex flex-col gap-6">
             <div>
@@ -114,7 +195,8 @@ export default function CouponPage(): JSX.Element {
           </div>
         </section>
 
-        <aside className="bg-[var(--color-background-soft)] rounded-2xl p-6 shadow-xl flex flex-col gap-6 border border-[var(--color-secondary)]/40 h-fit sticky top-12">
+        {/* Vista previa */}
+        <aside className="bg-[var(--color-background-soft)] rounded-2xl p-6 shadow-xl flex flex-col gap-6 border border-[var(--color-secondary)]/40 h-fit">
           <h3 className="text-xl font-semibold border-b border-[var(--color-primary)]/50 pb-2">Vista Previa</h3>
           <div className="rounded-xl overflow-hidden relative shadow-lg">
             <div className="p-6" style={{ background: 'linear-gradient(135deg, var(--color-primary-dark), var(--color-primary))' }}>
@@ -140,6 +222,67 @@ export default function CouponPage(): JSX.Element {
             </ul>
           </div>
         </aside>
+
+        {/* Consulta de cupón */}
+        <section className="lg:col-span-3 bg-[var(--color-background-soft)] rounded-2xl p-6 shadow-xl border border-[var(--color-secondary)]/40">
+          <div className="flex flex-col gap-4">
+            <h3 className="text-2xl font-semibold text-[var(--color-primary-dark)]">Consulta tu cupón</h3>
+            <p className="text-sm text-[var(--color-text)]/70">Introduce tu código (por ejemplo, <span className="font-mono">ABCD-EFGH</span>) para ver el saldo y la fecha de caducidad.</p>
+
+            <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-end">
+              <div className="flex-1">
+                <label className="block text-sm mb-1 text-[var(--color-text)]">Código de cupón</label>
+                <input
+                  value={codeInput}
+                  onChange={(e) => setCodeInput(e.target.value.toUpperCase())}
+                  placeholder="ABCD-EFGH"
+                  className="w-full p-3 rounded-lg border-2 border-[var(--color-primary)] bg-white text-base focus:border-[var(--color-secondary)] focus:ring-0 transition"
+                />
+              </div>
+              <div>
+                <button
+                  onClick={handleLookup}
+                  disabled={lookupLoading}
+                  className="px-6 py-3 rounded-xl font-bold text-lg shadow-lg hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed transition-transform duration-200"
+                  style={{ background: 'var(--color-secondary)', color: 'white' }}
+                >
+                  {lookupLoading ? 'Buscando…' : 'Comprobar'}
+                </button>
+              </div>
+            </div>
+
+            {lookupError && (
+              <div className="text-sm text-rose-600">{lookupError}</div>
+            )}
+
+            {lookup && (
+              <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-4 rounded-xl border bg-white">
+                  <div className="text-xs uppercase tracking-wider text-[var(--color-text)]/60">Estado</div>
+                  <div className="mt-1">{statePill(lookup.state)}</div>
+                </div>
+                <div className="p-4 rounded-xl border bg-white">
+                  <div className="text-xs uppercase tracking-wider text-[var(--color-text)]/60">Saldo disponible</div>
+                  <div className="mt-1 text-2xl font-bold text-[var(--color-primary-dark)]">{lookup.coupon.remaining.toFixed(2)} {lookup.coupon.currency}</div>
+                  <div className="text-xs text-[var(--color-text)]/60">Importe original: {lookup.coupon.unitAmount.toFixed(2)} {lookup.coupon.currency}</div>
+                </div>
+                <div className="p-4 rounded-xl border bg-white">
+                  <div className="text-xs uppercase tracking-wider text-[var(--color-text)]/60">Caducidad</div>
+                  <div className="mt-1 text-lg font-semibold">{formatDate(lookup.coupon.expiresAtIso)}</div>
+                  <div className="text-xs text-[var(--color-text)]/60">Comprado el {formatDate(lookup.coupon.purchasedAtIso)}</div>
+                </div>
+
+                <div className="p-4 rounded-xl border bg-white md:col-span-3">
+                  <div className="text-xs uppercase tracking-wider text-[var(--color-text)]/60">Código</div>
+                  <div className="mt-1 font-mono text-lg">{lookup.coupon.code}</div>
+                  {lookup.coupon.orderId && (
+                    <div className="text-xs text-[var(--color-text)]/60 mt-1">Pedido: <span className="font-mono">{lookup.coupon.orderId}</span></div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
       </main>
     </div>
   );

@@ -184,7 +184,102 @@ export default function HousePage(props: HousePageProps) {
     };
   }, [startParam, endParam, guestsParam, typeParam, houseIdFromMapping, defaultGuests]);
 
-  // dentro de HousePage.tsx (reemplaza la función existente)
+
+
+
+  // coupon state
+  const [couponCode, setCouponCode] = useState("");
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [couponData, setCouponData] = useState<any | null>(null);
+  const [applyAmount, setApplyAmount] = useState<number | "">("");
+  const [couponApplied, setCouponApplied] = useState(false);
+  const [applyInput, setApplyInput] = useState<string>("");
+
+  // Si cambias applyAmount desde botones (Use max, lookup, etc.), reflejarlo en el input visible
+  useEffect(() => {
+    if (applyAmount === "" || applyAmount == null) setApplyInput("");
+    else setApplyInput(String(applyAmount));
+  }, [applyAmount]);
+
+  const lookupCoupon = async (code: string) => {
+    setCouponError(null);
+    setCouponData(null);
+    setCouponLoading(true);
+    try {
+      const res = await fetch(`/api/coupons/lookup?code=${encodeURIComponent(code)}`);
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        const err = json?.error || `Lookup failed: ${res.status}`;
+        setCouponError(err);
+        setCouponLoading(false);
+        return;
+      }
+
+      const json = await res.json();
+      setCouponData(json);
+      // Sugerimos mínimo(remaining, total) si lo tenemos
+      const remaining = Number(json?.coupon?.remaining ?? 0);
+      const suggest = maxApplicableNow(remaining);
+      setApplyAmount(suggest);
+
+    } catch (e: any) {
+      setCouponError(String(e?.message ?? e));
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const handleApplyCoupon = () => {
+    setCouponError(null);
+    if (!couponData || !couponData.coupon) {
+      setCouponError("No coupon loaded. Enter a code and lookup first.");
+      return;
+    }
+
+    const remaining = Number(couponData.coupon.remaining ?? 0);
+    const toApply = Number(applyAmount || 0);
+
+    if (toApply <= 0) {
+      setCouponError("Please enter an amount greater than 0 to apply.");
+      return;
+    }
+
+    const capNow = maxApplicableNow(remaining);
+    if (toApply > capNow + 0.000001) {
+      setCouponError("Amount cannot exceed the amount due now (first night).");
+      return;
+    }
+
+    if (totalFromServer == null) {
+      setCouponError("Select dates first so the total price is known before applying a coupon.");
+      return;
+    }
+
+    if (toApply > totalFromServer + 0.000001) {
+      setCouponError("Amount cannot exceed total reservation price.");
+      return;
+    }
+
+    // Permitimos 100% (puede dejar primera noche a 0 €); el backend tiene la rama free-order
+    setCouponApplied(true);
+  };
+
+  const handleUseFullCoupon = () => {
+    if (!couponData) return;
+    const remaining = Number(couponData.coupon.remaining ?? 0);
+    const toUse = maxApplicableNow(remaining);
+    setApplyAmount(toUse);
+  };
+
+  const handleRemoveCoupon = () => {
+    setCouponCode("");
+    setCouponData(null);
+    setCouponApplied(false);
+    setApplyAmount("");
+    setCouponError(null);
+  };
+
   const handleReserveNow = async () => {
     if (!startParam || !endParam) {
       router.push("/reservations");
@@ -199,26 +294,17 @@ export default function HousePage(props: HousePageProps) {
     try {
       setLoadingPrice(true);
       const body = {
-        houseId: houseIdFromMapping, // puede ser docId o alias según mapping
-        houseSlug, // envío también el slug real de la página para fallback
-        start: startParam,
-        end: endParam,
-        guests: parseInt(guestsParam || defaultGuests, 10),
-        type: typeParam,
-      };
-
-      // debug: ver en consola qué enviamos
-      console.debug("Reserve body ->", body);
-
-      console.debug("Reserve body ->", {
         houseId: houseIdFromMapping,
         houseSlug,
         start: startParam,
         end: endParam,
-        guests: guestsParam,
+        guests: parseInt(guestsParam || defaultGuests, 10),
         type: typeParam,
-      });
+        // si el cupón está aplicado, enviamos id y amount
+        coupon: couponApplied && couponData?.coupon ? { id: couponData.coupon.id, amount: Number(applyAmount || 0) } : undefined,
+      } as any;
 
+      console.debug("Reserve body ->", body);
 
       const res = await fetch("/api/create-checkout-session", {
         method: "POST",
@@ -241,7 +327,14 @@ export default function HousePage(props: HousePageProps) {
     }
   };
 
-
+  const maxApplicableNow = (remaining: number) => {
+    const caps: number[] = [];
+    if (typeof remaining === "number") caps.push(remaining);
+    if (typeof totalFromServer === "number") caps.push(totalFromServer);
+    if (typeof firstFromServer === "number") caps.push(firstFromServer); // “precio a pagar ahora”
+    if (caps.length === 0) return 0;
+    return Math.max(0, Math.min(...caps));
+  };
 
   // utility to show a safe guests number
   const guestsDisplay = (() => {
@@ -249,6 +342,13 @@ export default function HousePage(props: HousePageProps) {
     if (!Number.isFinite(p) || Number.isNaN(p)) return defaultGuests;
     return String(p);
   })();
+
+  // derived discounted values
+  const origTotal = totalFromServer ?? 0;
+  const origFirst = firstFromServer ?? 0;
+  const appliedVal = couponApplied ? Number(applyAmount || 0) : 0;
+  const discountedTotal = Math.max(0, origTotal - appliedVal);
+  const discountedFirst = Math.max(0, origFirst - appliedVal);
 
   return (
     <main className="bg-gray-100 text-[var(--color-text)]">
@@ -280,8 +380,7 @@ export default function HousePage(props: HousePageProps) {
             <div className="lg:col-span-2">
               <h2 className="text-3xl font-bold mb-4 font-header text-[var(--color-primary-dark)]">About this place</h2>
               <div className="prose max-w-none font-sans text-gray-800">
-                {/* keep content short here: pages should pass longer text as children if needed */}
-                <p>Details about the place. For full description, pass content in the page or enhance this component to accept `description` prop.</p>
+                <p>Details about the place. For full description, pass content in the page or enhance this component to accept <code>description</code> prop.</p>
               </div>
             </div>
 
@@ -300,11 +399,83 @@ export default function HousePage(props: HousePageProps) {
                   </div>
                 </div>
 
+                {/* Coupon block */}
+                <div className="mb-4 p-4 rounded-md border bg-white">
+                  <h4 className="font-semibold mb-2">Have a coupon?</h4>
+
+                  <div className="flex gap-2">
+                    <input
+                      value={couponCode}
+                      onChange={(e) => setCouponCode(e.target.value)}
+                      placeholder="Enter coupon code"
+                      className="flex-1 border rounded-md p-2"
+                      aria-label="Coupon code"
+                    />
+                    <button
+                      onClick={() => lookupCoupon(couponCode)}
+                      disabled={!couponCode || couponLoading}
+                      className="px-4 py-2 rounded-md bg-[var(--color-primary)] text-white font-semibold"
+                    >
+                      {couponLoading ? "Checking…" : "Lookup"}
+                    </button>
+                    {couponData && (
+                      <button
+                        onClick={handleRemoveCoupon}
+                        className="px-3 py-2 rounded-md border font-semibold"
+                        aria-label="Clear coupon"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+
+                  {couponError && <div className="text-sm text-red-600 mt-2">{couponError}</div>}
+
+                  {couponData && couponData.coupon && (
+                    <div className="mt-3 text-sm text-gray-700">
+                      <div className="font-medium">Coupon: {couponData.coupon.code} <span className="text-xs text-gray-500">({couponData.state})</span></div>
+                      <div className="mt-1">Remaining: <span className="font-semibold">{formatCurrency(Number(couponData.coupon.remaining ?? 0))}</span></div>
+                      {couponData.coupon.expiresAtIso && <div className="mt-1 text-xs text-gray-500">Expires: {formatDateFriendly(couponData.coupon.expiresAtIso)}</div>}
+
+                      <div className="mt-3">
+                        <label className="block text-xs mb-1">Amount to apply</label>
+                        <div className="flex gap-2 items-center">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            value={applyInput}
+                            onChange={(e) => {
+                              // Acepta solo dígitos (permite escribir "1000" de una vez, pegar, etc.)
+                              const digitsOnly = e.target.value.replace(/\D/g, "");
+                              setApplyInput(digitsOnly);
+                              setApplyAmount(digitsOnly === "" ? "" : Number(digitsOnly));
+                            }}
+                            className="flex-1 border rounded-md p-2"
+                            aria-label="Amount to apply from coupon"
+                          />
+                          <button onClick={handleUseFullCoupon} className="px-3 py-2 rounded-md border">Use max</button>
+                          <button onClick={handleApplyCoupon} className="px-3 py-2 rounded-md bg-[var(--color-primary)] text-white font-semibold">Apply</button>
+                        </div>
+                        <div className="mt-2 text-xs text-gray-500">
+                          Amount cannot exceed coupon remaining, the reservation total, or the amount due now.
+                        </div>
+                      </div>
+
+                      {couponApplied && (
+                        <div className="mt-3 p-3 rounded-md bg-green-50 border border-green-200 text-sm">
+                          Coupon applied: <span className="font-semibold">{formatCurrency(Number(applyAmount || 0))}</span>
+                          <button onClick={() => setCouponApplied(false)} className="ml-3 underline">Undo</button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 {startParam && endParam && (
                   <div className="mt-3 p-4 rounded-md border bg-white">
                     <div className="text-sm font-medium text-gray-700">Payment summary</div>
 
-                    {/* NEW: show guests (and optional type) in the payment box */}
                     <div className="mt-2 flex items-center justify-between text-sm text-gray-700">
                       <div className="flex items-center">
                         <FaUserFriends className="mr-2" />
@@ -322,7 +493,16 @@ export default function HousePage(props: HousePageProps) {
                     ) : totalFromServer !== null ? (
                       <div className="mt-2">
                         <div className="text-xs text-gray-500">Total for the stay</div>
-                        <div className="text-lg font-semibold">{formatCurrency(totalFromServer)}</div>
+                        <div className="text-lg font-semibold">
+                          {couponApplied ? (
+                            <>
+                              <del className="text-sm mr-2">{formatCurrency(origTotal)}</del>
+                              <span className="text-[var(--color-primary)-dark]">{formatCurrency(discountedTotal)}</span>
+                            </>
+                          ) : (
+                            <>{formatCurrency(totalFromServer)}</>
+                          )}
+                        </div>
                       </div>
                     ) : (
                       <div className="mt-2 text-sm text-gray-600">
@@ -333,7 +513,16 @@ export default function HousePage(props: HousePageProps) {
                     <div className="mt-3 p-3 rounded-md bg-[var(--color-primary)]/10 border-l-4 border-[var(--color-primary)]">
                       <div className="text-xs text-gray-600">Now to charge</div>
                       {firstFromServer !== null ? (
-                        <div className="text-2xl font-bold text-[var(--color-primary)-dark]">{formatCurrency(firstFromServer)}</div>
+                        <div className="text-2xl font-bold text-[var(--color-primary)-dark]">
+                          {couponApplied ? (
+                            <>
+                              <del className="text-sm mr-2">{formatCurrency(origFirst)}</del>
+                              <span>{formatCurrency(discountedFirst)}</span>
+                            </>
+                          ) : (
+                            <>{formatCurrency(firstFromServer)}</>
+                          )}
+                        </div>
                       ) : (
                         <div className="text-sm font-semibold text-gray-800">First night (price shown at checkout)</div>
                       )}

@@ -1,4 +1,4 @@
-// lib/firebaseAdmin.ts
+// lib/firebase-admin.ts
 import admin from "firebase-admin";
 
 const projectId = process.env.FIREBASE_PROJECT_ID;

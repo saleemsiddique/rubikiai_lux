@@ -14,7 +14,7 @@ if (!admin.apps.length) {
 }
 const db = admin.firestore();
 
-// helpers (igual que los tuyos)
+// ----------------- helpers -----------------
 function pad2(n: number) {
   return n < 10 ? `0${n}` : String(n);
 }
@@ -134,6 +134,7 @@ async function calculateTotalAndNights(houseIds: string[], startIso: string, end
   console.debug("calculateTotalAndNights ->", { houseIds, startIso: sIso, endIso: eIso, nights, firstNightBase, total, extraGuests, firstNightCharge });
   return { total, nights, firstNightBase, firstNightCharge };
 }
+// ------------- fin helpers ---------------
 
 export async function POST(req: Request) {
   try {
@@ -141,7 +142,10 @@ export async function POST(req: Request) {
     console.debug("create-checkout-session body:", body);
 
     let { houseId, start, end, guests, houseSlug } = body || {};
+    // Cupón (opcional) enviado desde el cliente cuando el usuario lo aplicó
+    const coupon: { id: string; amount: number } | undefined = body?.coupon;
 
+    // Validación de fechas
     try {
       const startIsoTest = dateOnlyIso(start);
       const endIsoTest = dateOnlyIso(end);
@@ -165,10 +169,9 @@ export async function POST(req: Request) {
     const startIso = dateOnlyIso(start);
     const endIso = dateOnlyIso(end);
 
-    // re-check overlap rápido
+    // Re-check overlap rápido (pending + reserved)
     const reservationsRef = db.collection("reservations");
     for (const id of houseIds) {
-      // CHANGED: incluye 'reserved' además de 'pending'
       const q = reservationsRef.where("houseId", "==", id).where("status", "in", ["reserved", "pending"]);
       const snap = await q.get();
       for (const doc of snap.docs) {
@@ -187,18 +190,51 @@ export async function POST(req: Request) {
     }
 
     const { total, nights, firstNightBase, firstNightCharge } = await calculateTotalAndNights(houseIds, startIso, endIso, guestsNum);
-    const totalCents = Math.round(total * 100);
-    const firstChargeCents = Math.round(firstNightCharge * 100);
 
+    // ====== Validación y preparación del cupón (opcional) ======
+    let couponAmountToApply = 0;
+    let couponCode: string | null = null;
+
+    if (coupon && coupon.id && Number.isFinite(Number(coupon.amount))) {
+      const couponDoc = await db.collection("coupons").doc(String(coupon.id)).get();
+      if (!couponDoc.exists) {
+        return NextResponse.json({ error: "Coupon not found" }, { status: 400 });
+      }
+      const cdata: any = couponDoc.data();
+      const remaining = Number(cdata?.remaining ?? 0);
+      couponCode = String(cdata?.code || "");
+      // Aplicaremos EUROS enteros (si manejas céntimos en coupons, cámbialo)
+      couponAmountToApply = Math.max(0, Math.floor(Number(coupon.amount)));
+
+      if (couponAmountToApply <= 0) {
+        return NextResponse.json({ error: "Coupon amount must be > 0" }, { status: 400 });
+      }
+      if (couponAmountToApply > remaining) {
+        return NextResponse.json({ error: "Coupon amount exceeds remaining balance" }, { status: 400 });
+      }
+      if (couponAmountToApply > total + 0.000001) {
+        return NextResponse.json({ error: "Coupon amount exceeds reservation total" }, { status: 400 });
+      }
+    }
+
+    // Totales con descuento por cupón
+    const discountedTotal = Math.max(0, total - couponAmountToApply);
+    const discountedFirst = Math.max(0, firstNightCharge - couponAmountToApply);
+
+    const discountedTotalCents = Math.round(discountedTotal * 100);
+    let discountedFirstCents = Math.round(discountedFirst * 100);
+
+    const isFreeOrder = discountedFirstCents <= 0;
+
+    // ====== 1) crear reserva pending (con info del cupón) ======
     const reservationsRef2 = db.collection("reservations");
     const reservationRef = reservationsRef2.doc();
     const now = admin.firestore.Timestamp.now();
     const expiresAt = admin.firestore.Timestamp.fromDate(new Date(Date.now() + 15 * 60 * 1000)); // 15 min
 
-    // 1) crear reserva pending dentro de una tx (igual que antes)
     await db.runTransaction(async (tx) => {
       for (const id of houseIds) {
-        const q = db.collection("reservations").where("houseId", "==", id).where("status", "in", ["reserved", "pending"]); // CHANGED
+        const q = db.collection("reservations").where("houseId", "==", id).where("status", "in", ["reserved", "pending"]);
         const snap = await tx.get(q);
         for (const doc of snap.docs) {
           const data: any = doc.data();
@@ -208,32 +244,44 @@ export async function POST(req: Request) {
         }
       }
       const storeHouseId = houseIds.length === 1 ? houseIds[0] : houseIds.join("__");
-      tx.set(reservationRef, {
+
+      const payload: any = {
         houseId: storeHouseId,
         houseIds,
         checkIn: startIso,
         checkOut: endIso,
         guests: guestsNum,
         nights,
-        total,
+        total,               // total sin descuento
+        discountedTotal,     // total tras cupón
         currency: "EUR",
         status: "pending",
         createdAt: now,
         expiresAt,
         firstNightBase,
         firstNightCharge,
-      } as any);
+        discountedFirst,     // primer cargo tras cupón (puede ser 0)
+      };
+
+      if (couponAmountToApply > 0) {
+        payload.coupon = {
+          id: coupon!.id,
+          code: couponCode,
+          amountApplied: couponAmountToApply,
+          deductedAt: null,  // el webhook marcará cuándo se descuenta realmente
+        };
+      }
+
+      tx.set(reservationRef, payload);
     });
 
-    // 2) leer la reserva justo después de crearla y comprobar que sigue pendiente y no expiró
+    // ====== 2) leer y validar pending/no expirado ======
     const freshSnap = await reservationRef.get();
     if (!freshSnap.exists) {
       console.error("Reservation disappeared after creation (unexpected)");
       return NextResponse.json({ error: "Reservation creation failed" }, { status: 500 });
     }
     const freshData: any = freshSnap.data();
-
-    // si por alguna razón no está pending o ya expiró, marcar expired y devolver error
     const nowDate = new Date();
     if (freshData.status !== "pending") {
       console.warn("Reservation not pending after creation:", reservationRef.id, freshData.status);
@@ -242,53 +290,52 @@ export async function POST(req: Request) {
     if (freshData.expiresAt && typeof freshData.expiresAt.toDate === "function") {
       const exp = freshData.expiresAt.toDate();
       if (exp.getTime() <= nowDate.getTime()) {
-        // marcar explicitamente expired
         await reservationRef.update({ status: "expired", expiredAt: admin.firestore.Timestamp.now(), paymentRejectedReason: "expired_before_checkout" });
         return NextResponse.json({ error: "Reservation expired", status: 409 }, { status: 409 });
       }
     }
 
-    // seguridad: comprobar importe mínimo antes de llamar a Stripe
-    if (firstChargeCents < 50) {
-      console.error("First charge too small for Stripe", { firstNightCharge, firstChargeCents });
-      return NextResponse.json({ error: "Calculated first charge too small" }, { status: 400 });
-    }
-
-    // 3) crear sesión checkout en Stripe **sin capturar** (authorization / manual capture)
-    const session = await stripe.checkout.sessions.create({
+    // ====== 3) crear sesión de Stripe (rama normal o free-order) ======
+    const sessionParams: Stripe.Checkout.SessionCreateParams = {
       mode: "payment",
-      payment_method_types: ["card"],
-      // CHANGED: fuerza creación/adjunción de Customer con email recogido por Checkout
+      // En free-order omitimos payment_intent_data y métodos
+      ...(isFreeOrder ? {} : { payment_method_types: ["card"], payment_intent_data: { capture_method: "manual" } }),
       customer_creation: "always",
-      payment_intent_data: {
-        capture_method: "manual",
-      },
       line_items: [
         {
           price_data: {
             currency: "eur",
             product_data: {
               name: `Reservation ${rawValue} ${startIso} → ${endIso}`,
-              description: `First night (${startIso})`,
+              description:
+                couponAmountToApply > 0
+                  ? `First night (${startIso}) — coupon ${couponCode || coupon!.id} applied`
+                  : `First night (${startIso})`,
             },
-            unit_amount: firstChargeCents,
+            unit_amount: Math.max(0, discountedFirstCents), // 0€ si free-order
           },
           quantity: 1,
         },
       ],
       metadata: {
         reservationId: reservationRef.id,
-        firstNightCharge: String(firstNightCharge),
-        total: String(total),
+        firstNightCharge: String(firstNightCharge),      // referencia (antes de cupón)
+        discountedFirst: String(discountedFirst),        // tras cupón (puede ser 0)
+        total: String(total),                            // referencia (antes de cupón)
+        discountedTotal: String(discountedTotal),        // tras cupón
         guests: String(guestsNum),
+        couponId: couponAmountToApply > 0 ? String(coupon!.id) : "",
+        couponCode: couponCode || "",
+        couponAmountApplied: couponAmountToApply > 0 ? String(couponAmountToApply) : "",
+        noPayment: isFreeOrder ? "true" : "false",
       },
-      // redirigimos a nuestro endpoint que validará y realizará el capture si procede
       success_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/checkout-complete?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/cancel?reservationId=${reservationRef.id}`,
-    }, { idempotencyKey: reservationRef.id });
+    };
 
-    // 4) justo antes de devolver al cliente, asegurarnos dentro de una tx que la reserva sigue pendiente y no expiró,
-    // y si es así escribir stripeSessionId/stripeCheckoutUrl. Si no, marcar expired y no devolver la URL.
+    const session = await stripe.checkout.sessions.create(sessionParams, { idempotencyKey: reservationRef.id });
+
+    // ====== 4) commit session en la reserva (si sigue pending/no expirada) ======
     let sessionCommitted = false;
     await db.runTransaction(async (tx) => {
       const snap = await tx.get(reservationRef);
@@ -312,7 +359,6 @@ export async function POST(req: Request) {
           return;
         }
       }
-      // ok: escribir stripeSessionId y stripeCheckoutUrl
       tx.update(reservationRef, { stripeSessionId: session.id, stripeCheckoutUrl: session.url });
       sessionCommitted = true;
     });
@@ -322,7 +368,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Reservation expired while creating session" }, { status: 409 });
     }
 
-    console.debug("create-checkout: houseIds resolved", houseIds, "total", total, "firstCharge", firstNightCharge);
+    console.debug(
+      "create-checkout:",
+      { houseIds, total, firstNightCharge, discountedFirst, couponApplied: couponAmountToApply, isFreeOrder }
+    );
     return NextResponse.json({ url: session.url });
   } catch (err: any) {
     console.error("create-checkout-session error:", err);

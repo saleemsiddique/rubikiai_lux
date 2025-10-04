@@ -130,7 +130,7 @@ export default function CouponPage(): JSX.Element {
           <div className="flex flex-col gap-6">
             <div>
               <h2 className="text-3xl font-bold text-[var(--color-primary-dark)]">Regala Experiencias</h2>
-              <p className="text-base mt-2 text-[var(--color-text)]/70">Selecciona el importe y la cantidad del cupón que deseas regalar. Esta página es únicamente un diseño estético (mockup).</p>
+              <p className="text-base mt-2 text-[var(--color-text)]/70">Selecciona el importe y la cantidad del cupón que deseas regalar.</p>
             </div>
 
             <div className="mt-4">
@@ -167,14 +167,8 @@ export default function CouponPage(): JSX.Element {
 
             <div className="mt-6 flex flex-col sm:flex-row sm:items-end sm:gap-6 gap-4 border-t pt-6 border-[var(--color-primary)]/20">
               <div className="flex items-center gap-3">
-                <label className="text-base font-medium text-[var(--color-text)]">Cantidad</label>
-                <input
-                  type="number"
-                  min={1}
-                  value={quantity}
-                  onChange={(e) => setQuantity(Math.max(1, Number(e.target.value || 1)))}
-                  className="w-24 p-2 rounded-lg border-2 border-[var(--color-primary)] bg-white text-base text-center focus:border-[var(--color-secondary)] focus:ring-0 transition"
-                />
+                <strong className="font-semibold">Total a pagar:</strong> <span className="font-black text-2xl text-[var(--color-primary-dark)]">{(selected * quantity).toFixed(2)} €</span>
+
               </div>
               <div className="flex-1" />
               <div className="flex items-end">
@@ -184,13 +178,9 @@ export default function CouponPage(): JSX.Element {
                   className="px-6 py-3 rounded-xl font-bold text-lg shadow-lg hover:scale-[1.03] disabled:opacity-50 disabled:cursor-not-allowed transition-transform duration-200"
                   style={{ background: 'var(--color-secondary)', color: 'white' }}
                 >
-                  {loading ? 'Redirigiendo…' : `Comprar Ahora (${quantity} x ${selected}€)`}
+                  {loading ? 'Redirigiendo…' : `Comprar Ahora (${selected}€)`}
                 </button>
               </div>
-            </div>
-
-            <div className="mt-4 text-lg text-[var(--color-text)]">
-              <strong className="font-semibold">Total a pagar:</strong> <span className="font-black text-2xl text-[var(--color-primary-dark)]">{(selected * quantity).toFixed(2)} €</span>
             </div>
           </div>
         </section>
@@ -276,7 +266,7 @@ export default function CouponPage(): JSX.Element {
                   <div className="text-xs uppercase tracking-wider text-[var(--color-text)]/60">Código</div>
                   <div className="mt-1 font-mono text-lg">{lookup.coupon.code}</div>
                   {lookup.coupon.orderId && (
-                    <div className="text-xs text-[var(--color-text)]/60 mt-1">Pedido: <span className="font-mono">{lookup.coupon.orderId}</span></div>
+                    <div className="text-xs text-[var(--color-text)]/60 mt-1">Coupon id: <span className="font-mono">{lookup.coupon.orderId}</span></div>
                   )}
                 </div>
               </div>

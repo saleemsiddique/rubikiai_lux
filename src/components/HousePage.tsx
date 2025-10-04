@@ -184,9 +184,6 @@ export default function HousePage(props: HousePageProps) {
     };
   }, [startParam, endParam, guestsParam, typeParam, houseIdFromMapping, defaultGuests]);
 
-
-
-
   // coupon state
   const [couponCode, setCouponCode] = useState("");
   const [couponLoading, setCouponLoading] = useState(false);

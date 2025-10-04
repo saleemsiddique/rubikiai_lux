@@ -1,3 +1,4 @@
+// app/api/coupons/create-checkout-session/route.ts
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import admin, { adminDb } from "@/lib/firebase-admin";
@@ -20,7 +21,7 @@ export async function POST(req: Request) {
 
     const unitAmountCents = Math.round(unitAmount * 100);
 
-    // ✅ colección correcta
+    // Creamos orden 'pending'
     const orderRef = adminDb.collection("coupon_orders").doc();
     const now = admin.firestore.Timestamp.now();
 
@@ -38,24 +39,25 @@ export async function POST(req: Request) {
         mode: "payment",
         customer_creation: "always",
         payment_method_types: ["card"],
-        line_items: [{
-          price_data: {
-            currency: "eur",
-            product_data: {
-              name: `Rubikiai Lux Coupon`,
-              description: quantity > 1 ? `${quantity} x ${unitAmount.toFixed(2)}€` : `${unitAmount.toFixed(2)}€`,
-            },
+        line_items: [
+          {
+            price_data: {
+              currency: "eur",
+              product_data: {
+                name: `Rubikiai Lux Coupon`,
+                description: quantity > 1 ? `${quantity} x ${unitAmount.toFixed(2)}€` : `${unitAmount.toFixed(2)}€`,
+              },
             unit_amount: unitAmountCents,
+            },
+            quantity,
           },
-          quantity,
-        }],
+        ],
         metadata: {
-          type: "coupon",     // ✅ coherente con webhook
+          type: "coupon",               // clave para el webhook
           orderId: orderRef.id,
           unitAmount: String(unitAmount),
           quantity: String(quantity),
         },
-        // ✅ ruta correcta
         success_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/coupons/checkout-complete?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/coupons/cancel?orderId=${orderRef.id}`,
       },

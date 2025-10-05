@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { HOUSE_ROUTE_OVERRIDES_BY_ID } from "@/lib/houseRoutes";
 // IMPORTA el helper que convierte a YYYY-MM-DD local
 import { toLocalDateString } from "@/app/utils/date";
+import { FaInfoCircle, FaShieldAlt } from "react-icons/fa";
 
 /**
  * ReservationPage
@@ -83,7 +84,59 @@ export default function ReservationPage() {
 
   return (
     <div className="p-6 bg-[var(--color-background-main)] min-h-screen">
-      <ReservationForm onReserve={handleReserve} showResults={true} />
+      <div className="max-w-6xl mx-auto space-y-6">
+        <ReservationForm onReserve={handleReserve} showResults={true} />
+
+        {/* --- House Rules & Terms (debajo del form) --- */}
+        <section aria-labelledby="rules-title" className="mt-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* House Rules */}
+            <div className="rounded-2xl border border-neutral-200 bg-white shadow-sm p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <FaShieldAlt className="text-[var(--color-primary)]" />
+                <h2 id="rules-title" className="text-lg font-semibold text-[var(--color-primary-dark)]">
+                  House rules
+                </h2>
+              </div>
+              <ul className="mt-2 space-y-2 text-sm text-neutral-700">
+                <li>• Apartments are rented for quiet relaxation only.</li>
+                <li>
+                  • Minors are accepted only from <strong>16 years of age</strong>, or by prior arrangement when booking
+                  <strong> both duplex apartments</strong>.
+                </li>
+                <li>
+                  • For the safety and peace of the fallow deer —{" "}
+                  <strong className="uppercase tracking-wide">bringing pets to the duplex is strictly prohibited</strong>.
+                </li>
+                <li>
+                  • By making a reservation, you confirm that you have read our <strong>house rules</strong> and{" "}
+                  <strong>reservation terms</strong>.
+                </li>
+              </ul>
+            </div>
+
+            {/* Payment & Terms */}
+            <div className="rounded-2xl border border-neutral-200 bg-white shadow-sm p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <FaInfoCircle className="text-[var(--color-primary)]" />
+                <h2 className="text-lg font-semibold text-[var(--color-primary-dark)]">Payment & booking terms</h2>
+              </div>
+              <div className="mt-2 space-y-3 text-sm text-neutral-700">
+                <p>
+                  When reserving, you pay a booking deposit equal to <strong>one night’s stay</strong>. The remaining amount is paid upon
+                  arrival.
+                </p>
+                <p className="text-neutral-700">
+                  If an error occurs in the booking system that makes the service unavailable or results in an unreasonably low price,{" "}
+                  we will inform you as soon as possible and the reservation will be{" "}
+                  <strong>canceled</strong>, <strong>rescheduled</strong>, or your <strong>deposit will be refunded</strong>.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+        {/* --- /House Rules & Terms --- */}
+      </div>
     </div>
   );
 }

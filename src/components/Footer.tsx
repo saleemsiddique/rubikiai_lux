@@ -1,19 +1,28 @@
-import React from 'react'
-
+// components/Footer.tsx
+import React from "react";
+import Link from "next/link";
 
 const Footer: React.FC = () => {
-    return (
-        <footer className="w-full mt-16 py-8 bg-transparent">
-            <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-gray-600">
-                <div>© {new Date().getFullYear()} Rubikiai Lux. Todos los derechos reservados.</div>
-                <div className="flex gap-4">
-                    <a href="#">Términos</a>
-                    <a href="#">Privacidad</a>
-                </div>
-            </div>
-        </footer>
-    )
-}
+  const year = new Date().getFullYear();
 
+  return (
+    <footer className="w-full mt-12 border-t border-neutral-200 bg-[var(--color-background-main)]">
+      <div className="max-w-7xl mx-auto px-6 py-6">
+        {/* Navegación compacta */}
+        <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs md:text-sm text-neutral-700">
+          <Link href="/" className="hover:text-[var(--color-primary-dark)]">Home</Link>
+          <Link href="/reservations" className="hover:text-[var(--color-primary-dark)]">Reservation</Link>
+          <Link href="/coupons" className="hover:text-[var(--color-primary-dark)]">Coupons</Link>
+          <Link href="/privacy-policy" className="hover:text-[var(--color-primary-dark)]">Privacy</Link>
+        </nav>
 
-export default Footer
+        {/* Línea legal */}
+        <div className="mt-3 text-center text-[11px] md:text-xs text-neutral-500">
+          © {year} Rubikiai Lux — All rights are reserved.
+        </div>
+      </div>
+    </footer>
+  );
+};
+
+export default Footer;

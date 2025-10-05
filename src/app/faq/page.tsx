@@ -44,7 +44,7 @@ const FAQPage: React.FC = () => {
   const faqs = [
     {
       question: "What are the check-in and check-out times?",
-      answer: "Check-in time is from 4:00 PM. Check-out time is until 11:00 AM.",
+      answer: "Check-in time is from 16:00 PM. Check-out time is until 11:00 AM.",
     },
     {
       question: "Can I bring my pets?",
@@ -56,15 +56,19 @@ const FAQPage: React.FC = () => {
     },
     {
       question: "Can I cancel my reservation and get a refund?",
-      answer: "The reservation date can be changed no later than 7 days before arrival. The deposit (50% of the accommodation cost) is non-refundable.",
+      answer: "You may change the reservation date once free of charge no later than 7 days before arrival. The reservation deposit is non-refundable. Multiple date changes cost €20.",
     },
     {
       question: "Is there Wi-Fi available in the apartments?",
       answer: "Yes, all our apartments offer free and stable Wi-Fi connectivity for all our guests.",
     },
     {
-      question: "Do you have parking facilities?",
-      answer: "Yes, we provide free on-site parking for all our guests during their stay.",
+      question: "Do you have gift vouchers?",
+      answer: "Yes, they are valid for 1 year from purchase. You can buy them at www.rubikiailux.lt or info@rubikiailux.lt",
+    },
+        {
+      question: "Is the jacuzzi at an additional charge?",
+      answer: "Yes. Once the jacuzzi service is reserved, you can enjoy it from 18:00 to 24:00. All jacuzzis are electric, with lounge seats and massage jets...",
     },
   ];
 

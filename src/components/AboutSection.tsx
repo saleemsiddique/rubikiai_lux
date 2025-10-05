@@ -5,7 +5,7 @@ const AboutSection: React.FC = () => {
   return (
     <section className="relative w-full py-24 bg-gradient-to-br from-[var(--color-background-light)] via-[var(--color-background-main)] to-[var(--color-background-light)]">
       <div className="container mx-auto flex flex-col lg:flex-row items-center lg:items-stretch gap-16 lg:gap-24 px-6">
-        
+
         {/* Left - Large Image */}
         <div className="relative lg:w-1/2 w-full rounded-3xl overflow-hidden shadow-2xl">
           <img
@@ -24,8 +24,14 @@ const AboutSection: React.FC = () => {
           </h2>
 
           {/* Intro */}
-          <p className="text-lg md:text-xl font-light text-deep-green leading-relaxed">
-            Perched beside the peaceful Rubikiai Lake, our three exclusive accommodations are designed to blend timeless elegance with the tranquility of nature.
+          <p className="text-lg md:text-l font-light text-deep-green leading-relaxed">
+            Nordic-style relaxation for body and soul in every season...
+            Relax in Scandinavian-style duplex apartments by Lake Rubikiai in the Anykščiai district. Here you can
+            enjoy your private SPA hot tub (Jacuzzi) and watch the local residents—fallow deer—right from it. You
+            can feed them, and they’ll reward you with unforgettable moments, soothing therapy for the soul, and
+            peace...
+            For those seeking complete privacy—our luxurious Lake Cabin for two, embraced by nature, just 10 steps
+            from the lake and forest...          
           </p>
 
           {/* Details */}

@@ -26,6 +26,7 @@ export type HousePageProps = {
   houseSlug: string; // houseParam used to find real houseId in mapping
   defaultGuests?: string; // string because coming from query normally
   defaultType?: string;
+  description?: React.ReactNode;
   amenitiesSections?: AmenitiesSection[];
   mapSrc?: string;
 };
@@ -67,6 +68,7 @@ export default function HousePage(props: HousePageProps) {
     defaultType = "",
     amenitiesSections = [],
     mapSrc,
+    description, // NUEVO
   } = props;
 
   const router = useRouter();
@@ -377,8 +379,15 @@ export default function HousePage(props: HousePageProps) {
             <div className="lg:col-span-2">
               <h2 className="text-3xl font-bold mb-4 font-header text-[var(--color-primary-dark)]">About this place</h2>
               <div className="prose max-w-none font-sans text-gray-800">
-                <p>Details about the place. For full description, pass content in the page or enhance this component to accept <code>description</code> prop.</p>
-              </div>
+                {description ? (
+                  <div className="prose prose-neutral max-w-none">{description}</div>
+                ) : (
+                  <div className="prose prose-neutral max-w-none">
+                    <p className="text-neutral-700">
+                      Add a custom description using the <code>description</code> prop of <code>HousePage</code>.
+                    </p>
+                  </div>
+                )}              </div>
             </div>
 
             <div className="lg:col-span-1">
@@ -396,137 +405,177 @@ export default function HousePage(props: HousePageProps) {
                   </div>
                 </div>
 
-                {/* Coupon block */}
-                <div className="mb-4 p-4 rounded-md border bg-white">
-                  <h4 className="font-semibold mb-2">Have a coupon?</h4>
+                {/* Cupón + Resumen de pago */}
+                {startParam && endParam ? (
+                  <>
+                    {/* Coupon block */}
+                    <div className="mb-4 p-4 rounded-md border bg-white">
+                      <h4 className="font-semibold mb-2">Have a coupon?</h4>
 
-                  <div className="flex gap-2">
-                    <input
-                      value={couponCode}
-                      onChange={(e) => setCouponCode(e.target.value)}
-                      placeholder="Enter coupon code"
-                      className="flex-1 border rounded-md p-2"
-                      aria-label="Coupon code"
-                    />
-                    <button
-                      onClick={() => lookupCoupon(couponCode)}
-                      disabled={!couponCode || couponLoading}
-                      className="px-4 py-2 rounded-md bg-[var(--color-primary)] text-white font-semibold"
-                    >
-                      {couponLoading ? "Checking…" : "Lookup"}
-                    </button>
-                    {couponData && (
-                      <button
-                        onClick={handleRemoveCoupon}
-                        className="px-3 py-2 rounded-md border font-semibold"
-                        aria-label="Clear coupon"
-                      >
-                        Clear
-                      </button>
-                    )}
-                  </div>
-
-                  {couponError && <div className="text-sm text-red-600 mt-2">{couponError}</div>}
-
-                  {couponData && couponData.coupon && (
-                    <div className="mt-3 text-sm text-gray-700">
-                      <div className="font-medium">Coupon: {couponData.coupon.code} <span className="text-xs text-gray-500">({couponData.state})</span></div>
-                      <div className="mt-1">Remaining: <span className="font-semibold">{formatCurrency(Number(couponData.coupon.remaining ?? 0))}</span></div>
-                      {couponData.coupon.expiresAtIso && <div className="mt-1 text-xs text-gray-500">Expires: {formatDateFriendly(couponData.coupon.expiresAtIso)}</div>}
-
-                      <div className="mt-3">
-                        <label className="block text-xs mb-1">Amount to apply</label>
-                        <div className="flex gap-2 items-center">
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            value={applyInput}
-                            onChange={(e) => {
-                              // Acepta solo dígitos (permite escribir "1000" de una vez, pegar, etc.)
-                              const digitsOnly = e.target.value.replace(/\D/g, "");
-                              setApplyInput(digitsOnly);
-                              setApplyAmount(digitsOnly === "" ? "" : Number(digitsOnly));
-                            }}
-                            className="flex-1 border rounded-md p-2"
-                            aria-label="Amount to apply from coupon"
-                          />
-                          <button onClick={handleUseFullCoupon} className="px-3 py-2 rounded-md border">Use max</button>
-                          <button onClick={handleApplyCoupon} className="px-3 py-2 rounded-md bg-[var(--color-primary)] text-white font-semibold">Apply</button>
-                        </div>
-                        <div className="mt-2 text-xs text-gray-500">
-                          Amount cannot exceed coupon remaining, the reservation total, or the amount due now.
-                        </div>
+                      <div className="flex gap-2">
+                        <input
+                          value={couponCode}
+                          onChange={(e) => setCouponCode(e.target.value)}
+                          placeholder="Enter coupon code"
+                          className="flex-1 border rounded-md p-2"
+                          aria-label="Coupon code"
+                        />
+                        <button
+                          onClick={() => lookupCoupon(couponCode)}
+                          disabled={!couponCode || couponLoading}
+                          className="px-4 py-2 rounded-md bg-[var(--color-primary)] text-white font-semibold disabled:opacity-60"
+                        >
+                          {couponLoading ? "Checking…" : "Lookup"}
+                        </button>
+                        {couponData && (
+                          <button
+                            onClick={handleRemoveCoupon}
+                            className="px-3 py-2 rounded-md border font-semibold"
+                            aria-label="Clear coupon"
+                          >
+                            Clear
+                          </button>
+                        )}
                       </div>
 
-                      {couponApplied && (
-                        <div className="mt-3 p-3 rounded-md bg-green-50 border border-green-200 text-sm">
-                          Coupon applied: <span className="font-semibold">{formatCurrency(Number(applyAmount || 0))}</span>
-                          <button onClick={() => setCouponApplied(false)} className="ml-3 underline">Undo</button>
+                      {couponError && <div className="text-sm text-red-600 mt-2">{couponError}</div>}
+
+                      {couponData && couponData.coupon && (
+                        <div className="mt-3 text-sm text-gray-700">
+                          <div className="font-medium">
+                            Coupon: {couponData.coupon.code}{" "}
+                            <span className="text-xs text-gray-500">({couponData.state})</span>
+                          </div>
+                          <div className="mt-1">
+                            Remaining:{" "}
+                            <span className="font-semibold">
+                              {formatCurrency(Number(couponData.coupon.remaining ?? 0))}
+                            </span>
+                          </div>
+                          {couponData.coupon.expiresAtIso && (
+                            <div className="mt-1 text-xs text-gray-500">
+                              Expires: {formatDateFriendly(couponData.coupon.expiresAtIso)}
+                            </div>
+                          )}
+
+                          <div className="mt-3">
+                            <label className="block text-xs mb-1">Amount to apply</label>
+                            <div className="flex gap-2 items-center">
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                value={applyInput}
+                                onChange={(e) => {
+                                  const digitsOnly = e.target.value.replace(/\D/g, "");
+                                  setApplyInput(digitsOnly);
+                                  setApplyAmount(digitsOnly === "" ? "" : Number(digitsOnly));
+                                }}
+                                className="flex-1 border rounded-md p-2"
+                                aria-label="Amount to apply from coupon"
+                              />
+                              <button onClick={handleUseFullCoupon} className="px-3 py-2 rounded-md border">
+                                Use max
+                              </button>
+                              <button
+                                onClick={handleApplyCoupon}
+                                className="px-3 py-2 rounded-md bg-[var(--color-primary)] text-white font-semibold"
+                              >
+                                Apply
+                              </button>
+                            </div>
+                            <div className="mt-2 text-xs text-gray-500">
+                              Amount cannot exceed coupon remaining, the reservation total, or the amount due now.
+                            </div>
+                          </div>
+
+                          {couponApplied && (
+                            <div className="mt-3 p-3 rounded-md bg-green-50 border border-green-200 text-sm">
+                              Coupon applied:{" "}
+                              <span className="font-semibold">
+                                {formatCurrency(Number(applyAmount || 0))}
+                              </span>
+                              <button onClick={() => setCouponApplied(false)} className="ml-3 underline">
+                                Undo
+                              </button>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
-                  )}
-                </div>
 
-                {startParam && endParam && (
-                  <div className="mt-3 p-4 rounded-md border bg-white">
-                    <div className="text-sm font-medium text-gray-700">Payment summary</div>
+                    {/* Payment summary */}
+                    <div className="mt-3 p-4 rounded-md border bg-white">
+                      <div className="text-sm font-medium text-gray-700">Payment summary</div>
 
-                    <div className="mt-2 flex items-center justify-between text-sm text-gray-700">
-                      <div className="flex items-center">
-                        <FaUserFriends className="mr-2" />
-                        Guests: <span className="font-medium ml-1">{guestsDisplay}</span>
-                      </div>
-                      {typeParam && (
-                        <div className="text-sm">Type: <span className="font-medium ml-1">{typeParam}</span></div>
-                      )}
-                    </div>
-
-                    {loadingPrice ? (
-                      <div className="mt-2 text-sm text-gray-600">Calculating price…</div>
-                    ) : priceError ? (
-                      <div className="mt-2 text-sm text-red-600">Could not calculate price: {priceError}</div>
-                    ) : totalFromServer !== null ? (
-                      <div className="mt-2">
-                        <div className="text-xs text-gray-500">Total for the stay</div>
-                        <div className="text-lg font-semibold">
-                          {couponApplied ? (
-                            <>
-                              <del className="text-sm mr-2">{formatCurrency(origTotal)}</del>
-                              <span className="text-[var(--color-primary)-dark]">{formatCurrency(discountedTotal)}</span>
-                            </>
-                          ) : (
-                            <>{formatCurrency(totalFromServer)}</>
-                          )}
+                      <div className="mt-2 flex items-center justify-between text-sm text-gray-700">
+                        <div className="flex items-center">
+                          <FaUserFriends className="mr-2" />
+                          Guests: <span className="font-medium ml-1">{guestsDisplay}</span>
                         </div>
+                        {typeParam && (
+                          <div className="text-sm">
+                            Type: <span className="font-medium ml-1">{typeParam}</span>
+                          </div>
+                        )}
                       </div>
-                    ) : (
-                      <div className="mt-2 text-sm text-gray-600">
-                        Total price: <span className="font-medium">Price will be shown on selection</span>
-                      </div>
-                    )}
 
-                    <div className="mt-3 p-3 rounded-md bg-[var(--color-primary)]/10 border-l-4 border-[var(--color-primary)]">
-                      <div className="text-xs text-gray-600">Now to charge</div>
-                      {firstFromServer !== null ? (
-                        <div className="text-2xl font-bold text-[var(--color-primary)-dark]">
-                          {couponApplied ? (
-                            <>
-                              <del className="text-sm mr-2">{formatCurrency(origFirst)}</del>
-                              <span>{formatCurrency(discountedFirst)}</span>
-                            </>
-                          ) : (
-                            <>{formatCurrency(firstFromServer)}</>
-                          )}
+                      {loadingPrice ? (
+                        <div className="mt-2 text-sm text-gray-600">Calculating price…</div>
+                      ) : priceError ? (
+                        <div className="mt-2 text-sm text-red-600">Could not calculate price: {priceError}</div>
+                      ) : totalFromServer !== null ? (
+                        <div className="mt-2">
+                          <div className="text-xs text-gray-500">Total for the stay</div>
+                          <div className="text-lg font-semibold">
+                            {couponApplied ? (
+                              <>
+                                <del className="text-sm mr-2">{formatCurrency(origTotal)}</del>
+                                <span className="text-[var(--color-primary)-dark]">
+                                  {formatCurrency(discountedTotal)}
+                                </span>
+                              </>
+                            ) : (
+                              <>{formatCurrency(totalFromServer)}</>
+                            )}
+                          </div>
                         </div>
                       ) : (
-                        <div className="text-sm font-semibold text-gray-800">First night (price shown at checkout)</div>
+                        <div className="mt-2 text-sm text-gray-600">
+                          Total price: <span className="font-medium">Price will be shown on selection</span>
+                        </div>
                       )}
-                      <div className="mt-2 text-xs text-gray-600">The remaining amount will be charged on arrival.</div>
+
+                      <div className="mt-3 p-3 rounded-md bg-[var(--color-primary)]/10 border-l-4 border-[var(--color-primary)]">
+                        <div className="text-xs text-gray-600">Now to charge</div>
+                        {firstFromServer !== null ? (
+                          <div className="text-2xl font-bold text-[var(--color-primary)-dark]">
+                            {couponApplied ? (
+                              <>
+                                <del className="text-sm mr-2">{formatCurrency(origFirst)}</del>
+                                <span>{formatCurrency(discountedFirst)}</span>
+                              </>
+                            ) : (
+                              <>{formatCurrency(firstFromServer)}</>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-sm font-semibold text-gray-800">
+                            First night (price shown at checkout)
+                          </div>
+                        )}
+                        <div className="mt-2 text-xs text-gray-600">
+                          The remaining amount will be charged on arrival.
+                        </div>
+                      </div>
                     </div>
+                  </>
+                ) : (
+                  /* Fallback cuando no hay fechas */
+                  <div className="hidden">
                   </div>
                 )}
+
 
                 <button
                   onClick={handleReserveNow}

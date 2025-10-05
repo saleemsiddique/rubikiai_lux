@@ -42,12 +42,12 @@ const AccommodationsSection: React.FC = () => {
     {
       name: "Lake House",
       description: "A peaceful retreat with panoramic lake views, perfect for unwinding and reconnecting with nature.",
-      image: "/lake-house1.png",
+      image: "/ezero-namelis/lake-house1.png",
     },
     {
       name: "Duplex (No.1 & No.2)",
       description: "Two modern and cozy duplexes, ideal for groups of up to 4 people each, equipped with all the necessary amenities.",
-      image: "/dupleksas1.png",
+      image: "/dupleksas/dupleksas1.png",
     },
   ];
 

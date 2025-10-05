@@ -9,7 +9,7 @@ const AboutSection: React.FC = () => {
         {/* Left - Large Image */}
         <div className="relative lg:w-1/2 w-full rounded-3xl overflow-hidden shadow-2xl">
           <img
-            src="/renos.png"
+            src="/home/renos.png"
             alt="Rubikiai Lux by the lake"
             className="w-full h-full object-cover transform hover:scale-105 transition-transform duration-700 ease-out"
           />

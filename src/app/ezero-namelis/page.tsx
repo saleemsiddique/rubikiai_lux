@@ -12,14 +12,22 @@ import HousePage from "@/components/HousePage";
 
 
 const images = [
-  "/lake-house/img1.avif",
-  "/lake-house/img2.avif",
-  "/lake-house/img3.avif",
-  "/lake-house/img4.avif",
-  "/lake-house/img5.avif",
-  "/lake-house/img6.avif",
-  "/lake-house/img7.avif",
-  "/lake-house/img8.avif",
+  "/ezero-namelis/lake-house1.png",
+  "/ezero-namelis/ezero-n1.jpeg",
+  "/ezero-namelis/ezero-n2.jpeg",
+  "/ezero-namelis/ezero-n3.jpeg",
+  "/ezero-namelis/ezero-n4.jpeg",
+  "/ezero-namelis/ezero-n5.jpeg",
+  "/ezero-namelis/ezero-n6.jpeg",
+  "/ezero-namelis/ezero-n7.jpeg",
+  "/ezero-namelis/ezero-n8.jpeg",
+  "/ezero-namelis/ezero-n9.jpeg",
+  "/ezero-namelis/ezero-n10.jpeg",
+  "/ezero-namelis/ezero-n11.JPG",
+  "/ezero-namelis/ezero-n12.jpeg",
+  "/ezero-namelis/ezero-n13.jpg",
+  "/ezero-namelis/ezero-n14.jpeg",
+  "/ezero-namelis/ezero-n15.jpeg",
 ];
 
 

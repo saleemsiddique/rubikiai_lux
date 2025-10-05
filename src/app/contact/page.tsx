@@ -93,7 +93,7 @@ const ContactPage: React.FC = () => {
       {/* Right Section: Image */}
       <div className="w-full lg:w-1/2 relative h-96 lg:h-auto overflow-hidden">
         <Image
-          src="/reno-contacto.avif" // Asegúrate de tener esta imagen en tu carpeta public
+          src="/contact/reno-contacto.avif" // Asegúrate de tener esta imagen en tu carpeta public
           alt="Contact Image"
           layout="fill"
           objectFit="cover"

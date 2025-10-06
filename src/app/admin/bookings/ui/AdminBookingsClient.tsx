@@ -22,6 +22,7 @@ type Reservation = {
 };
 
 const STATUSES = ["reserved", "pending", "admin", "complete", "canceled", "expired"] as const;
+const CALENDAR_STATUSES = new Set(["reserved", "pending", "admin", "complete"]);
 
 /* ---------- helpers de fecha (LOCAL, sin toISOString) ---------- */
 function pad2(n: number) {
@@ -224,6 +225,9 @@ export default function AdminBookingsClient() {
         const MAX_DAYS_SAFE = 62; // por reserva dentro del mes; suficiente para meses largos + margen
 
         for (const r of occReservations) {
+            const st = String(r.status || "").toLowerCase();
+            if (!CALENDAR_STATUSES.has(st as any)) continue; // ignora canceled/expired (y cualquier otro no permitido)
+
             const ci = r.checkIn;
             const co = r.checkOut;
             if (!isISODate(ci) || !isISODate(co)) continue;
@@ -485,6 +489,7 @@ export default function AdminBookingsClient() {
 
                                                     <button
                                                         onClick={async () => {
+                                                            if (r.status === "admin") return;
                                                             if (!confirm("¿Marcar pago completo y completar?")) return;
                                                             try {
                                                                 await updateStatus(r.id, "complete", true);
@@ -492,10 +497,13 @@ export default function AdminBookingsClient() {
                                                                 alert(er?.message || "Error");
                                                             }
                                                         }}
-                                                        className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
+                                                        disabled={r.status === "admin"}
+                                                        title={r.status === "admin" ? "Bloqueos de admin no pueden completarse" : undefined}
+                                                        className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                                     >
                                                         Pago completo
                                                     </button>
+
 
                                                     <button
                                                         onClick={async () => {
@@ -587,23 +595,30 @@ export default function AdminBookingsClient() {
                                 }
 
                                 const list = dayMap.get(cell.iso) || [];
+                                const hasAdmin = list.some(r => r.status === "admin");
+                                const onlyAdmin = hasAdmin && list.every(r => r.status === "admin");
                                 const busy = list.length > 0;
 
                                 return (
                                     <button
                                         key={cell.key}
                                         onClick={() => setSelectedDay(cell.iso!)}
-                                        className={`h-16 rounded-md border text-xs flex flex-col items-center justify-center ${busy
-                                            ? "bg-[var(--color-primary)]/10 border-[var(--color-primary)]/40"
-                                            : "bg-white"
+                                        className={`h-16 rounded-md border text-xs flex flex-col items-center justify-center ${onlyAdmin
+                                            ? "bg-neutral-200 border-neutral-300 text-neutral-700"
+                                            : busy
+                                                ? "bg-[var(--color-primary)]/10 border-[var(--color-primary)]/40"
+                                                : "bg-white"
                                             } hover:bg-neutral-50`}
                                     >
                                         <div className="font-semibold">{cell.dayNum}</div>
-                                        {busy && (
+                                        {onlyAdmin ? (
+                                            <div className="text-[10px] text-neutral-700">Bloqueado</div>
+                                        ) : busy && (
                                             <div className="text-[10px] text-[var(--color-primary-dark)]">
                                                 {list.length} reserva{list.length > 1 ? "s" : ""}
                                             </div>
                                         )}
+
                                     </button>
                                 );
                             })}
@@ -626,13 +641,17 @@ export default function AdminBookingsClient() {
                                             <div className="mt-2 flex gap-2">
                                                 <button
                                                     onClick={async () => {
+                                                        if (r.status === "admin") return;
+                                                        if (!confirm("¿Marcar pago completo y completar?")) return;
                                                         try {
                                                             await updateStatus(r.id, "complete", true);
-                                                        } catch (e: any) {
-                                                            alert(e?.message || "Error");
+                                                        } catch (er: any) {
+                                                            alert(er?.message || "Error");
                                                         }
                                                     }}
-                                                    className="rounded-md border px-2 py-1 hover:bg-neutral-50"
+                                                    disabled={r.status === "admin"}
+                                                    title={r.status === "admin" ? "Bloqueos de admin no pueden completarse" : undefined}
+                                                    className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                                 >
                                                     Pago completo
                                                 </button>
@@ -677,7 +696,7 @@ export default function AdminBookingsClient() {
                                 className="border rounded-md p-2"
                             />
 
-                            <label className="text-xs text-neutral-600">House ID (opcional)</label>
+                            <label className="text-xs text-neutral-600">House ID</label>
                             <input
                                 value={blockHouseId}
                                 onChange={(e) => setBlockHouseId(e.target.value)}

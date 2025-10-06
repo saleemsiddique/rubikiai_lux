@@ -38,10 +38,11 @@ export default async function AdminMenuPage() {
             <div className="font-semibold">Cupones</div>
             <div className="text-xs text-neutral-600">Crea y edita códigos</div>
           </a>
-          <a href="/admin/houses" className="rounded-xl border p-4 bg-white hover:bg-neutral-50">
-            <div className="font-semibold">Alojamientos</div>
-            <div className="text-xs text-neutral-600">Precios, disponibilidad, etc.</div>
+          <a href="/admin/revenue" className="rounded-xl border p-4 bg-white hover:bg-neutral-50">
+            <div className="font-semibold">Ingresos</div>
+            <div className="text-xs text-neutral-600">Reservas + cupones · exportar Excel</div>
           </a>
+
         </div>
 
         <div className="mt-8 text-xs text-neutral-500">

@@ -36,7 +36,63 @@ export async function POST(req: Request) {
       return Response.json({ error: "Invalid date range" }, { status: 400 });
     }
 
-    let payload: any = {
+    // NUEVO: no permitir pasado (comparación por fecha, sin horas)
+    const today = new Date();
+    const todayISO = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    if (checkOut <= todayISO) {
+      return Response.json({ error: "Cannot block past dates" }, { status: 400 });
+    }
+
+    let targetHouseIds: string[] = [];
+    if (houseIds && Array.isArray(houseIds) && houseIds.length) {
+      targetHouseIds = houseIds.map((x: any) => String(x));
+    } else if (houseId) {
+      targetHouseIds = [String(houseId)];
+    } else {
+      return Response.json({ error: "houseId or houseIds required" }, { status: 400 });
+    }
+
+    // NUEVO: comprobar solape con reservas existentes bloqueantes (reserved|complete|admin)
+    // Regla de solape: [Astart, Aend) solapa [Bstart, Bend) si Astart < Bend && Bstart < Aend
+    const blockingStatuses = ["reserved", "complete", "admin"];
+    const reservationsRef = adminDb.collection("reservations");
+
+    // Buscamos por cada houseId tanto en houseId== como en array-contains houseIds
+    // (podrías optimizar con un query compuesto y OR; Firestore no tiene OR puro sin index compuesto,
+    // por lo que hacemos 2 consultas por house y combinamos)
+    const conflictPromises = targetHouseIds.map(async (hid) => {
+      const q1 = await reservationsRef
+        .where("houseId", "==", hid)
+        .where("status", "in", blockingStatuses as any)
+        .get();
+
+      const q2 = await reservationsRef
+        .where("houseIds", "array-contains", hid)
+        .where("status", "in", blockingStatuses as any)
+        .get();
+
+      const docs = new Map<string, FirebaseFirestore.DocumentData>();
+      q1.docs.forEach(d => docs.set(d.id, d.data()));
+      q2.docs.forEach(d => docs.set(d.id, d.data()));
+
+      // Chequeo de solape
+      for (const data of docs.values()) {
+        const rIn = String(data.checkIn);
+        const rOut = String(data.checkOut);
+        if (rIn < checkOut && checkIn < rOut) {
+          return true; // hay conflicto
+        }
+      }
+      return false;
+    });
+
+    const conflictsArray = await Promise.all(conflictPromises);
+    if (conflictsArray.some(Boolean)) {
+      return Response.json({ error: "Date range overlaps an existing reservation (reserved/complete/admin)" }, { status: 409 });
+    }
+
+    // Si todo OK → crear el bloqueo
+    const payload: any = {
       status: "admin",
       createdBy: me.email || me.uid,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -48,17 +104,9 @@ export async function POST(req: Request) {
       discountedTotal: 0,
       firstNightCharge: 0,
       currency: "EUR",
+      houseIds: targetHouseIds,
+      houseId: targetHouseIds[0],
     };
-
-    if (houseIds && Array.isArray(houseIds) && houseIds.length) {
-      payload.houseIds = houseIds.map((x: any) => String(x));
-      payload.houseId = payload.houseIds[0];
-    } else if (houseId) {
-      payload.houseId = String(houseId);
-      payload.houseIds = [payload.houseId];
-    } else {
-      return Response.json({ error: "houseId or houseIds required" }, { status: 400 });
-    }
 
     const ref = await adminDb.collection("reservations").add(payload);
     const snap = await ref.get();
@@ -68,3 +116,4 @@ export async function POST(req: Request) {
     return Response.json({ error: e?.message || "Block error" }, { status: 400 });
   }
 }
+

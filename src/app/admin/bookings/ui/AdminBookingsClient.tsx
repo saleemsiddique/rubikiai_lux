@@ -22,7 +22,7 @@ type Reservation = {
 };
 
 const STATUSES = ["reserved", "pending", "admin", "complete", "canceled", "expired"] as const;
-const CALENDAR_STATUSES = new Set(["reserved", "pending", "admin", "complete"]);
+const CALENDAR_STATUSES = new Set(["reserved", "admin", "complete"]);
 
 /* ---------- helpers de fecha (LOCAL, sin toISOString) ---------- */
 function pad2(n: number) {
@@ -250,6 +250,8 @@ export default function AdminBookingsClient() {
                 const arr = m.get(d) || [];
                 // De-duplicación por si llegara duplicada:
                 if (!arr.some(x => x.id === r.id)) {
+                    (r as any).__isCheckInDay = (d === r.checkIn);
+                    (r as any).__isCheckOutDay = (d === r.checkOut)
                     arr.push(r);
                     m.set(d, arr);
                 }
@@ -262,6 +264,37 @@ export default function AdminBookingsClient() {
         }
         return m;
     }, [occReservations, monthStart, monthEndExclusive]);
+
+    // Estados que impiden bloquear si hay solape
+    const BLOCKING_STATES = new Set(["reserved", "complete", "admin"]);
+
+    function rangesOverlap(aStart: string, aEnd: string, bStart: string, bEnd: string) {
+        // Todos en "YYYY-MM-DD", tratamos como [start, end) exclusivo
+        return aStart < bEnd && bStart < aEnd;
+    }
+
+    async function checkBlockConflicts(startISO: string, endISO: string, houseId: string) {
+        // Llama a tu endpoint de occupancy para el rango a bloquear
+        const params = new URLSearchParams();
+        params.set("start", startISO);
+        params.set("end", endISO);
+        if (houseId) params.set("houseId", houseId);
+
+        const res = await fetchWithTimeout(`/api/admin/reservations/occupancy?${params.toString()}`, {}, 20000);
+        if (!res.ok) {
+            const detail = await readError(res);
+            throw new Error(detail || "No se pudo comprobar ocupación");
+        }
+        const json = await res.json();
+        const list: Reservation[] = json.results || [];
+
+        // Filtra por estados que bloquean
+        const blockers = list.filter(r => BLOCKING_STATES.has(String(r.status || "").toLowerCase() as any));
+
+        // ¿Hay solape con el rango nuevo?
+        return blockers.some(r => rangesOverlap(startISO, endISO, r.checkIn, r.checkOut));
+    }
+
 
     /* ---------- acciones ---------- */
     const updateStatus = async (id: string, status: string, paidInFull?: boolean) => {
@@ -295,6 +328,27 @@ export default function AdminBookingsClient() {
         setBlockBusy(true);
         setBlockMsg(null);
         try {
+            // Validaciones locales
+            if (!blockHouseId) {
+                throw new Error("Debes indicar un House ID para bloquear.");
+            }
+            if (!(isISODate(blockStart) && isISODate(blockEnd)) || !(blockStart < blockEnd)) {
+                throw new Error("Rango de fechas inválido.");
+            }
+
+            // no permitir pasado (comparamos con hoy local, sin horas)
+            const todayISO = toISO(new Date());
+            if (blockEnd <= todayISO) {
+                throw new Error("No puedes bloquear fechas en el pasado.");
+            }
+
+            // Comprobar conflictos server-side (ocupación real) para el rango
+            const hasConflict = await checkBlockConflicts(blockStart, blockEnd, blockHouseId);
+            if (hasConflict) {
+                throw new Error("Las fechas seleccionadas pisan una reserva existente (reserved / complete / admin).");
+            }
+
+            // Si todo ok → hacer el POST
             const res = await fetchWithTimeout(
                 "/api/admin/reservations/block",
                 {
@@ -325,11 +379,6 @@ export default function AdminBookingsClient() {
             setBlockBusy(false);
         }
     };
-
-    const days = Array.from(
-        { length: daysInMonth(calYear, calMonth) },
-        (_, i) => toISO(new Date(calYear, calMonth, i + 1))
-    );
 
     /* ---------- UI ---------- */
     return (
@@ -497,7 +546,7 @@ export default function AdminBookingsClient() {
                                                                 alert(er?.message || "Error");
                                                             }
                                                         }}
-                                                        disabled={r.status === "admin"}
+                                                        disabled={r.status === "admin" || r.status === "complete" || r.status === "canceled"}
                                                         title={r.status === "admin" ? "Bloqueos de admin no pueden completarse" : undefined}
                                                         className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                                     >
@@ -514,7 +563,8 @@ export default function AdminBookingsClient() {
                                                                 alert(er?.message || "Error");
                                                             }
                                                         }}
-                                                        className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
+                                                        className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        disabled={r.status == "admin" || r.status == "complete" || r.status == "canceled"}
                                                     >
                                                         Cancelar
                                                     </button>
@@ -618,6 +668,7 @@ export default function AdminBookingsClient() {
                                                 {list.length} reserva{list.length > 1 ? "s" : ""}
                                             </div>
                                         )}
+
 
                                     </button>
                                 );

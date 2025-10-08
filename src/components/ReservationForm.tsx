@@ -748,10 +748,10 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
   /* ---------------- Carousel rendering (trimmed) ---------------- */
   const renderCarouselForHouse = (house: HouseLight, mode: "arrival" | "departure") => {
     const houseId = house.id;
-    const offset = getOffset(houseId, mode); // offset actual (puede ser negativo/positivo)
-    const STEP = 7; // paso al avanzar/retroceder (7 días como en tu uso original)
+    const offset = getOffset(houseId, mode);
+    const STEP = 7;
 
-    // baseCandidate: punto de referencia desde el que aplicamos offset
+    // base para el carrusel según modo
     const baseCandidate =
       mode === "departure" && endDate ? new Date(endDate) : (startDate ? new Date(startDate) : new Date());
 
@@ -761,34 +761,31 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     const diffDays = (a: Date, b: Date) => Math.round((stripTime(a).getTime() - stripTime(b).getTime()) / msPerDay);
 
     const today = stripTime(new Date());
-    const globalMax = stripTime(getGlobalMaxDate()); // hoy + 1 año
+    const globalMax = stripTime(getGlobalMaxDate());
 
-    // mínimos y máximos permitidos para mostrar tarjetas (siempre [hoy, hoy+1año])
+    // límites globales de ventana [hoy, hoy+1año]
     const minAllowed = today;
     const maxAllowed = globalMax;
 
-    // para departure no mostrar antes de la llegada (si existe)
+    // en departure no mostrar antes de la llegada (si existe)
     const minForMode = mode === "departure" && startDate ? stripTime(new Date(startDate)) : minAllowed;
 
-    // determinamos el rango válido para la "primera fecha" de la ventana (firstDay)
-    // Queremos: firstDay >= minForMode  && lastDay <= maxAllowed
-    // lastDay = firstDay + (DATE_WINDOW_DAYS - 1) => firstDay <= maxAllowed - (DATE_WINDOW_DAYS - 1)
+    // rango válido para el primer día de la ventana
     const maxStartBaseCandidate = stripTime(addDays(maxAllowed, -(DATE_WINDOW_DAYS - 1)));
     const maxStartBase = maxStartBaseCandidate < minForMode ? minForMode : maxStartBaseCandidate;
     const minStartBase = minForMode;
 
-    // offsets permitidos respecto a baseCandidate
+    // offsets permitidos
     const allowedOffsetMin = diffDays(minStartBase, baseCandidate);
     const allowedOffsetMax = diffDays(maxStartBase, baseCandidate);
 
-    // clamp the rendering offset in case external state is out-of-range
+    // clamp del offset
     const effectiveOffset = Math.min(Math.max(offset, allowedOffsetMin), allowedOffsetMax);
 
-    // flags para habilitar/deshabilitar botones
+    // navegación
     const canPrev = effectiveOffset > allowedOffsetMin;
     const canNext = effectiveOffset < allowedOffsetMax;
 
-    // handlers que clampean el offset antes de setearlo
     const goPrev = () => {
       if (!canPrev) return;
       const target = Math.max(effectiveOffset - STEP, allowedOffsetMin);
@@ -801,11 +798,10 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       setOffset(houseId, mode, target);
     };
 
-    // construimos la base final según effectiveOffset (no mutamos el offset original)
+    // base final + días de la ventana
     const base = addDays(baseCandidate, effectiveOffset);
-    let finalBase = new Date(base);
+    const finalBase = new Date(base);
 
-    // generamos el array de días y lo filtramos para que respete [minForMode, maxAllowed]
     let days: Date[] = Array.from({ length: DATE_WINDOW_DAYS }).map((_, i) => addDays(finalBase, i));
     days = days.filter((d) => {
       const sd = stripTime(d);
@@ -844,41 +840,67 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
           <div className="inline-flex gap-3 py-2">
             {days.map((d) => {
               const ds = dateIso(d);
-              const occupied = occupiedSet.has(ds);
+              const isOccupied = occupiedSet.has(ds);
+              const isPrevOccupied = occupiedSet.has(dateIso(addDays(d, -1)));
+              const isCheckinStart = isOccupied && !isPrevOccupied; // ya lo tienes
+              const isCheckoutEnd = !isOccupied && isPrevOccupied;  // 👈 NUEVO: fin de ocupación (checkout)
+
+              // reglas de deshabilitado
               let disabled = false;
 
-              // bloquear fechas pasadas (comparando con ayer): si d < today entonces bloquear
-              if (stripTime(d).getTime() < stripTime(new Date()).getTime()) disabled = true;
+              // 1) pasadas
+              if (stripTime(d).getTime() < today.getTime()) disabled = true;
 
-              // bloquear si ocupado
-              if (occupied) disabled = true;
+              // 2) arrival: bloquear si el día está ocupado (check-in no posible ese día)
+              //    (un día de checkout NO suele estar en occupiedSet; por eso se permite)
+              if (mode === "arrival" && isOccupied) disabled = true;
 
               if (mode === "departure") {
                 if (startDate) {
-                  const startIsoDate = stripTime(new Date(startDate));
-                  if (stripTime(d).getTime() < startIsoDate.getTime()) disabled = true;
+                  const startDay = stripTime(new Date(startDate));
+                  if (stripTime(d).getTime() <= startDay.getTime()) disabled = true;
                 }
+                // bloquear si es un día ocupado "real" (no inicio de ocupación)
+                if (isOccupied && !isCheckinStart) disabled = true;
+
+                // NO bloquear si es el día de checkout (isCheckoutEnd)
+                // (no añadas nada aquí: al ser false, queda clicable)
               }
+
 
               const selectedArrival = startDate && dateIso(startDate) === ds;
               const selectedDeparture = endDate && dateIso(endDate) === ds;
               const inRange = startDate && endDate && dateIso(startDate) <= ds && ds <= dateIso(endDate);
 
+              const paintAsOccupied =
+                (mode === "arrival" && isOccupied) ||
+                (mode === "departure" && ((isOccupied && !isCheckinStart) || isCheckoutEnd)); // 👈 incluye checkout
+
               const classes = [
                 "min-w-[96px] p-3 rounded-lg text-center border transition-transform transform hover:scale-105 flex flex-col items-center justify-between",
               ];
-              if (occupied) classes.push("bg-red-600 text-white cursor-not-allowed");
-              else if (selectedArrival || selectedDeparture) classes.push("bg-[var(--color-primary)] text-white");
-              else if (inRange) classes.push("bg-[var(--color-primary)]/10");
-              else classes.push("bg-white text-[var(--color-text)]");
-              if (disabled && !occupied) classes.push("opacity-60 cursor-not-allowed");
+
+              if (paintAsOccupied) {
+                classes.push("bg-red-600 text-white");
+                if (disabled) classes.push("cursor-not-allowed"); // solo si realmente está bloqueado
+              } else if (selectedArrival || selectedDeparture) {
+                classes.push("bg-[var(--color-primary)] text-white");
+              } else if (inRange) {
+                classes.push("bg-[var(--color-primary)]/10");
+              } else {
+                classes.push("bg-white text-[var(--color-text)]");
+              }
+
+              if (disabled && !paintAsOccupied) classes.push("opacity-60 cursor-not-allowed");
+
+
 
               return (
                 <button
                   key={ds}
                   className={classes.join(" ")}
                   onClick={() => {
-                    if (occupied || disabled) return;
+                    if (disabled) return;
                     if (mode === "arrival") handleSelectArrival(houseId, d);
                     else handleSelectDeparture(houseId, d);
                   }}
@@ -886,7 +908,9 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                   <div className="text-sm font-semibold">{formatDateDDMMYYYY(d)}</div>
                   <div className="text-xs text-gray-500">{d.toLocaleString(undefined, { weekday: "short" })}</div>
                   <div className="mt-2"><PriceBadgeLocal houseId={house.id} date={d} /></div>
-                  <div className="text-xs mt-2">{occupied ? "Booked" : mode === "arrival" ? "Arrive" : "Depart"}</div>
+                  <div className="text-xs mt-2">
+                    {mode === "arrival" && isOccupied ? "Booked" : mode === "arrival" ? "Arrive" : "Depart"}
+                  </div>
                 </button>
               );
             })}
@@ -895,6 +919,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       </div>
     );
   };
+
 
 
   /* ---------------- Render ---------------- */

@@ -117,7 +117,7 @@ the ODR platform at http://ec.europa.eu/odr/`;
 
 export default function PrivacyPolicyPage() {
   return (
-    <main className="bg-[var(--color-background-main)] min-h-screen">
+    <main className="bg-[var(--color-background-main)] min-h-screen pt-8">
       <section className="max-w-4xl mx-auto px-6 md:px-8 py-12 md:py-16">
         <h1 className="text-3xl md:text-4xl font-bold text-[var(--color-primary-dark)]">
           Privacy Policy

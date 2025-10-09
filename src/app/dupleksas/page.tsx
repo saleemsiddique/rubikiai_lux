@@ -34,7 +34,7 @@ const DuplexSelectionPage: React.FC = () => {
       {/* Opción 2: Dúplex N°2 */}
       <Link href="/dupleksas/salia-elniu-panorama" className="relative flex-1 group overflow-hidden cursor-pointer h-screen">
         <Image
-          src="/dupleksas/dupleksas2.png"
+          src="/dupleksas/2-dupleksas-n1.jpeg"
           alt="Dúplex N°2 - Elnių Panorama"
           layout="fill"
           objectFit="cover"

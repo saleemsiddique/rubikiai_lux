@@ -14,17 +14,17 @@ const OtherOptions: React.FC = () => {
     {
       name: 'Duplex N°1 - Šalia Elnių Aptvaro',
       path: '/dupleksas/salia-elniu-aptvaro',
-      image: '/dupleksas1.png',
+      image: '/dupleksas/1-dupleksas-n1.jpeg',
     },
     {
       name: 'Duplex N°2 - Elnių Panorama',
       path: '/dupleksas/salia-elniu-panorama',
-      image: '/dupleksas2.png',
+      image: '/dupleksas/2-dupleksas-n1.jpeg',
     },
     {
       name: 'EŽERO NAMELIS',
       path: '/ezero-namelis',
-      image: '/lake-house1.png',
+      image: '/ezero-namelis/ezero-namelis.png',
     },
   ];
 

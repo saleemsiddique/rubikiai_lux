@@ -12,7 +12,7 @@ import HousePage from "@/components/HousePage";
 
 
 const images = [
-  "/ezero-namelis/lake-house1.png",
+  "/ezero-namelis/ezero-namelis.png",
   "/ezero-namelis/ezero-n1.jpeg",
   "/ezero-namelis/ezero-n2.jpeg",
   "/ezero-namelis/ezero-n3.jpeg",
@@ -34,7 +34,7 @@ const images = [
 export default function EzeroNamelisPage() {
   return (
     <HousePage
-      heroSrc="/lake-house1.png"
+      heroSrc="/ezero-namelis/ezero-namelis.png"
       title="EŽERO NAMELIS"
       subtitle="A private and romantic cottage for two."
       accommodates={2}

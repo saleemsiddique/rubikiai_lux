@@ -4,9 +4,8 @@ import { redirect } from "next/navigation";
 import HousePage from "@/components/HousePage";
 
 const panoramaImages = [
-  "/dupleksas/dupleksas2.png",
   "/dupleksas/2-dupleksas-n1.jpeg",
-  "/dupleksas/2-dupleksas-n2.jpeg",
+  "/dupleksas/2-dupleksas-n2.jpg",
   "/dupleksas/2-dupleksas-n3.jpeg",
   "/dupleksas/dupleksas-n4.JPG",
   "/dupleksas/dupleksas-n5.JPG",
@@ -41,7 +40,7 @@ export default function Page({
 
   return (
     <HousePage
-      heroSrc="/dupleksas/dupleksas2.png"
+      heroSrc="/dupleksas/1-dupleksas-n1.jpeg"
       title="N°2 - Elnių Panorama"
       subtitle="Experience magical moments by the Rubikiai lake."
       accommodates={ACCOMMODATES}

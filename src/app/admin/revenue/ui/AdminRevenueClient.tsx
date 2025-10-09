@@ -170,58 +170,44 @@ export default function AdminRevenueClient() {
       const XLSX = await import("xlsx"); // dynamic import para client
       const wb = XLSX.utils.book_new();
 
-      // Sheet: Reservations
+      // Sheet: Reservations (campos solicitados)
       const resData = reservations.map((r) => ({
         id: r.id,
         status: r.status,
-        checkIn: r.checkIn,
-        checkOut: r.checkOut,
+        checkin: r.checkIn,
+        checkout: r.checkOut,
         nights: r.nights,
         guests: r.guests,
-        house: r.houseId || (r.houseIds ? r.houseIds.join("__") : ""),
-        customerEmail: r.customerEmail || "",
+        customer: r.customerEmail ?? "",
         currency: r.currency,
         total: r.total,
-        discountedTotal: r.discountedTotal ?? "",
         firstNightBase: r.firstNightBase ?? "",
-        firstNightCharge: r.firstNightCharge ?? "",
-        discountedFirst: r.discountedFirst ?? "",
-        paidInFull: r.paidInFull ? "yes" : "no",
-        createdAtIso: r.createdAtIso || "",
-        paidAtIso: r.paidAtIso || "",
+        firstNightCharge: r.discountedFirst ?? "",
       }));
       const wsRes = XLSX.utils.json_to_sheet(resData);
       XLSX.utils.book_append_sheet(wb, wsRes, "Reservations");
 
-      // Sheet: CouponOrders
+      // Sheet: CouponOrders (sin completedAtIso, stripeSessionId, stripePaymentIntentId)
       const ordData = orders.map((o) => ({
         id: o.id,
         status: o.status,
-        buyerEmail: o.buyerEmail || "",
+        buyerEmail: o.buyerEmail ?? "",
         quantity: o.quantity,
         unitAmount: o.unitAmount,
         currency: o.currency,
         revenue: o.revenue,
-        createdAtIso: o.createdAtIso || "",
-        completedAtIso: o.completedAtIso || "",
-        stripeSessionId: o.stripeSessionId || "",
-        stripePaymentIntentId: o.stripePaymentIntentId || "",
+        createdAtIso: o.createdAtIso ?? "",
       }));
       const wsOrd = XLSX.utils.json_to_sheet(ordData);
       XLSX.utils.book_append_sheet(wb, wsOrd, "CouponOrders");
 
-      // Sheet: Summary
+      // Sheet: Summary (solo métricas pedidas)
       const summaryRows = [
-        ["Periodo", `${start} → ${end}`],
-        ["Filtro reservas por", "createdAt"],
-        ["Reservas (unidades)", reservations.length],
-        ["Reservas - total contractual", resMetrics.totalContracted],
-        ["Reservas - depósitos", resMetrics.totalDeposits],
-        ["Reservas - cobrado ahora", resMetrics.totalCollectedNow],
-        ["Cupones vendidos (unidades)", couponMetrics.ordersCount],
-        ["Cupones - ingresos", couponMetrics.couponsRevenue],
-        ["TOTAL COBRADO AHORA (res+cupones)", combined.collected],
-        ["TOTAL CONTRACTUAL (res+cupones)", combined.contracted],
+        ["Reservas (cantidad)", reservations.length],
+        ["Reservas - cobrado", resMetrics.totalCollectedNow],
+        ["Cupones (cantidad)", couponMetrics.ordersCount],
+        ["Cupones - cobrado", couponMetrics.couponsRevenue],
+        ["TOTAL COBRADO (res+cupones)", combined.collected],
       ];
       const wsSum = XLSX.utils.aoa_to_sheet(summaryRows);
       XLSX.utils.book_append_sheet(wb, wsSum, "Summary");
@@ -232,6 +218,7 @@ export default function AdminRevenueClient() {
       alert(e?.message || "No se pudo exportar a Excel");
     }
   };
+
 
   const StatusPill = ({ s }: { s: string }) => (
     <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px]">

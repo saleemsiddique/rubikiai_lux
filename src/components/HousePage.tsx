@@ -44,8 +44,14 @@ const formatDateFriendly = (iso?: string | null) => {
 
 const formatCurrency = (n?: number | null) => {
   if (n == null || Number.isNaN(n)) return null;
-  return `${Number(n).toFixed(0)}€`;
+  return new Intl.NumberFormat("es-ES", {
+    style: "currency",
+    currency: "EUR",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(n);
 };
+
 
 const isIsoDateString = (s: string | null) => {
   if (!s) return false;
@@ -231,6 +237,9 @@ export default function HousePage(props: HousePageProps) {
 
   const handleApplyCoupon = () => {
     setCouponError(null);
+    setStripeFixVisible(false);
+    setStripeFixContext(null);
+
     if (!couponData || !couponData.coupon) {
       setCouponError("No coupon loaded. Enter a code and lookup first.");
       return;
@@ -239,7 +248,7 @@ export default function HousePage(props: HousePageProps) {
     const remaining = Number(couponData.coupon.remaining ?? 0);
     const toApply = Number(applyAmount || 0);
 
-    if (toApply <= 0) {
+    if (!Number.isFinite(toApply) || toApply <= 0) {
       setCouponError("Please enter an amount greater than 0 to apply.");
       return;
     }
@@ -260,9 +269,29 @@ export default function HousePage(props: HousePageProps) {
       return;
     }
 
-    // Permitimos 100% (puede dejar primera noche a 0 €); el backend tiene la rama free-order
+    // --- Nueva lógica anti 0,01–0,49 € ---
+    const first = firstFromServer ?? 0;
+    const discountedFirst = Math.max(0, first - toApply);
+    const dfCents = toCents(discountedFirst);
+
+    if (dfCents > 0 && dfCents < STRIPE_MIN_CENTS) {
+      // Prepara sugerencias
+      const toApplyCents = toCents(toApply);
+      const capNowCents = toCents(capNow);
+      const totalCents = toCents(totalFromServer);
+
+      setCouponError(
+        "El cobro no puede quedar entre 0.01€ y 0.49€. Ajusta el cupón o usa una de las opciones siguientes."
+      );
+      setStripeFixVisible(true);
+      setStripeFixContext({ toApplyCents, discountedFirstCents: dfCents, capNowCents, totalCents });
+      return;
+    }
+
+    // OK: aplica
     setCouponApplied(true);
   };
+
 
   const handleUseFullCoupon = () => {
     if (!couponData) return;
@@ -348,6 +377,22 @@ export default function HousePage(props: HousePageProps) {
   const appliedVal = couponApplied ? Number(applyAmount || 0) : 0;
   const discountedTotal = Math.max(0, origTotal - appliedVal);
   const discountedFirst = Math.max(0, origFirst - appliedVal);
+
+  // Helpers céntimos
+  const toCents = (n: number) => Math.round(n * 100);
+  const fromCents = (c: number) => c / 100;
+
+  const STRIPE_MIN_EUR = 0.5;
+  const STRIPE_MIN_CENTS = 50;
+
+  // Estado para sugerencias Stripe
+  const [stripeFixVisible, setStripeFixVisible] = useState(false);
+  const [stripeFixContext, setStripeFixContext] = useState<{
+    toApplyCents: number;
+    discountedFirstCents: number;
+    capNowCents: number;
+    totalCents: number;
+  } | null>(null);
 
   return (
     <main className="bg-gray-100 text-[var(--color-text)]">
@@ -463,17 +508,23 @@ export default function HousePage(props: HousePageProps) {
                             <div className="flex gap-2 items-center">
                               <input
                                 type="text"
-                                inputMode="numeric"
-                                pattern="[0-9]*"
+                                inputMode="decimal"
+                                // permite 0, 0.5, 0,50, 12.34, 12,34 con hasta 2 decimales
+                                pattern="^\d*([.,]\d{0,2})?$"
                                 value={applyInput}
                                 onChange={(e) => {
-                                  const digitsOnly = e.target.value.replace(/\D/g, "");
-                                  setApplyInput(digitsOnly);
-                                  setApplyAmount(digitsOnly === "" ? "" : Number(digitsOnly));
+                                  const raw = e.target.value;
+                                  // normaliza coma a punto, y descarta lo que no cumpla el patrón
+                                  const normalized = raw.replace(",", ".");
+                                  if (/^\d*([.]\d{0,2})?$/.test(normalized)) {
+                                    setApplyInput(raw); // mostramos tal cual escribió el usuario
+                                    setApplyAmount(normalized === "" ? "" : parseFloat(normalized));
+                                  }
                                 }}
                                 className="flex-1 border rounded-md p-2"
                                 aria-label="Amount to apply from coupon"
                               />
+
                               <button onClick={handleUseFullCoupon} className="px-3 py-2 rounded-md border">
                                 Use max
                               </button>
@@ -487,6 +538,83 @@ export default function HousePage(props: HousePageProps) {
                             <div className="mt-2 text-xs text-gray-500">
                               Amount cannot exceed coupon remaining, the reservation total, or the amount due now.
                             </div>
+                            {stripeFixVisible && stripeFixContext && (
+                              <div className="mt-3 p-3 rounded-md bg-amber-50 border border-amber-200 text-sm">
+                                <div className="font-medium mb-2">
+                                  El cobro no puede quedar entre 0.01€ y 0.49€.
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                  {/* Opción A: dejar 0,50 € ahora */}
+                                  <button
+                                    className="px-3 py-2 rounded-md border font-semibold disabled:opacity-50"
+                                    onClick={() => {
+                                      const { toApplyCents, discountedFirstCents, capNowCents, totalCents } = stripeFixContext!;
+                                      // firstCents = lo que costaba la primera noche antes del cupón
+                                      const firstCents = toApplyCents + discountedFirstCents;
+
+                                      // Queremos cobrar exactamente 0,50 € -> aplicar cupón = firstCents - 50
+                                      const targetApplyCents = Math.max(0, firstCents - STRIPE_MIN_CENTS);
+
+                                      // LÍMITES: no puede superar capNowCents ni totalCents
+                                      if (targetApplyCents > capNowCents || targetApplyCents > totalCents) return;
+
+                                      const adjusted = fromCents(targetApplyCents);
+                                      setApplyAmount(adjusted);
+                                      setApplyInput(adjusted.toFixed(2)); // reflejar bien en el input
+                                      setStripeFixVisible(false);
+                                      setStripeFixContext(null);
+                                      setCouponError(null);
+                                      setCouponApplied(true); // aplicar ya con el ajuste
+                                    }}
+                                    disabled={
+                                      (() => {
+                                        const c = stripeFixContext;
+                                        if (!c) return true;
+                                        const firstCents = c.toApplyCents + c.discountedFirstCents;
+                                        const targetApplyCents = Math.max(0, firstCents - STRIPE_MIN_CENTS);
+                                        return targetApplyCents > c.capNowCents || targetApplyCents > c.totalCents;
+                                      })()
+                                    }
+                                  >
+                                    Dejar 0,50 € ahora
+                                  </button>
+
+                                  {/* Opción B: dejar 0,00 € ahora (free order) */}
+                                  <button
+                                    className="px-3 py-2 rounded-md border font-semibold disabled:opacity-50"
+                                    onClick={() => {
+                                      const { toApplyCents, discountedFirstCents, capNowCents, totalCents } = stripeFixContext;
+                                      const adjustedApplyCents = toApplyCents + discountedFirstCents; // sumar lo que falta para dejar 0
+
+                                      if (adjustedApplyCents > capNowCents || adjustedApplyCents > totalCents) return;
+
+                                      const adjusted = fromCents(adjustedApplyCents);
+                                      setApplyAmount(adjusted);
+                                      setApplyInput(String(adjusted));
+                                      setStripeFixVisible(false);
+                                      setStripeFixContext(null);
+                                      setCouponError(null);
+                                      setCouponApplied(true);
+                                    }}
+                                    disabled={
+                                      (() => {
+                                        const c = stripeFixContext;
+                                        if (!c) return true;
+                                        const adjusted = c.toApplyCents + c.discountedFirstCents;
+                                        return adjusted > c.capNowCents || adjusted > c.totalCents;
+                                      })()
+                                    }
+                                  >
+                                    Dejar 0,00 € ahora
+                                  </button>
+                                </div>
+
+                                <div className="mt-2 text-xs text-amber-700">
+                                  * Ajustaremos automáticamente el importe aplicado del cupón para cumplir con el mínimo de Stripe.
+                                </div>
+                              </div>
+                            )}
+
                           </div>
 
                           {couponApplied && (

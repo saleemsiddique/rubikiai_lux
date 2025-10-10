@@ -204,7 +204,7 @@ export async function POST(req: Request) {
       const remaining = Number(cdata?.remaining ?? 0);
       couponCode = String(cdata?.code || "");
       // Aplicaremos EUROS enteros (si manejas céntimos en coupons, cámbialo)
-      couponAmountToApply = Math.max(0, Math.floor(Number(coupon.amount)));
+      couponAmountToApply = Math.max(0, coupon.amount);
 
       if (couponAmountToApply <= 0) {
         return NextResponse.json({ error: "Coupon amount must be > 0" }, { status: 400 });

@@ -164,8 +164,8 @@ export async function POST(req: Request) {
     firstNight += perNightSurcharge;
 
     return NextResponse.json({
-      total: Math.round(total),
-      first: Math.round(firstNight),
+      total: total,
+      first: firstNight,
       nights,
       extraGuests,
       includedBase,

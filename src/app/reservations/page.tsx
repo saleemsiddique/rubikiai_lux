@@ -2,13 +2,15 @@
 "use client";
 
 import React from "react";
-import ReservationForm from "@/components/ReservationForm";
 import { useRouter } from "next/navigation";
 // IMPORTA el mapping centralizado que creaste en lib/houseRoutes.ts
 import { HOUSE_ROUTE_OVERRIDES_BY_ID } from "@/lib/houseRoutes";
 // IMPORTA el helper que convierte a YYYY-MM-DD local
 import { toLocalDateString } from "@/app/utils/date";
 import { FaInfoCircle, FaShieldAlt } from "react-icons/fa";
+import dynamic from "next/dynamic";
+
+const ReservationForm = dynamic(() => import("../../components/ReservationForm"), { ssr: false });
 
 /**
  * ReservationPage

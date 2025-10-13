@@ -12,7 +12,6 @@ const HomePage: React.FC = () => {
         <AboutSection />
         <AccommodationsSection />
       </main>
-      {/* Puedes agregar un Footer aquí */}
     </div>
   );
 };

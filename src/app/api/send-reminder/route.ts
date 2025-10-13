@@ -8,44 +8,45 @@ import fs from "fs/promises";
 import path from "path";
 import { BookingReminderEmailHtmlEN } from "@/app/emails/BookingReminderEmailHtmlEN";
 
-// ------------ utilidades de fechas (compatibles con tu otro API) ------------
-function dateOnlyIso(d: Date) { return d.toISOString().split("T")[0]; }
+// ------------ utilidades de fechas (UTC puro) ------------
+function dateOnlyIso(d: Date) {
+  return d.toISOString().split("T")[0]; // YYYY-MM-DD (UTC)
+}
+
 function toDateOnly(value: any): Date {
   if (!value) return new Date(0);
   if (typeof value?.toDate === "function") {
     const d = value.toDate();
-    d.setHours(0, 0, 0, 0);
+    d.setUTCHours(0, 0, 0, 0);
     return d;
-    }
+  }
   const d = new Date(value);
-  d.setHours(0, 0, 0, 0);
+  d.setUTCHours(0, 0, 0, 0);
   return d;
 }
 
-/** YYYY-MM-DD en Europe/Madrid para hoy + `days` */
-function ymdInEuropeMadridPlus(days: number) {
-  const tz = "Europe/Madrid";
-  const fmt = new Intl.DateTimeFormat("en-CA", {
-    timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit",
-  });
-  const todayStr = fmt.format(new Date());              // YYYY-MM-DD (TZ)
-  const todayUTC = new Date(`${todayStr}T00:00:00Z`);   // anclado a 00:00 UTC del día TZ
-  const target = new Date(todayUTC.getTime() + days * 86400000);
-  return target.toISOString().slice(0, 10);             // YYYY-MM-DD
+/** YYYY-MM-DD en UTC para hoy + `days` */
+function ymdUTCPlus(days: number) {
+  const now = new Date();
+  const target = new Date(Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate() + days,
+    0, 0, 0, 0
+  ));
+  return target.toISOString().slice(0, 10); // YYYY-MM-DD
 }
 
-/** Límites UTC del día (00:00 a 24:00) en Europe/Madrid para hoy + `days` */
-function madridDayBoundsUTC(days: number) {
-  const tz = "Europe/Madrid";
-  // día objetivo como string TZ
-  const fmt = new Intl.DateTimeFormat("en-CA", {
-    timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit",
-  });
-  const todayStr = fmt.format(new Date());
-  const todayUTC = new Date(`${todayStr}T00:00:00Z`);
-  const targetLocalMidnightUTC = new Date(todayUTC.getTime() + days * 86400000);
-  const start = targetLocalMidnightUTC;                        // 00:00 TZ en UTC
-  const end = new Date(start.getTime() + 86400000);            // +1 día
+/** Límites UTC del día [00:00, 24:00) para hoy + `days` */
+function utcDayBounds(days: number) {
+  const now = new Date();
+  const start = new Date(Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate() + days,
+    0, 0, 0, 0
+  ));
+  const end = new Date(start.getTime() + 86400000);
   return { start, end };
 }
 
@@ -94,7 +95,9 @@ async function buildInlineAttachments(houseImageFileName?: string) {
       contentType: "image/png",
       contentId: logoCid,
     });
-  } catch { /* opcional */ }
+  } catch {
+    /* opcional */
+  }
 
   // imagen casa
   const houseFile = houseImageFileName || "house-default.jpg";
@@ -108,7 +111,9 @@ async function buildInlineAttachments(houseImageFileName?: string) {
       contentType: mime,
       contentId: houseCid,
     });
-  } catch { /* opcional */ }
+  } catch {
+    /* opcional */
+  }
 
   return { attachments, logoCid, houseCid };
 }
@@ -134,7 +139,7 @@ async function sendReminderViaResend(params: {
     houseImageFileName?: string;
   };
 }) {
-  const { attachments, logoCid, houseCid } = await buildInlineAttachments(
+  const { attachments, logoCid } = await buildInlineAttachments(
     params.data.houseImageFileName
   );
 
@@ -169,24 +174,30 @@ export async function GET(_req: NextRequest) {
   try {
     // seguridad opcional por token
     if (process.env.CRON_SECRET) {
-      const token = _req.nextUrl.searchParams.get("token") || _req.headers.get("x-cron-token");
+      const token =
+        _req.nextUrl.searchParams.get("token") ||
+        _req.headers.get("x-cron-token");
       if (token !== process.env.CRON_SECRET) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
     }
 
-    const targetYMD = ymdInEuropeMadridPlus(7);        // "YYYY-MM-DD"
-    const { start, end } = madridDayBoundsUTC(7);      // límites UTC del día en Madrid
+    // Toda la lógica anclada a UTC:
+    // - El cron en Vercel corre a 09:00 UTC.
+    // - targetYMD es el día UTC de dentro de 7 días.
+    // - El rango [start, end) es el día UTC completo de dentro de 7 días.
+    const targetYMD = ymdUTCPlus(7); // "YYYY-MM-DD" (UTC)
+    const { start, end } = utcDayBounds(7); // límites UTC del día objetivo
 
     const reservationsRef = adminDb.collection("reservations");
 
-    // Caso 1: checkIn guardado como string "YYYY-MM-DD"
+    // Caso 1: checkIn guardado como string "YYYY-MM-DD" (interpretado como día UTC)
     const qStr = reservationsRef
       .where("status", "==", "reserved")
       .where("checkIn", "==", targetYMD)
       .get();
 
-    // Caso 2: checkIn guardado como Timestamp -> rango [start, end)
+    // Caso 2: checkIn guardado como Timestamp -> rango [start, end) en UTC
     const qTs = reservationsRef
       .where("status", "==", "reserved")
       .where("checkIn", ">=", start)
@@ -201,7 +212,13 @@ export async function GET(_req: NextRequest) {
     snapTs.forEach((d) => docsById.set(d.id, d));
 
     if (docsById.size === 0) {
-      return NextResponse.json({ ok: true, targetCheckIn: targetYMD, total: 0, sent: 0, skipped: 0 });
+      return NextResponse.json({
+        ok: true,
+        targetCheckIn: targetYMD,
+        total: 0,
+        sent: 0,
+        skipped: 0,
+      });
     }
 
     const lang: "es" | "en" = (process.env.CRON_LANG as "es" | "en") || "es";
@@ -216,7 +233,12 @@ export async function GET(_req: NextRequest) {
 
       if (!to) {
         skipped++;
-        results.push({ id: doc.id, to: "(missing email)", ok: false, error: "No customerEmail" });
+        results.push({
+          id: doc.id,
+          to: "(missing email)",
+          ok: false,
+          error: "No customerEmail",
+        });
         continue;
       }
 
@@ -226,7 +248,7 @@ export async function GET(_req: NextRequest) {
         const houseName = await getHouseName(houseId);
         const guestName = guessGuestName(to);
 
-        // normaliza fechas a string YYYY-MM-DD para la plantilla
+        // normaliza fechas a string YYYY-MM-DD para la plantilla (UTC)
         const checkInStr = dateOnlyIso(toDateOnly(d.checkIn));
         const checkOutStr = d.checkOut ? dateOnlyIso(toDateOnly(d.checkOut)) : undefined;
 
@@ -250,7 +272,12 @@ export async function GET(_req: NextRequest) {
         results.push({ id: doc.id, to, ok: true });
       } catch (e: any) {
         skipped++;
-        results.push({ id: doc.id, to, ok: false, error: e?.message || "Unknown error" });
+        results.push({
+          id: doc.id,
+          to,
+          ok: false,
+          error: e?.message || "Unknown error",
+        });
       }
     }
 

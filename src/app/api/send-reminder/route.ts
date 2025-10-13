@@ -1,9 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import { headers } from "next/headers";
 import { Resend } from "resend";
 import fs from "fs/promises";
 import path from "path";
+import * as admin from "firebase-admin";
 import { BookingReminderEmailHtmlEN } from "@/app/emails/BookingReminderEmailHtmlEN";
 
 export const runtime = "nodejs";
@@ -12,217 +13,272 @@ export const revalidate = 0;
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// Body type: ONLY booking_reminder
-export type SendEmailBody = {
+// ---------- Tipos ----------
+type BookingReminderBody = {
   type: "booking_reminder";
   to: string | string[];
   data: {
     guestName: string;
     houseName: string;
-    checkIn: string; // ISO
+    checkIn: string; // ISO YYYY-MM-DD
+    checkOut?: string;
+    nGuests?: number;
+    activities?: { title: string; time?: string; description?: string }[];
+    notes?: string;
+    houseImageFileName?: string; // Debe existir en /public
+  };
+  lang?: "en" | "es";
+  fromName?: string;
+};
+
+// ---------- Utils comunes ----------
+function initFirebase() {
+  if (admin.apps.length) return;
+  if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+    const svc = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+    admin.initializeApp({ credential: admin.credential.cert(svc) });
+  } else {
+    admin.initializeApp({ credential: admin.credential.applicationDefault() });
+  }
+}
+
+function ymdInEuropeMadridPlus(days: number) {
+  const tz = "Europe/Madrid";
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const todayStr = fmt.format(new Date());             // YYYY-MM-DD en TZ
+  const todayUTC = new Date(`${todayStr}T00:00:00Z`);  // ancla a medianoche UTC
+  const target = new Date(todayUTC.getTime() + days * 86400000);
+  return target.toISOString().slice(0, 10);            // YYYY-MM-DD
+}
+
+function guessGuestName(email: string): string {
+  const local = (email || "").split("@")[0] || "Guest";
+  return local
+    .split(/[._-]+/)
+    .map((s) => (s ? s[0].toUpperCase() + s.slice(1) : ""))
+    .filter(Boolean)
+    .join(" ");
+}
+
+async function getHouseName(db: admin.firestore.Firestore, houseId?: string | null) {
+  if (!houseId) return "Your House";
+  try {
+    const snap = await db.collection("houses").doc(houseId).get();
+    if (!snap.exists) return houseId;
+    const data = snap.data() || {};
+    return (data.name || data.title || data.houseName || houseId) as string;
+  } catch {
+    return houseId;
+  }
+}
+
+async function buildInlineAttachments(houseImageFileName?: string) {
+  const logoCid = "rubikiai-logo";
+  const houseCid = "house-image";
+  const publicDir = path.join(process.cwd(), "public");
+
+  const attachments: Array<{
+    filename: string;
+    content: string;
+    contentType?: string;
+    contentId?: string;
+  }> = [];
+
+  // Logo
+  try {
+    const buf = await fs.readFile(path.join(publicDir, "rubikiai-logo.png"));
+    attachments.push({
+      filename: "rubikiai-logo.png",
+      content: buf.toString("base64"),
+      contentType: "image/png",
+      contentId: logoCid,
+    });
+  } catch { /* opcional */ }
+
+  // House
+  const houseFile = houseImageFileName || "house-default.jpg";
+  try {
+    const buf = await fs.readFile(path.join(publicDir, houseFile));
+    const ext = path.extname(houseFile).toLowerCase();
+    const mime = ext === ".png" ? "image/png" : "image/jpeg";
+    attachments.push({
+      filename: houseFile,
+      content: buf.toString("base64"),
+      contentType: mime,
+      contentId: houseCid,
+    });
+  } catch { /* opcional */ }
+
+  return { attachments, logoCid, houseCid };
+}
+
+function subjectFor(lang: "en" | "es", houseName: string) {
+  return lang === "en"
+    ? `Your stay at ${houseName} — 1 week to go`
+    : `Tu estancia en ${houseName} — queda 1 semana`;
+}
+
+async function sendReminderViaResend(params: {
+  to: string | string[];
+  fromName?: string;
+  lang: "en" | "es";
+  data: {
+    guestName: string;
+    houseName: string;
+    checkIn: string;
     checkOut?: string;
     nGuests?: number;
     activities?: { title: string; time?: string; description?: string }[];
     notes?: string;
     houseImageFileName?: string;
   };
-  lang?: "en" | "es";
-  fromName?: string;
-};
+}) {
+  const { attachments, logoCid, houseCid } = await buildInlineAttachments(
+    params.data.houseImageFileName
+  );
 
-// ----- Helpers de fechas/zonas -----
-const DEFAULT_TZ = process.env.REMINDER_TIMEZONE ?? "Europe/Madrid";
-const DEFAULT_HOUR = Number(process.env.REMINDER_SEND_HOUR ?? 21); // hora local que debe coincidir
-const DEFAULT_DAYS_BEFORE = Number(process.env.REMINDER_DAYS_BEFORE ?? 7);
+  const html = BookingReminderEmailHtmlEN({
+    guestName: params.data.guestName,
+    houseName: params.data.houseName,
+    checkIn: params.data.checkIn,
+    checkOut: params.data.checkOut,
+    nGuests: params.data.nGuests,
+    activities: params.data.activities,
+    notes: params.data.notes,
+    logoCid,
+    houseImageCid: houseCid,
+  });
 
-// devuelve 'YYYY-MM-DD' en la zona tz
-function dateKeyInTZ(d: Date, tz = DEFAULT_TZ) {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+  const sendArgs: any = {
+    from: params.fromName
+      ? `${params.fromName} <noreply@culinarium.io>`
+      : "Rubikiai Lux <noreply@culinarium.io>",
+    to: params.to,
+    subject: subjectFor(params.lang, params.data.houseName),
+    html,
+    attachments: attachments.length ? attachments : undefined,
+  };
+
+  const { data, error } = await resend.emails.send(sendArgs);
+  if (error) throw error;
+  return data;
 }
 
-// devuelve diferencia en días (to - from) comparando fechas locales en tz
-function daysBetweenInTZ(from: Date, to: Date, tz = DEFAULT_TZ) {
-  const fromKey = dateKeyInTZ(from, tz);
-  const toKey = dateKeyInTZ(to, tz);
-  const fromMs = Date.parse(`${fromKey}T00:00:00Z`);
-  const toMs = Date.parse(`${toKey}T00:00:00Z`);
-  return Math.round((toMs - fromMs) / (24 * 60 * 60 * 1000));
-}
-
-// devuelve la hora (0-23) en la zona tz
-function hourInTZ(d: Date, tz = DEFAULT_TZ) {
-  const s = new Intl.DateTimeFormat("en-US", { timeZone: tz, hour: "2-digit", hour12: false }).format(d);
-  return parseInt(s, 10);
-}
-
+// ---------- POST: envío manual de UN recordatorio ----------
 export async function POST(req: Request) {
   try {
-    const url = new URL(req.url);
-    const force = url.searchParams.get("force") === "true";
-
-    const body = (await req.json()) as SendEmailBody;
-
-    // Asegurarnos de que el tipo es booking_reminder
-    if (!body || body.type !== "booking_reminder") {
-      return NextResponse.json({ error: "Only booking_reminder requests are accepted" }, { status: 400 });
+    const body = (await req.json()) as BookingReminderBody;
+    if (body.type !== "booking_reminder") {
+      return NextResponse.json({ error: "Tipo de email no válido" }, { status: 400 });
     }
 
-    // Validación del secreto (si está configurado)
-    const expected = process.env.CRON_SECRET;
-    if (expected) {
-      const authHeader = (await headers()).get("authorization") ?? "";
-      const okHeader = authHeader === `Bearer ${expected}`;
-      const qSecret = url.searchParams.get("secret");
-      const okQuery = qSecret === expected;
-      if (!okHeader && !okQuery && !force) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-      }
-    }
-
-    // Hora y día actual en la zona objetivo
-    const now = new Date();
-    const tz = process.env.REMINDER_TIMEZONE ?? DEFAULT_TZ;
-    const currentHour = hourInTZ(now, tz);
-
-    // Si no forzamos, comprobamos hora objetivo
-    if (!force) {
-      const targetHour = Number(process.env.REMINDER_SEND_HOUR ?? DEFAULT_HOUR);
-      if (Number.isFinite(targetHour)) {
-        if (currentHour !== targetHour) {
-          return NextResponse.json({
-            ok: true,
-            skipped: true,
-            reason: "Not target hour in timezone",
-            timezone: tz,
-            currentHour,
-            expectedHour: targetHour,
-          });
-        }
-      }
-    }
-
-    // Determinamos idioma
+    // igual que tu otro endpoint
     const accept = (await headers()).get("accept-language") ?? "";
-    const lang: "en" | "es" = body.lang ?? (accept.toLowerCase().startsWith("en") ? "en" : "es");
+    const lang: "en" | "es" =
+      body.lang ?? (accept.toLowerCase().startsWith("en") ? "en" : "es");
 
-    // Prepare default CIDs and attachments from /public
-    const logoCid = "rubikiai-logo";
-    const houseCid = "house-image";
-
-    const publicDir = path.join(process.cwd(), "public");
-    const logoPath = path.join(publicDir, "rubikiai-logo.png");
-    const defaultHouseImageFile = "house-default.jpg";
-
-    let logoAttachment:
-      | {
-          filename: string;
-          content: string;
-          contentType?: string;
-          contentId?: string;
-        }
-      | undefined;
-    let houseAttachment:
-      | {
-          filename: string;
-          content: string;
-          contentType?: string;
-          contentId?: string;
-        }
-      | undefined;
-
-    try {
-      const buf = await fs.readFile(logoPath);
-      logoAttachment = {
-        filename: "rubikiai-logo.png",
-        content: buf.toString("base64"),
-        contentType: "image/png",
-        contentId: logoCid,
-      };
-    } catch {
-      logoAttachment = undefined;
-    }
-
-    // Manejo específico del recordatorio de reserva
-    const { guestName, houseName, checkIn: checkInIso, checkOut, nGuests, activities, notes } = body.data;
-
-    if (!checkInIso) {
-      return NextResponse.json({ error: "Missing checkIn" }, { status: 400 });
-    }
-
-    const checkInDate = new Date(checkInIso);
-    if (Number.isNaN(checkInDate.getTime())) {
-      return NextResponse.json({ error: "Invalid checkIn date" }, { status: 400 });
-    }
-
-    // Calculamos días hasta check-in **en la zona tz**
-    const daysUntil = daysBetweenInTZ(now, checkInDate, tz);
-    const daysBefore = Number(process.env.REMINDER_DAYS_BEFORE ?? DEFAULT_DAYS_BEFORE);
-
-    if (!force && daysUntil !== daysBefore) {
-      return NextResponse.json({
-        ok: true,
-        skipped: true,
-        reason: "Not matching days-before condition",
-        timezone: tz,
-        nowDateKey: dateKeyInTZ(now, tz),
-        checkInDateKey: dateKeyInTZ(checkInDate, tz),
-        daysUntil,
-        expectedDaysUntil: daysBefore,
-      });
-    }
-
-    // Adjuntar imagen de la casa si existe (opcional)
-    let houseImageFile = defaultHouseImageFile;
-    if (body.data.houseImageFileName) houseImageFile = body.data.houseImageFileName;
-    const houseImagePath = path.join(publicDir, houseImageFile);
-
-    try {
-      const buf = await fs.readFile(houseImagePath);
-      const ext = path.extname(houseImageFile).toLowerCase();
-      const mime = ext === ".png" ? "image/png" : "image/jpeg";
-      houseAttachment = {
-        filename: houseImageFile,
-        content: buf.toString("base64"),
-        contentType: mime,
-        contentId: houseCid,
-      };
-    } catch {
-      houseAttachment = undefined;
-    }
-
-    // Construir asunto y HTML (siguiendo tu plantilla)
-    const subject = lang === "en" ? `Your stay at ${houseName} — ${daysBefore} days to go` : `Tu estancia en ${houseName} — quedan ${daysBefore} días`;
-    const html = BookingReminderEmailHtmlEN({
-      guestName,
-      houseName,
-      checkIn: checkInIso,
-      checkOut,
-      nGuests,
-      activities,
-      notes,
-      logoCid,
-      houseImageCid: houseCid,
+    await sendReminderViaResend({
+      to: body.to,
+      fromName: body.fromName,
+      lang,
+      data: body.data,
     });
 
-    const fromDisplay = body.fromName ? `${body.fromName} <noreply@culinarium.io>` : "Rubikiai <noreply@culinarium.io>";
-
-    const sendArgs: any = {
-      from: fromDisplay,
-      to: body.to,
-      subject,
-      html,
-    };
-
-    const attachments = [];
-    if (logoAttachment) attachments.push(logoAttachment);
-    if (houseAttachment) attachments.push(houseAttachment);
-    if (attachments.length > 0) sendArgs.attachments = attachments;
-
-    // Envío
-    const res = await resend.emails.send(sendArgs);
-    return NextResponse.json({ ok: true, sent: true, result: res });
+    return NextResponse.json({ ok: true });
   } catch (e: any) {
     console.error(e);
-    return NextResponse.json({ error: e?.message ?? "Error sending email" }, { status: 500 });
+    return NextResponse.json({ error: e?.message ?? "Error enviando email" }, { status: 500 });
+  }
+}
+
+// ---------- GET: pensado para Vercel Cron ----------
+export async function GET(req: NextRequest) {
+  try {
+    // Seguridad sencilla opcional
+    const url = new URL(req.url);
+    const tokenQS = url.searchParams.get("token");
+    const tokenHDR = req.headers.get("x-cron-token");
+    const needToken = !!process.env.CRON_SECRET;
+    if (needToken && tokenQS !== process.env.CRON_SECRET && tokenHDR !== process.env.CRON_SECRET) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    initFirebase();
+    const db = admin.firestore();
+
+    const targetCheckIn = ymdInEuropeMadridPlus(7); // hoy + 7 (Europe/Madrid)
+
+    // query: status "reserved" y checkIn exacto (cadena "YYYY-MM-DD")
+    const snap = await db
+      .collection("reservations")
+      .where("status", "==", "reserved")
+      .where("checkIn", "==", targetCheckIn)
+      .get();
+
+    if (snap.empty) {
+      return NextResponse.json({ ok: true, targetCheckIn, total: 0, sent: 0, skipped: 0 });
+    }
+
+    let sent = 0;
+    let skipped = 0;
+    const results: Array<{ id: string; to: string; ok: boolean; error?: string }> = [];
+
+    const lang: "es" | "en" = (process.env.CRON_LANG as "es" | "en") || "es";
+
+    // IMPORTANTE: si quieres idempotencia, guarda un flag (p.ej. reminders.sent7d=true) y filtra.
+    for (const doc of snap.docs) {
+      const d = doc.data() as any;
+
+      const to: string | undefined = d.customerEmail;
+      if (!to) {
+        skipped++;
+        results.push({ id: doc.id, to: "(missing email)", ok: false, error: "No customerEmail" });
+        continue;
+      }
+
+      try {
+        const houseId: string | undefined =
+          d.houseId || (Array.isArray(d.houseIds) ? d.houseIds[0] : undefined);
+        const houseName = await getHouseName(db, houseId);
+        const guestName = guessGuestName(to);
+
+        await sendReminderViaResend({
+          to,
+          fromName: "Rubikiai",
+          lang,
+          data: {
+            guestName,
+            houseName,
+            checkIn: d.checkIn,
+            checkOut: d.checkOut,
+            nGuests: d.guests,
+            activities: [], // rellena si tienes agenda
+            notes: undefined,
+            houseImageFileName: "house-default.jpg",
+          },
+        });
+
+        sent++;
+        results.push({ id: doc.id, to, ok: true });
+      } catch (e: any) {
+        skipped++;
+        results.push({
+          id: doc.id,
+          to,
+          ok: false,
+          error: e?.message || "Unknown error",
+        });
+      }
+    }
+
+    return NextResponse.json({ ok: true, targetCheckIn, total: snap.size, sent, skipped, results });
+  } catch (e: any) {
+    console.error(e);
+    return NextResponse.json({ error: e?.message ?? "Cron error" }, { status: 500 });
   }
 }

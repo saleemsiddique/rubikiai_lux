@@ -1,7 +1,9 @@
 "use client";
 
 import React from 'react';
-import ReservationForm from './ReservationForm';
+import dynamic from "next/dynamic";
+
+const ReservationForm = dynamic(() => import("./ReservationForm"), { ssr: false });
 
 const HeroSection: React.FC = () => {
 

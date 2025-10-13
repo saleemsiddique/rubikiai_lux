@@ -5,7 +5,6 @@ import { Resend } from "resend";
 import fs from "fs/promises";
 import path from "path";
 import { BookingReminderEmailHtmlEN } from "@/app/emails/BookingReminderEmailHtmlEN";
-import dayjs from "dayjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

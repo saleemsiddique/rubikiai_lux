@@ -507,13 +507,6 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     return o ? (o[mode] ?? 0) : 0;
   };
 
-  const shiftCarousel = (houseId: string, days: number, mode: "arrival" | "departure") => {
-    setCarouselOffsetByHouse((p) => {
-      const cur = p[houseId] ?? { arrival: 0, departure: 0 };
-      return { ...p, [houseId]: { ...cur, [mode]: (cur[mode] ?? 0) + days } };
-    });
-  };
-
   /* Availability computation */
   function computeAvailabilityForHouse(
     house: HouseLight,
@@ -709,7 +702,12 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
           <div className="mt-2 p-3 bg-white border rounded-md shadow-sm text-xs text-gray-700">
             <div className="font-semibold">Payment information</div>
             <div className="mt-1">Only the first night (<strong>{firstNight}€</strong>) will be charged now. Remaining (<strong>{total - firstNight}€</strong>) will be charged on arrival.</div>
-            {perNightSurcharge > 0 && <div className="mt-2 text-xs text-gray-500">Includes extra guest surcharge: {perNightSurcharge}€ per night ({Math.max(0, guests - 4)} extra guest{Math.max(0, guests - 4) > 1 ? 's' : ''}).</div>}
+            {perNightSurcharge > 0 && (
+              <div className="mt-2 text-xs text-gray-500">
+                Includes extra guest surcharge: {perNightSurcharge}€ per night (
+                {Math.max(0, guests - 4)} {Math.max(0, guests - 4) === 1 ? "extra guest" : "extra guests"}).
+              </div>
+            )}
           </div>
         </div>
       );
@@ -739,7 +737,12 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
         <div className="mt-2 p-3 bg-white border rounded-md shadow-sm text-xs text-gray-700">
           <div className="font-semibold">Payment information</div>
           <div className="mt-1">Only the first night (<strong>{firstNightSingle}€</strong>) will be charged now. Remaining (<strong>{totalSingle - firstNightSingle}€</strong>) will be charged on arrival.</div>
-          {perNightSurchargeSingle > 0 && <div className="mt-2 text-xs text-gray-500">Includes extra guest surcharge: {perNightSurchargeSingle}€ per night ({extraGuestsSingle} extra guest{extraGuestsSingle > 1 ? 's' : ''}).</div>}
+          {perNightSurchargeSingle > 0 && (
+            <div className="mt-2 text-xs text-gray-500">
+              Includes extra guest surcharge: {perNightSurchargeSingle}€ per night (
+              {extraGuestsSingle} {extraGuestsSingle === 1 ? "extra guest" : "extra guests"}).
+            </div>
+          )}
         </div>
       </div>
     );
@@ -1036,7 +1039,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       {/* Results list */}
       <div className=" mt-3 space-y-5">
         {showResults && houses.length === 0 && (
-          <div className="text-center text-gray-600">No results. Select dates and click "Check availability".</div>
+          <div className="text-center text-gray-600">No results. Select dates and click &quot;Check availability&quot;.</div>
         )}
 
         {houses.map((house) => (

@@ -9,7 +9,6 @@ export default function Page() {
     const searchParams = useSearchParams();
 
     const orderId = searchParams.get("orderId") ?? undefined;
-    const sessionId = searchParams.get("session_id") ?? undefined; // optional, for debugging/links if needed
 
     const [loading, setLoading] = useState(true);
     const [orderStatus, setOrderStatus] = useState<string | null>(null);

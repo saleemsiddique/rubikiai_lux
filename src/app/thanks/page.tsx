@@ -10,7 +10,6 @@ export default function Page() {
   const searchParams = useSearchParams();
 
   const reservationId = searchParams.get("reservationId") ?? undefined;
-  const sessionId = searchParams.get("session_id") ?? undefined;
 
   const [loading, setLoading] = useState(true);
   const [reservationStatus, setReservationStatus] = useState<string | null>(null);

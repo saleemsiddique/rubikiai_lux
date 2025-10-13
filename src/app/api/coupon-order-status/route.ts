@@ -1,6 +1,6 @@
 // app/api/coupon-order-status/route.ts
 import { NextResponse } from "next/server";
-import admin, { adminDb } from "@/lib/firebase-admin";
+import { adminDb } from "@/lib/firebase-admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

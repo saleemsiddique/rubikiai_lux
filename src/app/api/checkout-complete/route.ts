@@ -26,7 +26,7 @@ export async function GET(req: Request) {
     try {
       stripeSession = await stripe.checkout.sessions.retrieve(sessionId);
     } catch (err) {
-      // si falla, seguimos con fallback al query param
+      console.error("checkout-complete error:", err);
     }
 
     const reservationId = stripeSession?.metadata?.reservationId ?? url.searchParams.get("reservationId");

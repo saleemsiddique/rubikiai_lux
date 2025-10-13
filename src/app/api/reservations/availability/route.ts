@@ -14,7 +14,6 @@ function toDateOnly(value: any): Date {
   d.setHours(0,0,0,0);
   return d;
 }
-function addDays(d: Date, days: number) { const r = new Date(d); r.setDate(r.getDate()+days); return r; }
 
 export async function POST(req: NextRequest) {
   try {
@@ -59,7 +58,6 @@ export async function POST(req: NextRequest) {
 
       const occupiedDates: Record<string, boolean> = {};
       let hasOverlap = false;
-      const now = new Date();
 
       docsById.forEach((doc) => {
         const data = doc.data() as any;

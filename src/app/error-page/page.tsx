@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { FaExclamationTriangle, FaCalendarAlt, FaUser } from "react-icons/fa";
+import { FaExclamationTriangle } from "react-icons/fa";
 
 export default function GenericErrorPage() {
   const router = useRouter();

@@ -62,7 +62,6 @@ function isoCmp(a: string, b: string) {
     return a < b ? -1 : 1;
 }
 function isoLt(a: string, b: string) { return isoCmp(a, b) < 0; }
-function isoLe(a: string, b: string) { return isoCmp(a, b) <= 0; }
 
 /* ---------- helpers de red ---------- */
 async function readError(res: Response) {

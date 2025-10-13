@@ -382,7 +382,6 @@ export default function HousePage(props: HousePageProps) {
   const toCents = (n: number) => Math.round(n * 100);
   const fromCents = (c: number) => c / 100;
 
-  const STRIPE_MIN_EUR = 0.5;
   const STRIPE_MIN_CENTS = 50;
 
   // Estado para sugerencias Stripe

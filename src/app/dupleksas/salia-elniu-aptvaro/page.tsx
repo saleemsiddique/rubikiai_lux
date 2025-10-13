@@ -1,7 +1,9 @@
 // server component - validates guests and redirects if overflow
 import React from "react";
 import { redirect } from "next/navigation";
-import HousePage from "@/components/HousePage";
+import dynamic from "next/dynamic";
+
+const HousePageClient = dynamic(() => import("@/components/HousePage"), { ssr: false });
 
 const aptvaroImages = [
   "/dupleksas/dupleksas1.png",
@@ -37,7 +39,7 @@ export default function Page({
   }
 
   return (
-    <HousePage
+    <HousePageClient
       heroSrc="/dupleksas/dupleksas1.png"
       title="N°1 - Šalia Elnių Aptvaro"
       subtitle="Experience magical moments by the Rubikiai lake."

@@ -8,8 +8,9 @@
 
 
 import React from "react";
-import HousePage from "@/components/HousePage";
+import dynamic from "next/dynamic";
 
+const HousePageClient = dynamic(() => import("@/components/HousePage"), { ssr: false });
 
 const images = [
   "/ezero-namelis/ezero-namelis.png",
@@ -33,7 +34,7 @@ const images = [
 
 export default function EzeroNamelisPage() {
   return (
-    <HousePage
+    <HousePageClient
       heroSrc="/ezero-namelis/ezero-namelis.png"
       title="EŽERO NAMELIS"
       subtitle="A private and romantic cottage for two."

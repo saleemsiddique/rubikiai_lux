@@ -9,7 +9,7 @@ export default function CancelPage() {
     const orderId = searchParams.get('orderId') ?? undefined;
     const reason = (searchParams.get('reason') ?? 'cancelled').toLowerCase();
 
-    const { title, message } = getCopy(reason, orderId);
+    const { title, message } = getCopy(reason);
 
     return (
         <main className="min-h-screen flex items-center justify-center" style={{ background: 'var(--color-background-main)' }}>

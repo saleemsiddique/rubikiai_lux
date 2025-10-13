@@ -6,9 +6,11 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export async function POST(req: Request, ctx: { params: { id: string } }) {
+// ctx.params viene como Promise<{ id: string }>
+export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
-    const id = ctx.params?.id;
+    const params = await ctx.params;
+    const id = params?.id;
     if (!id) {
       return NextResponse.json({ error: "missing_id" }, { status: 400 });
     }

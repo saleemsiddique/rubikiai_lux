@@ -160,7 +160,7 @@ export function BookingReminderEmailHtmlEN(params: BookingReminderEmailParams): 
             <tr>
               <td align="center" style="padding:12px 22px 20px;">
                 <a href="https://your-site.example/reservations" style="display:inline-block;padding:12px 20px;border-radius:10px;text-decoration:none;font:600 14px Inter,Arial,sans-serif;background:#214235;color:#fff;">View reservation details</a>
-                <div style="font:13px Inter,Arial,sans-serif;color:#6b7280;margin-top:10px;">Need anything? Reply to this email or contact us at <a href="mailto:info@your-site.example" style="color:#214235;text-decoration:underline;">info@your-site.example</a>.</div>
+                <div style="font:13px Inter,Arial,sans-serif;color:#6b7280;margin-top:10px;">Need anything? Reply to this email or contact us at <a href="mailto:info@rubikiailux.lt" style="color:#214235;text-decoration:underline;">info@rubikiailux.lt</a>.</div>
               </td>
             </tr>
 

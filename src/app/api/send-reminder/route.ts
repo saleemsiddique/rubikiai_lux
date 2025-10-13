@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse, NextRequest } from "next/server";
-import { headers } from "next/headers";
 import { Resend } from "resend";
 import fs from "fs/promises";
 import path from "path";
@@ -13,25 +12,7 @@ export const revalidate = 0;
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// ---------- Tipos ----------
-type BookingReminderBody = {
-  type: "booking_reminder";
-  to: string | string[];
-  data: {
-    guestName: string;
-    houseName: string;
-    checkIn: string; // ISO YYYY-MM-DD
-    checkOut?: string;
-    nGuests?: number;
-    activities?: { title: string; time?: string; description?: string }[];
-    notes?: string;
-    houseImageFileName?: string; // Debe existir en /public
-  };
-  lang?: "en" | "es";
-  fromName?: string;
-};
-
-// ---------- Utils comunes ----------
+// ---------- Utils ----------
 function initFirebase() {
   if (admin.apps.length) return;
   if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
@@ -98,7 +79,7 @@ async function buildInlineAttachments(houseImageFileName?: string) {
       contentType: "image/png",
       contentId: logoCid,
     });
-  } catch { /* opcional */ }
+  } catch {}
 
   // House
   const houseFile = houseImageFileName || "house-default.jpg";
@@ -112,7 +93,7 @@ async function buildInlineAttachments(houseImageFileName?: string) {
       contentType: mime,
       contentId: houseCid,
     });
-  } catch { /* opcional */ }
+  } catch {}
 
   return { attachments, logoCid, houseCid };
 }
@@ -164,56 +145,27 @@ async function sendReminderViaResend(params: {
     attachments: attachments.length ? attachments : undefined,
   };
 
-  const { data, error } = await resend.emails.send(sendArgs);
+  const { error, data } = await resend.emails.send(sendArgs);
   if (error) throw error;
   return data;
 }
 
-// ---------- POST: envío manual de UN recordatorio ----------
-export async function POST(req: Request) {
+// ---------- GET: ejecuta el cron (Vercel llama GET; algunos “force run” usan HEAD previo) ----------
+export async function GET(_req: NextRequest) {
   try {
-    const body = (await req.json()) as BookingReminderBody;
-    if (body.type !== "booking_reminder") {
-      return NextResponse.json({ error: "Tipo de email no válido" }, { status: 400 });
-    }
-
-    // igual que tu otro endpoint
-    const accept = (await headers()).get("accept-language") ?? "";
-    const lang: "en" | "es" =
-      body.lang ?? (accept.toLowerCase().startsWith("en") ? "en" : "es");
-
-    await sendReminderViaResend({
-      to: body.to,
-      fromName: body.fromName,
-      lang,
-      data: body.data,
-    });
-
-    return NextResponse.json({ ok: true });
-  } catch (e: any) {
-    console.error(e);
-    return NextResponse.json({ error: e?.message ?? "Error enviando email" }, { status: 500 });
-  }
-}
-
-// ---------- GET: pensado para Vercel Cron ----------
-export async function GET(req: NextRequest) {
-  try {
-    // Seguridad sencilla opcional
-    const url = new URL(req.url);
-    const tokenQS = url.searchParams.get("token");
-    const tokenHDR = req.headers.get("x-cron-token");
-    const needToken = !!process.env.CRON_SECRET;
-    if (needToken && tokenQS !== process.env.CRON_SECRET && tokenHDR !== process.env.CRON_SECRET) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // (Opcional) token simple
+    if (process.env.CRON_SECRET) {
+      const token = _req.nextUrl.searchParams.get("token") || _req.headers.get("x-cron-token");
+      if (token !== process.env.CRON_SECRET) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
     }
 
     initFirebase();
     const db = admin.firestore();
 
-    const targetCheckIn = ymdInEuropeMadridPlus(7); // hoy + 7 (Europe/Madrid)
+    const targetCheckIn = ymdInEuropeMadridPlus(7);
 
-    // query: status "reserved" y checkIn exacto (cadena "YYYY-MM-DD")
     const snap = await db
       .collection("reservations")
       .where("status", "==", "reserved")
@@ -224,17 +176,15 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: true, targetCheckIn, total: 0, sent: 0, skipped: 0 });
     }
 
+    const lang: "es" | "en" = (process.env.CRON_LANG as "es" | "en") || "es";
     let sent = 0;
     let skipped = 0;
     const results: Array<{ id: string; to: string; ok: boolean; error?: string }> = [];
 
-    const lang: "es" | "en" = (process.env.CRON_LANG as "es" | "en") || "es";
-
-    // IMPORTANTE: si quieres idempotencia, guarda un flag (p.ej. reminders.sent7d=true) y filtra.
     for (const doc of snap.docs) {
       const d = doc.data() as any;
-
       const to: string | undefined = d.customerEmail;
+
       if (!to) {
         skipped++;
         results.push({ id: doc.id, to: "(missing email)", ok: false, error: "No customerEmail" });
@@ -257,7 +207,7 @@ export async function GET(req: NextRequest) {
             checkIn: d.checkIn,
             checkOut: d.checkOut,
             nGuests: d.guests,
-            activities: [], // rellena si tienes agenda
+            activities: [],
             notes: undefined,
             houseImageFileName: "house-default.jpg",
           },
@@ -267,12 +217,7 @@ export async function GET(req: NextRequest) {
         results.push({ id: doc.id, to, ok: true });
       } catch (e: any) {
         skipped++;
-        results.push({
-          id: doc.id,
-          to,
-          ok: false,
-          error: e?.message || "Unknown error",
-        });
+        results.push({ id: doc.id, to, ok: false, error: e?.message || "Unknown error" });
       }
     }
 
@@ -281,4 +226,20 @@ export async function GET(req: NextRequest) {
     console.error(e);
     return NextResponse.json({ error: e?.message ?? "Cron error" }, { status: 500 });
   }
+}
+
+// ---------- HEAD/OPTIONS para evitar 405 en “force run”/preflight ----------
+export async function HEAD() {
+  return new NextResponse(null, { status: 204 });
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    },
+  });
 }

@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
         if (!resStartDay || !resEndDay) return;
 
         // marcar días ocupados: intervalo [resStartDay, resEndDay) (checkOut exclusivo)
-        let cur = new Date(resStartDay);
+        const cur = new Date(resStartDay);
         while (cur < resEndDay) {
           occupiedDates[dateOnlyIso(cur)] = true;
           cur.setDate(cur.getDate() + 1);

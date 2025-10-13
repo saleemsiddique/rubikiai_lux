@@ -687,7 +687,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
         return (
           <div className="mt-2 text-sm">
             <div className="font-medium">Price for {nights} night{nights > 1 ? "s" : ""}: <span className="font-semibold">Price varies</span></div>
-            <div className="mt-1 text-xs text-gray-600">Contact us for exact pricing or check each night's price above.</div>
+            <div className="mt-1 text-xs text-gray-600">  Contact us for exact pricing or check the price for each night above. </div>
           </div>
         );
       }
@@ -721,7 +721,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       return (
         <div className="mt-2 text-sm">
           <div className="font-medium">Price for {nights} night{nights > 1 ? "s" : ""}: <span className="font-semibold">Price varies</span></div>
-          <div className="mt-1 text-xs text-gray-600">Contact us for exact pricing or check each night's price above.</div>
+          <div className="mt-1 text-xs text-gray-600">  Contact us for exact pricing or check the price for each night above. </div>
         </div>
       );
     }

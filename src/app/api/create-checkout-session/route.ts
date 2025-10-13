@@ -141,7 +141,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     console.debug("create-checkout-session body:", body);
 
-    let { houseId, start, end, guests, houseSlug } = body || {};
+    const { houseId, start, end, guests, houseSlug } = body || {};
     // Cupón (opcional) enviado desde el cliente cuando el usuario lo aplicó
     const coupon: { id: string; amount: number } | undefined = body?.coupon;
 

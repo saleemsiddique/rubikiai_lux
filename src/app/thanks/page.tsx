@@ -105,7 +105,7 @@ export default function Page() {
                   boxShadow: "0 6px 18px rgba(143,110,82,0.12)",
                 }}
               >
-                Ver mi reserva
+                Volver a reservas
               </button>
             </Link>
 

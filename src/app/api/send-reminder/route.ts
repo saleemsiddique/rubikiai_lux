@@ -1,41 +1,56 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { NextResponse, NextRequest } from "next/server";
+export const runtime = "nodejs";
+
+import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
+import { adminDb } from "@/lib/firebase-admin";
 import fs from "fs/promises";
 import path from "path";
-import * as admin from "firebase-admin";
 import { BookingReminderEmailHtmlEN } from "@/app/emails/BookingReminderEmailHtmlEN";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
-const resend = new Resend(process.env.RESEND_API_KEY);
-
-// ---------- Utils ----------
-function initFirebase() {
-  if (admin.apps.length) return;
-  if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
-    const svc = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
-    admin.initializeApp({ credential: admin.credential.cert(svc) });
-  } else {
-    admin.initializeApp({ credential: admin.credential.applicationDefault() });
-  }
+// ------------ utilidades de fechas (compatibles con tu otro API) ------------
+function dateOnlyIso(d: Date) { return d.toISOString().split("T")[0]; }
+function toDateOnly(value: any): Date {
+  if (!value) return new Date(0);
+  if (typeof value?.toDate === "function") {
+    const d = value.toDate();
+    d.setHours(0, 0, 0, 0);
+    return d;
+    }
+  const d = new Date(value);
+  d.setHours(0, 0, 0, 0);
+  return d;
 }
 
+/** YYYY-MM-DD en Europe/Madrid para hoy + `days` */
 function ymdInEuropeMadridPlus(days: number) {
   const tz = "Europe/Madrid";
   const fmt = new Intl.DateTimeFormat("en-CA", {
-    timeZone: tz,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
+    timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit",
   });
-  const todayStr = fmt.format(new Date());             // YYYY-MM-DD en TZ
-  const todayUTC = new Date(`${todayStr}T00:00:00Z`);  // ancla a medianoche UTC
+  const todayStr = fmt.format(new Date());              // YYYY-MM-DD (TZ)
+  const todayUTC = new Date(`${todayStr}T00:00:00Z`);   // anclado a 00:00 UTC del día TZ
   const target = new Date(todayUTC.getTime() + days * 86400000);
-  return target.toISOString().slice(0, 10);            // YYYY-MM-DD
+  return target.toISOString().slice(0, 10);             // YYYY-MM-DD
 }
+
+/** Límites UTC del día (00:00 a 24:00) en Europe/Madrid para hoy + `days` */
+function madridDayBoundsUTC(days: number) {
+  const tz = "Europe/Madrid";
+  // día objetivo como string TZ
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit",
+  });
+  const todayStr = fmt.format(new Date());
+  const todayUTC = new Date(`${todayStr}T00:00:00Z`);
+  const targetLocalMidnightUTC = new Date(todayUTC.getTime() + days * 86400000);
+  const start = targetLocalMidnightUTC;                        // 00:00 TZ en UTC
+  const end = new Date(start.getTime() + 86400000);            // +1 día
+  return { start, end };
+}
+
+// ------------ helpers de email / resend ------------
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 function guessGuestName(email: string): string {
   const local = (email || "").split("@")[0] || "Guest";
@@ -46,10 +61,10 @@ function guessGuestName(email: string): string {
     .join(" ");
 }
 
-async function getHouseName(db: admin.firestore.Firestore, houseId?: string | null) {
+async function getHouseName(houseId?: string | null) {
   if (!houseId) return "Your House";
   try {
-    const snap = await db.collection("houses").doc(houseId).get();
+    const snap = await adminDb.collection("houses").doc(houseId).get();
     if (!snap.exists) return houseId;
     const data = snap.data() || {};
     return (data.name || data.title || data.houseName || houseId) as string;
@@ -70,7 +85,7 @@ async function buildInlineAttachments(houseImageFileName?: string) {
     contentId?: string;
   }> = [];
 
-  // Logo
+  // logo
   try {
     const buf = await fs.readFile(path.join(publicDir, "rubikiai-logo.png"));
     attachments.push({
@@ -79,9 +94,9 @@ async function buildInlineAttachments(houseImageFileName?: string) {
       contentType: "image/png",
       contentId: logoCid,
     });
-  } catch {}
+  } catch { /* opcional */ }
 
-  // House
+  // imagen casa
   const houseFile = houseImageFileName || "house-default.jpg";
   try {
     const buf = await fs.readFile(path.join(publicDir, houseFile));
@@ -93,7 +108,7 @@ async function buildInlineAttachments(houseImageFileName?: string) {
       contentType: mime,
       contentId: houseCid,
     });
-  } catch {}
+  } catch { /* opcional */ }
 
   return { attachments, logoCid, houseCid };
 }
@@ -150,10 +165,10 @@ async function sendReminderViaResend(params: {
   return data;
 }
 
-// ---------- GET: ejecuta el cron (Vercel llama GET; algunos “force run” usan HEAD previo) ----------
+// -------------------- GET (cron) --------------------
 export async function GET(_req: NextRequest) {
   try {
-    // (Opcional) token simple
+    // seguridad opcional por token
     if (process.env.CRON_SECRET) {
       const token = _req.nextUrl.searchParams.get("token") || _req.headers.get("x-cron-token");
       if (token !== process.env.CRON_SECRET) {
@@ -161,27 +176,42 @@ export async function GET(_req: NextRequest) {
       }
     }
 
-    initFirebase();
-    const db = admin.firestore();
+    const targetYMD = ymdInEuropeMadridPlus(7);        // "YYYY-MM-DD"
+    const { start, end } = madridDayBoundsUTC(7);      // límites UTC del día en Madrid
 
-    const targetCheckIn = ymdInEuropeMadridPlus(7);
+    const reservationsRef = adminDb.collection("reservations");
 
-    const snap = await db
-      .collection("reservations")
+    // Caso 1: checkIn guardado como string "YYYY-MM-DD"
+    const qStr = reservationsRef
       .where("status", "==", "reserved")
-      .where("checkIn", "==", targetCheckIn)
+      .where("checkIn", "==", targetYMD)
       .get();
 
-    if (snap.empty) {
-      return NextResponse.json({ ok: true, targetCheckIn, total: 0, sent: 0, skipped: 0 });
+    // Caso 2: checkIn guardado como Timestamp -> rango [start, end)
+    const qTs = reservationsRef
+      .where("status", "==", "reserved")
+      .where("checkIn", ">=", start)
+      .where("checkIn", "<", end)
+      .get();
+
+    const [snapStr, snapTs] = await Promise.all([qStr, qTs]);
+
+    // merge sin duplicados
+    const docsById = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>();
+    snapStr.forEach((d) => docsById.set(d.id, d));
+    snapTs.forEach((d) => docsById.set(d.id, d));
+
+    if (docsById.size === 0) {
+      return NextResponse.json({ ok: true, targetCheckIn: targetYMD, total: 0, sent: 0, skipped: 0 });
     }
 
     const lang: "es" | "en" = (process.env.CRON_LANG as "es" | "en") || "es";
+
     let sent = 0;
     let skipped = 0;
     const results: Array<{ id: string; to: string; ok: boolean; error?: string }> = [];
 
-    for (const doc of snap.docs) {
+    for (const [, doc] of docsById) {
       const d = doc.data() as any;
       const to: string | undefined = d.customerEmail;
 
@@ -194,8 +224,12 @@ export async function GET(_req: NextRequest) {
       try {
         const houseId: string | undefined =
           d.houseId || (Array.isArray(d.houseIds) ? d.houseIds[0] : undefined);
-        const houseName = await getHouseName(db, houseId);
+        const houseName = await getHouseName(houseId);
         const guestName = guessGuestName(to);
+
+        // normaliza fechas a string YYYY-MM-DD para la plantilla
+        const checkInStr = dateOnlyIso(toDateOnly(d.checkIn));
+        const checkOutStr = d.checkOut ? dateOnlyIso(toDateOnly(d.checkOut)) : undefined;
 
         await sendReminderViaResend({
           to,
@@ -204,8 +238,8 @@ export async function GET(_req: NextRequest) {
           data: {
             guestName,
             houseName,
-            checkIn: d.checkIn,
-            checkOut: d.checkOut,
+            checkIn: checkInStr,
+            checkOut: checkOutStr,
             nGuests: d.guests,
             activities: [],
             notes: undefined,
@@ -221,14 +255,21 @@ export async function GET(_req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ ok: true, targetCheckIn, total: snap.size, sent, skipped, results });
+    return NextResponse.json({
+      ok: true,
+      targetCheckIn: targetYMD,
+      total: docsById.size,
+      sent,
+      skipped,
+      results,
+    });
   } catch (e: any) {
     console.error(e);
     return NextResponse.json({ error: e?.message ?? "Cron error" }, { status: 500 });
   }
 }
 
-// ---------- HEAD/OPTIONS para evitar 405 en “force run”/preflight ----------
+// -------------------- HEAD / OPTIONS (evitar 405 en force run) --------------------
 export async function HEAD() {
   return new NextResponse(null, { status: 204 });
 }

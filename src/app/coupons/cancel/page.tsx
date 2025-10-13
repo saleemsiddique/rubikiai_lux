@@ -84,7 +84,7 @@ export default function CancelPage() {
     );
 }
 
-function getCopy(reason: string, orderId?: string) {
+function getCopy(reason: string) {
     switch (reason) {
         case 'missing_order':
             return {

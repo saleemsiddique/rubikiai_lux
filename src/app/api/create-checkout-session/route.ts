@@ -221,7 +221,7 @@ export async function POST(req: Request) {
     const discountedTotal = Math.max(0, total - couponAmountToApply);
     const discountedFirst = Math.max(0, firstNightCharge - couponAmountToApply);
 
-    let discountedFirstCents = Math.round(discountedFirst * 100);
+    const discountedFirstCents = Math.round(discountedFirst * 100);
 
     const isFreeOrder = discountedFirstCents <= 0;
 

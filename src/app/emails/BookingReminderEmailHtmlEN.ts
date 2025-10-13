@@ -16,7 +16,6 @@ type BookingReminderEmailParams = {
   activities?: Activity[];
   notes?: string;
   logoCid?: string; // default 'rubikiai-logo'
-  houseImageCid?: string; // default 'house-image'
 };
 
 export function BookingReminderEmailHtmlEN(params: BookingReminderEmailParams): string {
@@ -29,7 +28,6 @@ export function BookingReminderEmailHtmlEN(params: BookingReminderEmailParams): 
     activities = [],
     notes,
     logoCid = "rubikiai-logo",
-    houseImageCid = "house-image",
   } = params;
 
   const checkInFmt = dayjs(checkIn).format("dddd, MMMM D, YYYY");
@@ -61,13 +59,6 @@ export function BookingReminderEmailHtmlEN(params: BookingReminderEmailParams): 
         <td align="center" style="padding:28px 16px;">
           <table role="presentation" width="640" cellspacing="0" cellpadding="0" border="0" style="max-width:640px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #eae3da;box-shadow:0 6px 22px rgba(17,24,39,0.06);">
             
-            <!-- Header image -->
-            <tr>
-              <td style="padding:0;">
-                <img src="cid:${houseImageCid}" alt="${houseName}" style="display:block;width:100%;height:auto;object-fit:cover;max-height:300px;">
-              </td>
-            </tr>
-
             <!-- Logo + greeting -->
             <tr>
               <td style="padding:18px 22px 6px;">

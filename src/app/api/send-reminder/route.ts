@@ -147,7 +147,6 @@ async function sendReminderViaResend(params: {
     activities: params.data.activities,
     notes: params.data.notes,
     logoCid,
-    houseImageCid: houseCid,
   });
 
   const sendArgs: any = {

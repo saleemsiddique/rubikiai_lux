@@ -1,6 +1,7 @@
 // app/api/admin/reservations/[id]/status/route.ts
 import admin, { adminDb } from "@/lib/firebase-admin";
 import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
 
 const ALLOWED = new Set(["complete", "canceled", "pending", "expired", "reserved", "admin"]);
 
@@ -16,17 +17,24 @@ async function requireAdmin() {
   }
 }
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+// ctx.params viene como Promise<{ id: string }>
+export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const me = await requireAdmin();
-  if (!me) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!me) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
     const { status, paidInFull, note } = await req.json();
     if (!status || !ALLOWED.has(String(status))) {
-      return Response.json({ error: "Invalid status" }, { status: 400 });
+      return NextResponse.json({ error: "Invalid status" }, { status: 400 });
     }
 
-    const ref = adminDb.collection("reservations").doc(params.id);
+    const params = await ctx.params;
+    const id = params?.id;
+    if (!id) {
+      return NextResponse.json({ error: "missing_id" }, { status: 400 });
+    }
+
+    const ref = adminDb.collection("reservations").doc(id);
     const data: any = {
       status: String(status),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -42,9 +50,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     await ref.update(data);
     const snap = await ref.get();
-    return Response.json({ ok: true, reservation: { id: snap.id, ...snap.data() } });
+    return NextResponse.json({ ok: true, reservation: { id: snap.id, ...(snap.data() || {}) } });
   } catch (e: any) {
     console.error("[admin/reservations/status] error:", e?.message || e);
-    return Response.json({ error: e?.message || "Update error" }, { status: 400 });
+    return NextResponse.json({ error: e?.message || "Update error" }, { status: 400 });
   }
 }

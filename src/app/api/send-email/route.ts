@@ -86,7 +86,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Tipo de email no válido" }, { status: 400 });
     }
 
-    const fromDisplay = body.fromName ? `${body.fromName} <noreply@rubikiailux.io>` : "Rubikiai Lux <noreply@rubikiailux.io>";
+    const fromDisplay = body.fromName ? `${body.fromName} <noreply@rubikiai.lt>` : "Rubikiai Lux <noreply@rubikiai.lt>";
 
     const sendArgs: any = {
       from: fromDisplay,

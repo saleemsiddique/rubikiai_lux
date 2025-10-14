@@ -1,3 +1,5 @@
+// -------------------- /api/send-reminder (house-aware) --------------------
+// app/api/send-reminder/route.ts
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export const runtime = "nodejs";
 
@@ -6,7 +8,7 @@ import { Resend } from "resend";
 import { adminDb } from "@/lib/firebase-admin";
 import fs from "fs/promises";
 import path from "path";
-import { BookingReminderEmailHtmlEN } from "@/app/emails/BookingReminderEmailHtmlEN";
+import { BookingReminderEmailHtml_A, BookingReminderEmailHtml_B, BookingReminderEmailParams } from "@/app/emails/BookingReminderEmailHtmlEN";
 
 // ------------ utilidades de fechas (UTC puro) ------------
 function dateOnlyIso(d: Date) {
@@ -66,11 +68,11 @@ async function getHouseName(houseId?: string | null) {
   if (!houseId) return "Your House";
   try {
     const snap = await adminDb.collection("houses").doc(houseId).get();
-    if (!snap.exists) return houseId;
+    if (!snap.exists) return houseId as string;
     const data = snap.data() || {};
-    return (data.name || data.title || data.houseName || houseId) as string;
+    return (data.name || data.title || data.houseName || (houseId as string)) as string;
   } catch {
-    return houseId;
+    return houseId as string;
   }
 }
 
@@ -95,11 +97,9 @@ async function buildInlineAttachments(houseImageFileName?: string) {
       contentType: "image/png",
       contentId: logoCid,
     });
-  } catch {
-    /* opcional */
-  }
+  } catch {/* optional */}
 
-  // imagen casa
+  // house image
   const houseFile = houseImageFileName || "house-default.jpg";
   try {
     const buf = await fs.readFile(path.join(publicDir, houseFile));
@@ -111,9 +111,7 @@ async function buildInlineAttachments(houseImageFileName?: string) {
       contentType: mime,
       contentId: houseCid,
     });
-  } catch {
-    /* opcional */
-  }
+  } catch {/* optional */}
 
   return { attachments, logoCid, houseCid };
 }
@@ -123,6 +121,8 @@ function subjectFor(lang: "en" | "es", houseName: string) {
     ? `Your stay at ${houseName} — 1 week to go`
     : `Tu estancia en ${houseName} — queda 1 semana`;
 }
+
+const HOUSE_A_ID = "L0TeFf2LmrWGAaAyS8NY"; // uses Email A
 
 async function sendReminderViaResend(params: {
   to: string | string[];
@@ -137,22 +137,27 @@ async function sendReminderViaResend(params: {
     activities?: { title: string; time?: string; description?: string }[];
     notes?: string;
     houseImageFileName?: string;
+    houseId?: string | null;
   };
 }) {
-  const { attachments, logoCid } = await buildInlineAttachments(
+  const { attachments, logoCid, houseCid } = await buildInlineAttachments(
     params.data.houseImageFileName
   );
 
-  const html = BookingReminderEmailHtmlEN({
+  const shared: BookingReminderEmailParams = {
     guestName: params.data.guestName,
     houseName: params.data.houseName,
     checkIn: params.data.checkIn,
     checkOut: params.data.checkOut,
     nGuests: params.data.nGuests,
-    activities: params.data.activities,
     notes: params.data.notes,
     logoCid,
-  });
+    houseImageCid: attachments.length ? houseCid : undefined,
+  };
+
+  const html = params.data.houseId === HOUSE_A_ID
+    ? BookingReminderEmailHtml_A(shared)
+    : BookingReminderEmailHtml_B(shared);
 
   const sendArgs: any = {
     from: params.fromName
@@ -164,7 +169,7 @@ async function sendReminderViaResend(params: {
     attachments: attachments.length ? attachments : undefined,
   };
 
-  const { error, data } = await resend.emails.send(sendArgs);
+  const { error, data } = await new Resend(process.env.RESEND_API_KEY).emails.send(sendArgs);
   if (error) throw error;
   return data;
 }
@@ -233,18 +238,12 @@ export async function GET(_req: NextRequest) {
 
       if (!to) {
         skipped++;
-        results.push({
-          id: doc.id,
-          to: "(missing email)",
-          ok: false,
-          error: "No customerEmail",
-        });
+        results.push({ id: doc.id, to: "(missing email)", ok: false, error: "No customerEmail" });
         continue;
       }
 
       try {
-        const houseId: string | undefined =
-          d.houseId || (Array.isArray(d.houseIds) ? d.houseIds[0] : undefined);
+        const houseId: string | undefined = d.houseId || (Array.isArray(d.houseIds) ? d.houseIds[0] : undefined);
         const houseName = await getHouseName(houseId);
         const guestName = guessGuestName(to);
 
@@ -265,6 +264,7 @@ export async function GET(_req: NextRequest) {
             activities: [],
             notes: undefined,
             houseImageFileName: "house-default.jpg",
+            houseId: houseId || null,
           },
         });
 
@@ -272,34 +272,19 @@ export async function GET(_req: NextRequest) {
         results.push({ id: doc.id, to, ok: true });
       } catch (e: any) {
         skipped++;
-        results.push({
-          id: doc.id,
-          to,
-          ok: false,
-          error: e?.message || "Unknown error",
-        });
+        results.push({ id: doc.id, to, ok: false, error: e?.message || "Unknown error" });
       }
     }
 
-    return NextResponse.json({
-      ok: true,
-      targetCheckIn: targetYMD,
-      total: docsById.size,
-      sent,
-      skipped,
-      results,
-    });
+    return NextResponse.json({ ok: true, targetCheckIn: targetYMD, total: docsById.size, sent, skipped, results });
   } catch (e: any) {
     console.error(e);
     return NextResponse.json({ error: e?.message ?? "Cron error" }, { status: 500 });
   }
 }
 
-// -------------------- HEAD / OPTIONS (evitar 405 en force run) --------------------
-export async function HEAD() {
-  return new NextResponse(null, { status: 204 });
-}
-
+// -------------------- HEAD / OPTIONS --------------------
+export async function HEAD() { return new NextResponse(null, { status: 204 }); }
 export async function OPTIONS() {
   return new NextResponse(null, {
     status: 204,

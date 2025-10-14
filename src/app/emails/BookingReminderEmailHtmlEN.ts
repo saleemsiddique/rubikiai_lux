@@ -1,56 +1,39 @@
-// app/emails/BookingReminderEmailHtmlEN.ts
+// app/emails/BookingReminderEmails.ts
 import dayjs from "dayjs";
 
-type Activity = {
+export type Activity = {
   title: string;
   time?: string; // e.g. "09:00"
   description?: string;
 };
 
-type BookingReminderEmailParams = {
+export type BookingReminderEmailParams = {
   guestName: string;
   houseName: string;
-  checkIn: string; // ISO date
-  checkOut?: string; // ISO date
+  checkIn: string; // ISO date or YYYY-MM-DD
+  checkOut?: string; // ISO date or YYYY-MM-DD
   nGuests?: number;
   activities?: Activity[];
   notes?: string;
   logoCid?: string; // default 'rubikiai-logo'
+  houseImageCid?: string; // optional inline image for the house
 };
 
-export function BookingReminderEmailHtmlEN(params: BookingReminderEmailParams): string {
-  const {
+function baseHeader(
+  {
     guestName,
     houseName,
     checkIn,
     checkOut,
     nGuests = 2,
-    activities = [],
-    notes,
     logoCid = "rubikiai-logo",
-  } = params;
-
+    houseImageCid,
+  }: BookingReminderEmailParams,
+  { title }: { title: string }
+) {
   const checkInFmt = dayjs(checkIn).format("dddd, MMMM D, YYYY");
   const checkOutFmt = checkOut ? dayjs(checkOut).format("dddd, MMMM D, YYYY") : "";
   const shortDate = dayjs(checkIn).format("DD/MM/YYYY");
-
-  const activitiesRows =
-    activities.length > 0
-      ? activities
-          .map(
-            (a) => `
-        <tr>
-          <td style="padding:10px 12px;border-bottom:1px solid #eee;vertical-align:top;width:120px;font:600 14px Inter, Arial, sans-serif;color:#214235;">
-            ${a.time ? `<div style="font-size:13px;color:#6b7280;">${a.time}</div>` : ""}
-            <div style="font-size:15px;margin-top:6px;">${a.title}</div>
-          </td>
-          <td style="padding:10px 12px;border-bottom:1px solid #eee;font:14px Inter, Arial, sans-serif;color:#334155;">
-            ${a.description ?? ""}
-          </td>
-        </tr>`
-          )
-          .join("")
-      : `<tr><td colspan="2" style="padding:12px;font:14px Inter, Arial, sans-serif;color:#6b7280;">No activities suggested — reply to this email if you'd like recommendations.</td></tr>`;
 
   return `
   <div style="margin:0;padding:0;background:#f6f3ef;">
@@ -58,8 +41,8 @@ export function BookingReminderEmailHtmlEN(params: BookingReminderEmailParams): 
       <tr>
         <td align="center" style="padding:28px 16px;">
           <table role="presentation" width="640" cellspacing="0" cellpadding="0" border="0" style="max-width:640px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #eae3da;box-shadow:0 6px 22px rgba(17,24,39,0.06);">
-            
-            <!-- Logo + greeting -->
+
+            <!-- Logo + date -->
             <tr>
               <td style="padding:18px 22px 6px;">
                 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
@@ -80,7 +63,7 @@ export function BookingReminderEmailHtmlEN(params: BookingReminderEmailParams): 
             <tr>
               <td style="padding:8px 22px 0;">
                 <div style="font:700 26px Georgia, 'Times New Roman', serif;color:#214235;letter-spacing:0.6px;">
-                  Hi ${guestName}, your stay starts in 1 week
+                  ${title}
                 </div>
                 <div style="height:3px;width:96px;background:#bfa58b;border-radius:2px;margin-top:10px;"></div>
               </td>
@@ -90,7 +73,7 @@ export function BookingReminderEmailHtmlEN(params: BookingReminderEmailParams): 
             <tr>
               <td style="padding:14px 22px 6px;">
                 <div style="font:500 15px Inter,Arial,sans-serif;color:#334155;line-height:1.6;">
-                  We're excited to host you at <strong>${houseName}</strong> on <strong>${checkInFmt}</strong>${checkOut ? ` until ${checkOutFmt}` : ""}. Here are some practical details and suggested activities to help you plan your trip.
+                  We're excited to host you at <strong>${houseName}</strong> on <strong>${checkInFmt}</strong>${checkOut ? ` until ${checkOutFmt}` : ""}. Please review the house information and rules below.
                 </div>
               </td>
             </tr>
@@ -113,47 +96,18 @@ export function BookingReminderEmailHtmlEN(params: BookingReminderEmailParams): 
               </td>
             </tr>
 
-            <!-- Activities preview -->
+            ${houseImageCid ? `
+            <!-- Visual -->
             <tr>
-              <td style="padding:6px 22px 0;">
-                <div style="font:700 18px Georgia, 'Times New Roman', serif;color:#214235;">Suggested activities</div>
-                <div style="font:500 14px Inter,Arial,sans-serif;color:#6b7280;margin-top:6px;">Hand-picked experiences for the area — great for a one-week plan.</div>
+              <td style="padding:0 22px 6px;">
+                <img src="cid:${houseImageCid}" alt="House" width="596" style="display:block;width:100%;border-radius:12px;border:1px solid #efe7dc;">
               </td>
-            </tr>
+            </tr>` : ""}
+  `;
+}
 
-            <tr>
-              <td style="padding:10px 22px 18px;">
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid #eee;border-radius:12px;overflow:hidden;">
-                  <tbody>
-                    ${activitiesRows}
-                  </tbody>
-                </table>
-              </td>
-            </tr>
-
-            <!-- Visual mini plan (three cards) -->
-            <tr>
-              <td style="padding:6px 22px 4px;">
-                <div style="display:flex;gap:12px;flex-wrap:wrap;">
-                  <div style="flex:1;min-width:180px;border-radius:10px;padding:12px;border:1px solid #efe7dc;background:#fff8f3;">
-                    <div style="font:700 14px Inter,Arial,sans-serif;color:#214235;">Kayak at Dawn</div>
-                    <div style="font:13px Inter,Arial,sans-serif;color:#334155;margin-top:8px;">2-3h sea kayak tour; calm waters & beaches. Recommended morning activity.</div>
-                  </div>
-
-                  <div style="flex:1;min-width:180px;border-radius:10px;padding:12px;border:1px solid #efe7dc;background:#fff8f3;">
-                    <div style="font:700 14px Inter,Arial,sans-serif;color:#214235;">Coastal Hike</div>
-                    <div style="font:13px Inter,Arial,sans-serif;color:#334155;margin-top:8px;">3-5 km scenic route with viewpoints and picnic spots. Medium difficulty.</div>
-                  </div>
-
-                  <div style="flex:1;min-width:180px;border-radius:10px;padding:12px;border:1px solid #efe7dc;background:#fff8f3;">
-                    <div style="font:700 14px Inter,Arial,sans-serif;color:#214235;">Local Market + Tapas</div>
-                    <div style="font:13px Inter,Arial,sans-serif;color:#334155;margin-top:8px;">Visit Saturday market and evening tapas route in the nearby town.</div>
-                  </div>
-                </div>
-              </td>
-            </tr>
-
-            <!-- Notes -->
+function baseFooter(notes?: string) {
+  return `
             ${notes ? `<tr><td style="padding:12px 22px 12px;"><div style="font:600 13px Inter,Arial,sans-serif;color:#6b7280;">Notes</div><div style="font:14px Inter,Arial,sans-serif;color:#334155;margin-top:6px;">${notes}</div></td></tr>` : ""}
 
             <!-- CTA / contact -->
@@ -177,6 +131,124 @@ export function BookingReminderEmailHtmlEN(params: BookingReminderEmailParams): 
         </td>
       </tr>
     </table>
-  </div>
-  `;
+  </div>`;
+}
+
+function rulesList(items: string[]) {
+  return `
+  <tr>
+    <td style="padding:6px 22px 0;">
+      <div style="font:700 18px Georgia, 'Times New Roman', serif;color:#214235;">House Rules (LT)</div>
+      <div style="font:500 14px Inter,Arial,sans-serif;color:#6b7280;margin-top:6px;">Vidaus tvarkos taisyklės</div>
+    </td>
+  </tr>
+  <tr>
+    <td style="padding:10px 22px 18px;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid #eee;border-radius:12px;overflow:hidden;">
+        <tbody>
+          <tr>
+            <td style="padding:12px 14px;font:14px/1.6 Inter, Arial, sans-serif;color:#334155;">
+              <ul style="margin:0;padding-left:18px;">
+                ${items.map((li) => `<li style=\"margin:6px 0;\">${li}</li>`).join("")}
+              </ul>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </td>
+  </tr>`;
+}
+
+function jacuzziList(items: string[]) {
+  return `
+  <tr>
+    <td style="padding:6px 22px 0;">
+      <div style="font:700 18px Georgia, 'Times New Roman', serif;color:#214235;">Jacuzzi taisyklės</div>
+      <div style="font:500 14px Inter,Arial,sans-serif;color:#6b7280;margin-top:6px;">Naudojimo informacija</div>
+    </td>
+  </tr>
+  <tr>
+    <td style="padding:10px 22px 18px;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid #eee;border-radius:12px;overflow:hidden;">
+        <tbody>
+          <tr>
+            <td style="padding:12px 14px;font:14px/1.6 Inter, Arial, sans-serif;color:#334155;">
+              <ul style="margin:0;padding-left:18px;">
+                ${items.map((li) => `<li style=\"margin:6px 0;\">${li}</li>`).join("")}
+              </ul>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </td>
+  </tr>`;
+}
+
+// -------------------- EMAIL A (House ID === L0TeFf2LmrWGAaAyS8NY) --------------------
+export function BookingReminderEmailHtml_A(params: BookingReminderEmailParams): string {
+  const header = baseHeader(params, { title: `Hi ${params.guestName}, important info for your stay` });
+  const rules = [
+    // Based on Rubikiai Lux E.N. Taisykles.pdf
+    "Apgyvendinimo para: 16:00–12:00 (kitą dieną).",
+    "Atvykus sumokėti likusią rezervacijos sumą.",
+    "Augintiniai griežtai draudžiami (mokėjimas negrąžinamas).",
+    "Neišstumdyti baldų, nelaikyti daiktų ne jiems skirtose vietose; palaikyti tvarką ir švarą.",
+    "Saugioti turtą; apie sugadinimus informuoti ir atsiskaityti iš karto (už nepilnamečius atsako tėvai / globėjai).",
+    "Nepalikti vaikų be priežiūros; už jų saugumą ir padarytą žalą atsako tėvai / globėjai.",
+    "Ramybės valandos 24:00–09:00.",
+    "RŪKYTI VIDUJE DRAUDŽIAMA; lauke nuorūkas mesti tik į talpas terasoje.",
+    "Nepjaustyti ant stalo ar stalviršių – naudoti pjaustymo lenteles.",
+    "Orkaitėje naudoti kepimo popierių ar foliją.",
+    "Laikytis saugaus naudojimosi elektros prietaisais; neišjungus nepalikti be priežiūros; išeinant išjungti šviesas ir užsukti vandenį.",
+    "Antklodės, rankšluosčiai ir kt. inventorius negali būti naudojami pliaže ar iškyloje lauke.",
+  ];
+  const jacuzzi = [
+    "Jei paslauga neapmokėta – naudotis griežtai draudžiama.",
+    "Naudojimosi laikas 18:00–24:00.",
+    "Jacuzzi nėra skirta prausimuisi – prieš naudojimą BŪTINA nusiprausti duše.",
+    "Nedėvėti papuošalų / aksesuarų – galima sugadinti siurblius (taisymo išlaidas dengtų svečias).",
+    "Draudžiama naudotis išsitepus kremais ar aliejais.",
+    "Nevalgyti ir negerti sūkurinėje vonioje; nepilti jokių skysčių (šampūno, muilo ir pan.) – pažeidžia filtravimo sistemą.",
+    "Draudžiama atidaryti dangtį naudojant grilį / šašlykinę.",
+    "Po kiekvieno naudojimosi BŪTINA uždaryti dangtį.",
+  ];
+
+  return header + rulesList(rules) + jacuzziList(jacuzzi) + baseFooter(params.notes);
+}
+
+// -------------------- EMAIL B (any other house) --------------------
+export function BookingReminderEmailHtml_B(params: BookingReminderEmailParams): string {
+  const header = baseHeader(params, { title: `Hi ${params.guestName}, important info for your stay` });
+  const rules = [
+    // Based on RubikiaiLux_Sutartis.pdf
+    "Apgyvendinimo para: 16:00–11:00 (kitą dieną).",
+    "Atvykus sumokėti likusią rezervacijos sumą.",
+    "Augintiniai griežtai draudžiami (mokėjimas negrąžinamas).",
+    "Neišstumdyti baldų, nelaikyti daiktų ne jiems skirtose vietose; palaikyti tvarką ir švarą.",
+    "Saugioti turtą; apie sugadinimus informuoti ir atsiskaityti iš karto (už nepilnamečius atsako tėvai / globėjai).",
+    "Jei atvykstama su nepilnamečiais – jų nepalikti be priežiūros; už jų saugumą ir žalą atsako tėvai / globėjai.",
+    "Ramybės valandos 24:00–09:00.",
+    "RŪKYTI VIDUJE DRAUDŽIAMA; lauke nuorūkas mesti tik į talpas terasoje.",
+    "Nepjaustyti ant stalo ar stalviršių – naudoti pjaustymo lenteles.",
+    "Orkaitėje naudoti kepimo popierių ar foliją.",
+    "Elektros prietaisus naudoti saugiai; išeinant išjungti šviesas ir užsukti vandenį.",
+    "Kambaryje esančią krosnelę kūrenti tik šeimininkui leidus ir po instruktažo.",
+    "Nedėti daiktų ant krosnelės, nekūrenti buitinėmis atliekomis.",
+    "Laikytis saugaus atstumo nuo įkaitusios krosnelės; nekūrenti be priežiūros.",
+    "Antklodės, rankšluosčiai ir kt. inventorius negali būti naudojami pliaže ar iškyloje lauke.",
+    "Nemaitinti elnių danielių be šeimininkų leidimo (tik vaisiais ar daržovėmis).",
+  ];
+  const jacuzzi = [
+    "Jei paslauga neapmokėta – naudotis griežtai draudžiama.",
+    "Naudojimosi laikas 18:00–24:00.",
+    "Jacuzzi nėra skirta prausimuisi – prieš naudojimą BŪTINA nusiprausti duše.",
+    "Nedėvėti papuošalų / aksesuarų – galima sugadinti siurblius (taisymo išlaidas dengtų svečias).",
+    "Draudžiama naudotis išsitepus kremais ar aliejais.",
+    "Nevalgyti ir negerti sūkurinėje vonioje; nepilti jokių skysčių (šampūno, muilo ir pan.) – pažeidžia filtravimo sistemą.",
+    "Draudžiama atidaryti dangtį naudojant grilį / šašlykinę.",
+    "Po kiekvieno naudojimosi BŪTINA uždaryti dangtį.",
+    "Griežtai draudžiama šokinėti į / iš jacuzzi.",
+  ];
+
+  return header + rulesList(rules) + jacuzziList(jacuzzi) + baseFooter(params.notes);
 }

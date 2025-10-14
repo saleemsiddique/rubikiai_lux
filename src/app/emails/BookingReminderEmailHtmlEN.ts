@@ -95,14 +95,6 @@ function baseHeader(
                 </table>
               </td>
             </tr>
-
-            ${houseImageCid ? `
-            <!-- Visual -->
-            <tr>
-              <td style="padding:0 22px 6px;">
-                <img src="cid:${houseImageCid}" alt="House" width="596" style="display:block;width:100%;border-radius:12px;border:1px solid #efe7dc;">
-              </td>
-            </tr>` : ""}
   `;
 }
 
@@ -113,7 +105,6 @@ function baseFooter(notes?: string) {
             <!-- CTA / contact -->
             <tr>
               <td align="center" style="padding:12px 22px 20px;">
-                <a href="https://your-site.example/reservations" style="display:inline-block;padding:12px 20px;border-radius:10px;text-decoration:none;font:600 14px Inter,Arial,sans-serif;background:#214235;color:#fff;">View reservation details</a>
                 <div style="font:13px Inter,Arial,sans-serif;color:#6b7280;margin-top:10px;">Need anything? Reply to this email or contact us at <a href="mailto:info@rubikiailux.lt" style="color:#214235;text-decoration:underline;">info@rubikiailux.lt</a>.</div>
               </td>
             </tr>

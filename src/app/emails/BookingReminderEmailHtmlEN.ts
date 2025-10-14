@@ -112,7 +112,7 @@ function baseFooter(notes?: string) {
             <!-- Footer -->
             <tr>
               <td style="padding:12px 22px 28px;border-top:1px solid #f0eadf;">
-                <div style="font:400 12px Inter,Arial,sans-serif;color:#6b7280;">
+                <div style="font:400 12px Inter,Arial,sans-serif;color:#6b7280;text-align:center;">
                   We look forward to hosting you. Please check travel requirements and local rules before arrival.
                 </div>
               </td>

@@ -156,8 +156,8 @@ async function sendReminderViaResend(params: {
 
   const sendArgs: any = {
     from: params.fromName
-      ? `${params.fromName} <noreply@culinarium.io>`
-      : "Rubikiai Lux <noreply@culinarium.io>",
+      ? `${params.fromName} <noreply@rubikiailux.lt>`
+      : "Rubikiai Lux <noreply@rubikiailux.lt>",
     to: params.to,
     subject: subjectFor(params.lang, params.data.houseName),
     html,

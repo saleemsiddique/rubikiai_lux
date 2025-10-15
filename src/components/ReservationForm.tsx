@@ -931,35 +931,73 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       {/* Header area: compact search controls */}
       <div className="card-soft mt-16 p-6 md:p-8 flex flex-col items-center relative z-10">
         {/* Property Type Toggle */}
-        <div className="flex justify-center space-x-4 mb-4 z-10 relative">
-          <button
-            onClick={() => setPropertyType('todos')}
-            className={`px-6 py-2 rounded-full font-sans uppercase text-sm font-bold tracking-wide transition-colors ${propertyType === 'todos'
-              ? 'bg-[var(--color-primary)] text-white'
-              : 'border border-[var(--color-primary)] text-[var(--color-primary)] hover:bg-[var(--color-primary-dark)] hover:text-white'
-              }`}
-          >
-            Todos
-          </button>
-          <button
-            onClick={() => setPropertyType('dupleksas')}
-            className={`px-6 py-2 rounded-full font-sans uppercase text-sm font-bold tracking-wide transition-colors ${propertyType === 'dupleksas'
-              ? 'bg-[var(--color-primary)] text-white'
-              : 'border border-[var(--color-primary)] text-[var(--color-primary)] hover:bg-[var(--color-primary-dark)] hover:text-white'
-              }`}
-          >
-            Duplex
-          </button>
-          <button
-            onClick={() => setPropertyType('ezero namelis')}
-            className={`px-6 py-2 rounded-full font-sans uppercase text-sm font-bold tracking-wide transition-colors ${propertyType === 'ezero namelis'
-              ? 'bg-[var(--color-primary)] text-white'
-              : 'border border-[var(--color-primary)] text-[var(--color-primary)] hover:bg-[var(--color-primary-dark)] hover:text-white'
-              }`}
-          >
-            Lake House
-          </button>
+        {/* - En móvil: mostramos un select (sm:hidden)
+   - En pantallas >= sm: mostramos los botones (hidden sm:flex) */}
+        <div className="mb-4 z-10 relative w-full">
+          {/* Mobile: select (estético, consistente con los botones) */}
+          <div className="sm:hidden flex justify-center">
+            <label htmlFor="propertyTypeMobile" className="sr-only">Property type</label>
+
+            <div className="relative w-40">
+              <select
+                id="propertyTypeMobile"
+                value={propertyType}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setPropertyType(e.target.value as "todos" | "dupleksas" | "ezero namelis")}
+                className="appearance-none w-full px-5 py-2 pr-10 rounded-full font-sans uppercase text-sm font-bold tracking-wide transition-colors border border-[var(--color-primary)] bg-[var(--color-background-card)] text-[var(--color-primary)] shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-opacity-25"
+              >
+                <option value="todos">Todos</option>
+                <option value="dupleksas">Duplex</option>
+                <option value="ezero namelis">Lake House</option>
+              </select>
+
+              {/* Chevron SVG (posicionado a la derecha, no interfiere con clicks) */}
+              <svg
+                className="pointer-events-none absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4"
+                viewBox="0 0 20 20"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
+              >
+                <path d="M6 8l4 4 4-4" stroke="var(--color-primary)" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+          </div>
+
+
+          {/* Desktop / Tablet: buttons */}
+          <div className="hidden sm:flex justify-center space-x-4">
+            <button
+              onClick={() => setPropertyType('todos')}
+              className={`px-6 py-2 rounded-full font-sans uppercase text-sm font-bold tracking-wide transition-colors ${propertyType === 'todos'
+                ? 'bg-[var(--color-primary)] text-white'
+                : 'border border-[var(--color-primary)] text-[var(--color-primary)] hover:bg-[var(--color-primary-dark)] hover:text-white'
+                }`}
+            >
+              Todos
+            </button>
+
+            <button
+              onClick={() => setPropertyType('dupleksas')}
+              className={`px-6 py-2 rounded-full font-sans uppercase text-sm font-bold tracking-wide transition-colors ${propertyType === 'dupleksas'
+                ? 'bg-[var(--color-primary)] text-white'
+                : 'border border-[var(--color-primary)] text-[var(--color-primary)] hover:bg-[var(--color-primary-dark)] hover:text-white'
+                }`}
+            >
+              Duplex
+            </button>
+
+            <button
+              onClick={() => setPropertyType('ezero namelis')}
+              className={`px-6 py-2 rounded-full font-sans uppercase text-sm font-bold tracking-wide transition-colors ${propertyType === 'ezero namelis'
+                ? 'bg-[var(--color-primary)] text-white'
+                : 'border border-[var(--color-primary)] text-[var(--color-primary)] hover:bg-[var(--color-primary-dark)] hover:text-white'
+                }`}
+            >
+              Lake House
+            </button>
+          </div>
         </div>
+
 
         {/* Dates & Guests */}
         <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 w-full justify-center items-center">

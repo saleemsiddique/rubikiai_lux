@@ -441,45 +441,59 @@ export default function HousePage(props: HousePageProps) {
                 <div className="space-y-4 font-sans mb-4">
                   <div>
                     <h4 className="font-bold">Check-in:</h4>
-                    {startFriendly ? <p className="text-lg">{startFriendly} — 04:00 PM</p> : <p className="text-lg">04:00 PM</p>}
+                    {startFriendly ? (
+                      <p className="text-lg">{startFriendly} — <span className="font-medium">04:00 PM</span></p>
+                    ) : (
+                      <p className="text-lg">04:00 PM</p>
+                    )}
                   </div>
+
                   <div>
                     <h4 className="font-bold">Check-out:</h4>
-                    {endFriendly ? <p className="text-lg">{endFriendly} — 11:00 AM</p> : <p className="text-lg">11:00 AM</p>}
+                    {endFriendly ? (
+                      <p className="text-lg">{endFriendly} — <span className="font-medium">11:00 AM</span></p>
+                    ) : (
+                      <p className="text-lg">11:00 AM</p>
+                    )}
                   </div>
                 </div>
 
-                {/* Cupón + Resumen de pago */}
+                {/* Coupon + Payment summary */}
                 {startParam && endParam ? (
                   <>
                     {/* Coupon block */}
                     <div className="mb-4 p-4 rounded-md border bg-white">
                       <h4 className="font-semibold mb-2">Have a coupon?</h4>
 
-                      <div className="flex gap-2">
+                      {/* Controls: column on xs, row on sm+ */}
+                      <div className="flex flex-col sm:flex-row gap-2 items-stretch">
                         <input
                           value={couponCode}
                           onChange={(e) => setCouponCode(e.target.value)}
                           placeholder="Enter coupon code"
-                          className="flex-1 border rounded-md p-2"
+                          className="flex-1 border rounded-md p-2 min-w-0"
                           aria-label="Coupon code"
                         />
-                        <button
-                          onClick={() => lookupCoupon(couponCode)}
-                          disabled={!couponCode || couponLoading}
-                          className="px-4 py-2 rounded-md bg-[var(--color-primary)] text-white font-semibold disabled:opacity-60"
-                        >
-                          {couponLoading ? "Checking…" : "Lookup"}
-                        </button>
-                        {couponData && (
+
+                        <div className="flex gap-2 items-center sm:items-stretch">
                           <button
-                            onClick={handleRemoveCoupon}
-                            className="px-3 py-2 rounded-md border font-semibold"
-                            aria-label="Clear coupon"
+                            onClick={() => lookupCoupon(couponCode)}
+                            disabled={!couponCode || couponLoading}
+                            className="px-4 py-2 rounded-md bg-[var(--color-primary)] text-white font-semibold disabled:opacity-60 w-full sm:w-auto"
                           >
-                            Clear
+                            {couponLoading ? "Checking…" : "Lookup"}
                           </button>
-                        )}
+
+                          {couponData && (
+                            <button
+                              onClick={handleRemoveCoupon}
+                              className="px-3 py-2 rounded-md border font-semibold w-full sm:w-auto"
+                              aria-label="Clear coupon"
+                            >
+                              Clear
+                            </button>
+                          )}
+                        </div>
                       </div>
 
                       {couponError && <div className="text-sm text-red-600 mt-2">{couponError}</div>}
@@ -490,80 +504,70 @@ export default function HousePage(props: HousePageProps) {
                             Coupon: {couponData.coupon.code}{" "}
                             <span className="text-xs text-gray-500">({couponData.state})</span>
                           </div>
+
                           <div className="mt-1">
-                            Remaining:{" "}
-                            <span className="font-semibold">
-                              {formatCurrency(Number(couponData.coupon.remaining ?? 0))}
-                            </span>
+                            Remaining: <span className="font-semibold">{formatCurrency(Number(couponData.coupon.remaining ?? 0))}</span>
                           </div>
+
                           {couponData.coupon.expiresAtIso && (
-                            <div className="mt-1 text-xs text-gray-500">
-                              Expires: {formatDateFriendly(couponData.coupon.expiresAtIso)}
-                            </div>
+                            <div className="mt-1 text-xs text-gray-500">Expires: {formatDateFriendly(couponData.coupon.expiresAtIso)}</div>
                           )}
 
                           <div className="mt-3">
                             <label className="block text-xs mb-1">Amount to apply</label>
-                            <div className="flex gap-2 items-center">
+                            <div className="flex flex-col sm:flex-row gap-2 items-stretch">
                               <input
                                 type="text"
                                 inputMode="decimal"
-                                // permite 0, 0.5, 0,50, 12.34, 12,34 con hasta 2 decimales
                                 pattern="^\d*([.,]\d{0,2})?$"
                                 value={applyInput}
                                 onChange={(e) => {
                                   const raw = e.target.value;
-                                  // normaliza coma a punto, y descarta lo que no cumpla el patrón
                                   const normalized = raw.replace(",", ".");
                                   if (/^\d*([.]\d{0,2})?$/.test(normalized)) {
-                                    setApplyInput(raw); // mostramos tal cual escribió el usuario
+                                    setApplyInput(raw);
                                     setApplyAmount(normalized === "" ? "" : parseFloat(normalized));
                                   }
                                 }}
-                                className="flex-1 border rounded-md p-2"
+                                className="flex-1 border rounded-md p-2 min-w-0"
                                 aria-label="Amount to apply from coupon"
                               />
 
-                              <button onClick={handleUseFullCoupon} className="px-3 py-2 rounded-md border">
-                                Use max
-                              </button>
-                              <button
-                                onClick={handleApplyCoupon}
-                                className="px-3 py-2 rounded-md bg-[var(--color-primary)] text-white font-semibold"
-                              >
-                                Apply
-                              </button>
+                              <div className="flex gap-2">
+                                <button onClick={handleUseFullCoupon} className="px-3 py-2 rounded-md border w-full sm:w-auto">
+                                  Use max
+                                </button>
+                                <button
+                                  onClick={handleApplyCoupon}
+                                  className="px-3 py-2 rounded-md bg-[var(--color-primary)] text-white font-semibold w-full sm:w-auto"
+                                >
+                                  Apply
+                                </button>
+                              </div>
                             </div>
+
                             <div className="mt-2 text-xs text-gray-500">
                               Amount cannot exceed coupon remaining, the reservation total, or the amount due now.
                             </div>
+
                             {stripeFixVisible && stripeFixContext && (
                               <div className="mt-3 p-3 rounded-md bg-amber-50 border border-amber-200 text-sm">
-                                <div className="font-medium mb-2">
-                                  El cobro no puede quedar entre 0.01€ y 0.49€.
-                                </div>
-                                <div className="flex flex-wrap gap-2">
-                                  {/* Opción A: dejar 0,50 € ahora */}
+                                <div className="font-medium mb-2">El cobro no puede quedar entre 0.01€ y 0.49€.</div>
+                                <div className="flex flex-col sm:flex-row gap-2">
                                   <button
-                                    className="px-3 py-2 rounded-md border font-semibold disabled:opacity-50"
+                                    className="px-3 py-2 rounded-md border font-semibold disabled:opacity-50 w-full sm:w-auto"
                                     onClick={() => {
                                       const { toApplyCents, discountedFirstCents, capNowCents, totalCents } = stripeFixContext!;
-                                      // firstCents = lo que costaba la primera noche antes del cupón
                                       const firstCents = toApplyCents + discountedFirstCents;
-
-                                      // Queremos cobrar exactamente 0,50 € -> aplicar cupón = firstCents - 50
                                       const targetApplyCents = Math.max(0, firstCents - STRIPE_MIN_CENTS);
-
-                                      // LÍMITES: no puede superar capNowCents ni totalCents
                                       if (targetApplyCents > capNowCents || targetApplyCents > totalCents) return;
-
                                       const adjusted = fromCents(targetApplyCents);
                                       setApplyAmount(adjusted);
-                                      setApplyInput(adjusted.toFixed(2)); // reflejar bien en el input
+                                      setApplyInput(adjusted.toFixed(2));
                                       setStripeFixVisible(false);
                                       setStripeFixContext(null);
                                       setCouponError(null);
-                                      setCouponApplied(true); // aplicar ya con el ajuste
+                                      setCouponApplied(true);
                                     }}
                                     disabled={
                                       (() => {
@@ -578,15 +582,12 @@ export default function HousePage(props: HousePageProps) {
                                     Dejar 0,50 € ahora
                                   </button>
 
-                                  {/* Opción B: dejar 0,00 € ahora (free order) */}
                                   <button
-                                    className="px-3 py-2 rounded-md border font-semibold disabled:opacity-50"
+                                    className="px-3 py-2 rounded-md border font-semibold disabled:opacity-50 w-full sm:w-auto"
                                     onClick={() => {
-                                      const { toApplyCents, discountedFirstCents, capNowCents, totalCents } = stripeFixContext;
-                                      const adjustedApplyCents = toApplyCents + discountedFirstCents; // sumar lo que falta para dejar 0
-
+                                      const { toApplyCents, discountedFirstCents, capNowCents, totalCents } = stripeFixContext!;
+                                      const adjustedApplyCents = toApplyCents + discountedFirstCents;
                                       if (adjustedApplyCents > capNowCents || adjustedApplyCents > totalCents) return;
-
                                       const adjusted = fromCents(adjustedApplyCents);
                                       setApplyAmount(adjusted);
                                       setApplyInput(String(adjusted));
@@ -613,15 +614,12 @@ export default function HousePage(props: HousePageProps) {
                                 </div>
                               </div>
                             )}
-
                           </div>
 
                           {couponApplied && (
                             <div className="mt-3 p-3 rounded-md bg-green-50 border border-green-200 text-sm">
                               Coupon applied:{" "}
-                              <span className="font-semibold">
-                                {formatCurrency(Number(applyAmount || 0))}
-                              </span>
+                              <span className="font-semibold">{formatCurrency(Number(applyAmount || 0))}</span>
                               <button onClick={() => setCouponApplied(false)} className="ml-3 underline">
                                 Undo
                               </button>
@@ -635,7 +633,7 @@ export default function HousePage(props: HousePageProps) {
                     <div className="mt-3 p-4 rounded-md border bg-white">
                       <div className="text-sm font-medium text-gray-700">Payment summary</div>
 
-                      <div className="mt-2 flex items-center justify-between text-sm text-gray-700">
+                      <div className="mt-2 flex flex-wrap items-center justify-between text-sm text-gray-700">
                         <div className="flex items-center">
                           <FaUserFriends className="mr-2" />
                           Guests: <span className="font-medium ml-1">{guestsDisplay}</span>
@@ -658,9 +656,7 @@ export default function HousePage(props: HousePageProps) {
                             {couponApplied ? (
                               <>
                                 <del className="text-sm mr-2">{formatCurrency(origTotal)}</del>
-                                <span className="text-[var(--color-primary)-dark]">
-                                  {formatCurrency(discountedTotal)}
-                                </span>
+                                <span className="text-[var(--color-primary)-dark]">{formatCurrency(discountedTotal)}</span>
                               </>
                             ) : (
                               <>{formatCurrency(totalFromServer)}</>
@@ -687,22 +683,15 @@ export default function HousePage(props: HousePageProps) {
                             )}
                           </div>
                         ) : (
-                          <div className="text-sm font-semibold text-gray-800">
-                            First night (price shown at checkout)
-                          </div>
+                          <div className="text-sm font-semibold text-gray-800">First night (price shown at checkout)</div>
                         )}
-                        <div className="mt-2 text-xs text-gray-600">
-                          The remaining amount will be charged on arrival.
-                        </div>
+                        <div className="mt-2 text-xs text-gray-600">The remaining amount will be charged on arrival.</div>
                       </div>
                     </div>
                   </>
                 ) : (
-                  /* Fallback cuando no hay fechas */
-                  <div className="hidden">
-                  </div>
+                  <div className="hidden" />
                 )}
-
 
                 <button
                   onClick={handleReserveNow}
@@ -711,6 +700,7 @@ export default function HousePage(props: HousePageProps) {
                 >
                   {startParam && endParam ? "Reserve now" : "Select dates to reserve"}
                 </button>
+
               </div>
             </div>
           </div>

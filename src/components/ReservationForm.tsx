@@ -929,7 +929,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
   return (
     <div className="max-w-6xl w-full mx-auto">
       {/* Header area: compact search controls */}
-      <div className="card-soft mt-16 p-6 md:p-8 flex flex-col items-center relative z-10">
+      <div className="card-soft mt-6 sm:mt-16 p-6 md:p-8 flex flex-col items-center relative z-10">
         {/* Property Type Toggle */}
         {/* - En móvil: mostramos un select (sm:hidden)
    - En pantallas >= sm: mostramos los botones (hidden sm:flex) */}

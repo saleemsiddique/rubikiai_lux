@@ -8,7 +8,7 @@ import { FaPhone, FaEnvelope } from 'react-icons/fa'; // Mantengo los iconos por
 
 const ContactPage: React.FC = () => {
   return (
-    <main className="min-h-screen bg-white text-[var(--color-text-dark)] flex flex-col lg:flex-row font-sans mt-4">
+    <main className="min-h-screen bg-white text-[var(--color-text-dark)] flex flex-col lg:flex-row font-sans mt-4 flex-col-reverse lg:flex-row">
       {/* Left Section: Contact Form & Info */}
       <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-8 md:p-16 lg:p-24 xl:p-32">
         <div className="max-w-md mx-auto lg:mx-0 w-full">

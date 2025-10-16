@@ -37,15 +37,6 @@ const OtherOptions: React.FC = () => {
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-2xl font-bold font-header text-[var(--color-primary-dark)]">Other options</h3>
-          {/* Los botones de navegación que pediste */}
-          <div className="flex space-x-2">
-            <button className="p-2 border rounded-full text-gray-600 hover:text-[var(--color-primary)] hover:bg-gray-200 transition-colors">
-              <FaArrowLeft />
-            </button>
-            <button className="p-2 border rounded-full text-gray-600 hover:text-[var(--color-primary)] hover:bg-gray-200 transition-colors">
-              <FaArrowRight />
-            </button>
-          </div>
         </div>
         <div className="flex space-x-4 overflow-x-auto pb-4 -mx-4 px-4 scrollbar-hide">
           {filteredProperties.map((prop) => (

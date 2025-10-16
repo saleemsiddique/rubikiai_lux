@@ -1133,7 +1133,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
               </div>
             </div>
 
-            <div className="w-full">
+            <div className="hidden sm:block w-full">
               <div className="p-3 border rounded">
                 <div className="text-sm font-semibold mb-2">Availability</div>
                 {openHouseId === house.id ? (

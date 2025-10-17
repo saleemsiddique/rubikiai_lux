@@ -43,6 +43,14 @@ type CouponOrderRow = {
   revenue: number;
 };
 
+// (1) ARRIBA DEL ARCHIVO, debajo de los imports y antes del componente, añade:
+const HOUSE_OPTIONS = [
+  { id: "L0TeFf2LmrWGAaAyS8NY", alias: "Ezero namelis" },
+  { id: "PZwbfMYlSXj61uYYJutg", alias: "Šalia Elnių Aptvaro" },
+  { id: "oDzv9346CdaAsok162sX", alias: "Elnių Panorama" },
+];
+
+
 function todayISO() {
   const d = new Date();
   const y = d.getFullYear();
@@ -239,8 +247,19 @@ export default function AdminRevenueClient() {
           <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} className="mt-1 border rounded-md p-2" />
         </div>
         <div className="flex flex-col">
-          <label className="text-xs text-neutral-600">House ID (opcional)</label>
-          <input value={houseId} onChange={(e) => setHouseId(e.target.value)} className="mt-1 border rounded-md p-2" placeholder="L0TeFf..." />
+          <label className="text-xs text-neutral-600">House (opcional)</label>
+          <select
+            value={houseId}
+            onChange={(e) => setHouseId(e.target.value)}
+            className="mt-1 border rounded-md p-2"
+          >
+            <option value="">(Todas)</option>
+            {HOUSE_OPTIONS.map((h) => (
+              <option key={h.id} value={h.id}>
+                {h.alias}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="md:col-span-4 flex flex-wrap gap-2 items-center">

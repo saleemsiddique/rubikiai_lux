@@ -23,6 +23,12 @@ type Reservation = {
 
 const STATUSES = ["reserved", "pending", "admin", "complete", "canceled", "expired"] as const;
 const CALENDAR_STATUSES = new Set(["reserved", "admin", "complete"]);
+const HOUSE_OPTIONS = [
+    { id: "L0TeFf2LmrWGAaAyS8NY", alias: "Ezero namelis" },
+    { id: "PZwbfMYlSXj61uYYJutg", alias: "Šalia Elnių Aptvaro" },
+    { id: "oDzv9346CdaAsok162sX", alias: "Elnių Panorama" },
+];
+
 
 /* ---------- helpers de fecha (LOCAL, sin toISOString) ---------- */
 function pad2(n: number) {
@@ -456,15 +462,23 @@ export default function AdminBookingsClient() {
                         />
                     </div>
 
+
                     <div className="flex flex-col">
-                        <label className="text-xs text-neutral-600">House ID (opcional)</label>
-                        <input
+                        <label className="text-xs text-neutral-600">House</label>
+                        <select
                             value={houseId}
                             onChange={(e) => setHouseId(e.target.value)}
-                            placeholder="L0TeFf2LmrWG..."
                             className="mt-1 border rounded-md p-2"
-                        />
+                        >
+                            <option value="">(Todas)</option>
+                            {HOUSE_OPTIONS.map((h) => (
+                                <option key={h.id} value={h.id}>
+                                    {h.alias}
+                                </option>
+                            ))}
+                        </select>
                     </div>
+
 
                     <div className="md:col-span-4 flex gap-2">
                         <button
@@ -746,13 +760,21 @@ export default function AdminBookingsClient() {
                                 className="border rounded-md p-2"
                             />
 
-                            <label className="text-xs text-neutral-600">House ID</label>
-                            <input
+
+                            <label className="text-xs text-neutral-600">House</label>
+                            <select
                                 value={blockHouseId}
                                 onChange={(e) => setBlockHouseId(e.target.value)}
-                                placeholder="L0TeFf2LmrWG..."
                                 className="border rounded-md p-2"
-                            />
+                            >
+                                <option value="">— Selecciona —</option>
+                                {HOUSE_OPTIONS.map((h) => (
+                                    <option key={h.id} value={h.id}>
+                                        {h.alias}
+                                    </option>
+                                ))}
+                            </select>
+
 
                             <label className="text-xs text-neutral-600">Nota (opcional)</label>
                             <textarea

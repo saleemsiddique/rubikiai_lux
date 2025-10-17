@@ -1,10 +1,10 @@
 // app/api/admin/houses/[id]/prices/route.ts
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import admin from "@/lib/firebase-admin";
 import { cookies } from "next/headers";
 
 type Weekday = "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
-const WEEKDAYS: Weekday[] = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"];
+const WEEKDAYS: Weekday[] = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
 
 async function requireAdmin() {
   const session = (await cookies()).get("session")?.value;
@@ -18,17 +18,14 @@ async function requireAdmin() {
   }
 }
 
-export async function POST(
-  _req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const user = await requireAdmin();
     if (!user) {
       return NextResponse.json({ error: "No autorizado." }, { status: 401 });
     }
 
-    const body = await _req.json().catch(() => ({}));
+    const body = await req.json().catch(() => ({}));
     const input = (body?.pricePerNight || {}) as Record<string, unknown>;
 
     // Validación y saneo
@@ -45,13 +42,14 @@ export async function POST(
     }
 
     const db = admin.firestore();
-    const ref = db.collection("houses").doc(params.id);
+    const { id } = await context.params;
+    const ref = db.collection("houses").doc(id);
     const snap = await ref.get();
     if (!snap.exists) {
       return NextResponse.json({ error: "Casa no encontrada." }, { status: 404 });
     }
 
-    // Hacemos merge de los precios existentes con los nuevos
+    // Merge de los precios existentes con los nuevos
     const current = (snap.data()?.pricePerNight || {}) as Record<string, number>;
     const next = { ...current, ...clean };
 
@@ -66,9 +64,7 @@ export async function POST(
       type: data.type ?? null,
       maxGuests: data.maxGuests ?? null,
       images: Array.isArray(data.images) ? data.images : [],
-      pricePerNight: typeof data.pricePerNight === "object" && data.pricePerNight
-        ? data.pricePerNight
-        : {},
+      pricePerNight: typeof data.pricePerNight === "object" && data.pricePerNight ? data.pricePerNight : {},
     };
 
     return NextResponse.json(payload, { status: 200 });

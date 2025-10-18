@@ -126,11 +126,11 @@ async function calculateTotalAndNights(houseIds: string[], startIso: string, end
   }
   const INCLUDED_BASE_SINGLE = 2;
   const INCLUDED_BASE_DUO = 4;
-  const EXTRA_GUEST_PRICE = 40;
+  const EXTRA_GUEST_PRICE = 0;
   const includedBase = houseIds.length > 1 ? INCLUDED_BASE_DUO : INCLUDED_BASE_SINGLE;
   const extraGuests = Math.max(0, guests - includedBase);
   total += extraGuests * EXTRA_GUEST_PRICE * nights;
-  const firstNightCharge = firstNightBase + extraGuests * EXTRA_GUEST_PRICE;
+  const firstNightCharge = 0 + extraGuests * EXTRA_GUEST_PRICE;
   console.debug("calculateTotalAndNights ->", { houseIds, startIso: sIso, endIso: eIso, nights, firstNightBase, total, extraGuests, firstNightCharge });
   return { total, nights, firstNightBase, firstNightCharge };
 }

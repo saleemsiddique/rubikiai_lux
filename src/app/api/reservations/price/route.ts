@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 
-const EXTRA_GUEST_PRICE = 40; // € per extra person per night
+const EXTRA_GUEST_PRICE = 0; // € per extra person per night
 
 function toDateOnly(v: any) {
   if (!v) return null;

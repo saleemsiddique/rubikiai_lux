@@ -420,7 +420,7 @@ export default function HousePage(props: HousePageProps) {
       <section className="py-16 px-4">
         <div className="container mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-            <div className="lg:col-span-2">
+            <div className="order-2 lg:order-1 lg:col-span-2">
               <h2 className="text-3xl font-bold mb-4 font-header text-[var(--color-primary-dark)]">About this place</h2>
               <div className="prose max-w-none font-sans text-gray-800">
                 {description ? (
@@ -434,7 +434,7 @@ export default function HousePage(props: HousePageProps) {
                 )}              </div>
             </div>
 
-            <div className="lg:col-span-1">
+            <div className="order-1 lg:order-2 lg:col-span-1">
               <div className="card-soft p-6">
                 <h3 className="text-2xl font-bold mb-4 font-header text-[var(--color-primary)]">Reservation</h3>
 

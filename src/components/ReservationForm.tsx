@@ -1,12 +1,15 @@
 // components/ReservationForm.tsx
 "use client";
 import React, { useEffect, useRef, useState } from "react";
-import DatePicker from "react-datepicker";
+import DatePicker, { registerLocale, setDefaultLocale } from "react-datepicker";
 import { useRouter, useSearchParams } from "next/navigation";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "@/lib/firestore";
 import { useHouse } from "@/context/HouseContext";
+import {es} from 'date-fns/locale/es';
 
+registerLocale('es', es);
+setDefaultLocale('es'); // todas las instancias empiezan en lunes
 
 /**
  * Nota: mappings de rutas / slugs y la lógica de cálculo seguro de precio

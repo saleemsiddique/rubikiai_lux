@@ -5,6 +5,9 @@ import { NextResponse } from "next/server";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY! as string);
 
+const toCents = (n: number) => Math.round(n * 100);
+const fromCents = (c: number) => c / 100;
+
 if (!admin.apps.length) {
   const cred = process.env.FIREBASE_ADMIN_SDK ? JSON.parse(process.env.FIREBASE_ADMIN_SDK) : undefined;
   admin.initializeApp({ credential: cred ? admin.credential.cert(cred) : admin.credential.applicationDefault() });
@@ -314,6 +317,7 @@ export async function POST(req: Request) {
           }
         }
 
+
         // Free-order: cerramos aquí mismo
         if (isFreeOrder) {
           if (data.status === "pending" || data.status === "capturing") {
@@ -395,16 +399,72 @@ export async function POST(req: Request) {
             { idempotencyKey: `capture_${reservationId}_${paymentIntentId}` }
           );
 
-          // 3) Dejar reserva en 'reserved'
+          // 3) Dejar reserva en 'reserved' y (AHORA SÍ) descontar cupón
           await db.runTransaction(async (tx) => {
             const s = await tx.get(resRef);
             if (!s.exists) return;
             const d: any = s.data();
 
             const updates: any = {
-              stripePaymentIntentId: captured?.id ? String(captured.id) : (d.stripePaymentIntentId || admin.firestore.FieldValue.delete()),
+              stripePaymentIntentId: captured?.id
+                ? String(captured.id)
+                : (d.stripePaymentIntentId || admin.firestore.FieldValue.delete()),
             };
 
+            // --- Descuento del cupón SOLO tras captura OK ---
+            const cInfo = d?.coupon || {};
+            // soporta amountApplied (euros) o amountAppliedCents (céntimos), prioriza céntimos si existe
+            const amountAppliedCents = Number.isFinite(Number(cInfo.amountAppliedCents))
+              ? Number(cInfo.amountAppliedCents)
+              : toCents(Number(cInfo.amountApplied || 0));
+
+            if (cInfo.id && amountAppliedCents > 0 && !cInfo.deductedAt) {
+              const couponRef = db.collection("coupons").doc(String(cInfo.id));
+              const cSnap = await tx.get(couponRef);
+              if (cSnap.exists) {
+                const cData: any = cSnap.data();
+                const remainingCents = toCents(Number(cData?.remaining ?? 0));
+
+                if (remainingCents >= amountAppliedCents) {
+                  tx.update(couponRef, {
+                    remaining: fromCents(remainingCents - amountAppliedCents),
+                    lastUsedAt: admin.firestore.Timestamp.now(),
+                  });
+
+                  const movRef = couponRef.collection("movements").doc();
+                  tx.set(movRef, {
+                    type: "reservation",
+                    reservationId,
+                    amountCents: amountAppliedCents,
+                    amount: fromCents(amountAppliedCents), // opcional, por legibilidad
+                    createdAt: admin.firestore.Timestamp.now(),
+                    checkoutSessionId: session.id,
+                  });
+
+                  updates.coupon = {
+                    ...cInfo,
+                    amountAppliedCents, // normalizamos
+                    deductedAt: admin.firestore.Timestamp.now(),
+                  };
+                } else {
+                  updates.coupon = {
+                    ...cInfo,
+                    amountAppliedCents,
+                    deductionError: "insufficient_remaining_at_webhook",
+                    deductionErrorAt: admin.firestore.Timestamp.now(),
+                  };
+                }
+              } else {
+                updates.coupon = {
+                  ...cInfo,
+                  amountAppliedCents,
+                  deductionError: "coupon_not_found_at_webhook",
+                  deductionErrorAt: admin.firestore.Timestamp.now(),
+                };
+              }
+            }
+
+            // --- Estado final de la reserva ---
             if (d.status !== "reserved") {
               updates.status = "reserved";
               updates.paidAt = admin.firestore.Timestamp.now();
@@ -413,6 +473,7 @@ export async function POST(req: Request) {
 
             tx.update(resRef, updates);
           });
+
         } catch (err: any) {
           console.error("PaymentIntent capture failed (webhook):", err?.message || err);
 

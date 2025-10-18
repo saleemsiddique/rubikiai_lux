@@ -47,15 +47,15 @@ export async function POST(req: Request) {
                 name: `Rubikiai Lux Coupon`,
                 description: quantity > 1 ? `${quantity} x ${unitAmount.toFixed(2)}€` : `${unitAmount.toFixed(2)}€`,
               },
-            unit_amount: 0,
+            unit_amount: unitAmountCents,
             },
-            quantity: quantity,
+            quantity,
           },
         ],
         metadata: {
           type: "coupon",               // clave para el webhook
           orderId: orderRef.id,
-          unitAmount: '0',
+          unitAmount: String(unitAmount),
           quantity: String(quantity),
         },
         success_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/coupons/checkout-complete?session_id={CHECKOUT_SESSION_ID}`,

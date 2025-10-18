@@ -318,18 +318,76 @@ export async function POST(req: Request) {
         }
 
 
-        // Free-order: cerramos aquí mismo
+        // Free-order: cerramos aquí mismo **y descontamos el cupón**
         if (isFreeOrder) {
           if (data.status === "pending" || data.status === "capturing") {
+            // --- descuento del cupón en free-order ---
+            const cInfo = data?.coupon || {};
+            // Soporta amountAppliedCents o amountApplied (euros). Priorizamos céntimos si ya lo tienes.
+            const amountAppliedCents = Number.isFinite(Number(cInfo.amountAppliedCents))
+              ? Number(cInfo.amountAppliedCents)
+              : toCents(Number(cInfo.amountApplied || 0));
+
+            if (cInfo.id && amountAppliedCents > 0 && !cInfo.deductedAt) {
+              const couponRef = db.collection("coupons").doc(String(cInfo.id));
+              const cSnap = await tx.get(couponRef);
+              if (cSnap.exists) {
+                const cData: any = cSnap.data();
+                const remainingCents = toCents(Number(cData?.remaining ?? 0));
+
+                if (remainingCents >= amountAppliedCents) {
+                  // baja el remaining
+                  tx.update(couponRef, {
+                    remaining: fromCents(remainingCents - amountAppliedCents),
+                    lastUsedAt: admin.firestore.Timestamp.now(),
+                  });
+
+                  // movimiento de cupón
+                  const movRef = couponRef.collection("movements").doc();
+                  tx.set(movRef, {
+                    type: "reservation",
+                    reservationId,
+                    amountCents: amountAppliedCents,
+                    amount: fromCents(amountAppliedCents), // opcional, por legibilidad en backoffice
+                    createdAt: admin.firestore.Timestamp.now(),
+                    checkoutSessionId: session.id,
+                  });
+
+                  updates.coupon = {
+                    ...cInfo,
+                    amountAppliedCents, // normalizamos
+                    deductedAt: admin.firestore.Timestamp.now(),
+                  };
+                } else {
+                  updates.coupon = {
+                    ...cInfo,
+                    amountAppliedCents,
+                    deductionError: "insufficient_remaining_at_webhook",
+                    deductionErrorAt: admin.firestore.Timestamp.now(),
+                  };
+                }
+              } else {
+                updates.coupon = {
+                  ...cInfo,
+                  amountAppliedCents,
+                  deductionError: "coupon_not_found_at_webhook",
+                  deductionErrorAt: admin.firestore.Timestamp.now(),
+                };
+              }
+            }
+
+            // estado final de la reserva
             updates.status = "reserved";
             updates.paidAt = admin.firestore.Timestamp.now();
             updates.expiresAt = admin.firestore.FieldValue.delete();
           } else {
             isAlreadyTerminal = true;
           }
+
           if (Object.keys(updates).length) tx.update(resRef, updates);
           return;
         }
+
 
         // Pago con PI
         if (data.status === "reserved" || data.status === "expired") {

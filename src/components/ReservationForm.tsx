@@ -41,7 +41,7 @@ interface ReservationFormProps {
 const DATE_WINDOW_DAYS = 14;
 const MAX_AHEAD_DAYS = 365; // <-- nuevo: límite máximo hacia adelante (1 año)
 const getGlobalMaxDate = () => addDays(new Date(), MAX_AHEAD_DAYS);
-export const EXTRA_GUEST_PRICE = 0; // € per extra person per night
+export const EXTRA_GUEST_PRICE = 40; // € per extra person per night
 const MAX_GUESTS_GLOBAL = 8;
 
 /* ---------------- Helpers ---------------- */

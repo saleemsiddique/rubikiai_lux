@@ -263,7 +263,7 @@ export default function AdminRevenueClient() {
         </div>
 
         <div className="md:col-span-4 flex flex-wrap gap-2 items-center">
-          <div className="flex items-center gap-2 text-sm">
+          <div className="flex flex-wrap items-center gap-2 text-sm">
             <label className="text-xs text-neutral-600">Estados reserva:</label>
             {["reserved", "complete", "pending", "admin", "canceled", "expired"].map((s) => {
               const checked = resStatuses.includes(s);

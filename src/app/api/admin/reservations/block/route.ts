@@ -30,7 +30,8 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { checkIn, checkOut, houseId, houseIds, note } = body || {};
+    const { checkIn, checkOut, houseId, houseIds, note, guests } = body || {};
+    const guestsNum = Math.max(1, Number(guests || 2)); // ← NUEVO (mínimo 1)
 
     if (!isISO(checkIn) || !isISO(checkOut) || checkIn >= checkOut) {
       return Response.json({ error: "Invalid date range" }, { status: 400 });
@@ -91,22 +92,58 @@ export async function POST(req: Request) {
       return Response.json({ error: "Date range overlaps an existing reservation (reserved/complete/admin)" }, { status: 409 });
     }
 
-    // Si todo OK → crear el bloqueo
+    // === PRICING: usa el endpoint oficial para calcular precios ===
+    const origin = new URL(req.url).origin;
+
+    // Si bloqueas 1 o varias casas, pásalas como "houseId" unidas por "__" (tu /price lo soporta)
+    const houseIdForPrice = targetHouseIds.join("__");
+
+    const priceRes = await fetch(`${origin}/api/reservations/price`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        houseId: houseIdForPrice,
+        startDate: checkIn,   // "YYYY-MM-DD"
+        endDate: checkOut,    // "YYYY-MM-DD"
+        guests: guestsNum,    // ← ver paso 3 más abajo
+      }),
+    });
+
+    if (!priceRes.ok) {
+      const txt = await priceRes.text().catch(() => "");
+      return Response.json({ error: `Price API error: ${txt || priceRes.statusText}` }, { status: 422 });
+    }
+
+    const priceJson: any = await priceRes.json();
+    if (priceJson?.error) {
+      return Response.json({ error: `Price API: ${priceJson.error}` }, { status: 422 });
+    }
+
+    // Valores calculados por el endpoint de precio (fuente de verdad)
+    const total = Number(priceJson.total ?? 0);
+    const firstNight = Number(priceJson.first ?? 0);
+    const nights = Number(priceJson.nights ?? 0);
+
+
     const payload: any = {
       status: "admin",
       createdBy: me.email || me.uid,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       checkIn: String(checkIn),
       checkOut: String(checkOut),
-      nights: nightsBetween(checkIn, checkOut),
+      nights,
       adminNote: note || null,
-      total: 0,
-      discountedTotal: 0,
-      firstNightCharge: 0,
+      // PRECIOS REALES
+      total,
+      discountedTotal: total,   // si quieres, aquí podrías aplicar un descuento interno
+      firstNightCharge: firstNight,
       currency: "EUR",
+      guests: guestsNum,
       houseIds: targetHouseIds,
       houseId: targetHouseIds[0],
     };
+
+
 
     const ref = await adminDb.collection("reservations").add(payload);
     const snap = await ref.get();

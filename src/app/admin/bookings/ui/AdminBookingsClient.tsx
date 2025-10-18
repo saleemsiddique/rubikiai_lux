@@ -124,6 +124,8 @@ export default function AdminBookingsClient() {
     const [blockNote, setBlockNote] = useState<string>("");
     const [blockBusy, setBlockBusy] = useState(false);
     const [blockMsg, setBlockMsg] = useState<string | null>(null);
+    const [blockGuests, setBlockGuests] = useState<number>(2);
+
 
     /* ---------- fetch listado ---------- */
     const fetchList = async () => {
@@ -364,10 +366,12 @@ export default function AdminBookingsClient() {
                         checkOut: blockEnd,
                         houseId: blockHouseId || undefined,
                         note: blockNote || undefined,
+                        guests: blockGuests, // ← NUEVO
                     }),
                 },
                 20000
             );
+
 
             if (!res.ok) {
                 const detail = await readError(res);
@@ -774,6 +778,21 @@ export default function AdminBookingsClient() {
                                     </option>
                                 ))}
                             </select>
+
+                            <label className="text-xs text-neutral-600">Huéspedes</label>
+                            <input
+                                type="number"
+                                min={1}
+                                max={8}
+                                step={1}
+                                value={blockGuests}
+                                onChange={(e) => {
+                                    const n = parseInt(e.target.value || "1", 10);
+                                    const clamped = Math.min(8, Math.max(1, isNaN(n) ? 1 : n));
+                                    setBlockGuests(clamped);
+                                }}
+                                className="border rounded-md p-2"
+                            />
 
 
                             <label className="text-xs text-neutral-600">Nota (opcional)</label>

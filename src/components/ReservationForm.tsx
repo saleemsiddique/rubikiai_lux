@@ -2,11 +2,11 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
 import DatePicker, { registerLocale, setDefaultLocale } from "react-datepicker";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "@/lib/firestore";
 import { useHouse } from "@/context/HouseContext";
-import {es} from 'date-fns/locale/es';
+import { es } from 'date-fns/locale/es';
 
 registerLocale('es', es);
 setDefaultLocale('es'); // todas las instancias empiezan en lunes
@@ -172,6 +172,7 @@ function getOccupiedDatesFromReservations(reservations: any[]) {
 export default function ReservationForm({ onReserve, showResults = true }: ReservationFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
 
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
@@ -237,7 +238,13 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     setGuests((prev) => {
       const next = Math.max(1, Math.min(MAX_GUESTS_GLOBAL, prev + inc));
 
-      // Si hay fechas seleccionadas -> preferimos regenerar localmente usando lastApiResults (si existe)
+      // Si estamos en la home ('/'): solo actualizar el número y salir,
+      // sin buscar ni regenerar nada.
+      if (pathname === "/") {
+        return next;
+      }
+
+      // --- TU LÓGICA ORIGINAL SE MANTIENE PARA OTRAS RUTAS ---
       if (startDate && endDate) {
         if (lastApiResults && lastApiResults.length > 0) {
           // regenerar localmente (rápido, sin depender de la API)
@@ -258,6 +265,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       return next;
     });
   };
+
 
   // helper para indicar loading por houseId
   const setCheckoutLoading = (houseId: string, v: boolean) =>

@@ -162,12 +162,17 @@ export default function AdminBookingsClient() {
 
     const calendarCells = useMemo<DayCell[]>(() => {
         const firstDayDate = new Date(calYear, calMonth, 1); // local
-        const firstWeekday = firstDayDate.getDay(); // 0=Sun..6=Sat
-        const daysCount = daysInMonth(calYear, calMonth);
 
+        // Antes:
+        // const firstWeekday = firstDayDate.getDay(); // 0=Sun..6=Sat
+
+        // Ahora: 0=Lun .. 6=Dom
+        const firstWeekday = (firstDayDate.getDay() + 6) % 7;
+
+        const daysCount = daysInMonth(calYear, calMonth);
         const cells: DayCell[] = [];
 
-        // Placeholders previos hasta el primer weekday real
+        // Placeholders previos hasta el primer weekday real (con lunes como 0)
         for (let i = 0; i < firstWeekday; i++) {
             cells.push({ key: `p-${i}`, isCurrentMonth: false });
         }
@@ -178,7 +183,7 @@ export default function AdminBookingsClient() {
             cells.push({ key: `d-${iso}`, iso, dayNum: d, isCurrentMonth: true });
         }
 
-        // Placeholders de cierre para completar la última fila
+        // Placeholders de cierre
         const total = cells.length;
         const rows = Math.ceil(total / 7);
         const trailing = rows * 7 - total;
@@ -188,6 +193,7 @@ export default function AdminBookingsClient() {
 
         return cells;
     }, [calYear, calMonth]);
+
 
     const fetchMonthOccupancy = async () => {
         setOccLoading(true);
@@ -634,7 +640,7 @@ export default function AdminBookingsClient() {
                         </div>
 
                         <div className="grid grid-cols-7 gap-2 text-xs text-neutral-600 mb-1">
-                            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+                            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
                                 <div key={d} className="text-center">
                                     {d}
                                 </div>

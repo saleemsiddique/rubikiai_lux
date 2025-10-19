@@ -384,6 +384,9 @@ export default function HousePage(props: HousePageProps) {
 
   const STRIPE_MIN_CENTS = 50;
 
+  const checkoutTime =
+    title?.includes("EŽERO NAMELIS") ? "12:00 PM" : "11:00 AM";
+
   // Estado para sugerencias Stripe
   const [stripeFixVisible, setStripeFixVisible] = useState(false);
   const [stripeFixContext, setStripeFixContext] = useState<{
@@ -451,11 +454,16 @@ export default function HousePage(props: HousePageProps) {
                   <div>
                     <h4 className="font-bold">Check-out:</h4>
                     {endFriendly ? (
-                      <p className="text-lg">{endFriendly} — <span className="font-medium">11:00 AM</span></p>
+                      <p className="text-lg">
+                        {endFriendly} — <span className="font-medium">{checkoutTime}</span>
+                      </p>
                     ) : (
-                      <p className="text-lg">11:00 AM</p>
+                      <p className="text-lg">
+                        <span className="font-medium">{checkoutTime}</span>
+                      </p>
                     )}
                   </div>
+
                 </div>
 
                 {/* Coupon + Payment summary */}
@@ -735,7 +743,10 @@ export default function HousePage(props: HousePageProps) {
           <p className="text-gray-600 mb-6 font-sans">Find us on Google Maps to plan your trip.</p>
           <div className="relative w-full h-96 rounded-lg overflow-hidden shadow-lg">
             <iframe
-              src={mapSrc ?? "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d157835.4326558231!2d25.43715878297757!3d55.45785055042656!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x46e72c8f8d228c21%3A0x633d7c5b61a4c905!2sRubikiai%20lake!5e0!3m2!1sen!2ses!4v1698716301138!5m2!1sen!2ses"}
+              src={
+                mapSrc ??
+                "https://www.google.com/maps?q=Rubikiai%20LUX%20SPA%20Apartments%2C%20Piliakalnio%20vs%201%2C%20Anyk%C5%A1%C4%8Diai%2029203%2C%20Lituania&hl=es&z=15&output=embed"
+              }
               width="100%"
               height="100%"
               style={{ border: 0 }}

@@ -149,16 +149,71 @@ async function fetchReservations(houseId: string) {
   return Array.from(mapByDocId.values());
 }
 
+function shouldIncludeReservation(res: any, nowMs = Date.now()) {
+  const status = String(res?.status ?? "").toLowerCase();
+
+  // expiresAt: Timestamp | Date | string | undefined
+  let expiresAt: Date | null = null;
+  try {
+    if (res?.expiresAt) {
+      expiresAt =
+        typeof res.expiresAt?.toDate === "function"
+          ? res.expiresAt.toDate()
+          : new Date(res.expiresAt);
+      if (Number.isNaN(expiresAt!.getTime())) expiresAt = null;
+    }
+  } catch {
+    expiresAt = null;
+  }
+
+  // Solo: admin, reserved, o pending no caducada
+  return (
+    status === "admin" ||
+    status === "reserved" ||
+    (status === "pending" && !!expiresAt && expiresAt.getTime() > nowMs)
+  );
+}
+
+
 /** Turn reservation docs (with checkIn/checkOut) into set of occupied ISO days */
+/** Devuelve set de días ocupados (ISO) aplicando reglas de estado/expiración */
 function getOccupiedDatesFromReservations(reservations: any[]) {
   const occupiedSet = new Set<string>();
+  const nowMs = Date.now();
 
   reservations.forEach((res) => {
+    const status = String(res?.status ?? "").toLowerCase();
+
+    // expiresAt puede ser Timestamp, Date o string
+    let expiresAt: Date | null = null;
+    try {
+      if (res?.expiresAt) {
+        expiresAt =
+          typeof res.expiresAt?.toDate === "function"
+            ? res.expiresAt.toDate()
+            : new Date(res.expiresAt);
+        if (Number.isNaN(expiresAt!.getTime())) expiresAt = null;
+      }
+    } catch {
+      expiresAt = null;
+    }
+
+    // Incluir solo:
+    // - admin o reserved SIEMPRE
+    // - pending SOLO si expiresAt es futuro
+    const include =
+      status === "admin" ||
+      status === "reserved" ||
+      (status === "pending" && !!expiresAt && expiresAt.getTime() > nowMs);
+
+    if (!include) return;
+
     const checkIn = toDateOnly(res.checkIn);
     const checkOut = toDateOnly(res.checkOut);
     if (!checkIn || !checkOut) return;
+
+    // checkOut exclusivo
     let cur = new Date(checkIn);
-    // checkOut is exclusive
     while (cur < checkOut) {
       occupiedSet.add(dateIso(cur));
       cur = addDays(cur, 1);
@@ -167,6 +222,7 @@ function getOccupiedDatesFromReservations(reservations: any[]) {
 
   return occupiedSet;
 }
+
 
 /* ---------------- Component ---------------- */
 export default function ReservationForm({ onReserve, showResults = true }: ReservationFormProps) {
@@ -201,6 +257,16 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
   };
   const [checkoutLoadingByHouse, setCheckoutLoadingByHouse] = useState<Record<string, boolean>>({});
 
+  /* Quick helpers (mobile) para saltar ventanas completas de 14 días */
+  const bumpOffset = (houseId: string, mode: "arrival" | "departure", deltaDays: number = DATE_WINDOW_DAYS) => {
+    setOffset(houseId, mode, getOffset(houseId, mode) + deltaDays);
+  };
+  const resetOffset = (houseId: string) => {
+    setCarouselOffsetByHouse((prev) => ({
+      ...prev,
+      [houseId]: { arrival: 0, departure: 0 },
+    }));
+  };
 
   const didAutoSearchRef = useRef(false);
 
@@ -420,16 +486,85 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     if (occupiedDatesByHouse[houseId] && !force) return occupiedDatesByHouse[houseId];
 
     try {
-      const ids = isDuoId(houseId) ? houseId.split("__").filter(Boolean) : [houseId];
-      const union = new Set<string>();
-      for (const id of ids) {
+      // 1) IDs “componentes” si es dúo, o el propio si es single
+      const idsToQuery = isDuoId(houseId) ? houseId.split("__").filter(Boolean) : [houseId];
+
+      // 2) Traer reservas relevantes (tu helper actual ya sirve)
+      const reservations: any[] = [];
+      for (const id of idsToQuery) {
         if (!id) continue;
-        const reservations = await fetchReservations(id);
-        const setOfDates = getOccupiedDatesFromReservations(reservations);
-        setOfDates.forEach((d) => union.add(d));
+        const part = await fetchReservations(id); // usa q1 (houseId==id) + q2 (houseIds array-contains id)
+        reservations.push(...part);
       }
-      setOccupiedDatesByHouse((prev) => ({ ...prev, [houseId]: union }));
-      return union;
+
+      // 3) Construir un mapa id->Set<YYYY-MM-DD>, propagando días a todos los IDs vinculados
+      const perId: Record<string, Set<string>> = {};
+      const addForId = (id: string, iso: string) => {
+        if (!perId[id]) perId[id] = new Set<string>();
+        perId[id].add(iso);
+      };
+
+      const nowMs = Date.now();
+
+      for (const res of reservations) {
+        if (!shouldIncludeReservation(res, nowMs)) continue;
+
+        const checkIn = toDateOnly(res.checkIn);
+        const checkOut = toDateOnly(res.checkOut);
+        if (!checkIn || !checkOut) continue;
+
+        // IDs implicados por esta reserva:
+        // - los individuales en houseIds[]
+        // - y, si el doc es dúo, el id combinado (res.houseId) para que el combo también quede bloqueado
+        const involvedIds = new Set<string>();
+        if (Array.isArray(res.houseIds)) {
+          res.houseIds.filter(Boolean).forEach((id: string) => involvedIds.add(id));
+        }
+        if (typeof res.houseId === "string" && res.houseId.includes("__")) {
+          involvedIds.add(res.houseId); // el combinado
+        }
+
+        // Marcar todos los días (checkout exclusivo)
+        let cur = new Date(checkIn);
+        while (cur < checkOut) {
+          const iso = dateIso(cur);
+          for (const id of involvedIds) addForId(id, iso);
+          cur = addDays(cur, 1);
+        }
+      }
+
+      // 4) Un “union” para el ID solicitado (por si venía combinado y/o single)
+      const unionForRequested = new Set<string>();
+      // lo que ya tuviéramos en memoria para ese id
+      if (occupiedDatesByHouse[houseId]) {
+        occupiedDatesByHouse[houseId].forEach((d) => unionForRequested.add(d));
+      }
+      // si es dúo, unimos los componentes
+      if (isDuoId(houseId)) {
+        for (const id of houseId.split("__").filter(Boolean)) {
+          perId[id]?.forEach((d) => unionForRequested.add(d));
+        }
+      }
+      // y el propio (por si perId ya tiene entradas para el combinado)
+      perId[houseId]?.forEach((d) => unionForRequested.add(d));
+
+      // 5) Guardar TODO en estado: cada id implicado + el solicitado
+      setOccupiedDatesByHouse((prev) => {
+        const next = { ...prev };
+        // merge helper
+        const merge = (id: string, set: Set<string>) => {
+          const base = new Set<string>(next[id] ?? []);
+          set.forEach((d) => base.add(d));
+          next[id] = base;
+        };
+
+        Object.entries(perId).forEach(([id, set]) => merge(id, set));
+        merge(houseId, unionForRequested);
+
+        return next;
+      });
+
+      return unionForRequested;
     } catch (err) {
       console.error("Error fetching reservations for house:", houseId, err);
       const empty = new Set<string>();
@@ -437,6 +572,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       return empty;
     }
   };
+
 
   /**
  * Regenera _localmente_ los resultados a partir del último apiResults
@@ -1132,7 +1268,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                 <div className="flex-1">
                   {startDate ? <PriceBadgeLocal houseId={house.id} date={startDate} /> : <span className="text-xs text-gray-500">Select dates</span>}
                 </div>
-                <div className="w-48">
+                <div className="w-48 flex flex-col gap-2">
                   <button
                     disabled={!isHouseAvailableNow(house) || !!checkoutLoadingByHouse[house.id]}
                     onClick={() => void handleReserveClick(house)}
@@ -1140,8 +1276,17 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                   >
                     {checkoutLoadingByHouse[house.id] ? "Processing…" : (isHouseAvailableNow(house) ? "Reserve now" : "Unavailable")}
                   </button>
+
+                  {/* NUEVO: ver fechas en móvil */}
+                  <button
+                    onClick={() => toggleOpenHouse(house.id)}
+                    className="w-full py-2 border rounded"
+                  >
+                    {openHouseId === house.id ? "Close dates" : "View dates"}
+                  </button>
                 </div>
               </div>
+
             </div>
 
             <div className="hidden sm:block w-full">
@@ -1157,6 +1302,26 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                 )}
               </div>
             </div>
+
+            {/* Availability (mobile) */}
+            <div className="sm:hidden w-full">
+              <div className="p-1 border rounded">
+                <div className="text-sm font-semibold mb-2">Availability</div>
+
+                {openHouseId === house.id ? (
+                  <>
+                    {renderCarouselForHouse(house, "arrival")}
+                    {renderCarouselForHouse(house, "departure")}
+                    <div className="mt-1 text-[11px] text-gray-500">
+                      Muestra las próximas fechas en bloques de {DATE_WINDOW_DAYS} días.
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-sm text-gray-500">Pulsa “View dates” para ver el calendario.</div>
+                )}
+              </div>
+            </div>
+
           </div>
         ))}
       </div>

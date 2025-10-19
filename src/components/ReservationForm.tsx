@@ -29,6 +29,7 @@ interface HouseLight {
   type?: string;
   occupiedDates?: Record<string, boolean>;
   description?: string;
+  specialPrices?: Record<string, number>;
 }
 
 /* Props */
@@ -74,11 +75,15 @@ function toDateOnly(value: any): Date | null {
 }
 
 /** Convert Date -> YYYY-MM-DD */
+// Reemplaza la función actual:
 function dateIso(d: Date) {
-  const copy = new Date(d);
-  copy.setHours(0, 0, 0, 0);
-  return copy.toISOString().split("T")[0];
+  // NO usar toISOString() (UTC) porque desplaza día según timezone
+  const y = d.getFullYear();
+  const m = (d.getMonth() + 1).toString().padStart(2, "0");
+  const day = d.getDate().toString().padStart(2, "0");
+  return `${y}-${m}-${day}`; // YYYY-MM-DD en LOCAL
 }
+
 function addDays(d: Date, days: number) {
   const r = new Date(d);
   r.setDate(r.getDate() + days);
@@ -117,13 +122,22 @@ function weekdayKey(date: Date) {
   return map[date.getDay()];
 }
 
-/* Price lookup helper (expects house.pricePerNight with weekday keys) */
+/* Price lookup helper (prioriza specialPrices -> fallback pricePerNight[weekday]) */
 function getPriceForDate(house: any, d: Date): number | null {
-  if (!house || !house.pricePerNight) return null;
+  if (!house) return null;
+
+  // 1) override puntual por ISO (YYYY-MM-DD)
+  const iso = dateIso(d);
+  const sp = house?.specialPrices?.[iso];
+  if (typeof sp === "number") return sp;
+
+  // 2) base semanal
+  if (!house.pricePerNight) return null;
   const key = weekdayKey(d);
   const val = house.pricePerNight[key];
   return typeof val === "number" ? val : null;
 }
+
 
 /* ---------------- Firestore helpers ---------------- */
 async function fetchReservations(houseId: string) {
@@ -174,56 +188,6 @@ function shouldIncludeReservation(res: any, nowMs = Date.now()) {
   );
 }
 
-
-/** Turn reservation docs (with checkIn/checkOut) into set of occupied ISO days */
-/** Devuelve set de días ocupados (ISO) aplicando reglas de estado/expiración */
-function getOccupiedDatesFromReservations(reservations: any[]) {
-  const occupiedSet = new Set<string>();
-  const nowMs = Date.now();
-
-  reservations.forEach((res) => {
-    const status = String(res?.status ?? "").toLowerCase();
-
-    // expiresAt puede ser Timestamp, Date o string
-    let expiresAt: Date | null = null;
-    try {
-      if (res?.expiresAt) {
-        expiresAt =
-          typeof res.expiresAt?.toDate === "function"
-            ? res.expiresAt.toDate()
-            : new Date(res.expiresAt);
-        if (Number.isNaN(expiresAt!.getTime())) expiresAt = null;
-      }
-    } catch {
-      expiresAt = null;
-    }
-
-    // Incluir solo:
-    // - admin o reserved SIEMPRE
-    // - pending SOLO si expiresAt es futuro
-    const include =
-      status === "admin" ||
-      status === "reserved" ||
-      (status === "pending" && !!expiresAt && expiresAt.getTime() > nowMs);
-
-    if (!include) return;
-
-    const checkIn = toDateOnly(res.checkIn);
-    const checkOut = toDateOnly(res.checkOut);
-    if (!checkIn || !checkOut) return;
-
-    // checkOut exclusivo
-    let cur = new Date(checkIn);
-    while (cur < checkOut) {
-      occupiedSet.add(dateIso(cur));
-      cur = addDays(cur, 1);
-    }
-  });
-
-  return occupiedSet;
-}
-
-
 /* ---------------- Component ---------------- */
 export default function ReservationForm({ onReserve, showResults = true }: ReservationFormProps) {
   const router = useRouter();
@@ -244,6 +208,17 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
   // occupiedDatesByHouse: houseId -> Set<ISO date>
   const [occupiedDatesByHouse, setOccupiedDatesByHouse] = useState<Record<string, Set<string>>>({});
   const [carouselOffsetByHouse, setCarouselOffsetByHouse] = useState<Record<string, { arrival: number; departure: number }>>({});
+
+  // debajo de los useState de houses / lastApiResults
+  const resultsIndex: Record<string, HouseLight> = React.useMemo(() => {
+    const idx: Record<string, HouseLight> = {};
+    // prioriza los últimos resultados (los que se renderizan)
+    for (const h of houses) idx[h.id] = h;
+    // completa con el snapshot de la última búsqueda
+    for (const h of lastApiResults) if (!idx[h.id]) idx[h.id] = h;
+    return idx;
+  }, [houses, lastApiResults]);
+
 
   const setOffset = (houseId: string, mode: "arrival" | "departure", newOffset: number) => {
     setCarouselOffsetByHouse((prev) => ({
@@ -752,12 +727,13 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
   /* ---------------- UI helpers (local price previews) ---------------- */
   function PriceBadgeLocal({ houseId, date }: { houseId: string; date: Date }) {
     const [idA, idB] = splitDuoId(houseId);
-    const houseA = useHouse(idA);
-    const houseB = useHouse(idB);
+    const houseA: any = getHouseWithSpecialPrices(idA);
+    const houseB: any = getHouseWithSpecialPrices(idB);
 
     if ((idA && houseA === undefined) || (idB && houseB === undefined))
       return <div className="text-xs opacity-60">...</div>;
-    if ((idA && houseA === null) || (idB && houseB === null)) return <div className="text-xs opacity-60">—</div>;
+    if ((idA && houseA === null) || (idB && houseB === null))
+      return <div className="text-xs opacity-60">—</div>;
 
     const pA = houseA ? getPriceForDate(houseA, date) : null;
     const pB = houseB ? getPriceForDate(houseB, date) : null;
@@ -772,10 +748,15 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     return (
       <div className="text-sm font-semibold">
         {totalPrice}€
-        {surcharge > 0 && <div className="text-xs text-gray-500">{basePrice}€ + {surcharge}€ ({extraGuests} extra)</div>}
+        {surcharge > 0 && (
+          <div className="text-xs text-gray-500">
+            {basePrice}€ + {surcharge}€ ({extraGuests} extra)
+          </div>
+        )}
       </div>
     );
   }
+
 
   function getTotalPriceForRangeLocal(house: any, start: Date, end: Date, guestsCount: number) {
     if (!house) return null;
@@ -800,8 +781,8 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
 
   function RangePriceLocal({ houseId, startDate: sd, endDate: ed }: { houseId: string; startDate?: Date | null; endDate?: Date | null }) {
     const [idA, idB] = splitDuoId(houseId);
-    const houseA = useHouse(idA);
-    const houseB = useHouse(idB);
+    const houseA: any = getHouseWithSpecialPrices(idA);
+    const houseB: any = getHouseWithSpecialPrices(idB);
 
     if (!sd || !ed) return null;
     if ((idA && houseA === undefined) || (idB && houseB === undefined)) return <div className="text-sm opacity-60">Loading price…</div>;
@@ -810,13 +791,10 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     const nights = Math.max(0, Math.round((ed.getTime() - sd.getTime()) / (1000 * 60 * 60 * 24)));
     if (nights <= 0) return null;
 
-    // duo
     if (idB) {
       let total: number | null = 0;
-      let cur = new Date(sd);
-      cur.setHours(0, 0, 0, 0);
-      const endCopy = new Date(ed);
-      endCopy.setHours(0, 0, 0, 0);
+      let cur = new Date(sd); cur.setHours(0, 0, 0, 0);
+      const endCopy = new Date(ed); endCopy.setHours(0, 0, 0, 0);
 
       const includedBase = 4;
       const extraGuests = Math.max(0, guests - includedBase);
@@ -833,8 +811,10 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       if (total === null) {
         return (
           <div className="mt-2 text-sm">
-            <div className="font-medium">Price for {nights} night{nights > 1 ? "s" : ""}: <span className="font-semibold">Price varies</span></div>
-            <div className="mt-1 text-xs text-gray-600">  Contact us for exact pricing or check the price for each night above. </div>
+            <div className="font-medium">
+              Price for {nights} night{nights > 1 ? "s" : ""}: <span className="font-semibold">Price varies</span>
+            </div>
+            <div className="mt-1 text-xs text-gray-600">Contact us for exact pricing or check the price for each night above.</div>
           </div>
         );
       }
@@ -844,15 +824,17 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
 
       return (
         <div className="mt-3">
-          <div className="text-sm font-medium">Total for {nights} night{nights > 1 ? "s" : ""}: <span className="font-semibold">{total}€</span></div>
-
+          <div className="text-sm font-medium">
+            Total for {nights} night{nights > 1 ? "s" : ""}: <span className="font-semibold">{total}€</span>
+          </div>
           <div className="mt-2 p-3 bg-white border rounded-md shadow-sm text-xs text-gray-700">
             <div className="font-semibold">Payment information</div>
-            <div className="mt-1">Only the first night (<strong>{firstNight}€</strong>) will be charged now. Remaining (<strong>{total - firstNight}€</strong>) will be charged on arrival.</div>
+            <div className="mt-1">
+              Only the first night (<strong>{firstNight}€</strong>) will be charged now. Remaining (<strong>{total - firstNight}€</strong>) will be charged on arrival.
+            </div>
             {perNightSurcharge > 0 && (
               <div className="mt-2 text-xs text-gray-500">
-                Includes extra guest surcharge: {perNightSurcharge}€ per night (
-                {Math.max(0, guests - 4)} {Math.max(0, guests - 4) === 1 ? "extra guest" : "extra guests"}).
+                Includes extra guest surcharge: {perNightSurcharge}€ per night ({Math.max(0, guests - 4)} {Math.max(0, guests - 4) === 1 ? "extra guest" : "extra guests"}).
               </div>
             )}
           </div>
@@ -860,7 +842,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       );
     }
 
-    // single house
+    // single
     const house = houseA;
     if (!house || !house.pricePerNight) return <div className="text-sm opacity-60">Price not available</div>;
     const totalSingle = getTotalPriceForRangeLocal(house, sd, ed, guests);
@@ -868,7 +850,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       return (
         <div className="mt-2 text-sm">
           <div className="font-medium">Price for {nights} night{nights > 1 ? "s" : ""}: <span className="font-semibold">Price varies</span></div>
-          <div className="mt-1 text-xs text-gray-600">  Contact us for exact pricing or check the price for each night above. </div>
+          <div className="mt-1 text-xs text-gray-600">Contact us for exact pricing or check the price for each night above.</div>
         </div>
       );
     }
@@ -880,20 +862,39 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     return (
       <div className="mt-3">
         <div className="text-sm font-medium">Total for {nights} night{nights > 1 ? "s" : ""}: <span className="font-semibold">{totalSingle}€</span></div>
-
         <div className="mt-2 p-3 bg-white border rounded-md shadow-sm text-xs text-gray-700">
           <div className="font-semibold">Payment information</div>
           <div className="mt-1">Only the first night (<strong>{firstNightSingle}€</strong>) will be charged now. Remaining (<strong>{totalSingle - firstNightSingle}€</strong>) will be charged on arrival.</div>
           {perNightSurchargeSingle > 0 && (
             <div className="mt-2 text-xs text-gray-500">
-              Includes extra guest surcharge: {perNightSurchargeSingle}€ per night (
-              {extraGuestsSingle} {extraGuestsSingle === 1 ? "extra guest" : "extra guests"}).
+              Includes extra guest surcharge: {perNightSurchargeSingle}€ per night ({extraGuestsSingle} {extraGuestsSingle === 1 ? "extra guest" : "extra guests"}).
             </div>
           )}
         </div>
       </div>
     );
   }
+
+
+  function getHouseWithSpecialPrices(id?: string) {
+    if (!id) return null;
+    const fromContext = useHouse(id); // puede ser undefined (cargando) o no traer specialPrices
+    const fromResults = resultsIndex[id];
+
+    // estados intermedios
+    if (fromContext === undefined && !fromResults) return undefined as any; // “loading…”
+    if (fromContext === null && !fromResults) return null; // “no existe”
+
+    // fusiona lo que tengamos: prioriza datos del contexto (suelen tener pricePerNight fiable)
+    const merged: any = { ...(fromResults || {}), ...(fromContext || {}) };
+
+    // si no hay specialPrices en el contexto, usa los del índice (si existen)
+    if (!merged.specialPrices && fromResults?.specialPrices) {
+      merged.specialPrices = fromResults.specialPrices;
+    }
+    return merged;
+  }
+
 
   /* ---------------- Carousel rendering (trimmed) ---------------- */
   const renderCarouselForHouse = (house: HouseLight, mode: "arrival" | "departure") => {

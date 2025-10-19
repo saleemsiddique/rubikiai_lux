@@ -8,7 +8,9 @@ type HouseListItem = { id: string; alias: string; name: string; type?: string | 
 type House = HouseListItem & {
   images?: string[] | null;
   pricePerNight: Partial<Record<Weekday, number>>;
+  specialPrices?: Record<string, number>;
 };
+
 
 const WEEK_LABEL: Record<Weekday, string> = {
   monday: "Lunes",
@@ -19,6 +21,7 @@ const WEEK_LABEL: Record<Weekday, string> = {
   saturday: "Sábado",
   sunday: "Domingo",
 };
+
 
 async function readError(res: Response) {
   const text = await res.text();
@@ -48,6 +51,17 @@ export default function AdminHousesClient() {
   });
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
+
+  // ----- NUEVO: Precios especiales -----
+  const [specialDate, setSpecialDate] = useState<string>(""); // YYYY-MM-DD
+  const [specialPrice, setSpecialPrice] = useState<string>(""); // string del input
+  const [specialSaving, setSpecialSaving] = useState(false);
+  const [specialMsg, setSpecialMsg] = useState<string | null>(null);
+
+  function isValidISODate(s: string) {
+    return /^\d{4}-\d{2}-\d{2}$/.test(s);
+  }
+
 
   // ------------- Carga lista de casas -------------
   useEffect(() => {
@@ -109,6 +123,55 @@ export default function AdminHousesClient() {
       setLoading(false);
     }
   }, []);
+
+  // Crea/actualiza precios especiales
+  const upsertSpecialPrices = useCallback(async (patch: Record<string, number>) => {
+    if (!house) return;
+    try {
+      setSpecialSaving(true);
+      setSpecialMsg(null);
+      const res = await fetch(`/api/admin/houses/${encodeURIComponent(house.id)}/special-prices`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ upsert: patch }),
+      });
+      if (!res.ok) throw new Error(await readError(res));
+      const updated: House = await res.json();
+      setHouse(updated);
+      setSpecialMsg("Precio especial guardado.");
+      // Si el date de formulario coincide, limpiamos el campo de precio
+      setSpecialPrice("");
+    } catch (e: any) {
+      console.error("[admin/houses] special upsert error:", e);
+      setSpecialMsg(`Error: ${e?.message || "No se pudo guardar el precio especial"}`);
+    } finally {
+      setSpecialSaving(false);
+    }
+  }, [house]);
+
+  // Eliminar uno o varios días especiales
+  const deleteSpecialPrices = useCallback(async (dates: string[]) => {
+    if (!house || !dates.length) return;
+    try {
+      setSpecialSaving(true);
+      setSpecialMsg(null);
+      const res = await fetch(`/api/admin/houses/${encodeURIComponent(house.id)}/special-prices`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ delete: dates }),
+      });
+      if (!res.ok) throw new Error(await readError(res));
+      const updated: House = await res.json();
+      setHouse(updated);
+      setSpecialMsg("Precio(s) especial(es) eliminado(s).");
+    } catch (e: any) {
+      console.error("[admin/houses] special delete error:", e);
+      setSpecialMsg(`Error: ${e?.message || "No se pudo eliminar"}`);
+    } finally {
+      setSpecialSaving(false);
+    }
+  }, [house]);
+
 
   // ------------- Guardar precios -------------
   const savePrices = useCallback(async () => {
@@ -184,9 +247,8 @@ export default function AdminHousesClient() {
               <button
                 key={h.id}
                 onClick={() => loadHouseById(h.id)}
-                className={`w-full text-left px-3 py-2 hover:bg-neutral-50 ${
-                  selected ? "bg-neutral-50 border-l-4 border-[var(--color-primary)]" : ""
-                }`}
+                className={`w-full text-left px-3 py-2 hover:bg-neutral-50 ${selected ? "bg-neutral-50 border-l-4 border-[var(--color-primary)]" : ""
+                  }`}
                 title={h.alias}
               >
                 <div className="flex items-center justify-between">
@@ -288,6 +350,109 @@ export default function AdminHousesClient() {
                 </div>
                 {saveMsg && <div className="mt-2 text-xs whitespace-pre-wrap">{saveMsg}</div>}
               </div>
+
+              {/* ----- NUEVO: Precios especiales por fecha ----- */}
+              <div className="p-4 rounded-xl border bg-white">
+                <div className="text-sm font-semibold">Precios especiales (por fecha)</div>
+
+                {/* Formulario de alta/edición */}
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-[auto_auto_auto] gap-3 items-end">
+                  <div>
+                    <label className="block text-xs text-neutral-600">Fecha (YYYY-MM-DD)</label>
+                    <input
+                      type="date"
+                      value={specialDate}
+                      onChange={(e) => setSpecialDate(e.target.value)}
+                      className="mt-1 w-full rounded-md border p-2"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-neutral-600">Precio</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      inputMode="decimal"
+                      placeholder="0.00"
+                      value={specialPrice}
+                      onChange={(e) => setSpecialPrice(e.target.value)}
+                      className="mt-1 w-full rounded-md border p-2"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        if (!house) return;
+                        const d = specialDate.trim();
+                        const raw = specialPrice.trim();
+                        if (!isValidISODate(d)) {
+                          setSpecialMsg("La fecha debe tener formato YYYY-MM-DD.");
+                          return;
+                        }
+                        const num = Number(raw.replace(",", "."));
+                        if (!Number.isFinite(num) || num < 0) {
+                          setSpecialMsg("El precio debe ser un número ≥ 0.");
+                          return;
+                        }
+                        void upsertSpecialPrices({ [d]: num });
+                      }}
+                      disabled={specialSaving}
+                      className="rounded-md bg-[var(--color-primary)] text-white px-4 py-2 text-sm font-semibold hover:opacity-95 disabled:opacity-60"
+                    >
+                      {specialSaving ? "Guardando…" : "Guardar fecha"}
+                    </button>
+
+                    {/* Limpia el formulario, no borra datos */}
+                    <button
+                      type="button"
+                      onClick={() => { setSpecialDate(""); setSpecialPrice(""); setSpecialMsg(null); }}
+                      className="rounded-md border px-4 py-2 text-sm hover:bg-neutral-50"
+                    >
+                      Limpiar
+                    </button>
+                  </div>
+                </div>
+
+                {/* Lista de overrides existentes */}
+                <div className="mt-4">
+                  <div className="text-xs uppercase tracking-wider text-neutral-600 mb-1">Fechas configuradas</div>
+                  {(!house?.specialPrices || Object.keys(house.specialPrices).length === 0) ? (
+                    <div className="text-sm text-neutral-500">No hay precios especiales.</div>
+                  ) : (
+                    <div className="border rounded-md divide-y">
+                      {Object.entries(house.specialPrices)
+                        .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+                        .map(([iso, price]) => (
+                          <div key={iso} className="p-2 flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-3">
+                              <span className="font-mono text-sm">{iso}</span>
+                              <span className="text-sm">— {price} €</span>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                className="text-xs rounded-md border px-3 py-1 hover:bg-neutral-50"
+                                onClick={() => { setSpecialDate(iso); setSpecialPrice(String(price)); }}
+                              >
+                                Editar
+                              </button>
+                              <button
+                                type="button"
+                                className="text-xs rounded-md border px-3 py-1 hover:bg-red-50 text-red-700"
+                                onClick={() => void deleteSpecialPrices([iso])}
+                              >
+                                Eliminar
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
+
+                {specialMsg && <div className="mt-2 text-xs whitespace-pre-wrap">{specialMsg}</div>}
+              </div>
+
 
               {/* Imágenes */}
               {!!(house.images?.length) && (

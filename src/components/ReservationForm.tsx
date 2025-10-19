@@ -219,24 +219,26 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     return idx;
   }, [houses, lastApiResults]);
 
-  // ⬇️ NUEVO: hook que fusiona datos del contexto con los del último resultado
+  // ✅ SIEMPRE llama a useHouse, incluso si id es undefined, para cumplir Rules of Hooks
   function useHouseMerged(id?: string) {
-    if (!id) return null;
+    const ctx = useHouse(id as any); // llamada incondicional
 
-    const ctx = useHouse(id);                 // puede ser undefined | null | objeto
-    const fromResults = resultsIndex[id];     // snapshot de la última búsqueda
+    if (!id) return null;            // early-return permitido (después del hook)
 
-    // estados intermedios idénticos a los que estabas devolviendo
+    const fromResults = resultsIndex[id];
+
+    // estados intermedios coherentes
     if (ctx === undefined && !fromResults) return undefined as any; // "loading"
     if (ctx === null && !fromResults) return null;                  // "no existe"
 
-    // fusión: prioriza contexto y rellena con resultados (incluye specialPrices)
+    // fusión de datos (prioriza contexto, rellena con resultados)
     const merged: any = { ...(fromResults || {}), ...(ctx || {}) };
     if (!merged.specialPrices && fromResults?.specialPrices) {
       merged.specialPrices = fromResults.specialPrices;
     }
     return merged;
   }
+
 
   const setOffset = (houseId: string, mode: "arrival" | "departure", newOffset: number) => {
     setCarouselOffsetByHouse((prev) => ({

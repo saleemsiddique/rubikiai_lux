@@ -219,6 +219,24 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     return idx;
   }, [houses, lastApiResults]);
 
+  // ⬇️ NUEVO: hook que fusiona datos del contexto con los del último resultado
+  function useHouseMerged(id?: string) {
+    if (!id) return null;
+
+    const ctx = useHouse(id);                 // puede ser undefined | null | objeto
+    const fromResults = resultsIndex[id];     // snapshot de la última búsqueda
+
+    // estados intermedios idénticos a los que estabas devolviendo
+    if (ctx === undefined && !fromResults) return undefined as any; // "loading"
+    if (ctx === null && !fromResults) return null;                  // "no existe"
+
+    // fusión: prioriza contexto y rellena con resultados (incluye specialPrices)
+    const merged: any = { ...(fromResults || {}), ...(ctx || {}) };
+    if (!merged.specialPrices && fromResults?.specialPrices) {
+      merged.specialPrices = fromResults.specialPrices;
+    }
+    return merged;
+  }
 
   const setOffset = (houseId: string, mode: "arrival" | "departure", newOffset: number) => {
     setCarouselOffsetByHouse((prev) => ({
@@ -727,8 +745,8 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
   /* ---------------- UI helpers (local price previews) ---------------- */
   function PriceBadgeLocal({ houseId, date }: { houseId: string; date: Date }) {
     const [idA, idB] = splitDuoId(houseId);
-    const houseA: any = getHouseWithSpecialPrices(idA);
-    const houseB: any = getHouseWithSpecialPrices(idB);
+    const houseA: any = useHouseMerged(idA);
+    const houseB: any = useHouseMerged(idB);
 
     if ((idA && houseA === undefined) || (idB && houseB === undefined))
       return <div className="text-xs opacity-60">...</div>;
@@ -781,8 +799,8 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
 
   function RangePriceLocal({ houseId, startDate: sd, endDate: ed }: { houseId: string; startDate?: Date | null; endDate?: Date | null }) {
     const [idA, idB] = splitDuoId(houseId);
-    const houseA: any = getHouseWithSpecialPrices(idA);
-    const houseB: any = getHouseWithSpecialPrices(idB);
+    const houseA: any = useHouseMerged(idA);
+    const houseB: any = useHouseMerged(idB);
 
     if (!sd || !ed) return null;
     if ((idA && houseA === undefined) || (idB && houseB === undefined)) return <div className="text-sm opacity-60">Loading price…</div>;
@@ -873,26 +891,6 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
         </div>
       </div>
     );
-  }
-
-
-  function getHouseWithSpecialPrices(id?: string) {
-    if (!id) return null;
-    const fromContext = useHouse(id); // puede ser undefined (cargando) o no traer specialPrices
-    const fromResults = resultsIndex[id];
-
-    // estados intermedios
-    if (fromContext === undefined && !fromResults) return undefined as any; // “loading…”
-    if (fromContext === null && !fromResults) return null; // “no existe”
-
-    // fusiona lo que tengamos: prioriza datos del contexto (suelen tener pricePerNight fiable)
-    const merged: any = { ...(fromResults || {}), ...(fromContext || {}) };
-
-    // si no hay specialPrices en el contexto, usa los del índice (si existen)
-    if (!merged.specialPrices && fromResults?.specialPrices) {
-      merged.specialPrices = fromResults.specialPrices;
-    }
-    return merged;
   }
 
 

@@ -27,7 +27,7 @@ html, body, #root {
 }
 
 body {
-  font-family: 'Montserrat', sans-serif;
+  font-family: 'Cormorant Garamond', serif;
   background-color: var(--color-background-main);
   color: var(--color-highlight);
 }

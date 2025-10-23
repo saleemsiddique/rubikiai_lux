@@ -352,7 +352,6 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
   const setCheckoutLoading = (houseId: string, v: boolean) =>
     setCheckoutLoadingByHouse((p) => ({ ...p, [houseId]: v }));
 
-  /** Crea sesión en backend y redirige al checkout (Stripe) */
   const createCheckoutAndRedirect = async (
     houseIdOrSlug: string,
     s: Date,
@@ -362,13 +361,24 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
   ) => {
     try {
       setCheckoutLoading(houseIdOrSlug, true);
+
       const body = {
         houseId: houseIdOrSlug,
         start: s.toISOString(),
         end: e.toISOString(),
         guests: guestsNum,
         houseSlug: houseSlug ?? undefined,
+
+        // 👇 NUEVO: customer
+        customer: {
+          email: currentUser?.email || bookingEmail || undefined,
+          name: `${currentUser?.firstName ?? ""} ${currentUser?.lastName ?? ""}`.trim() || undefined,
+          phone: bookingPhone || undefined,
+          address: bookingAddress || undefined,
+          userId: currentUser?.id || undefined,
+        },
       };
+
       const res = await fetch("/api/create-checkout-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -384,8 +394,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       }
 
       if (data.url) {
-        // redirigir a Stripe
-        window.location.href = data.url;
+        window.location.href = data.url; // redirigir a Stripe
         return;
       }
 
@@ -397,6 +406,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       setCheckoutLoading(houseIdOrSlug, false);
     }
   };
+
 
   /** Handler unificado para Reserve now (desktop + mobile) */
   const handleReserveClick = async (house: HouseLight) => {
@@ -1228,161 +1238,161 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
           <div className="text-center text-gray-600">No results. Select dates and click &quot;Check availability&quot;.</div>
         )}
 
-  {houses.map((house) => {
-  const img = getHouseImage(house.id);
+        {houses.map((house) => {
+          const img = getHouseImage(house.id);
 
-  // Determine button state for cleaner logic
-  const isAvailable = isHouseAvailableNow(house);
-  const isLoading = !!checkoutLoadingByHouse[house.id];
-  const reserveButtonClass = isAvailable
-    ? "bg-[var(--color-primary)] text-white hover:bg-opacity-90 transition duration-300"
-    : "bg-gray-200 text-gray-500 cursor-not-allowed";
+          // Determine button state for cleaner logic
+          const isAvailable = isHouseAvailableNow(house);
+          const isLoading = !!checkoutLoadingByHouse[house.id];
+          const reserveButtonClass = isAvailable
+            ? "bg-[var(--color-primary)] text-white hover:bg-opacity-90 transition duration-300"
+            : "bg-gray-200 text-gray-500 cursor-not-allowed";
 
-  return (
-    // Tarjeta con esquinas sutilmente redondeadas y un borde limpio
-    <div key={house.id} className="bg-white rounded-2xl border border-gray-100 shadow-xl overflow-hidden transition-all duration-300 hover:shadow-2xl">
-      
-      <div className="flex flex-col md:flex-row">
-        
-        {/* Sección de Imagen (Mucho más grande en desktop) */}
-        <div className="shrink-0 w-full md:w-80 lg:w-96">
-          <div className="w-full aspect-[4/3] md:h-full overflow-hidden">
-            <img
-              key={img.key}
-              src={img.url}
-              alt={img.alt ?? house.name}
-              loading="lazy"
-              // Efecto visual más impactante
-              className="w-full h-full object-cover transition-transform duration-700 hover:scale-110"
-            />
-          </div>
-        </div>
+          return (
+            // Tarjeta con esquinas sutilmente redondeadas y un borde limpio
+            <div key={house.id} className="bg-white rounded-2xl border border-gray-100 shadow-xl overflow-hidden transition-all duration-300 hover:shadow-2xl">
 
-        {/* Contenido Principal y Acciones */}
-        <div className="flex-1 p-6 md:p-8 flex flex-col justify-between">
-          
-          {/* Detalles de la Casa */}
-          <div>
-            <h3 className="text-3xl font-extrabold text-[var(--color-primary-dark)] leading-tight mb-2">
-              {house.name}
-            </h3>
-            <p className="text-base font-medium text-gray-500 mb-4">
-              Máximo de Huéspedes: {house.maxGuests}
-            </p>
-            <p className="text-gray-700 leading-relaxed text-lg mb-6 border-l-4 border-[var(--color-primary)] pl-4 italic">
-              {house.description}
-            </p>
-          </div>
+              <div className="flex flex-col md:flex-row">
 
-        {/* Área de Precios y Botones con diseño moderno */}
-          <div className="space-y-4">
-            
-            {/* Card de Precios con diseño premium */}
-            {startDate ? (
-              <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-4 space-y-3">
-                {/* Precio por noche */}
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Precio por noche</span>
+                {/* Sección de Imagen (Mucho más grande en desktop) */}
+                <div className="shrink-0 w-full md:w-80 lg:w-96">
+                  <div className="w-full aspect-[4/3] md:h-full overflow-hidden">
+                    <img
+                      key={img.key}
+                      src={img.url}
+                      alt={img.alt ?? house.name}
+                      loading="lazy"
+                      // Efecto visual más impactante
+                      className="w-full h-full object-cover transition-transform duration-700 hover:scale-110"
+                    />
                   </div>
-                  <PriceBadgeLocal houseId={house.id} date={startDate} />
                 </div>
 
-                {/* Precio Total - Solo si hay rango completo */}
-                {endDate && (
-                  <>
-                    <div className="border-t border-gray-300"></div>
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <svg className="w-4 h-4 text-[var(--color-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                {/* Contenido Principal y Acciones */}
+                <div className="flex-1 p-6 md:p-8 flex flex-col justify-between">
+
+                  {/* Detalles de la Casa */}
+                  <div>
+                    <h3 className="text-3xl font-extrabold text-[var(--color-primary-dark)] leading-tight mb-2">
+                      {house.name}
+                    </h3>
+                    <p className="text-base font-medium text-gray-500 mb-4">
+                      Máximo de Huéspedes: {house.maxGuests}
+                    </p>
+                    <p className="text-gray-700 leading-relaxed text-lg mb-6 border-l-4 border-[var(--color-primary)] pl-4 italic">
+                      {house.description}
+                    </p>
+                  </div>
+
+                  {/* Área de Precios y Botones con diseño moderno */}
+                  <div className="space-y-4">
+
+                    {/* Card de Precios con diseño premium */}
+                    {startDate ? (
+                      <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-4 space-y-3">
+                        {/* Precio por noche */}
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Precio por noche</span>
+                          </div>
+                          <PriceBadgeLocal houseId={house.id} date={startDate} />
+                        </div>
+
+                        {/* Precio Total - Solo si hay rango completo */}
+                        {endDate && (
+                          <>
+                            <div className="border-t border-gray-300"></div>
+                            <div>
+                              <div className="flex items-center gap-2 mb-1">
+                                <svg className="w-4 h-4 text-[var(--color-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                </svg>
+                                <span className="text-xs font-bold text-[var(--color-primary)] uppercase tracking-wide">Total estancia</span>
+                              </div>
+                              <div className="text-2xl font-bold text-[var(--color-primary-dark)]">
+                                <RangePriceLocal houseId={house.id} startDate={startDate} endDate={endDate} />
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="bg-gray-50 rounded-2xl p-4 text-center">
+                        <svg className="w-8 h-8 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
-                        <span className="text-xs font-bold text-[var(--color-primary)] uppercase tracking-wide">Total estancia</span>
+                        <span className="text-sm text-gray-500">Selecciona fechas para ver precios</span>
                       </div>
-                      <div className="text-2xl font-bold text-[var(--color-primary-dark)]">
-                        <RangePriceLocal houseId={house.id} startDate={startDate} endDate={endDate} />
-                      </div>
+                    )}
+
+                    {/* Botones de Acción con diseño mejorado */}
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      {/* Botón de Reserva Principal */}
+                      <button
+                        disabled={!isAvailable || isLoading}
+                        onClick={() => void handleReserveClick(house)}
+                        className={`w-full sm:flex-1 py-3.5 px-6 rounded-xl font-bold uppercase tracking-wider text-sm transition-all duration-300 ${reserveButtonClass} ${isAvailable && !isLoading ? 'shadow-lg hover:shadow-xl transform hover:-translate-y-0.5' : ''}`}
+                      >
+                        {isLoading ? (
+                          <span className="flex items-center justify-center gap-2">
+                            <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Procesando
+                          </span>
+                        ) : isAvailable ? (
+                          "Reservar Ahora"
+                        ) : (
+                          "No Disponible"
+                        )}
+                      </button>
+
+                      {/* Botón Secundario para Ver Calendario */}
+                      <button
+                        onClick={() => toggleOpenHouse(house.id)}
+                        className="w-full sm:flex-1 py-3.5 px-6 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-all duration-300 text-sm flex items-center justify-center gap-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        {openHouseId === house.id ? "Cerrar" : "Ver Calendario"}
+                      </button>
                     </div>
-                  </>
-                )}
+                  </div>
+                </div>
               </div>
-            ) : (
-              <div className="bg-gray-50 rounded-2xl p-4 text-center">
-                <svg className="w-8 h-8 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <span className="text-sm text-gray-500">Selecciona fechas para ver precios</span>
-              </div>
-            )}
 
-            {/* Botones de Acción con diseño mejorado */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              {/* Botón de Reserva Principal */}
-              <button
-                disabled={!isAvailable || isLoading}
-                onClick={() => void handleReserveClick(house)}
-                className={`w-full sm:flex-1 py-3.5 px-6 rounded-xl font-bold uppercase tracking-wider text-sm transition-all duration-300 ${reserveButtonClass} ${isAvailable && !isLoading ? 'shadow-lg hover:shadow-xl transform hover:-translate-y-0.5' : ''}`}
-              >
-                {isLoading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Procesando
-                  </span>
-                ) : isAvailable ? (
-                  "Reservar Ahora"
-                ) : (
-                  "No Disponible"
-                )}
-              </button>
+              {/* Sección de Disponibilidad (Expandida) */}
+              {openHouseId === house.id && (
+                <div className="p-6 md:p-8 bg-gray-50 border-t border-gray-200">
+                  <div className="text-xl font-bold text-gray-800 mb-4">Calendario de Disponibilidad</div>
 
-              {/* Botón Secundario para Ver Calendario */}
-              <button 
-                onClick={() => toggleOpenHouse(house.id)} 
-                className="w-full sm:flex-1 py-3.5 px-6 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-all duration-300 text-sm flex items-center justify-center gap-2"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                {openHouseId === house.id ? "Cerrar" : "Ver Calendario"}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+                  <div className="space-y-6">
+                    {/* Carousels para la selección de fechas */}
+                    <div className="p-4 bg-white rounded-lg shadow-md">
+                      <span className="text-sm font-semibold text-gray-600 block mb-2">Fecha de Llegada</span>
+                      {renderCarouselForHouse(house, "arrival")}
+                    </div>
 
-      {/* Sección de Disponibilidad (Expandida) */}
-      {openHouseId === house.id && (
-        <div className="p-6 md:p-8 bg-gray-50 border-t border-gray-200">
-          <div className="text-xl font-bold text-gray-800 mb-4">Calendario de Disponibilidad</div>
-          
-          <div className="space-y-6">
-            {/* Carousels para la selección de fechas */}
-            <div className="p-4 bg-white rounded-lg shadow-md">
-                <span className="text-sm font-semibold text-gray-600 block mb-2">Fecha de Llegada</span>
-                {renderCarouselForHouse(house, "arrival")}
-            </div>
-            
-            <div className="p-4 bg-white rounded-lg shadow-md">
-                <span className="text-sm font-semibold text-gray-600 block mb-2">Fecha de Salida</span>
-                {renderCarouselForHouse(house, "departure")}
-            </div>
+                    <div className="p-4 bg-white rounded-lg shadow-md">
+                      <span className="text-sm font-semibold text-gray-600 block mb-2">Fecha de Salida</span>
+                      {renderCarouselForHouse(house, "departure")}
+                    </div>
 
-            {/* Hint para móviles/info */}
-            <div className="mt-3 text-xs text-gray-500">
-              El calendario muestra las próximas fechas disponibles en bloques de {DATE_WINDOW_DAYS} días.
+                    {/* Hint para móviles/info */}
+                    <div className="mt-3 text-xs text-gray-500">
+                      El calendario muestra las próximas fechas disponibles en bloques de {DATE_WINDOW_DAYS} días.
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-})}
+          );
+        })}
 
       </div>
     </div>

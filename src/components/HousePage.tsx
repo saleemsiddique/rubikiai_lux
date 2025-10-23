@@ -308,52 +308,63 @@ export default function HousePage(props: HousePageProps) {
     setCouponError(null);
   };
 
-  const handleReserveNow = async () => {
-    if (!startParam || !endParam) {
-      router.push("/reservations");
-      return;
+const handleReserveNow = async () => {
+  if (!startParam || !endParam) {
+    router.push("/reservations");
+    return;
+  }
+
+  if (!houseIdFromMapping) {
+    alert("House mapping not found. Try again or contact support.");
+    return;
+  }
+
+  try {
+    setLoadingPrice(true);
+
+    const body: any = {
+      houseId: houseIdFromMapping,
+      houseSlug,
+      start: startParam,
+      end: endParam,
+      guests: parseInt(guestsParam || defaultGuests, 10),
+      type: typeParam,
+      // cupón si aplica
+      coupon: couponApplied && couponData?.coupon ? { id: couponData.coupon.id, amount: Number(applyAmount || 0) } : undefined,
+
+      // 👇 NUEVO: customer
+      customer: {
+        email: currentUser?.email || bookingEmail || undefined, // usa tu fuente real
+        name: `${currentUser?.firstName ?? ""} ${currentUser?.lastName ?? ""}`.trim() || undefined,
+        phone: bookingPhone || undefined,
+        address: bookingAddress || undefined, // { line1, city, postal_code, country: "ES", ... }
+        userId: currentUser?.id || undefined,
+      },
+    };
+
+    console.debug("Reserve body ->", body);
+
+    const res = await fetch("/api/create-checkout-session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    const data = await res.json();
+    if (res.ok && data.url) {
+      window.location.href = data.url;
+    } else {
+      console.error("create-checkout-session error", data);
+      alert(data?.error || "No se pudo crear la sesión de pago. Intenta de nuevo.");
     }
+  } catch (err) {
+    console.error("handleReserveNow error", err);
+    alert("Error creando sesión de pago. Revisa la consola.");
+  } finally {
+    setLoadingPrice(false);
+  }
+};
 
-    if (!houseIdFromMapping) {
-      alert("House mapping not found. Try again or contact support.");
-      return;
-    }
-
-    try {
-      setLoadingPrice(true);
-      const body = {
-        houseId: houseIdFromMapping,
-        houseSlug,
-        start: startParam,
-        end: endParam,
-        guests: parseInt(guestsParam || defaultGuests, 10),
-        type: typeParam,
-        // si el cupón está aplicado, enviamos id y amount
-        coupon: couponApplied && couponData?.coupon ? { id: couponData.coupon.id, amount: Number(applyAmount || 0) } : undefined,
-      } as any;
-
-      console.debug("Reserve body ->", body);
-
-      const res = await fetch("/api/create-checkout-session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      const data = await res.json();
-      if (res.ok && data.url) {
-        window.location.href = data.url;
-      } else {
-        console.error("create-checkout-session error", data);
-        alert(data?.error || "No se pudo crear la sesión de pago. Intenta de nuevo.");
-      }
-    } catch (err) {
-      console.error("handleReserveNow error", err);
-      alert("Error creando sesión de pago. Revisa la consola.");
-    } finally {
-      setLoadingPrice(false);
-    }
-  };
 
   const maxApplicableNow = (remaining: number) => {
     const caps: number[] = [];

@@ -16,6 +16,28 @@ const db = admin.firestore();
 
 const EXTRA_GUEST_PRICE = 40; // € por persona extra y noche
 
+/* ---------------- Tipos ---------------- */
+type CheckoutBody = {
+  houseId?: string;
+  houseSlug?: string;
+  start: string | Date;
+  end: string | Date;
+  guests: number;
+  type?: string;
+  coupon?: { id: string; amount: number };
+  customer?: {
+    email?: string; // recomendado
+    name?: string;
+    phone?: string; // E.164
+    address?: {
+      line1?: string; line2?: string;
+      city?: string; state?: string;
+      postal_code?: string; country?: string; // ISO2
+    };
+    userId?: string; // id interno de tu app
+  };
+};
+
 /* ---------------- Fechas (LOCAL) ---------------- */
 function pad2(n: number) { return n < 10 ? `0${n}` : String(n); }
 
@@ -204,10 +226,58 @@ async function calculateTotalAndNights(houseIds: string[], startIsoLocal: string
   return { total, nights, firstNightBase, firstNightCharge, includedBase, extraGuests };
 }
 
+/* ---------------- Customers (Stripe) ---------------- */
+async function getOrCreateStripeCustomer(input?: CheckoutBody["customer"]) {
+  const email = String(input?.email || "").trim().toLowerCase();
+
+  if (email) {
+    // Reutiliza customer por email
+    const key = email;
+    const mapRef = db.collection("stripe_customer_by_email").doc(key);
+    const mapSnap = await mapRef.get();
+    if (mapSnap.exists) {
+      const existing = mapSnap.data() as { stripeCustomerId: string };
+      return existing.stripeCustomerId;
+    }
+
+    // Crea customer en Stripe
+    const customer = await stripe.customers.create({
+      email,
+      name: input?.name,
+      phone: input?.phone,
+      address: input?.address,
+      metadata: {
+        app_user_id: input?.userId || "",
+        source: "checkout-reservation",
+      },
+    });
+
+    // Guarda mapeo
+    await mapRef.set({
+      stripeCustomerId: customer.id,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return customer.id;
+  }
+
+  // Sin email: crea uno “ad hoc” para esta reserva
+  const customer = await stripe.customers.create({
+    name: input?.name,
+    phone: input?.phone,
+    address: input?.address,
+    metadata: {
+      app_user_id: input?.userId || "",
+      source: "checkout-reservation",
+    },
+  });
+  return customer.id;
+}
+
 /* ---------------- Handler ---------------- */
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
+    const body = (await req.json()) as CheckoutBody;
     console.debug("create-checkout-session body:", body);
 
     const { houseId, start, end, guests, houseSlug } = body || {};
@@ -232,7 +302,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing params: houseId or houseSlug required" }, { status: 400 });
     }
 
-    const rawValue = houseId || houseSlug;
+    const rawValue = houseId || houseSlug!;
     const rawParts = String(rawValue).includes("__") ? String(rawValue).split("__").filter(Boolean) : [String(rawValue)];
     const houseIds = await resolveHouseIds(rawParts);
 
@@ -337,6 +407,7 @@ export async function POST(req: Request) {
         firstNightBase,
         firstNightCharge,
         discountedFirst,     // primer cargo tras cupón (puede ser 0)
+        customerEmail: body.customer?.email || null,
       };
 
       if (couponAmountToApply > 0) {
@@ -369,11 +440,29 @@ export async function POST(req: Request) {
       }
     }
 
-    // ====== 3) crear sesión de Stripe ======
+    // ====== 3) CUSTOMER (Stripe) ======
+    // Necesario para 'customer_balance' (transferencia bancaria)
+    const stripeCustomerId = await getOrCreateStripeCustomer(body.customer);
+
+    // ====== 4) crear sesión de Stripe ======
+    // Métodos: tarjeta (incluye Apple Pay/Google Pay), PayPal y transferencia bancaria
+    const methodTypes: Stripe.Checkout.SessionCreateParams.PaymentMethodType[] =
+      isFreeOrder ? [] : ["card", "paypal", "customer_balance"];
+
+    // Opciones para bank transfer por Customer Balance (IBAN EU)
+    const pmOptions: Stripe.Checkout.SessionCreateParams.PaymentMethodOptions | undefined =
+      isFreeOrder ? undefined : {
+        customer_balance: {
+          funding_type: "bank_transfer",
+          bank_transfer: { type: "eu_bank_transfer" },
+        },
+      };
+
     const sessionParams: Stripe.Checkout.SessionCreateParams = {
       mode: "payment",
-      ...(isFreeOrder ? {} : { payment_method_types: ["card"], payment_intent_data: { capture_method: "manual" } }),
-      customer_creation: "always",
+      // IMPORTANT: no forzar capture manual; PayPal/CB no soportan capture manual
+      ...(isFreeOrder ? {} : { payment_method_types: methodTypes, payment_method_options: pmOptions }),
+      customer: stripeCustomerId,
       line_items: [
         {
           price_data: {
@@ -401,6 +490,7 @@ export async function POST(req: Request) {
         couponCode: couponCode || "",
         couponAmountApplied: couponAmountToApply > 0 ? String(couponAmountToApply) : "",
         noPayment: isFreeOrder ? "true" : "false",
+        app_user_id: body.customer?.userId || "",
       },
       success_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/checkout-complete?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/cancel?reservationId=${reservationRef.id}`,
@@ -408,7 +498,7 @@ export async function POST(req: Request) {
 
     const session = await stripe.checkout.sessions.create(sessionParams, { idempotencyKey: reservationRef.id });
 
-    // ====== 4) commit session ======
+    // ====== 5) commit session ======
     let sessionCommitted = false;
     await db.runTransaction(async (tx) => {
       const snap = await tx.get(reservationRef);
@@ -427,7 +517,7 @@ export async function POST(req: Request) {
           return;
         }
       }
-      tx.update(reservationRef, { stripeSessionId: session.id, stripeCheckoutUrl: session.url });
+      tx.update(reservationRef, { stripeSessionId: session.id, stripeCheckoutUrl: session.url, stripeCustomerId });
       sessionCommitted = true;
     });
 

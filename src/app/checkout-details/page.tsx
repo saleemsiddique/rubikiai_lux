@@ -174,7 +174,7 @@ export default function CheckoutDetailsPage() {
   const jacuzziFeeShown = withJacuzzi ? priceData?.jacuzziFee ?? 0 : 0;
 
   return (
-    <main className="max-w-5xl mx-auto px-4 py-8 md:py-12">
+    <main className="max-w-5xl mx-auto px-4 py-8 mt-12 md:py-12">
       <h1 className="text-3xl font-extrabold text-[var(--color-primary-dark)] mb-6 leading-tight">
         Información de la Reserva
       </h1>

@@ -163,30 +163,12 @@ async function fetchReservations(houseId: string) {
   return Array.from(mapByDocId.values());
 }
 
-function shouldIncludeReservation(res: any, nowMs = Date.now()) {
+function shouldIncludeReservation(res: any) {
   const status = String(res?.status ?? "").toLowerCase();
-
-  // expiresAt: Timestamp | Date | string | undefined
-  let expiresAt: Date | null = null;
-  try {
-    if (res?.expiresAt) {
-      expiresAt =
-        typeof res.expiresAt?.toDate === "function"
-          ? res.expiresAt.toDate()
-          : new Date(res.expiresAt);
-      if (Number.isNaN(expiresAt!.getTime())) expiresAt = null;
-    }
-  } catch {
-    expiresAt = null;
-  }
-
-  // Solo: admin, reserved, o pending no caducada
-  return (
-    status === "admin" ||
-    status === "reserved" ||
-    (status === "pending" && !!expiresAt && expiresAt.getTime() > nowMs)
-  );
+  // Solo cuentan las que bloquean de verdad
+  return status === "admin" || status === "reserved" || status === "complete";
 }
+
 
 type HouseImage = { key: string; url: string; alt?: string };
 
@@ -510,7 +492,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       const nowMs = Date.now();
 
       for (const res of reservations) {
-        if (!shouldIncludeReservation(res, nowMs)) continue;
+        if (!shouldIncludeReservation(res)) continue;
 
         const checkIn = toDateOnly(res.checkIn);
         const checkOut = toDateOnly(res.checkOut);

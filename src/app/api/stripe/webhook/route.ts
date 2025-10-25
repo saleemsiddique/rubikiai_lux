@@ -5,19 +5,29 @@ import { NextResponse } from "next/server";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY! as string);
 
-const toCents = (n: number) => Math.round(n * 100);
-const fromCents = (c: number) => c / 100;
-
 if (!admin.apps.length) {
-  const cred = process.env.FIREBASE_ADMIN_SDK ? JSON.parse(process.env.FIREBASE_ADMIN_SDK) : undefined;
-  admin.initializeApp({ credential: cred ? admin.credential.cert(cred) : admin.credential.applicationDefault() });
+  const cred = process.env.FIREBASE_ADMIN_SDK
+    ? JSON.parse(process.env.FIREBASE_ADMIN_SDK)
+    : undefined;
+  admin.initializeApp({
+    credential: cred
+      ? admin.credential.cert(cred)
+      : admin.credential.applicationDefault(),
+  });
 }
 const db = admin.firestore();
 
-function getSessionPaymentIntentId(session: Stripe.Checkout.Session | null): string | null {
+/* ---------- helpers ---------- */
+
+function getSessionPaymentIntentId(
+  session: Stripe.Checkout.Session | null
+): string | null {
   if (!session) return null;
   if (typeof session.payment_intent === "string") return session.payment_intent;
-  if (session.payment_intent && typeof (session.payment_intent as any).id === "string") {
+  if (
+    session.payment_intent &&
+    typeof (session.payment_intent as any).id === "string"
+  ) {
     return (session.payment_intent as Stripe.PaymentIntent).id;
   }
   return null;
@@ -34,63 +44,118 @@ function makeCode(): string {
   return `${chunk()}-${chunk()}`;
 }
 
-// Buscar el mejor email para el recibo
-async function findBestReceiptEmail(
-  stripeClient: Stripe,
-  session: Stripe.Checkout.Session | null,
-  paymentIntentId: string
-): Promise<{ email: string | null; customerId: string | null }> {
-  const checkoutEmail = session?.customer_details?.email || session?.customer_email || null;
-
-  let customerEmail: string | null = null;
-  let customerId: string | null = null;
-  if (typeof session?.customer === "string") {
-    customerId = session.customer;
-    try {
-      const cust = await stripeClient.customers.retrieve(session.customer);
-      if ((cust as any).deleted !== true) {
-        customerEmail = (cust as Stripe.Customer).email || null;
-      }
-    } catch {
-      // no-op
-    }
-  }
-
-  let pmEmail: string | null = null;
-  try {
-    const pi = await stripeClient.paymentIntents.retrieve(paymentIntentId, { expand: ["payment_method"] });
-    const pm = pi.payment_method as Stripe.PaymentMethod | null;
-    if (pm && typeof pm !== "string") {
-      pmEmail = pm.billing_details?.email || null;
-    }
-    if (!pmEmail && pi.latest_charge && typeof pi.latest_charge === "string") {
-      const ch = await stripeClient.charges.retrieve(pi.latest_charge);
-      pmEmail = ch.billing_details?.email || ch.receipt_email || null;
-    } else if (!pmEmail && pi.latest_charge && typeof pi.latest_charge !== "string") {
-      const ch = pi.latest_charge as Stripe.Charge;
-      pmEmail = ch.billing_details?.email || ch.receipt_email || null;
-    }
-  } catch {
-    // no-op
-  }
-
-  const email = checkoutEmail || customerEmail || pmEmail || null;
-  return { email, customerId };
-}
-
-// Cancelar PI de forma segura (libera autorización)
-async function safeCancelPI(paymentIntentId: string | null, reservationId: string, reason: string) {
+// cancelar PaymentIntent para liberar la autorización si no vamos a capturar
+async function safeCancelPI(
+  paymentIntentId: string | null,
+  reservationId: string,
+  reason: string
+) {
   if (!paymentIntentId) return;
   try {
     await stripe.paymentIntents.cancel(
       paymentIntentId,
       { cancellation_reason: "abandoned" },
-      { idempotencyKey: `cancel_${reservationId}_${paymentIntentId}_${reason}` }
+      {
+        idempotencyKey: `cancel_${reservationId}_${paymentIntentId}_${reason}`,
+      }
     );
   } catch (e) {
     console.error("Failed to cancel PaymentIntent:", e);
   }
 }
+
+/**
+ * Descuenta saldo de cupón en Firestore y devuelve el bloque `coupon`
+ * actualizado (con deductedAt o con error).
+ *
+ * Recibe:
+ * - couponId
+ * - couponCode
+ * - couponAmountApplied (euros en string)
+ * - reservationId
+ * - checkoutSessionId
+ *
+ * IMPORTANTE: debe llamarse DENTRO de una transaction.
+ */
+async function applyCouponInTx(
+  tx: FirebaseFirestore.Transaction,
+  {
+    couponId,
+    couponCode,
+    couponAmountApplied,
+    reservationId,
+    checkoutSessionId,
+  }: {
+    couponId: string;
+    couponCode: string;
+    couponAmountApplied: string;
+    reservationId: string;
+    checkoutSessionId: string;
+  }
+) {
+  const amountNumber = Number(couponAmountApplied);
+  const couponRef = db.collection("coupons").doc(String(couponId));
+  const cSnap = await tx.get(couponRef);
+  if (!cSnap.exists) {
+    return {
+      id: couponId,
+      code: couponCode,
+      amountApplied: amountNumber,
+      deductionError: "coupon_not_found_at_webhook",
+      deductionErrorAt: admin.firestore.Timestamp.now(),
+    };
+  }
+
+  const cData: any = cSnap.data();
+  const remaining = Number(cData?.remaining ?? 0);
+
+  if (!Number.isFinite(amountNumber) || amountNumber <= 0) {
+    // cantidad inválida -> no hacemos nada
+    return {
+      id: couponId,
+      code: couponCode,
+      amountApplied: amountNumber,
+      deductionError: "invalid_amount_at_webhook",
+      deductionErrorAt: admin.firestore.Timestamp.now(),
+    };
+  }
+
+  if (remaining < amountNumber) {
+    // no hay saldo suficiente
+    return {
+      id: couponId,
+      code: couponCode,
+      amountApplied: amountNumber,
+      deductionError: "insufficient_remaining_at_webhook",
+      deductionErrorAt: admin.firestore.Timestamp.now(),
+    };
+  }
+
+  // ok -> restar saldo
+  tx.update(couponRef, {
+    remaining: remaining - amountNumber,
+    lastUsedAt: admin.firestore.Timestamp.now(),
+  });
+
+  // registrar movimiento
+  const movRef = couponRef.collection("movements").doc();
+  tx.set(movRef, {
+    type: "reservation",
+    reservationId,
+    amount: amountNumber,
+    createdAt: admin.firestore.Timestamp.now(),
+    checkoutSessionId,
+  });
+
+  return {
+    id: couponId,
+    code: couponCode,
+    amountApplied: amountNumber,
+    deductedAt: admin.firestore.Timestamp.now(),
+  };
+}
+
+/* ---------- webhook handler ---------- */
 
 export async function POST(req: Request) {
   const sig = req.headers.get("stripe-signature") || "";
@@ -98,31 +163,45 @@ export async function POST(req: Request) {
   let event: Stripe.Event;
 
   try {
-    event = stripe.webhooks.constructEvent(Buffer.from(buf), sig, process.env.STRIPE_WEBHOOK_SECRET!);
+    event = stripe.webhooks.constructEvent(
+      Buffer.from(buf),
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET!
+    );
   } catch (err: any) {
     console.error("Webhook signature error:", err?.message);
     return new Response(`Webhook Error: ${err?.message}`, { status: 400 });
   }
 
   try {
+    // ======================================================
+    // ================ CHECKOUT COMPLETED ==================
+    // ======================================================
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
-      const type = session.metadata?.type;
 
-      // ===================== CUPONES =====================
+      // ¿Es compra de cupón?
+      const type = session.metadata?.type;
       if (type === "coupon") {
+        // --- LÓGICA CUPONES (la dejé igual, salvo el status final no cambia):
         const orderId = session.metadata?.orderId;
         if (!orderId) return NextResponse.json({ ok: true });
 
         const orderRef = db.collection("coupon_orders").doc(orderId);
-        const piId = getSessionPaymentIntentId(session);
-        const buyerEmail = session.customer_details?.email || session.customer_email || null;
+        const paymentIntentId = getSessionPaymentIntentId(session);
+        const buyerEmail =
+          session.customer_details?.email ||
+          session.customer_email ||
+          null;
 
+        // Paso 1: asegurar que coupon_orders está en "processing"
         const result = await db.runTransaction(async (tx) => {
           const snap = await tx.get(orderRef);
           if (!snap.exists) {
-            const quantity = parseInt(String(session.metadata?.quantity || "1"), 10) || 1;
-            const unitAmount = Number(session.metadata?.unitAmount || 0) || 0;
+            const quantity =
+              parseInt(String(session.metadata?.quantity || "1"), 10) || 1;
+            const unitAmount =
+              Number(session.metadata?.unitAmount || 0) || 0;
             tx.set(orderRef, {
               status: "processing",
               unitAmount,
@@ -131,7 +210,7 @@ export async function POST(req: Request) {
               currency: "EUR",
               createdAt: admin.firestore.Timestamp.now(),
               stripeSessionId: session.id,
-              stripePaymentIntentId: piId || null,
+              stripePaymentIntentId: paymentIntentId || null,
               buyerEmail: buyerEmail || null,
             });
             return { quantity, unitAmount, alreadyCompleted: false };
@@ -146,7 +225,10 @@ export async function POST(req: Request) {
             }
             const quantity = Number.isFinite(Number(data.quantity))
               ? Number(data.quantity)
-              : parseInt(String(session.metadata?.quantity || "1"), 10) || 1;
+              : parseInt(
+                  String(session.metadata?.quantity || "1"),
+                  10
+                ) || 1;
             const unitAmount = Number.isFinite(Number(data.unitAmount))
               ? Number(data.unitAmount)
               : Number(session.metadata?.unitAmount || 0) || 0;
@@ -154,8 +236,8 @@ export async function POST(req: Request) {
             tx.update(orderRef, {
               status: "processing",
               stripeSessionId: session.id,
-              stripePaymentIntentId: piId || null,
-              buyerEmail: (data.buyerEmail || buyerEmail) || null,
+              stripePaymentIntentId: paymentIntentId || null,
+              buyerEmail: data.buyerEmail || buyerEmail || null,
               unitAmount,
               quantity,
             });
@@ -168,8 +250,11 @@ export async function POST(req: Request) {
           return NextResponse.json({ received: true });
         }
 
+        // Paso 2: crear códigos de cupón reales
         const purchasedAt = admin.firestore.Timestamp.now();
-        const expiresAt = admin.firestore.Timestamp.fromDate(addMonths(new Date(), 12));
+        const expiresAt = admin.firestore.Timestamp.fromDate(
+          addMonths(new Date(), 12)
+        );
         const quantity = result.quantity;
         const unitAmount = result.unitAmount;
 
@@ -190,7 +275,7 @@ export async function POST(req: Request) {
               purchasedAt,
               expiresAt,
               stripeSessionId: session.id,
-              stripePaymentIntentId: piId || null,
+              stripePaymentIntentId: paymentIntentId || null,
               orderId,
               buyerEmail: buyerEmail || null,
               createdByWebhook: true,
@@ -198,7 +283,12 @@ export async function POST(req: Request) {
             createdCodes.push({ code, remaining: unitAmount });
           } else {
             const cData: any = cSnap.data();
-            createdCodes.push({ code: String(cData.code), remaining: Number(cData.remaining ?? unitAmount) });
+            createdCodes.push({
+              code: String(cData.code),
+              remaining: Number(
+                cData.remaining ?? unitAmount
+              ),
+            });
           }
         }
 
@@ -206,34 +296,45 @@ export async function POST(req: Request) {
           status: "completed",
           completedAt: admin.firestore.Timestamp.now(),
           stripeSessionId: session.id,
-          stripePaymentIntentId: piId || null,
+          stripePaymentIntentId: paymentIntentId || null,
           buyerEmail: buyerEmail || null,
           lastWebhookAt: admin.firestore.Timestamp.now(),
         });
 
         await batch.commit();
 
+        // Paso 3: email con los códigos
         if (buyerEmail) {
           try {
-            await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
-              method: "POST",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify({
-                type: "coupon_purchase",
-                to: buyerEmail,
-                data: {
-                  unitAmount,
-                  quantity,
-                  currency: "EUR",
-                  codes: createdCodes,
-                  expiresAt: expiresAt.toDate().toISOString().slice(0, 10),
-                },
-              }),
-            });
+            await fetch(
+              `${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`,
+              {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({
+                  type: "coupon_purchase",
+                  to: buyerEmail,
+                  data: {
+                    unitAmount,
+                    quantity,
+                    currency: "EUR",
+                    codes: createdCodes,
+                    expiresAt: expiresAt
+                      .toDate()
+                      .toISOString()
+                      .slice(0, 10),
+                  },
+                }),
+              }
+            );
           } catch (e: any) {
-            console.error("coupon email send failed:", e?.message || e);
+            console.error(
+              "coupon email send failed:",
+              e?.message || e
+            );
             await orderRef.update({
-              emailSendErrorAt: admin.firestore.Timestamp.now(),
+              emailSendErrorAt:
+                admin.firestore.Timestamp.now(),
               emailSendError: String(e?.message ?? e),
             });
           }
@@ -242,357 +343,216 @@ export async function POST(req: Request) {
         return NextResponse.json({ received: true });
       }
 
-      // ===================== RESERVAS =====================
+      // ----------------- RESERVA NORMAL -----------------
+
+      // 1. Recuperamos metadata que mandamos en create-checkout-session
       const reservationId = session.metadata?.reservationId;
-      if (!reservationId) return NextResponse.json({ ok: true });
+      if (!reservationId) {
+        return NextResponse.json({ ok: true });
+      }
 
       const resRef = db.collection("reservations").doc(reservationId);
 
-      // ¿Reserva sin pago (0 €)?
-      const isFreeOrder =
-        (session as any)?.amount_total === 0 ||
-        session.metadata?.noPayment === "true";
+      // Datos principales
+      const rawValue = session.metadata?.rawValue || "";
+      const houseIdsCsv = session.metadata?.houseIds || "";
+      const houseIds = houseIdsCsv
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
 
-      const paymentIntentId = getSessionPaymentIntentId(session);
-      const customerId = typeof session.customer === "string" ? session.customer : null;
-      const customerEmail = session.customer_details?.email || session.customer_email || null;
+      const checkIn = session.metadata?.checkIn || "";
+      const checkOut = session.metadata?.checkOut || "";
+      const nights = Number(session.metadata?.nights || 0);
 
-      // 1) Primer TX: sincroniza datos, deduce cupón y decide si podemos capturar
-      let canCapture = false;
-      let isAlreadyTerminal = false; // reserved/expired
-      let expiredBeforeCapture = false; // <-- NUEVO: para cancelar PI si expira antes de capturar
+      const guestsNum = Number(session.metadata?.guests || 0);
+      const includedBase = Number(session.metadata?.includedBase || 0);
+      const extraGuests = Number(session.metadata?.extraGuests || 0);
 
+      const totalNightsOnly = Number(
+        session.metadata?.totalNightsOnly || 0
+      );
+      const firstNightCharge = Number(
+        session.metadata?.firstNightCharge || 0
+      );
+      const discountedFirst = Number(
+        session.metadata?.discountedFirst || 0
+      );
+
+      const jacuzziEnabled =
+        session.metadata?.jacuzziEnabled === "true";
+      const jacuzziFee = Number(session.metadata?.jacuzziFee || 0);
+
+      const grandTotal = Number(session.metadata?.grandTotal || 0);
+      const discountedGrandTotal = Number(
+        session.metadata?.discountedGrandTotal || 0
+      );
+      const currency = session.metadata?.currency || "EUR";
+
+      const couponId = session.metadata?.couponId || "";
+      const couponCode = session.metadata?.couponCode || "";
+      const couponAmountApplied =
+        session.metadata?.couponAmountApplied || "";
+
+      const app_user_id = session.metadata?.app_user_id || "";
+
+      const customerEmailFromMeta =
+        session.metadata?.customerEmail || "";
+      const customerNameFromMeta =
+        session.metadata?.customerName || "";
+      const customerPhoneFromMeta =
+        session.metadata?.customerPhone || "";
+      const arrivalTime = session.metadata?.arrivalTime || "";
+      const comment = session.metadata?.comment || "";
+
+      // También pillamos info directa de Stripe por si hay mejor email
+      const stripePaymentIntentId =
+        getSessionPaymentIntentId(session);
+      const stripeCustomerId =
+        typeof session.customer === "string"
+          ? session.customer
+          : null;
+      const stripeCheckoutEmail =
+        session.customer_details?.email ||
+        session.customer_email ||
+        null;
+
+      // 2. Creamos / mergeamos la reserva en Firestore con status "reserved"
+      //    y descontamos cupón dentro de UNA MISMA transacción
       await db.runTransaction(async (tx) => {
         const snap = await tx.get(resRef);
-        if (!snap.exists) return;
-        const data: any = snap.data();
+        const existsAlready = snap.exists;
+        const nowTs = admin.firestore.Timestamp.now();
 
-        const updates: any = {};
-        if (!data.stripeSessionId) updates.stripeSessionId = session.id;
-        if (!data.stripePaymentIntentId && paymentIntentId) updates.stripePaymentIntentId = paymentIntentId;
-        if (customerId && !data.stripeCustomerId) updates.stripeCustomerId = customerId;
-        if (customerEmail && !data.customerEmail) updates.customerEmail = customerEmail;
+        // bloque común base de la reserva nueva
+        const baseReservationPayload: any = {
+          houseId:
+            houseIds.length === 1
+              ? houseIds[0]
+              : houseIds.join("__"),
+          houseIds,
+          checkIn,
+          checkOut,
+          nights,
+          guests: guestsNum,
+          includedBase,
+          extraGuests,
+          totalNightsOnly,
+          firstNightCharge,
+          discountedFirst,
+          jacuzzi: jacuzziEnabled
+            ? { enabled: true, fee: jacuzziFee }
+            : { enabled: false, fee: 0 },
+          jacuzziFee,
+          grandTotal,
+          discountedGrandTotal,
+          currency,
 
-        // Descuento del cupón si no se hizo
-        const couponInfo = data?.coupon || null;
-        if (couponInfo && couponInfo.id && Number.isFinite(Number(couponInfo.amountApplied)) && !couponInfo.deductedAt) {
-          const couponRef = db.collection("coupons").doc(String(couponInfo.id));
-          const cSnap = await tx.get(couponRef);
-          if (cSnap.exists) {
-            const cData: any = cSnap.data();
-            const remaining = Number(cData?.remaining ?? 0);
-            const amount = Math.floor(Number(couponInfo.amountApplied));
-            if (amount > 0) {
-              if (remaining < amount) {
-                updates.coupon = {
-                  ...couponInfo,
-                  deductionError: "insufficient_remaining_at_webhook",
-                  deductionErrorAt: admin.firestore.Timestamp.now(),
-                };
-              } else {
-                tx.update(couponRef, {
-                  remaining: remaining - amount,
-                  lastUsedAt: admin.firestore.Timestamp.now(),
-                });
-                updates.coupon = {
-                  ...couponInfo,
-                  deductedAt: admin.firestore.Timestamp.now(),
-                };
-                const movRef = couponRef.collection("movements").doc();
-                tx.set(movRef, {
-                  type: "reservation",
-                  reservationId,
-                  amount,
-                  createdAt: admin.firestore.Timestamp.now(),
-                  checkoutSessionId: session.id,
-                });
-              }
-            }
-          } else {
-            updates.coupon = {
-              ...couponInfo,
-              deductionError: "coupon_not_found_at_webhook",
-              deductionErrorAt: admin.firestore.Timestamp.now(),
-            };
-          }
-        }
+          status: "reserved", // <- AHORA hacemos la reserva aquí
+          createdAt: existsAlready
+            ? snap.data()?.createdAt || nowTs
+            : nowTs,
+          paidAt: nowTs,
 
+          stripeSessionId: session.id,
+          stripePaymentIntentId: stripePaymentIntentId || null,
+          stripeCustomerId: stripeCustomerId || null,
 
-        // Free-order: cerramos aquí mismo **y descontamos el cupón**
-        if (isFreeOrder) {
-          if (data.status === "pending" || data.status === "capturing") {
-            // --- descuento del cupón en free-order ---
-            const cInfo = data?.coupon || {};
-            // Soporta amountAppliedCents o amountApplied (euros). Priorizamos céntimos si ya lo tienes.
-            const amountAppliedCents = Number.isFinite(Number(cInfo.amountAppliedCents))
-              ? Number(cInfo.amountAppliedCents)
-              : toCents(Number(cInfo.amountApplied || 0));
+          customerEmail:
+            stripeCheckoutEmail ||
+            customerEmailFromMeta ||
+            null,
 
-            if (cInfo.id && amountAppliedCents > 0 && !cInfo.deductedAt) {
-              const couponRef = db.collection("coupons").doc(String(cInfo.id));
-              const cSnap = await tx.get(couponRef);
-              if (cSnap.exists) {
-                const cData: any = cSnap.data();
-                const remainingCents = toCents(Number(cData?.remaining ?? 0));
-
-                if (remainingCents >= amountAppliedCents) {
-                  // baja el remaining
-                  tx.update(couponRef, {
-                    remaining: fromCents(remainingCents - amountAppliedCents),
-                    lastUsedAt: admin.firestore.Timestamp.now(),
-                  });
-
-                  // movimiento de cupón
-                  const movRef = couponRef.collection("movements").doc();
-                  tx.set(movRef, {
-                    type: "reservation",
-                    reservationId,
-                    amountCents: amountAppliedCents,
-                    amount: fromCents(amountAppliedCents), // opcional, por legibilidad en backoffice
-                    createdAt: admin.firestore.Timestamp.now(),
-                    checkoutSessionId: session.id,
-                  });
-
-                  updates.coupon = {
-                    ...cInfo,
-                    amountAppliedCents, // normalizamos
-                    deductedAt: admin.firestore.Timestamp.now(),
-                  };
-                } else {
-                  updates.coupon = {
-                    ...cInfo,
-                    amountAppliedCents,
-                    deductionError: "insufficient_remaining_at_webhook",
-                    deductionErrorAt: admin.firestore.Timestamp.now(),
-                  };
-                }
-              } else {
-                updates.coupon = {
-                  ...cInfo,
-                  amountAppliedCents,
-                  deductionError: "coupon_not_found_at_webhook",
-                  deductionErrorAt: admin.firestore.Timestamp.now(),
-                };
-              }
-            }
-
-            // estado final de la reserva
-            updates.status = "reserved";
-            updates.paidAt = admin.firestore.Timestamp.now();
-            updates.expiresAt = admin.firestore.FieldValue.delete();
-          } else {
-            isAlreadyTerminal = true;
-          }
-
-          if (Object.keys(updates).length) tx.update(resRef, updates);
-          return;
-        }
-
-
-        // Pago con PI
-        if (data.status === "reserved" || data.status === "expired") {
-          isAlreadyTerminal = true;
-          if (Object.keys(updates).length) tx.update(resRef, updates);
-          return;
-        }
-
-        // si expiró, no capturamos (y lo marcamos para cancelar PI fuera)
-        const now = Date.now();
-        if (data.expiresAt && typeof data.expiresAt.toDate === "function") {
-          const exp = data.expiresAt.toDate();
-          if (exp.getTime() <= now) {
-            updates.status = "expired";
-            updates.paymentRejectedReason = "expired_before_capture";
-            updates.expiredAt = admin.firestore.Timestamp.now();
-            expiredBeforeCapture = true; // <-- NUEVO
-            if (Object.keys(updates).length) tx.update(resRef, updates);
-            return;
-          }
-        }
-
-        if (data.status === "pending") {
-          updates.status = "capturing";
-          updates.captureAttemptedAt = admin.firestore.Timestamp.now();
-          if (Object.keys(updates).length) tx.update(resRef, updates);
-          canCapture = true;
-          return;
-        }
-
-        // Si ya estaba "capturing", podemos reintentar idempotente fuera
-        if (data.status === "capturing") {
-          canCapture = true;
-          if (Object.keys(updates).length) tx.update(resRef, updates);
-          return;
-        }
-
-        if (Object.keys(updates).length) tx.update(resRef, updates);
-      });
-
-      // Si free-order o ya terminal, no hay nada más que hacer
-      if (isFreeOrder || isAlreadyTerminal) {
-        return NextResponse.json({ received: true });
-      }
-
-      // Si expiró antes de capturar, cancelamos PI para liberar autorización y salimos
-      if (expiredBeforeCapture) {
-        await safeCancelPI(paymentIntentId, reservationId, "expired_before_capture"); // <-- NUEVO
-        return NextResponse.json({ received: true });
-      }
-
-      // 2) Intentar capturar si procede
-      if (canCapture && paymentIntentId) {
-        try {
-          const { email: receiptEmail } = await findBestReceiptEmail(stripe, session, paymentIntentId);
-          if (receiptEmail) {
-            try {
-              await stripe.paymentIntents.update(paymentIntentId, { receipt_email: receiptEmail });
-            } catch (e) {
-              console.warn("Could not set receipt_email on PaymentIntent:", e);
-            }
-          }
-
-          const captured = await stripe.paymentIntents.capture(
-            paymentIntentId,
-            {},
-            { idempotencyKey: `capture_${reservationId}_${paymentIntentId}` }
-          );
-
-          // 3) Dejar reserva en 'reserved' y (AHORA SÍ) descontar cupón
-          await db.runTransaction(async (tx) => {
-            const s = await tx.get(resRef);
-            if (!s.exists) return;
-            const d: any = s.data();
-
-            const updates: any = {
-              stripePaymentIntentId: captured?.id
-                ? String(captured.id)
-                : (d.stripePaymentIntentId || admin.firestore.FieldValue.delete()),
-            };
-
-            // --- Descuento del cupón SOLO tras captura OK ---
-            const cInfo = d?.coupon || {};
-            // soporta amountApplied (euros) o amountAppliedCents (céntimos), prioriza céntimos si existe
-            const amountAppliedCents = Number.isFinite(Number(cInfo.amountAppliedCents))
-              ? Number(cInfo.amountAppliedCents)
-              : toCents(Number(cInfo.amountApplied || 0));
-
-            if (cInfo.id && amountAppliedCents > 0 && !cInfo.deductedAt) {
-              const couponRef = db.collection("coupons").doc(String(cInfo.id));
-              const cSnap = await tx.get(couponRef);
-              if (cSnap.exists) {
-                const cData: any = cSnap.data();
-                const remainingCents = toCents(Number(cData?.remaining ?? 0));
-
-                if (remainingCents >= amountAppliedCents) {
-                  tx.update(couponRef, {
-                    remaining: fromCents(remainingCents - amountAppliedCents),
-                    lastUsedAt: admin.firestore.Timestamp.now(),
-                  });
-
-                  const movRef = couponRef.collection("movements").doc();
-                  tx.set(movRef, {
-                    type: "reservation",
-                    reservationId,
-                    amountCents: amountAppliedCents,
-                    amount: fromCents(amountAppliedCents), // opcional, por legibilidad
-                    createdAt: admin.firestore.Timestamp.now(),
-                    checkoutSessionId: session.id,
-                  });
-
-                  updates.coupon = {
-                    ...cInfo,
-                    amountAppliedCents, // normalizamos
-                    deductedAt: admin.firestore.Timestamp.now(),
-                  };
-                } else {
-                  updates.coupon = {
-                    ...cInfo,
-                    amountAppliedCents,
-                    deductionError: "insufficient_remaining_at_webhook",
-                    deductionErrorAt: admin.firestore.Timestamp.now(),
-                  };
-                }
-              } else {
-                updates.coupon = {
-                  ...cInfo,
-                  amountAppliedCents,
-                  deductionError: "coupon_not_found_at_webhook",
-                  deductionErrorAt: admin.firestore.Timestamp.now(),
-                };
-              }
-            }
-
-            // --- Estado final de la reserva ---
-            if (d.status !== "reserved") {
-              updates.status = "reserved";
-              updates.paidAt = admin.firestore.Timestamp.now();
-              updates.expiresAt = admin.firestore.FieldValue.delete();
-            }
-
-            tx.update(resRef, updates);
-          });
-
-        } catch (err: any) {
-          console.error("PaymentIntent capture failed (webhook):", err?.message || err);
-
-          // si capturar falla, cancelamos para liberar autorización y marcamos expirado
-          await safeCancelPI(paymentIntentId, reservationId, "capture_failed");
-
-          await resRef.set(
-            {
-              status: "expired",
-              paymentCaptureError: String(err?.message ?? err),
-              paymentCaptureErrorAt: admin.firestore.Timestamp.now(),
-            },
-            { merge: true }
-          );
-        }
-      } else if (!paymentIntentId) {
-        await resRef.set(
-          {
-            paymentCaptureError: "missing_payment_intent_in_webhook",
-            paymentCaptureErrorAt: admin.firestore.Timestamp.now(),
+          customer: {
+            email:
+              stripeCheckoutEmail ||
+              customerEmailFromMeta ||
+              null,
+            name: customerNameFromMeta || null,
+            phone: customerPhoneFromMeta || null,
+            arrivalTime: arrivalTime || null,
+            comment: comment || null,
+            userId: app_user_id || null,
           },
-          { merge: true }
-        );
-      }
+        };
+
+        // ¿cupón?
+        if (couponId && Number(couponAmountApplied) > 0) {
+          const couponBlock = await applyCouponInTx(tx, {
+            couponId,
+            couponCode,
+            couponAmountApplied,
+            reservationId,
+            checkoutSessionId: session.id,
+          });
+          baseReservationPayload.coupon = couponBlock;
+        }
+
+        if (!existsAlready) {
+          // primera vez que lo escribimos
+          tx.set(resRef, baseReservationPayload);
+        } else {
+          // si por lo que sea ya existe, mergeamos datos nuevos/importantes
+          tx.update(resRef, baseReservationPayload);
+        }
+      });
 
       return NextResponse.json({ received: true });
     }
 
+    // ======================================================
+    // ================ CHECKOUT EXPIRED ====================
+    // ======================================================
     if (event.type === "checkout.session.expired") {
       const session = event.data.object as Stripe.Checkout.Session;
       const type = session.metadata?.type;
 
+      // cupón caducado antes de pagar
       if (type === "coupon") {
         const orderId = session.metadata?.orderId;
         if (orderId) {
-          await db.collection("coupon_orders").doc(orderId).set(
-            { status: "expired", updatedAt: admin.firestore.Timestamp.now() },
-            { merge: true }
-          );
+          await db
+            .collection("coupon_orders")
+            .doc(orderId)
+            .set(
+              {
+                status: "expired",
+                updatedAt: admin.firestore.Timestamp.now(),
+              },
+              { merge: true }
+            );
         }
         return NextResponse.json({ received: true });
       }
 
-      const reservationId = (event.data.object as any)?.metadata?.reservationId;
+      // reserva caducada (el user no pagó)
+      const reservationId = session.metadata?.reservationId;
       if (reservationId) {
-        // Marca la reserva como expirada
-        await db.collection("reservations").doc(reservationId).set(
+        const resRef = db.collection("reservations").doc(reservationId);
+
+        // Marcamos la reserva como "canceled"
+        await resRef.set(
           {
-            status: "expired",
+            status: "canceled",
             paymentRejectedReason: "checkout_session_expired",
+            canceledAt: admin.firestore.Timestamp.now(),
           },
           { merge: true }
         );
 
-        // <-- NUEVO: libera también la autorización si existe un PI
+        // Liberar autorización bancaria si había PI
         const paymentIntentId = getSessionPaymentIntentId(session);
-        await safeCancelPI(paymentIntentId, reservationId, "checkout_session_expired");
+        await safeCancelPI(
+          paymentIntentId,
+          reservationId,
+          "checkout_session_expired"
+        );
       }
+
       return NextResponse.json({ received: true });
     }
 
+    // default
     return NextResponse.json({ received: true });
   } catch (err) {
     console.error("Webhook handling error:", err);

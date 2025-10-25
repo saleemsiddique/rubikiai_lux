@@ -7,11 +7,11 @@ function toDateOnly(value: any): Date {
   if (!value) return new Date(0);
   if (typeof value?.toDate === "function") {
     const d = value.toDate();
-    d.setHours(0,0,0,0);
+    d.setHours(0, 0, 0, 0);
     return d;
   }
   const d = new Date(value);
-  d.setHours(0,0,0,0);
+  d.setHours(0, 0, 0, 0);
   return d;
 }
 
@@ -43,7 +43,8 @@ export async function POST(req: NextRequest) {
 
     const reservationsRef = adminDb.collection("reservations");
 
-    const OCCUPIED_STATUSES = new Set(["reserved", "paid", "confirmed", "completed"]); // los status que deben contar como ocupados
+    // Estados que bloquean fechas en el calendario / disponibilidad
+    const OCCUPIED_STATUSES = new Set(["reserved", "admin", "complete"]);
 
     const availabilityPromises = houses.map(async (house) => {
       // obtenemos reservas tanto por `houseId` como por `houseIds array-contains`

@@ -5,7 +5,7 @@ import admin from "firebase-admin";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY! as string);
 
-// inicializar firebase-admin
+// inicializar firebase-admin (solo para leer Firestore y generar IDs)
 if (!admin.apps.length) {
   const cred = process.env.FIREBASE_ADMIN_SDK
     ? JSON.parse(process.env.FIREBASE_ADMIN_SDK)
@@ -27,8 +27,8 @@ const JACUZZI_EXTRA_PRICE = 10;
 
 /* ---------------- Tipos ---------------- */
 type CheckoutBody = {
-  houseId?: string; // puede ser "a__b"
-  houseSlug?: string; // fallback tipo slug/alias
+  houseId?: string;        // puede ser "a__b"
+  houseSlug?: string;      // fallback tipo slug/alias
   start: string | Date;
   end: string | Date;
   guests: number;
@@ -36,9 +36,9 @@ type CheckoutBody = {
   coupon?: { id: string; amount: number };
 
   customer?: {
-    email?: string; // recomendado
+    email?: string;
     name?: string;
-    phone?: string; // E.164 idealmente
+    phone?: string; // E.164
     address?: {
       line1?: string;
       line2?: string;
@@ -47,9 +47,7 @@ type CheckoutBody = {
       postal_code?: string;
       country?: string; // ISO2
     };
-    userId?: string; // id interno de tu app
-
-    // NUEVO: vienen de checkout-details
+    userId?: string; // id interno app
     arrivalTime?: string;
     comment?: string;
   };
@@ -93,12 +91,12 @@ function toDateOnlyLocal(value: any): Date {
   } else if (value instanceof Date) {
     d = value;
   } else if (typeof value === "string") {
-    // soporta "YYYY-MM-DD"
     if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      // "YYYY-MM-DD"
       const [y, m, day] = value.split("-").map(Number);
       d = new Date(y, (m || 1) - 1, day || 1); // LOCAL
     } else {
-      // soporta ISO string completa
+      // ISO completa
       const parsed = new Date(value);
       if (Number.isNaN(parsed.getTime())) {
         const maybe = value.split("T")[0];
@@ -208,7 +206,7 @@ async function resolveHouseIds(values: string[]): Promise<string[]> {
       continue;
     }
 
-    // 3) fallback raro por tipo
+    // 3) fallback por "type"
     const q2 = await db
       .collection("houses")
       .where("type", "==", idCandidate)
@@ -225,25 +223,17 @@ async function resolveHouseIds(values: string[]): Promise<string[]> {
 }
 
 /* ---------------- Ocupación ---------------- */
-function shouldIncludeReservation(res: any, nowMs = Date.now()) {
+/**
+ * Solo bloquean calendario estas reservas:
+ * - 'admin' (bloqueo manual)
+ * - 'reserved' (pagada / confirmada)
+ * - 'complete' (estancia pasada pero tenemos histórico)
+ *
+ * NO contamos nada 'pending', 'expired', 'canceled', etc.
+ */
+function shouldIncludeReservation(res: any) {
   const status = String(res?.status ?? "").toLowerCase();
-  let expiresAt: Date | null = null;
-  try {
-    if (res?.expiresAt) {
-      expiresAt =
-        typeof res.expiresAt?.toDate === "function"
-          ? res.expiresAt.toDate()
-          : new Date(res.expiresAt);
-      if (Number.isNaN(expiresAt!.getTime())) expiresAt = null;
-    }
-  } catch {
-    expiresAt = null;
-  }
-  return (
-    status === "admin" ||
-    status === "reserved" ||
-    (status === "pending" && !!expiresAt && expiresAt.getTime() > nowMs)
-  );
+  return status === "admin" || status === "reserved" || status === "complete";
 }
 
 async function fetchReservationsForId(id: string) {
@@ -265,7 +255,7 @@ async function fetchReservationsForId(id: string) {
 /**
  * Devuelve:
  *  - totalNightsOnly: total alojamiento + suplemento persona extra (todas las noches)
- *  - firstNightCharge: cargo de la primera noche (alojamiento + extraGuests) => lo que cobramos en Stripe ahora
+ *  - firstNightCharge: cargo de la primera noche (alojamiento + extraGuests)
  *  - nights, includedBase, extraGuests
  */
 async function calculateNightsCore(
@@ -274,7 +264,7 @@ async function calculateNightsCore(
   endIsoLocal: string,
   guests: number
 ) {
-  // Cargar docs
+  // Cargar docs de las casas
   const houses: any[] = [];
   for (const id of houseIds) {
     const h = await fetchHouseDoc(id);
@@ -296,6 +286,7 @@ async function calculateNightsCore(
       acc + (typeof h.includedGuests === "number" ? h.includedGuests : 2),
     0
   );
+
   const extraGuests = Math.max(0, guests - includedBase);
   const perNightSurcharge = extraGuests * EXTRA_GUEST_PRICE;
 
@@ -334,12 +325,12 @@ async function calculateNightsCore(
   };
 }
 
-/* ---------------- Customers (Stripe) ---------------- */
+/* ---------------- Stripe Customer helper ---------------- */
 async function getOrCreateStripeCustomer(input?: CheckoutBody["customer"]) {
   const email = String(input?.email || "").trim().toLowerCase();
 
   if (email) {
-    // Reutiliza customer por email
+    // Reutiliza customer por email si ya lo tenemos mapeado
     const key = email;
     const mapRef = db.collection("stripe_customer_by_email").doc(key);
     const mapSnap = await mapRef.get();
@@ -348,7 +339,7 @@ async function getOrCreateStripeCustomer(input?: CheckoutBody["customer"]) {
       return existing.stripeCustomerId;
     }
 
-    // Crea uno nuevo
+    // Crea uno nuevo en Stripe
     const customer = await stripe.customers.create({
       email,
       name: input?.name,
@@ -360,7 +351,7 @@ async function getOrCreateStripeCustomer(input?: CheckoutBody["customer"]) {
       },
     });
 
-    // Guarda mapeo
+    // Guarda mapeo email -> stripeCustomerId
     await mapRef.set({
       stripeCustomerId: customer.id,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -369,7 +360,7 @@ async function getOrCreateStripeCustomer(input?: CheckoutBody["customer"]) {
     return customer.id;
   }
 
-  // Sin email: "customer anónimo"
+  // Sin email: creamos un customer "ad hoc"
   const customer = await stripe.customers.create({
     name: input?.name,
     phone: input?.phone,
@@ -393,9 +384,9 @@ export async function POST(req: Request) {
     const extras = body?.extras || {};
     const customerInput = body.customer || {};
 
-    // Validación fechas
-    let startIso = "",
-      endIso = "";
+    // --- 1. Validación de fechas ---
+    let startIso = "";
+    let endIso = "";
     try {
       const s = toDateOnlyLocal(start);
       const e = toDateOnlyLocal(end);
@@ -422,7 +413,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // Resolver ids reales de la(s) casa(s)
+    // --- 2. Resolver ids reales de la(s) casa(s) ---
     const rawValue = houseId || houseSlug!;
     const rawParts = String(rawValue)
       .split("__")
@@ -430,17 +421,16 @@ export async function POST(req: Request) {
       .filter(Boolean);
     const houseIds = await resolveHouseIds(rawParts);
 
-    // Re-check overlap (admin/reserved + pending válidas)
-    const nowMs = Date.now();
+    // --- 3. Re-check overlap con reservas ya confirmadas ---
     for (const id of houseIds) {
       const reservations = await fetchReservationsForId(id);
       for (const r of reservations) {
-        if (!shouldIncludeReservation(r, nowMs)) continue;
+        if (!shouldIncludeReservation(r)) continue;
         const ci = toDateOnlyLocal(r.checkIn);
         const co = toDateOnlyLocal(r.checkOut);
         const ciIso = dateIsoLocal(ci);
         const coIso = dateIsoLocal(co);
-        // hay solape si !(co <= start || ci >= end)
+        // solape si !(co <= start || ci >= end)
         if (!(coIso <= startIso || ciIso >= endIso)) {
           return NextResponse.json(
             { error: "Dates already booked" },
@@ -450,7 +440,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // nº huéspedes
+    // --- 4. nº huéspedes ---
     const guestsNum = Number.isFinite(Number(guests))
       ? parseInt(String(guests || 2), 10)
       : 2;
@@ -461,7 +451,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // ====== Cálculo de noches / primera noche (sin jacuzzi) ======
+    // --- 5. Cálculo de noches / primera noche (sin jacuzzi) ---
     const {
       totalNightsOnly,
       nights,
@@ -470,25 +460,20 @@ export async function POST(req: Request) {
       extraGuests,
     } = await calculateNightsCore(houseIds, startIso, endIso, guestsNum);
 
-    // ====== Jacuzzi (cargo único por estancia) ======
-    // Si el usuario lo marcó en checkout-details
+    // --- 6. Jacuzzi (cargo único por estancia) ---
     let jacuzziFee = 0;
     let jacuzziEnabled = false;
     if (extras?.jacuzzi?.enabled) {
       jacuzziEnabled = true;
-      // calculamos igual que en /api/reservations/price
       const jacuzziExtraGuests = Math.max(0, guestsNum - 2);
       jacuzziFee =
         JACUZZI_BASE_PRICE + jacuzziExtraGuests * JACUZZI_EXTRA_PRICE;
-
-      // si por lo que sea el front envió un price distinto (race), usa nuestro cálculo
-      // pero podrías hacer sanity check comparando body.extras.jacuzzi.price
     }
 
     // total final de la estancia con jacuzzi
     const grandTotal = totalNightsOnly + jacuzziFee;
 
-    // ====== Coupon (opcional) ======
+    // --- 7. Cupón (opcional) ---
     let couponAmountToApply = 0;
     let couponCode: string | null = null;
 
@@ -522,7 +507,6 @@ export async function POST(req: Request) {
         );
       }
       if (couponAmountToApply > grandTotal + 1e-6) {
-        // ojo: ahora limitamos contra grandTotal, no solo alojamiento
         return NextResponse.json(
           { error: "Coupon amount exceeds reservation total" },
           { status: 400 }
@@ -530,7 +514,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // aplicamos cupón contra el "depósito inicial" (primera noche) y el total global
+    // aplicamos cupón contra "depósito inicial" y total global
     const discountedGrandTotal = Math.max(
       0,
       grandTotal - couponAmountToApply
@@ -543,162 +527,25 @@ export async function POST(req: Request) {
     const discountedFirstCents = Math.round(discountedFirst * 100);
     const isFreeOrder = discountedFirstCents <= 0;
 
-    // ====== 1) crear reserva pending en Firestore ======
-    const reservationsRef = db.collection("reservations");
-    const reservationRef = reservationsRef.doc();
-
-    const nowTs = admin.firestore.Timestamp.now();
-    const expiresAt = admin.firestore.Timestamp.fromDate(
-      new Date(Date.now() + 15 * 60 * 1000)
-    ); // 15 min para pagar
-
-    await db.runTransaction(async (tx) => {
-      // doble check solape en transacción (prevención carrera)
-      for (const id of houseIds) {
-        const q1 = db.collection("reservations").where("houseId", "==", id);
-        const q2 = db
-          .collection("reservations")
-          .where("houseIds", "array-contains", id);
-        const [s1, s2] = await Promise.all([tx.get(q1), tx.get(q2)]);
-        const map = new Map<string, any>();
-        s1.docs.forEach((d) => map.set(d.id, d.data()));
-        s2.docs.forEach((d) => map.set(d.id, d.data()));
-
-        for (const r of map.values()) {
-          if (!shouldIncludeReservation(r, Date.now())) continue;
-          const ci = toDateOnlyLocal(r.checkIn);
-          const co = toDateOnlyLocal(r.checkOut);
-          const ciIso = dateIsoLocal(ci);
-          const coIso = dateIsoLocal(co);
-          if (!(coIso <= startIso || ciIso >= endIso)) {
-            throw new Error("Dates taken (race)");
-          }
-        }
-      }
-
-      const storeHouseId =
-        houseIds.length === 1 ? houseIds[0] : houseIds.join("__");
-
-      // payload que guardamos en Firestore
-      const payload: any = {
-        houseId: storeHouseId,
-        houseIds,
-        checkIn: startIso,
-        checkOut: endIso,
-        guests: guestsNum,
-        nights,
-        includedBase,
-        extraGuests,
-        // precios base
-        totalNightsOnly, // alojamiento+extraGuests (todas las noches, sin jacuzzi)
-        firstNightCharge, // primera noche (sin jacuzzi)
-        // jacuzzi
-        jacuzzi: jacuzziEnabled
-          ? {
-              enabled: true,
-              fee: jacuzziFee,
-            }
-          : { enabled: false, fee: 0 },
-        jacuzziFee,
-        // totales globales
-        grandTotal, // total final sin cupón
-        discountedGrandTotal, // total final tras cupón
-        currency: "EUR",
-
-        status: "pending",
-        createdAt: nowTs,
-        expiresAt,
-
-        // primer cobro en checkout
-        discountedFirst, // cobro inicial tras cupón (podría ser 0)
-        customerEmail: customerInput?.email || null,
-
-        // datos adicionales del cliente
-        customer: {
-          email: customerInput?.email || null,
-          name: customerInput?.name || null,
-          phone: customerInput?.phone || null,
-          arrivalTime: customerInput?.arrivalTime || null,
-          comment: customerInput?.comment || null,
-        },
-      };
-
-      if (couponAmountToApply > 0) {
-        payload.coupon = {
-          id: coupon!.id,
-          code: couponCode,
-          amountApplied: couponAmountToApply,
-          deductedAt: null,
-        };
-      }
-
-      tx.set(reservationRef, payload);
-    });
-
-    // ====== 2) validar que la reserva sigue pending y no caducó antes de Stripe ======
-    const freshSnap = await reservationRef.get();
-    if (!freshSnap.exists) {
-      console.error(
-        "Reservation disappeared after creation (unexpected)"
-      );
-      return NextResponse.json(
-        { error: "Reservation creation failed" },
-        { status: 500 }
-      );
-    }
-    const freshData: any = freshSnap.data();
-    if (freshData.status !== "pending") {
-      return NextResponse.json(
-        { error: "Reservation not available", status: 409 },
-        { status: 409 }
-      );
-    }
-    if (
-      freshData.expiresAt &&
-      typeof freshData.expiresAt.toDate === "function"
-    ) {
-      const exp = freshData.expiresAt.toDate();
-      if (exp.getTime() <= Date.now()) {
-        await reservationRef.update({
-          status: "expired",
-          expiredAt: admin.firestore.Timestamp.now(),
-          paymentRejectedReason: "expired_before_checkout",
-        });
-        return NextResponse.json(
-          { error: "Reservation expired", status: 409 },
-          { status: 409 }
-        );
-      }
-    }
-
-    // ====== 3) CUSTOMER (Stripe) ======
-    // Necesario para permitir transferencia bancaria y asignar pagos
+    // --- 8. Stripe Customer ---
     const stripeCustomerId = await getOrCreateStripeCustomer(customerInput);
 
-    // ====== 4) Crear la sesión de Stripe ======
-    // Métodos: tarjeta (incluye Apple/Google Pay), PayPal, transferencia bancaria SEPA via customer_balance
+    // --- 9. Generar un reservationId provisional ---
+    // OJO: NO creamos el doc aquí. Solo generamos la ID que usaremos luego en el webhook
+    const reservationRef = db.collection("reservations").doc();
+    const reservationId = reservationRef.id;
+
+    // --- 10. Crear la sesión de Stripe ---
+    // quitamos customer_balance (te daba error)
     const methodTypes: Stripe.Checkout.SessionCreateParams.PaymentMethodType[] =
-      isFreeOrder ? [] : ["card", "paypal", "customer_balance"];
+      isFreeOrder ? [] : ["card", "paypal"];
 
-    // Opciones para transferencia bancaria vía Customer Balance (IBAN EU)
-    const pmOptions: Stripe.Checkout.SessionCreateParams.PaymentMethodOptions | undefined =
-      isFreeOrder
-        ? undefined
-        : {
-            customer_balance: {
-              funding_type: "bank_transfer",
-              bank_transfer: { type: "eu_bank_transfer" },
-            },
-          };
-
-    // Importante: lo que cobramos ahora mismo es discountedFirst
     const sessionParams: Stripe.Checkout.SessionCreateParams = {
       mode: "payment",
       ...(isFreeOrder
         ? {}
         : {
             payment_method_types: methodTypes,
-            payment_method_options: pmOptions,
           }),
       customer: stripeCustomerId,
       line_items: [
@@ -718,100 +565,53 @@ export async function POST(req: Request) {
         },
       ],
       metadata: {
-        reservationId: reservationRef.id,
-        totalNightsOnly: String(totalNightsOnly),
-        firstNightCharge: String(firstNightCharge),
-        discountedFirst: String(discountedFirst),
+        // --- Identificación / control ---
+        reservationId,
+        noPayment: isFreeOrder ? "true" : "false",
 
-        // jacuzzi / extras
-        jacuzziEnabled: jacuzziEnabled ? "true" : "false",
-        jacuzziFee: String(jacuzziFee),
-
-        // totales
-        grandTotal: String(grandTotal),
-        discountedGrandTotal: String(discountedGrandTotal),
-
+        // --- Stay info ---
+        houseIds: houseIds.join(","), // para recrear luego
+        rawValue,
+        checkIn: startIso,
+        checkOut: endIso,
+        nights: String(nights),
         guests: String(guestsNum),
         includedBase: String(includedBase),
         extraGuests: String(extraGuests),
 
-        // cupón
+        // --- Pricing breakdown ---
+        totalNightsOnly: String(totalNightsOnly),
+        firstNightCharge: String(firstNightCharge),
+        discountedFirst: String(discountedFirst),
+        jacuzziEnabled: jacuzziEnabled ? "true" : "false",
+        jacuzziFee: String(jacuzziFee),
+        grandTotal: String(grandTotal),
+        discountedGrandTotal: String(discountedGrandTotal),
+        currency: "EUR",
+
+        // --- Coupon info ---
         couponId: couponAmountToApply > 0 ? String(coupon?.id) : "",
         couponCode: couponCode || "",
         couponAmountApplied:
           couponAmountToApply > 0 ? String(couponAmountToApply) : "",
 
-        noPayment: isFreeOrder ? "true" : "false",
-
+        // --- Customer info for later Firestore create in webhook ---
         app_user_id: customerInput?.userId || "",
-
-        arrivalTime: customerInput?.arrivalTime || "",
-        comment: customerInput?.comment || "",
         customerEmail: customerInput?.email || "",
         customerName: customerInput?.name || "",
         customerPhone: customerInput?.phone || "",
+        arrivalTime: customerInput?.arrivalTime || "",
+        comment: customerInput?.comment || "",
       },
       success_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/checkout-complete?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/cancel?reservationId=${reservationRef.id}`,
+      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/cancel?reservationId=${reservationId}`,
     };
 
     const session = await stripe.checkout.sessions.create(sessionParams, {
-      idempotencyKey: reservationRef.id,
+      idempotencyKey: reservationId,
     });
 
-    // ====== 5) Guardar la sesión Stripe en la reserva ======
-    let sessionCommitted = false;
-    await db.runTransaction(async (tx) => {
-      const snap = await tx.get(reservationRef);
-      if (!snap.exists)
-        throw new Error("Reservation missing while committing session");
-      const data: any = snap.data();
-
-      if (data.status !== "pending") {
-        tx.update(reservationRef, {
-          status: "expired",
-          paymentRejectedReason: "expired_before_session_commit",
-          expiredAt: admin.firestore.Timestamp.now(),
-          stripeSessionId: session.id,
-        });
-        sessionCommitted = false;
-        return;
-      }
-
-      if (
-        data.expiresAt &&
-        typeof data.expiresAt.toDate === "function"
-      ) {
-        const exp = data.expiresAt.toDate();
-        if (exp.getTime() <= Date.now()) {
-          tx.update(reservationRef, {
-            status: "expired",
-            paymentRejectedReason: "expired_before_session_commit",
-            expiredAt: admin.firestore.Timestamp.now(),
-            stripeSessionId: session.id,
-          });
-          sessionCommitted = false;
-          return;
-        }
-      }
-
-      tx.update(reservationRef, {
-        stripeSessionId: session.id,
-        stripeCheckoutUrl: session.url,
-        stripeCustomerId,
-      });
-      sessionCommitted = true;
-    });
-
-    if (!sessionCommitted) {
-      return NextResponse.json(
-        {
-          error: "Reservation expired while creating session",
-        },
-        { status: 409 }
-      );
-    }
-
+    // --- 11. Devolvemos la URL de Stripe ---
     console.debug("create-checkout:", {
       houseIds,
       totalNightsOnly,
@@ -821,6 +621,7 @@ export async function POST(req: Request) {
       grandTotal,
       discountedGrandTotal,
       isFreeOrder,
+      reservationId,
     });
 
     return NextResponse.json({ url: session.url });

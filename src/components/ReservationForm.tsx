@@ -352,60 +352,38 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
   const setCheckoutLoading = (houseId: string, v: boolean) =>
     setCheckoutLoadingByHouse((p) => ({ ...p, [houseId]: v }));
 
-  const createCheckoutAndRedirect = async (
+  /**
+   * Ahora NO llamamos Stripe. Simplemente navegamos a la página intermedia
+   * /checkout-details con todos los datos como query.
+   *
+   * Esa página pedirá los datos del huésped, jacuzzi, etc,
+   * y desde allí sí se creará la sesión de checkout.
+   */
+  const createCheckoutAndRedirect = (
     houseIdOrSlug: string,
     s: Date,
     e: Date,
     guestsNum: number,
     houseSlug?: string
   ) => {
-    try {
-      setCheckoutLoading(houseIdOrSlug, true);
+    // Marcamos loading sólo visualmente en el botón de esa house
+    setCheckoutLoading(houseIdOrSlug, true);
 
-      const body = {
-        houseId: houseIdOrSlug,
-        start: s.toISOString(),
-        end: e.toISOString(),
-        guests: guestsNum,
-        houseSlug: houseSlug ?? undefined,
+    const q = new URLSearchParams({
+      houseId: houseIdOrSlug,
+      houseSlug: houseSlug ?? "",
+      start: s.toISOString(),
+      end: e.toISOString(),
+      guests: String(guestsNum),
+    });
 
-        // 👇 NUEVO: customer
-        customer: {
-          email: currentUser?.email || bookingEmail || undefined,
-          name: `${currentUser?.firstName ?? ""} ${currentUser?.lastName ?? ""}`.trim() || undefined,
-          phone: bookingPhone || undefined,
-          address: bookingAddress || undefined,
-          userId: currentUser?.id || undefined,
-        },
-      };
+    router.push(`/checkout-details?${q.toString()}`);
 
-      const res = await fetch("/api/create-checkout-session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        console.error("create-checkout-session failed", data);
-        alert(data.error || "Error creating checkout session");
-        setCheckoutLoading(houseIdOrSlug, false);
-        return;
-      }
-
-      if (data.url) {
-        window.location.href = data.url; // redirigir a Stripe
-        return;
-      }
-
-      alert("No checkout URL returned");
-      setCheckoutLoading(houseIdOrSlug, false);
-    } catch (err) {
-      console.error("createCheckoutAndRedirect error:", err);
-      alert("Network error creating checkout session");
-      setCheckoutLoading(houseIdOrSlug, false);
-    }
+    // importante: paramos el spinner localmente una vez navegamos
+    // (Next.js va a montar otra página inmediatamente)
+    setCheckoutLoading(houseIdOrSlug, false);
   };
+
 
 
   /** Handler unificado para Reserve now (desktop + mobile) */

@@ -308,62 +308,33 @@ export default function HousePage(props: HousePageProps) {
     setCouponError(null);
   };
 
-const handleReserveNow = async () => {
-  if (!startParam || !endParam) {
-    router.push("/reservations");
-    return;
-  }
+  const handleReserveNow = () => {
+    // Necesitamos fechas para poder continuar
+    if (!startParam || !endParam) {
+      router.push("/reservations");
+      return;
+    }
 
-  if (!houseIdFromMapping) {
-    alert("House mapping not found. Try again or contact support.");
-    return;
-  }
+    if (!houseIdFromMapping) {
+      alert("No se pudo identificar el alojamiento. Intenta de nuevo.");
+      return;
+    }
 
-  try {
-    setLoadingPrice(true);
-
-    const body: any = {
+    // Llevamos al usuario a la página intermedia checkout-details.
+    // Ese paso recogerá datos personales, jacuzzi, etc,
+    // y desde ahí sí se crea la sesión real de Stripe.
+    const q = new URLSearchParams({
       houseId: houseIdFromMapping,
-      houseSlug,
+      houseSlug: houseSlug || "",
       start: startParam,
       end: endParam,
-      guests: parseInt(guestsParam || defaultGuests, 10),
-      type: typeParam,
-      // cupón si aplica
-      coupon: couponApplied && couponData?.coupon ? { id: couponData.coupon.id, amount: Number(applyAmount || 0) } : undefined,
-
-      // 👇 NUEVO: customer
-      customer: {
-        email: currentUser?.email || bookingEmail || undefined, // usa tu fuente real
-        name: `${currentUser?.firstName ?? ""} ${currentUser?.lastName ?? ""}`.trim() || undefined,
-        phone: bookingPhone || undefined,
-        address: bookingAddress || undefined, // { line1, city, postal_code, country: "ES", ... }
-        userId: currentUser?.id || undefined,
-      },
-    };
-
-    console.debug("Reserve body ->", body);
-
-    const res = await fetch("/api/create-checkout-session", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      guests: String(parseInt(guestsParam || defaultGuests, 10)),
+      // cupón NO lo pasamos aquí (lo podemos añadir más adelante si quieres cargarlo por query)
     });
 
-    const data = await res.json();
-    if (res.ok && data.url) {
-      window.location.href = data.url;
-    } else {
-      console.error("create-checkout-session error", data);
-      alert(data?.error || "No se pudo crear la sesión de pago. Intenta de nuevo.");
-    }
-  } catch (err) {
-    console.error("handleReserveNow error", err);
-    alert("Error creando sesión de pago. Revisa la consola.");
-  } finally {
-    setLoadingPrice(false);
-  }
-};
+    router.push(`/checkout-details?${q.toString()}`);
+  };
+
 
 
   const maxApplicableNow = (remaining: number) => {

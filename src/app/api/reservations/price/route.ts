@@ -4,6 +4,8 @@ import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 
 const EXTRA_GUEST_PRICE = 40; // € per extra person per night
+const JACUZZI_BASE_PRICE = 65; // € cubre hasta 2 personas
+const JACUZZI_EXTRA_PRICE = 10; // € por cada huésped extra >=3
 
 /* ---------------- Date & helpers (LOCAL, no UTC) ---------------- */
 function toDateOnly(v: any) {
@@ -139,7 +141,8 @@ async function fetchHouseDoc(id: string) {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { houseId, houseParam, startDate, endDate, guests = 2 } = body;
+    const { houseId, houseParam, startDate, endDate, guests = 2, jacuzzi = false } = body;
+
 
     if (!startDate || !endDate) {
       return NextResponse.json({ error: "startDate and endDate required" }, { status: 400 });
@@ -224,17 +227,29 @@ export async function POST(req: Request) {
 
     // ---- Cálculo de extras
     const guestsNum = Math.max(0, Number(guests) || 0);
+    // huéspedes incluidos por defecto sumando todas las unidades (2 por unidad si no hay includedGuests específico)
     const includedBase = pricingHouses.reduce((acc, h) => {
       return acc + (typeof h.includedGuests === "number" ? h.includedGuests : 2);
     }, 0);
     const extraGuests = Math.max(0, guestsNum - includedBase);
+    // recargo por persona extra POR NOCHE
     const perNightSurcharge = extraGuests * EXTRA_GUEST_PRICE;
+    // ---- Jacuzzi: cargo único por estancia ----
+    // Regla de negocio actual:
+    // 65€ incluye hasta 2 personas, +10€ por cada huésped extra
+    let jacuzziFee = 0;
+    if (jacuzzi) {
+      const jacuzziExtraGuests = Math.max(0, guestsNum - 2);
+      jacuzziFee = JACUZZI_BASE_PRICE + jacuzziExtraGuests * JACUZZI_EXTRA_PRICE;
+    }
 
-    // ---- Total
+
+    // ---- Total por noches
     const nights = Math.round(
       (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)
     );
-    let total = 0;
+
+    let totalNightsOnly = 0;
     const perNightBreakdown: Array<{
       date: string;
       perUnit: Array<{ id: string; price: number | null }>;
@@ -257,13 +272,13 @@ export async function POST(req: Request) {
       }
 
       if (nightSum === null) {
-        // alguna noche carece de precio base o override
         return NextResponse.json({
           total: null,
           first: null,
           nights,
           extraGuests,
           includedBase,
+          jacuzziFee,
           variable: true,
           perNightBreakdown,
           debug: { reason: "missing price for some night (base or special)" },
@@ -271,7 +286,7 @@ export async function POST(req: Request) {
       }
 
       nightSum += perNightSurcharge;
-      total += nightSum;
+      totalNightsOnly += nightSum;
 
       perNightBreakdown.push({
         date: dateIsoLocal(cur),
@@ -282,7 +297,7 @@ export async function POST(req: Request) {
       cur = addDays(cur, 1);
     }
 
-    // ---- First night
+    // ---- First night (solo noches+extras por persona, sin jacuzzi)
     let firstNight = 0;
     const firstDay = new Date(start);
     for (const h of pricingHouses) {
@@ -290,12 +305,19 @@ export async function POST(req: Request) {
     }
     firstNight += perNightSurcharge;
 
+    // ---- Totales finales
+    const extrasTotal = jacuzzi ? jacuzziFee : 0;
+    const grandTotal = totalNightsOnly + extrasTotal;
+
     return NextResponse.json({
-      total,
-      first: firstNight,
+      total: totalNightsOnly,   // total de alojamiento + personas extra (sin jacuzzi)
+      first: firstNight,        // coste de la primera noche (sin jacuzzi)
       nights,
       extraGuests,
       includedBase,
+      jacuzziFee,               // suplemento jacuzzi calculado (pago único)
+      extrasTotal,              // lo que se suma aparte (ahora mismo sólo jacuzzi)
+      grandTotal,               // total final incluyendo jacuzzi
       variable: false,
       perNightBreakdown,
     });

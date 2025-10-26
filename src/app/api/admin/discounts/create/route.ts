@@ -2,10 +2,23 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import admin, { adminDb } from "@/lib/firebase-admin";
+import { Resend } from "resend";
+import fs from "fs/promises";
+import path from "path";
+import { DiscountCodeEmailHtml } from "@/app/emails/DiscountCodeEmailHtml";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+
+// --- Resend client ---
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+// genera códigos tipo "ABCD-EFGH"
+function randomCode() {
+  const chunk = () => Math.random().toString(36).slice(2, 6).toUpperCase();
+  return `${chunk()}-${chunk()}`;
+}
 
 async function requireAdmin() {
   const session = (await cookies()).get("session")?.value;
@@ -15,25 +28,8 @@ async function requireAdmin() {
   return decoded;
 }
 
-// genera código estilo "ABCD-EFGH"
-function makeCode(): string {
-  const chunk = () => Math.random().toString(36).slice(2, 6).toUpperCase();
-  return `${chunk()}-${chunk()}`;
-}
-
-// devuelve YYYY-MM-DD local sumando 12 meses
-function addOneYearIsoLocal(): string {
-  const now = new Date();
-  const d = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
-    0,
-    0,
-    0,
-    0
-  );
-  d.setFullYear(d.getFullYear() + 1); // +1 año
+// helper: YYYY-MM-DD desde Date local
+function toIsoDateOnly(d: Date) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
@@ -42,90 +38,119 @@ function addOneYearIsoLocal(): string {
 
 export async function POST(req: Request) {
   try {
-    await requireAdmin();
+    const me = await requireAdmin();
 
     const body = await req.json().catch(() => ({}));
     const toEmail = String(body.toEmail || "").trim().toLowerCase();
-    const percent = Number(body.percent);
+    const percentRaw = body.percent;
 
-    // validaciones
+    // validaciones de entrada mínimas
     if (!toEmail) {
       return NextResponse.json({ error: "Missing toEmail" }, { status: 400 });
     }
-    if (!Number.isInteger(percent) || percent <= 0 || percent > 100) {
+
+    // percent tiene que ser entero 1..100
+    const percent = parseInt(String(percentRaw), 10);
+    if (!Number.isFinite(percent) || percent <= 0 || percent > 100) {
       return NextResponse.json(
-        { error: "Invalid percent (must be integer 1..100)" },
+        { error: "Invalid percent (1-100 integer)" },
         { status: 400 }
       );
     }
 
-    // generar code y expiresAt en backend
-    const code = makeCode();
-    const expiresAt = addOneYearIsoLocal();
+    // generar código interno automáticamente
+    const code = randomCode();
 
-    // Guardar en Firestore
-    // Colección nueva clara para NO mezclar con cupones de saldo €
-    const ref = adminDb.collection("percentage_discounts").doc();
+    // generar expiración = hoy + 12 meses
+    const now = new Date();
+    const expires = new Date(now);
+    expires.setMonth(expires.getMonth() + 12);
+    const expiresAt = toIsoDateOnly(expires); // "YYYY-MM-DD"
+
+    // timestamps Firestore
     const nowTs = admin.firestore.Timestamp.now();
 
+    // guardamos en colección separada para NO mezclar con 'coupons'
+    const ref = adminDb.collection("percentage_discounts").doc();
     const payload = {
       code,
-      type: "percent", // para distinguirlo en backoffice
+      type: "percent",
       percent,
-      expiresAt, // YYYY-MM-DD string
+      expiresAt,         // YYYY-MM-DD
       used: false,
       sentTo: toEmail,
       createdAt: nowTs,
       lastSentAt: nowTs,
+      createdBy: (me as any).uid || null,
     };
 
     await ref.set(payload);
 
-    // Enviar email usando /api/send-email (tipo discount_code)
-    const baseUrl =
-      process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
-        ? `https://${(process.env.VERCEL_URL ||
-            process.env.NEXT_PUBLIC_APP_URL!
-              .replace(/^https?:\/\//, "")) as string}`
-        : "http://localhost:3000";
+    // === Enviar email directo con Resend ===
 
-    const emailRes = await fetch(`${baseUrl}/api/send-email`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type: "discount_code",
-        to: toEmail,
-        data: {
-          code,
-          percent,
-          expiresAt,
-        },
-      }),
+    // 1. preparamos logo inline cid
+    const logoCid = "rubikiai-logo";
+    let logoAttachment:
+      | {
+          filename: string;
+          content: string;
+          contentType?: string;
+          contentId?: string;
+        }
+      | undefined;
+
+    try {
+      const publicDir = path.join(process.cwd(), "public");
+      const logoPath = path.join(publicDir, "rubikiai-logo.png");
+      const buf = await fs.readFile(logoPath);
+      logoAttachment = {
+        filename: "rubikiai-logo.png",
+        content: buf.toString("base64"),
+        contentType: "image/png",
+        contentId: logoCid,
+      };
+    } catch {
+      // si falla leer el logo, seguimos sin adjunto
+      logoAttachment = undefined;
+    }
+
+    const html = DiscountCodeEmailHtml({
+      code,
+      percent,
+      expiresAt,
+      logoCid,
     });
 
-    if (!emailRes.ok) {
-      const errText = await emailRes.text();
-      console.error("discount_code email send failed:", errText);
-      // registramos que falló el envío
+    const subject = "Your personal discount for Rubikiai Lux";
+
+    const { data, error } = await resend.emails.send({
+      from: "Rubikiai Lux <noreply@rubikiai.lt>",
+      to: toEmail,
+      subject,
+      html,
+      attachments: logoAttachment ? [logoAttachment] : undefined,
+    });
+
+    if (error) {
+      console.error("Resend error sending discount_code:", error);
+
+      // anotamos error en el doc, pero NO deshacemos la creación
       await ref.update({
-        emailSendError: errText,
+        emailSendError: String(error),
         emailSendErrorAt: admin.firestore.Timestamp.now(),
       });
+
       return NextResponse.json({
         ok: true,
         warning: "discount saved but email failed",
         id: ref.id,
-        code,
-        expiresAt,
       });
     }
 
-    // todo ok
     return NextResponse.json({
       ok: true,
       id: ref.id,
-      code,
-      expiresAt,
+      resendId: data?.id || null,
     });
   } catch (e: any) {
     console.error("[admin/discounts/create] error:", e);

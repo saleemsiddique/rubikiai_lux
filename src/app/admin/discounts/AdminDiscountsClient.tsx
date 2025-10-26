@@ -13,32 +13,33 @@ async function readError(res: Response) {
   }
 }
 
-export default function AdminDiscountsClient({ adminEmail }: { adminEmail: string }) {
+export default function AdminDiscountsClient({
+  adminEmail,
+}: {
+  adminEmail: string;
+}) {
   const [toEmail, setToEmail] = useState("");
-  const [percent, setPercent] = useState("10"); // sólo enteros 1..100
+  const [percent, setPercent] = useState("10"); // string, entero
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
-  // detalles devueltos por la API tras crear/enviar
-  const [createdId, setCreatedId] = useState<string | null>(null);
-  const [createdCode, setCreatedCode] = useState<string | null>(null);
-  const [createdExpiresAt, setCreatedExpiresAt] = useState<string | null>(null);
-
   const handleSend = async () => {
     setMsg(null);
-    setCreatedId(null);
-    setCreatedCode(null);
-    setCreatedExpiresAt(null);
 
-    // validaciones cliente
-    const pNum = Number(percent);
+    // Validaciones básicas en cliente
+    const pInt = parseInt(percent, 10);
     if (!toEmail.trim()) {
       setMsg("Falta el email destino.");
       return;
     }
-    // solo enteros
-    if (!Number.isInteger(pNum) || pNum <= 0 || pNum > 100) {
-      setMsg("El porcentaje debe ser un número entero entre 1 y 100.");
+    if (
+      !Number.isFinite(pInt) ||
+      pInt <= 0 ||
+      pInt > 100 ||
+      String(pInt) !== percent.trim()
+    ) {
+      // también validamos que no meta decimales tipo "10.5"
+      setMsg("El porcentaje debe ser un entero entre 1 y 100.");
       return;
     }
 
@@ -49,8 +50,8 @@ export default function AdminDiscountsClient({ adminEmail }: { adminEmail: strin
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           toEmail,
-          percent: pNum,
-          // ya NO mandamos expiresAt ni code, eso lo hace el server
+          percent: pInt,
+          // ya NO mandamos expiresAt ni code; el backend los genera
         }),
       });
 
@@ -60,20 +61,28 @@ export default function AdminDiscountsClient({ adminEmail }: { adminEmail: strin
       }
 
       const data = await res.json();
-      // data: { ok: true, id, code, expiresAt, warning? }
-      setCreatedId(data.id || null);
-      setCreatedCode(data.code || null);
-      setCreatedExpiresAt(data.expiresAt || null);
-
       if (data.warning) {
-        setMsg(`Guardado pero fallo al enviar email (${data.warning}).`);
+        setMsg(
+          `Código creado (${data.id}) pero el email NO se pudo enviar automáticamente.\n` +
+            `Revisa percentage_discounts en Firestore.`
+        );
       } else {
-        setMsg(`Enviado correctamente a ${toEmail}.`);
+        setMsg(
+          `Descuento creado y enviado correctamente a ${toEmail}. ID: ${
+            data.id || "?"
+          }`
+        );
       }
-    } catch (e: any) {
+
+      // podríamos limpiar email/percent si quieres:
+      // setToEmail("");
+      // setPercent("10");
+    }
+    catch (e: any) {
       console.error("discount create error:", e);
       setMsg(`Error: ${e?.message || "No se pudo enviar"}`);
-    } finally {
+    }
+    finally {
       setBusy(false);
     }
   };
@@ -83,7 +92,9 @@ export default function AdminDiscountsClient({ adminEmail }: { adminEmail: strin
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Email destino */}
         <div className="flex flex-col">
-          <label className="text-xs text-neutral-600 font-medium">Email destino</label>
+          <label className="text-xs text-neutral-600 font-medium">
+            Email destino
+          </label>
           <input
             type="email"
             className="mt-1 border rounded-md p-2 text-sm"
@@ -95,7 +106,9 @@ export default function AdminDiscountsClient({ adminEmail }: { adminEmail: strin
 
         {/* % Descuento */}
         <div className="flex flex-col">
-          <label className="text-xs text-neutral-600 font-medium">% Descuento</label>
+          <label className="text-xs text-neutral-600 font-medium">
+            % Descuento
+          </label>
           <input
             type="number"
             min={1}
@@ -104,28 +117,22 @@ export default function AdminDiscountsClient({ adminEmail }: { adminEmail: strin
             className="mt-1 border rounded-md p-2 text-sm"
             value={percent}
             onChange={(e) => {
-              // forzamos valor entero en el estado
+              // Forzamos solo enteros positivos en UI, sin decimales
               const raw = e.target.value;
-              // Permitimos campo vacío temporalmente para que el user pueda editar
+              // Permitimos string vacío temporalmente para que pueda borrar
               if (raw === "") {
                 setPercent("");
                 return;
               }
-              const n = Number(raw);
-              if (Number.isInteger(n) && n >= 1 && n <= 100) {
-                setPercent(String(n));
-              } else if (Number.isInteger(n) && n > 100) {
-                setPercent("100");
-              } else if (Number.isInteger(n) && n < 1) {
-                setPercent("1");
-              } else {
-                // si mete decimales o texto raro, no actualizamos
-                // excepto si está borrando -> arriba ya cubierto ""
-              }
+              // Validamos que sea dígitos enteros
+              if (!/^\d+$/.test(raw)) return;
+              const n = parseInt(raw, 10);
+              if (n < 1 || n > 100) return;
+              setPercent(String(n));
             }}
           />
           <div className="text-[11px] text-neutral-500 mt-1">
-            Solo enteros (ej: 5, 10, 20). Máximo 100%.
+            Ej: 5, 10, 20… (máx 100%)
           </div>
         </div>
       </div>
@@ -145,27 +152,6 @@ export default function AdminDiscountsClient({ adminEmail }: { adminEmail: strin
           </div>
         )}
       </div>
-
-      {(createdId || createdCode || createdExpiresAt) && (
-        <div className="text-xs text-neutral-700 bg-neutral-50 border rounded-md p-3 leading-relaxed">
-          {createdId && (
-            <div>
-              <span className="font-semibold">ID:</span> {createdId}
-            </div>
-          )}
-          {createdCode && (
-            <div>
-              <span className="font-semibold">Código:</span>{" "}
-              <span className="font-mono">{createdCode}</span>
-            </div>
-          )}
-          {createdExpiresAt && (
-            <div>
-              <span className="font-semibold">Expira el:</span> {createdExpiresAt}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }

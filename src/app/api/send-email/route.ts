@@ -5,6 +5,7 @@ import { Resend } from "resend";
 import fs from "fs/promises";
 import path from "path";
 import { CouponPurchaseEmailHtmlEN } from "@/app/emails/CouponPurchaseEmailHtmlEN";
+import { DiscountCodeEmailHtml } from "@/app/emails/DiscountCodeEmailHtml";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,29 +13,41 @@ export const revalidate = 0;
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// Tipos soportados. Añade más aquí a futuro.
+// Tipos soportados:
 export type SendEmailBody =
   | {
-    type: "coupon_purchase";
-    to: string | string[];
-    data: {
-      unitAmount: number;
-      quantity: number;
-      currency?: string;
-      codes: { code: string; remaining: number }[];
-      expiresAt: string; // ISO YYYY-MM-DD
-      buyerEmail?: string | null;
+      type: "coupon_purchase";
+      to: string | string[];
+      data: {
+        unitAmount: number;
+        quantity: number;
+        currency?: string;
+        codes: { code: string; remaining: number }[];
+        expiresAt: string; // ISO YYYY-MM-DD
+        buyerEmail?: string | null;
+      };
+      lang?: "en" | "es";
+      fromName?: string;
+    }
+  | {
+      type: "discount_code";
+      to: string | string[];
+      data: {
+        code: string;
+        percent: number;
+        expiresAt: string; // YYYY-MM-DD
+      };
+      lang?: "en" | "es";
+      fromName?: string;
     };
-    lang?: "en" | "es";
-    fromName?: string; // opcional: sobrescribe el nombre visible del remitente
-  };
 
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as SendEmailBody;
 
     const accept = (await headers()).get("accept-language") ?? "";
-    const lang: "en" | "es" = body.lang ?? (accept.toLowerCase().startsWith("en") ? "en" : "es");
+    const lang: "en" | "es" =
+      body.lang ?? (accept.toLowerCase().startsWith("en") ? "en" : "es");
 
     let subject: string;
     let html: string;
@@ -46,47 +59,76 @@ export async function POST(req: Request) {
 
     let logoAttachment:
       | {
-        filename: string;
-        content: string;        // <— en base64
-        contentType?: string;
-        contentId?: string;     // <— camelCase correcto
-      }
+          filename: string;
+          content: string;
+          contentType?: string;
+          contentId?: string;
+        }
       | undefined;
 
     try {
       const buf = await fs.readFile(logoPath);
       logoAttachment = {
         filename: "rubikiai-logo.png",
-        content: buf.toString("base64"), // <— Base64 recomendado
+        content: buf.toString("base64"),
         contentType: "image/png",
-        contentId: logoCid,              // <— ¡esta es la clave!
+        contentId: logoCid,
       };
     } catch {
       logoAttachment = undefined;
     }
 
-
     switch (body.type) {
       case "coupon_purchase": {
-        const { unitAmount, quantity, currency = "EUR", codes, expiresAt } = body.data;
-        subject = lang === "en" ? "Your Rubikiai Lux coupon(s)" : "Tus cupones de Rubikiai Lux";
+        const {
+          unitAmount,
+          quantity,
+          currency = "EUR",
+          codes,
+          expiresAt,
+        } = body.data;
+        subject =
+          lang === "en"
+            ? "Your Rubikiai Lux coupon(s)"
+            : "Tus cupones de Rubikiai Lux";
 
-        // Usamos el mismo template EN (si quieres, puedes crear variante ES con copy traducido)
         html = CouponPurchaseEmailHtmlEN({
           unitAmount,
           quantity,
           currency,
           codes,
           expiresAt,
-          logoCid, // << usamos CID en el HTML
+          logoCid,
         });
         break;
       }
+
+      case "discount_code": {
+        const { code, percent, expiresAt } = body.data;
+        subject =
+          lang === "en"
+            ? `Your ${percent}% personal discount`
+            : `Tu descuento personal del ${percent}%`;
+
+        html = DiscountCodeEmailHtml({
+          code,
+          percent,
+          expiresAt,
+          logoCid,
+        });
+        break;
+      }
+
       default:
-        return NextResponse.json({ error: "Tipo de email no válido" }, { status: 400 });
+        return NextResponse.json(
+          { error: "Tipo de email no válido" },
+          { status: 400 }
+        );
     }
 
-    const fromDisplay = body.fromName ? `${body.fromName} <noreply@rubikiai.lt>` : "Rubikiai Lux <noreply@rubikiai.lt>";
+    const fromDisplay = body.fromName
+      ? `${body.fromName} <noreply@rubikiai.lt>`
+      : "Rubikiai Lux <noreply@rubikiai.lt>";
 
     const sendArgs: any = {
       from: fromDisplay,
@@ -96,7 +138,6 @@ export async function POST(req: Request) {
     };
 
     if (logoAttachment) {
-      // Adjuntamos inline (CID). Resend mostrará el adjunto, y los clientes lo renderizan en <img src="cid:...">
       sendArgs.attachments = [logoAttachment];
     }
 
@@ -106,6 +147,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, data });
   } catch (e: any) {
     console.error(e);
-    return NextResponse.json({ error: e?.message ?? "Error enviando email" }, { status: 500 });
+    return NextResponse.json(
+      { error: e?.message ?? "Error enviando email" },
+      { status: 500 }
+    );
   }
 }

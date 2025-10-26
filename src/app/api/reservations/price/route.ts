@@ -1,5 +1,5 @@
-// app/api/reservations/price/route.ts
 export const runtime = "nodejs";
+
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 
@@ -13,7 +13,17 @@ function toDateOnly(v: any) {
   let d: Date;
   try {
     if (typeof v?.toDate === "function") d = v.toDate();
-    else d = new Date(v);
+    else if (typeof v === "string") {
+      // soporta "YYYY-MM-DD" además de ISO y Date parseable
+      if (/^\d{4}-\d{2}-\d{2}$/.test(v)) {
+        const [y, m, day] = v.split("-").map(Number);
+        d = new Date(y, (m || 1) - 1, day || 1);
+      } else {
+        d = new Date(v);
+      }
+    } else {
+      d = new Date(v);
+    }
     if (Number.isNaN(d.getTime())) return null;
     d.setHours(0, 0, 0, 0); // 00:00 local
     return d;
@@ -37,6 +47,7 @@ function addDays(d: Date, days: number) {
   return r;
 }
 
+// weekdayKey para precios base semanales
 function weekdayKey(date: Date) {
   const map = [
     "sunday",
@@ -50,16 +61,125 @@ function weekdayKey(date: Date) {
   return map[date.getDay()];
 }
 
-/** Precio para una fecha: PRIORIDAD specialPrices[ISO-local] -> fallback pricePerNight[weekday] */
-function getPriceForDate(house: any, d: Date): number | null {
+/* ---------- specialPrices normalizer ----------
+   En Firestore ahora guardaremos algo así:
+   {
+     pricePerNight: { monday: 120, ... },
+     specialPrices: {
+        singleDays: { "2025-01-10": 200, "2025-01-11": 210 },
+        ranges: [
+          { start: "2025-02-01", end: "2025-02-05", price: 180 }, // inclusive
+          { start: "2025-03-15", end: "2025-03-20", price: 230 }
+        ]
+     }
+   }
+
+   Para no romper frontend viejo, algunas casas antiguas pueden seguir teniendo:
+   specialPrices: { "2025-01-10": 200, "2025-01-11": 210 }
+
+   Queremos una función que dado ese objeto devuelva:
+   - getOverride(isoDate: "YYYY-MM-DD") -> number | null
+*/
+type LegacySpecialMap = Record<string, number>;
+type RangeEntry = { start: string; end: string; price: number };
+type UnifiedSpecialPrices = {
+  singleDays: Record<string, number>;
+  ranges: RangeEntry[];
+};
+
+function normalizeSpecialPrices(raw: any): UnifiedSpecialPrices {
+  // Caso 1: legacy "specialPrices" = { "2025-01-10": 200, ... }
+  if (
+    raw &&
+    !raw.singleDays &&
+    !raw.ranges &&
+    typeof raw === "object" &&
+    !Array.isArray(raw)
+  ) {
+    const singleDays: Record<string, number> = {};
+    for (const [k, v] of Object.entries(raw as LegacySpecialMap)) {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(k) && typeof v === "number") {
+        singleDays[k] = v;
+      }
+    }
+    return { singleDays, ranges: [] };
+  }
+
+  // Caso 2: new format
+  const singleDays: Record<string, number> =
+    raw && typeof raw.singleDays === "object" && raw.singleDays
+      ? raw.singleDays
+      : {};
+
+  const ranges: RangeEntry[] = Array.isArray(raw?.ranges)
+    ? raw.ranges
+        .filter(
+          (r: any) =>
+            r &&
+            typeof r.start === "string" &&
+            typeof r.end === "string" &&
+            typeof r.price === "number"
+        )
+        .map((r: any) => ({
+          start: r.start,
+          end: r.end,
+          price: r.price,
+        }))
+    : [];
+
+  return { singleDays, ranges };
+}
+
+function isIsoDateStr(s: string) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(s);
+}
+
+function isoInRange(iso: string, startIso: string, endIso: string) {
+  // rango inclusivo [startIso, endIso]
+  // comparación lexicográfica es correcta porque usamos YYYY-MM-DD
+  return startIso <= iso && iso <= endIso;
+}
+
+/** getSpecialOverride:
+ * Devuelve el precio especial si está definido para ese día (primero singleDay, luego rango).
+ */
+function getSpecialOverride(
+  specials: UnifiedSpecialPrices,
+  iso: string
+): number | null {
+  // día exacto
+  if (typeof specials.singleDays[iso] === "number") {
+    return specials.singleDays[iso];
+  }
+  // mirar rangos
+  for (const r of specials.ranges) {
+    if (
+      isIsoDateStr(r.start) &&
+      isIsoDateStr(r.end) &&
+      typeof r.price === "number" &&
+      isoInRange(iso, r.start, r.end)
+    ) {
+      return r.price;
+    }
+  }
+  return null;
+}
+
+/** Precio para una fecha:
+ * PRIORIDAD specialPrices (día exacto o dentro de rango)
+ * → fallback pricePerNight[weekday]
+ */
+function getPriceForDate(
+  house: any,
+  specials: UnifiedSpecialPrices,
+  d: Date
+): number | null {
   if (!house) return null;
 
-  // override puntual
   const iso = dateIsoLocal(d);
-  const sp = house?.specialPrices?.[iso];
-  if (typeof sp === "number") return sp;
+  const override = getSpecialOverride(specials, iso);
+  if (typeof override === "number") return override;
 
-  // base semanal
   const key = weekdayKey(d);
   const val = house?.pricePerNight?.[key];
   return typeof val === "number" ? val : null;
@@ -68,6 +188,7 @@ function getPriceForDate(house: any, d: Date): number | null {
 /* ---------------- Reservations (ocupación) ---------------- */
 function shouldIncludeReservation(res: any, nowMs = Date.now()) {
   const status = String(res?.status ?? "").toLowerCase();
+
   // expiresAt puede ser Timestamp, Date o string
   let expiresAt: Date | null = null;
   try {
@@ -81,6 +202,7 @@ function shouldIncludeReservation(res: any, nowMs = Date.now()) {
   } catch {
     expiresAt = null;
   }
+
   return (
     status === "admin" ||
     status === "reserved" ||
@@ -115,11 +237,16 @@ async function fetchHouseDoc(id: string) {
   if (!docSnap.exists) return null;
   const data = docSnap.data() || {};
 
-  // Normaliza estructura esperada por el pricing
+  // normalizamos estructuras
   const pricePerNight =
-    typeof data.pricePerNight === "object" && data.pricePerNight ? data.pricePerNight : {};
-  const specialPrices =
-    typeof data.specialPrices === "object" && data.specialPrices ? data.specialPrices : {};
+    typeof data.pricePerNight === "object" && data.pricePerNight
+      ? data.pricePerNight
+      : {};
+
+  // puede ser legacy map o { singleDays, ranges }
+  const specialsUnified = normalizeSpecialPrices(
+    data.specialPrices ?? {}
+  );
 
   return {
     id: docSnap.id,
@@ -132,7 +259,7 @@ async function fetchHouseDoc(id: string) {
         ? data.includedGuests
         : 2, // default: 2 por unidad
     pricePerNight,
-    specialPrices,
+    specialsUnified,
     images: Array.isArray(data.images) ? data.images : [],
   };
 }
@@ -141,17 +268,29 @@ async function fetchHouseDoc(id: string) {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { houseId, houseParam, startDate, endDate, guests = 2, jacuzzi = false } = body;
-
+    const {
+      houseId,
+      houseParam,
+      startDate,
+      endDate,
+      guests = 2,
+      jacuzzi = false,
+    } = body;
 
     if (!startDate || !endDate) {
-      return NextResponse.json({ error: "startDate and endDate required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "startDate and endDate required" },
+        { status: 400 }
+      );
     }
 
     const start = toDateOnly(startDate);
     const end = toDateOnly(endDate);
     if (!start || !end || !(start < end)) {
-      return NextResponse.json({ error: "invalid date range" }, { status: 400 });
+      return NextResponse.json(
+        { error: "invalid date range" },
+        { status: 400 }
+      );
     }
 
     // ---- Resolve ids
@@ -168,7 +307,10 @@ export async function POST(req: Request) {
         .limit(1)
         .get();
       if (snap.empty) {
-        return NextResponse.json({ error: "house not found" }, { status: 404 });
+        return NextResponse.json(
+          { error: "house not found" },
+          { status: 404 }
+        );
       }
       ids = [snap.docs[0].id];
     } else {
@@ -180,18 +322,36 @@ export async function POST(req: Request) {
 
     ids = Array.from(new Set(ids));
     if (ids.length === 0) {
-      return NextResponse.json({ error: "no house ids" }, { status: 400 });
+      return NextResponse.json(
+        { error: "no house ids" },
+        { status: 400 }
+      );
     }
 
-    // ---- Fetch houses
-    const housesData: any[] = [];
+    // ---- Fetch houses (+ unify specials)
+    const housesData: Array<{
+      id: string;
+      includedGuests: number;
+      pricePerNight: any;
+      specialsUnified: UnifiedSpecialPrices;
+    }> = [];
+
     for (const id of ids) {
       const h = await fetchHouseDoc(id);
-      if (!h) return NextResponse.json({ error: `house ${id} not found` }, { status: 404 });
-      housesData.push(h);
+      if (!h)
+        return NextResponse.json(
+          { error: `house ${id} not found` },
+          { status: 404 }
+        );
+      housesData.push({
+        id: h.id,
+        includedGuests: h.includedGuests,
+        pricePerNight: h.pricePerNight,
+        specialsUnified: h.specialsUnified,
+      });
     }
 
-    // ---- Ocupación: unión de todas las unidades implicadas
+    // ---- Ocupación (bloqueos/reservas existentes)
     const occupiedUnion = new Set<string>();
     for (const id of ids) {
       const reservations = await fetchReservationsForHouse(id);
@@ -220,29 +380,26 @@ export async function POST(req: Request) {
       cur = addDays(cur, 1);
     }
 
-    // ---- Selección de unidades a tarificar
-    // Regla: si el cliente envía houseId combinado ("a__b"), SIEMPRE sumamos esas unidades.
-    // Si es single, solo esa.
-    const pricingHouses = housesData.slice();
-
-    // ---- Cálculo de extras
+    // ---- Cálculo de extras (huéspedes)
     const guestsNum = Math.max(0, Number(guests) || 0);
-    // huéspedes incluidos por defecto sumando todas las unidades (2 por unidad si no hay includedGuests específico)
-    const includedBase = pricingHouses.reduce((acc, h) => {
-      return acc + (typeof h.includedGuests === "number" ? h.includedGuests : 2);
+
+    // huéspedes incluidos sumando todas las unidades (2 por unidad si no hay includedGuests específico)
+    const includedBase = housesData.reduce((acc, h) => {
+      return acc + (typeof h.includedGuests === "number"
+        ? h.includedGuests
+        : 2);
     }, 0);
+
     const extraGuests = Math.max(0, guestsNum - includedBase);
-    // recargo por persona extra POR NOCHE
     const perNightSurcharge = extraGuests * EXTRA_GUEST_PRICE;
-    // ---- Jacuzzi: cargo único por estancia ----
-    // Regla de negocio actual:
-    // 65€ incluye hasta 2 personas, +10€ por cada huésped extra
+
+    // ---- Jacuzzi: cargo único por estancia
     let jacuzziFee = 0;
     if (jacuzzi) {
       const jacuzziExtraGuests = Math.max(0, guestsNum - 2);
-      jacuzziFee = JACUZZI_BASE_PRICE + jacuzziExtraGuests * JACUZZI_EXTRA_PRICE;
+      jacuzziFee =
+        JACUZZI_BASE_PRICE + jacuzziExtraGuests * JACUZZI_EXTRA_PRICE;
     }
-
 
     // ---- Total por noches
     const nights = Math.round(
@@ -261,9 +418,10 @@ export async function POST(req: Request) {
       let nightSum: number | null = 0;
       const perUnit: Array<{ id: string; price: number | null }> = [];
 
-      for (const h of pricingHouses) {
-        const p = getPriceForDate(h, cur);
+      for (const h of housesData) {
+        const p = getPriceForDate(h, h.specialsUnified, cur);
         perUnit.push({ id: h.id, price: p });
+
         if (p === null) {
           nightSum = null;
           break;
@@ -281,7 +439,10 @@ export async function POST(req: Request) {
           jacuzziFee,
           variable: true,
           perNightBreakdown,
-          debug: { reason: "missing price for some night (base or special)" },
+          debug: {
+            reason:
+              "missing price for some night (base or special or range)",
+          },
         });
       }
 
@@ -297,11 +458,13 @@ export async function POST(req: Request) {
       cur = addDays(cur, 1);
     }
 
-    // ---- First night (solo noches+extras por persona, sin jacuzzi)
+    // ---- First night (sin jacuzzi; noches+extraGuests)
     let firstNight = 0;
     const firstDay = new Date(start);
-    for (const h of pricingHouses) {
-      firstNight += getPriceForDate(h, firstDay) ?? 0;
+    for (const h of housesData) {
+      const baseP =
+        getPriceForDate(h, h.specialsUnified, firstDay) ?? 0;
+      firstNight += baseP;
     }
     firstNight += perNightSurcharge;
 
@@ -310,19 +473,22 @@ export async function POST(req: Request) {
     const grandTotal = totalNightsOnly + extrasTotal;
 
     return NextResponse.json({
-      total: totalNightsOnly,   // total de alojamiento + personas extra (sin jacuzzi)
-      first: firstNight,        // coste de la primera noche (sin jacuzzi)
+      total: totalNightsOnly, // alojamiento + extraGuests (todas las noches, sin jacuzzi)
+      first: firstNight, // coste primera noche (sin jacuzzi)
       nights,
       extraGuests,
       includedBase,
-      jacuzziFee,               // suplemento jacuzzi calculado (pago único)
-      extrasTotal,              // lo que se suma aparte (ahora mismo sólo jacuzzi)
-      grandTotal,               // total final incluyendo jacuzzi
+      jacuzziFee, // cargo jacuzzi (único)
+      extrasTotal, // actualmente solo jacuzzi
+      grandTotal, // total final con jacuzzi
       variable: false,
       perNightBreakdown,
     });
   } catch (err) {
     console.error("[/api/reservations/price] error:", err);
-    return NextResponse.json({ error: "internal error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "internal error" },
+      { status: 500 }
+    );
   }
 }

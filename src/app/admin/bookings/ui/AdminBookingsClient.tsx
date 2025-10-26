@@ -21,14 +21,18 @@ type Reservation = {
     [k: string]: any;
 };
 
-const STATUSES = ["reserved", "pending", "admin", "complete", "canceled", "expired"] as const;
+// 🔄 estados permitidos en la UI ahora
+const STATUSES = ["reserved", "admin", "complete", "canceled"] as const;
+
+// estos estados bloquean el calendario (siguen igual)
 const CALENDAR_STATUSES = new Set(["reserved", "admin", "complete"]);
+
+// opciones de casa hardcode
 const HOUSE_OPTIONS = [
     { id: "L0TeFf2LmrWGAaAyS8NY", alias: "Ezero namelis" },
     { id: "PZwbfMYlSXj61uYYJutg", alias: "Šalia Elnių Aptvaro" },
     { id: "oDzv9346CdaAsok162sX", alias: "Elnių Panorama" },
 ];
-
 
 /* ---------- helpers de fecha (LOCAL, sin toISOString) ---------- */
 function pad2(n: number) {
@@ -89,8 +93,11 @@ function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}, ms =
 export default function AdminBookingsClient() {
     const router = useRouter();
 
-    // Filtros (activas por defecto)
-    const [statusFilter, setStatusFilter] = useState<string[]>(["reserved", "pending", "admin"]);
+    // Filtros (por defecto mostramos las que importan en operación diaria)
+    // antes: ["reserved","pending","admin"]
+    // ahora quitamos "pending", que ya no existe
+    const [statusFilter, setStatusFilter] = useState<string[]>(["reserved", "admin"]);
+
     const [rangeStart, setRangeStart] = useState<string>(toISO(new Date()));
     const [rangeEnd, setRangeEnd] = useState<string>(addDaysISO(toISO(new Date()), 60));
     const [houseId, setHouseId] = useState<string>("");
@@ -114,10 +121,10 @@ export default function AdminBookingsClient() {
     const [occErr, setOccErr] = useState<string | null>(null);
     const [occLoading, setOccLoading] = useState(false);
 
-    // Detalle lateral
+    // Detalle lateral día seleccionado
     const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
-    // Bloqueo
+    // Bloqueo manual
     const [blockStart, setBlockStart] = useState<string>(firstDayOfMonthISO);
     const [blockEnd, setBlockEnd] = useState<string>(addDaysISO(firstDayOfMonthISO, 1));
     const [blockHouseId, setBlockHouseId] = useState<string>("");
@@ -125,7 +132,6 @@ export default function AdminBookingsClient() {
     const [blockBusy, setBlockBusy] = useState(false);
     const [blockMsg, setBlockMsg] = useState<string | null>(null);
     const [blockGuests, setBlockGuests] = useState<number>(2);
-
 
     /* ---------- fetch listado ---------- */
     const fetchList = async () => {
@@ -140,7 +146,11 @@ export default function AdminBookingsClient() {
             params.set("limit", "1000");
 
             console.time("[UI] list fetch");
-            const res = await fetchWithTimeout(`/api/admin/reservations/list?${params.toString()}`, {}, 20000);
+            const res = await fetchWithTimeout(
+                `/api/admin/reservations/list?${params.toString()}`,
+                {},
+                20000
+            );
             if (!res.ok) {
                 const detail = await readError(res);
                 throw new Error(detail);
@@ -157,33 +167,34 @@ export default function AdminBookingsClient() {
     };
 
     /* ---------- fetch ocupación (calendario) ---------- */
-    // Celdas del calendario (con placeholders en el inicio/fin para alinear semanas)
     type DayCell = { key: string; iso?: string; dayNum?: number; isCurrentMonth: boolean };
 
     const calendarCells = useMemo<DayCell[]>(() => {
         const firstDayDate = new Date(calYear, calMonth, 1); // local
 
-        // Antes:
-        // const firstWeekday = firstDayDate.getDay(); // 0=Sun..6=Sat
-
-        // Ahora: 0=Lun .. 6=Dom
+        // Lunes = 0 ... Domingo = 6
         const firstWeekday = (firstDayDate.getDay() + 6) % 7;
 
         const daysCount = daysInMonth(calYear, calMonth);
         const cells: DayCell[] = [];
 
-        // Placeholders previos hasta el primer weekday real (con lunes como 0)
+        // Placeholders previos
         for (let i = 0; i < firstWeekday; i++) {
             cells.push({ key: `p-${i}`, isCurrentMonth: false });
         }
 
-        // Días del mes actual
+        // Días actuales
         for (let d = 1; d <= daysCount; d++) {
-            const iso = toISO(new Date(calYear, calMonth, d)); // "YYYY-MM-DD" en LOCAL
-            cells.push({ key: `d-${iso}`, iso, dayNum: d, isCurrentMonth: true });
+            const iso = toISO(new Date(calYear, calMonth, d));
+            cells.push({
+                key: `d-${iso}`,
+                iso,
+                dayNum: d,
+                isCurrentMonth: true,
+            });
         }
 
-        // Placeholders de cierre
+        // Relleno final hasta múltiplo de 7
         const total = cells.length;
         const rows = Math.ceil(total / 7);
         const trailing = rows * 7 - total;
@@ -193,7 +204,6 @@ export default function AdminBookingsClient() {
 
         return cells;
     }, [calYear, calMonth]);
-
 
     const fetchMonthOccupancy = async () => {
         setOccLoading(true);
@@ -205,7 +215,11 @@ export default function AdminBookingsClient() {
             if (houseId) params.set("houseId", houseId);
 
             console.time("[UI] occupancy fetch");
-            const res = await fetchWithTimeout(`/api/admin/reservations/occupancy?${params.toString()}`, {}, 20000);
+            const res = await fetchWithTimeout(
+                `/api/admin/reservations/occupancy?${params.toString()}`,
+                {},
+                20000
+            );
             if (!res.ok) {
                 const detail = await readError(res);
                 throw new Error(detail);
@@ -232,25 +246,24 @@ export default function AdminBookingsClient() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [calYear, calMonth, houseId]);
 
-    /* ---------- map de días ocupados (ACOTADO AL MES, con CHECKOUT INCLUIDO) ---------- */
+    /* ---------- map de días ocupados (ACOTADO AL MES, checkout INCLUIDO) ---------- */
     const dayMap = useMemo(() => {
         const m = new Map<string, Reservation[]>();
-        const MAX_DAYS_SAFE = 62; // por reserva dentro del mes; suficiente para meses largos + margen
+        const MAX_DAYS_SAFE = 62;
 
         for (const r of occReservations) {
             const st = String(r.status || "").toLowerCase();
-            if (!CALENDAR_STATUSES.has(st as any)) continue; // ignora canceled/expired (y cualquier otro no permitido)
+            if (!CALENDAR_STATUSES.has(st as any)) continue; // ignoramos canceled, etc.
 
             const ci = r.checkIn;
             const co = r.checkOut;
             if (!isISODate(ci) || !isISODate(co)) continue;
 
-            // Limitar al rango visible del calendario
+            // recorta al mes visible
             const startUse = isoCmp(ci, monthStart) < 0 ? monthStart : ci;
             const endUse = isoCmp(co, monthEndExclusive) > 0 ? monthEndExclusive : co;
 
-            // Queremos mostrar también el día de checkout como ocupado:
-            // endLoopExclusive = min(endUse + 1 día, monthEndExclusive)
+            // queremos incluir el día de checkout
             const endLoopExclusive = isoCmp(addDaysISO(endUse, 1), monthEndExclusive) < 0
                 ? addDaysISO(endUse, 1)
                 : monthEndExclusive;
@@ -261,10 +274,9 @@ export default function AdminBookingsClient() {
             let guard = 0;
             while (isoLt(d, endLoopExclusive) && guard < MAX_DAYS_SAFE) {
                 const arr = m.get(d) || [];
-                // De-duplicación por si llegara duplicada:
                 if (!arr.some(x => x.id === r.id)) {
                     (r as any).__isCheckInDay = (d === r.checkIn);
-                    (r as any).__isCheckOutDay = (d === r.checkOut)
+                    (r as any).__isCheckOutDay = (d === r.checkOut);
                     arr.push(r);
                     m.set(d, arr);
                 }
@@ -282,18 +294,21 @@ export default function AdminBookingsClient() {
     const BLOCKING_STATES = new Set(["reserved", "complete", "admin"]);
 
     function rangesOverlap(aStart: string, aEnd: string, bStart: string, bEnd: string) {
-        // Todos en "YYYY-MM-DD", tratamos como [start, end) exclusivo
+        // [start, end) exclusivo
         return aStart < bEnd && bStart < aEnd;
     }
 
     async function checkBlockConflicts(startISO: string, endISO: string, houseId: string) {
-        // Llama a tu endpoint de occupancy para el rango a bloquear
         const params = new URLSearchParams();
         params.set("start", startISO);
         params.set("end", endISO);
         if (houseId) params.set("houseId", houseId);
 
-        const res = await fetchWithTimeout(`/api/admin/reservations/occupancy?${params.toString()}`, {}, 20000);
+        const res = await fetchWithTimeout(
+            `/api/admin/reservations/occupancy?${params.toString()}`,
+            {},
+            20000
+        );
         if (!res.ok) {
             const detail = await readError(res);
             throw new Error(detail || "No se pudo comprobar ocupación");
@@ -301,13 +316,14 @@ export default function AdminBookingsClient() {
         const json = await res.json();
         const list: Reservation[] = json.results || [];
 
-        // Filtra por estados que bloquean
-        const blockers = list.filter(r => BLOCKING_STATES.has(String(r.status || "").toLowerCase() as any));
+        const blockers = list.filter(r =>
+            BLOCKING_STATES.has(String(r.status || "").toLowerCase() as any)
+        );
 
-        // ¿Hay solape con el rango nuevo?
-        return blockers.some(r => rangesOverlap(startISO, endISO, r.checkIn, r.checkOut));
+        return blockers.some(r =>
+            rangesOverlap(startISO, endISO, r.checkIn, r.checkOut)
+        );
     }
-
 
     /* ---------- acciones ---------- */
     const updateStatus = async (id: string, status: string, paidInFull?: boolean) => {
@@ -341,7 +357,6 @@ export default function AdminBookingsClient() {
         setBlockBusy(true);
         setBlockMsg(null);
         try {
-            // Validaciones locales
             if (!blockHouseId) {
                 throw new Error("Debes indicar un House ID para bloquear.");
             }
@@ -349,19 +364,16 @@ export default function AdminBookingsClient() {
                 throw new Error("Rango de fechas inválido.");
             }
 
-            // no permitir pasado (comparamos con hoy local, sin horas)
             const todayISO = toISO(new Date());
             if (blockEnd <= todayISO) {
                 throw new Error("No puedes bloquear fechas en el pasado.");
             }
 
-            // Comprobar conflictos server-side (ocupación real) para el rango
             const hasConflict = await checkBlockConflicts(blockStart, blockEnd, blockHouseId);
             if (hasConflict) {
                 throw new Error("Las fechas seleccionadas pisan una reserva existente (reserved / complete / admin).");
             }
 
-            // Si todo ok → hacer el POST
             const res = await fetchWithTimeout(
                 "/api/admin/reservations/block",
                 {
@@ -372,12 +384,11 @@ export default function AdminBookingsClient() {
                         checkOut: blockEnd,
                         houseId: blockHouseId || undefined,
                         note: blockNote || undefined,
-                        guests: blockGuests, // ← NUEVO
+                        guests: blockGuests,
                     }),
                 },
                 20000
             );
-
 
             if (!res.ok) {
                 const detail = await readError(res);
@@ -430,7 +441,6 @@ export default function AdminBookingsClient() {
                     </button>
                 </div>
 
-
                 {/* Filtros */}
                 <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-3 bg-white border rounded-xl p-4">
                     <div className="flex flex-col">
@@ -439,7 +449,9 @@ export default function AdminBookingsClient() {
                             multiple
                             value={statusFilter}
                             onChange={(e) =>
-                                setStatusFilter(Array.from(e.target.selectedOptions).map((o) => o.value))
+                                setStatusFilter(
+                                    Array.from(e.target.selectedOptions).map((o) => o.value)
+                                )
                             }
                             className="mt-1 border rounded-md p-2 h-[96px]"
                         >
@@ -449,7 +461,9 @@ export default function AdminBookingsClient() {
                                 </option>
                             ))}
                         </select>
-                        <div className="text-[11px] text-neutral-500 mt-1">Ctrl/Cmd para multiselección</div>
+                        <div className="text-[11px] text-neutral-500 mt-1">
+                            Ctrl/Cmd para multiselección
+                        </div>
                     </div>
 
                     <div className="flex flex-col">
@@ -472,7 +486,6 @@ export default function AdminBookingsClient() {
                         />
                     </div>
 
-
                     <div className="flex flex-col">
                         <label className="text-xs text-neutral-600">House</label>
                         <select
@@ -488,7 +501,6 @@ export default function AdminBookingsClient() {
                             ))}
                         </select>
                     </div>
-
 
                     <div className="md:col-span-4 flex gap-2">
                         <button
@@ -528,17 +540,25 @@ export default function AdminBookingsClient() {
                                         <tr key={r.id} className="border-t">
                                             <td className="px-3 py-2">
                                                 {r.checkIn} → {r.checkOut}{" "}
-                                                <span className="text-[10px] text-neutral-500">({r.nights ?? "?"}n)</span>
+                                                <span className="text-[10px] text-neutral-500">
+                                                    ({r.nights ?? "?"}n)
+                                                </span>
                                             </td>
                                             <td className="px-3 py-2">
                                                 <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px]">
                                                     {r.status}
                                                 </span>
                                             </td>
-                                            <td className="px-3 py-2">{r.houseId ?? r.houseIds?.join(",")}</td>
+                                            <td className="px-3 py-2">
+                                                {r.houseId ?? r.houseIds?.join(",")}
+                                            </td>
                                             <td className="px-3 py-2">{r.guests ?? "—"}</td>
-                                            <td className="px-3 py-2">{r.customerEmail ?? "—"}</td>
-                                            <td className="px-3 py-2 text-right">{(r.discountedTotal ?? r.total ?? 0)}€</td>
+                                            <td className="px-3 py-2">
+                                                {r.customerEmail ?? "—"}
+                                            </td>
+                                            <td className="px-3 py-2 text-right">
+                                                {(r.discountedTotal ?? r.total ?? 0)}€
+                                            </td>
                                             <td className="px-3 py-2">
                                                 <div className="flex flex-wrap gap-2 justify-end">
                                                     <select
@@ -546,7 +566,10 @@ export default function AdminBookingsClient() {
                                                         value={r.status}
                                                         onChange={async (e) => {
                                                             try {
-                                                                await updateStatus(r.id, e.target.value);
+                                                                await updateStatus(
+                                                                    r.id,
+                                                                    e.target.value
+                                                                );
                                                             } catch (er: any) {
                                                                 alert(er?.message || "Error");
                                                             }
@@ -562,32 +585,55 @@ export default function AdminBookingsClient() {
                                                     <button
                                                         onClick={async () => {
                                                             if (r.status === "admin") return;
-                                                            if (!confirm("¿Marcar pago completo y completar?")) return;
+                                                            if (
+                                                                !confirm(
+                                                                    "¿Marcar pago completo y completar?"
+                                                                )
+                                                            )
+                                                                return;
                                                             try {
-                                                                await updateStatus(r.id, "complete", true);
+                                                                await updateStatus(
+                                                                    r.id,
+                                                                    "complete",
+                                                                    true
+                                                                );
                                                             } catch (er: any) {
                                                                 alert(er?.message || "Error");
                                                             }
                                                         }}
-                                                        disabled={r.status === "admin" || r.status === "complete" || r.status === "canceled"}
-                                                        title={r.status === "admin" ? "Bloqueos de admin no pueden completarse" : undefined}
+                                                        disabled={
+                                                            r.status === "admin" ||
+                                                            r.status === "complete" ||
+                                                            r.status === "canceled"
+                                                        }
+                                                        title={
+                                                            r.status === "admin"
+                                                                ? "Bloqueos de admin no pueden completarse"
+                                                                : undefined
+                                                        }
                                                         className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                                     >
                                                         Pago completo
                                                     </button>
 
-
                                                     <button
                                                         onClick={async () => {
                                                             if (!confirm("¿Cancelar reserva?")) return;
                                                             try {
-                                                                await updateStatus(r.id, "canceled");
+                                                                await updateStatus(
+                                                                    r.id,
+                                                                    "canceled"
+                                                                );
                                                             } catch (er: any) {
                                                                 alert(er?.message || "Error");
                                                             }
                                                         }}
                                                         className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                        disabled={r.status == "admin" || r.status == "complete" || r.status == "canceled"}
+                                                        disabled={
+                                                            r.status === "admin" ||
+                                                            r.status === "complete" ||
+                                                            r.status === "canceled"
+                                                        }
                                                     >
                                                         Cancelar
                                                     </button>
@@ -620,10 +666,13 @@ export default function AdminBookingsClient() {
                                     ◀
                                 </button>
                                 <div className="text-sm">
-                                    {new Date(calYear, calMonth, 1).toLocaleString(undefined, {
-                                        month: "long",
-                                        year: "numeric",
-                                    })}
+                                    {new Date(calYear, calMonth, 1).toLocaleString(
+                                        undefined,
+                                        {
+                                            month: "long",
+                                            year: "numeric",
+                                        }
+                                    )}
                                 </div>
                                 <button
                                     className="rounded-md border px-2 py-1 text-xs"
@@ -640,23 +689,29 @@ export default function AdminBookingsClient() {
                         </div>
 
                         <div className="grid grid-cols-7 gap-2 text-xs text-neutral-600 mb-1">
-                            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
-                                <div key={d} className="text-center">
-                                    {d}
-                                </div>
-                            ))}
+                            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(
+                                (d) => (
+                                    <div key={d} className="text-center">
+                                        {d}
+                                    </div>
+                                )
+                            )}
                         </div>
 
                         {occLoading && (
-                            <div className="text-xs text-neutral-600 mb-2">Cargando ocupación…</div>
+                            <div className="text-xs text-neutral-600 mb-2">
+                                Cargando ocupación…
+                            </div>
                         )}
                         {occErr && (
-                            <div className="text-xs text-red-600 mb-2 whitespace-pre-wrap">{occErr}</div>
+                            <div className="text-xs text-red-600 mb-2 whitespace-pre-wrap">
+                                {occErr}
+                            </div>
                         )}
 
                         <div className="grid grid-cols-7 gap-2">
                             {calendarCells.map((cell) => {
-                                // Placeholders (celdas fuera del mes actual): caja vacía
+                                // Placeholders de relleno
                                 if (!cell.iso) {
                                     return (
                                         <div
@@ -668,31 +723,41 @@ export default function AdminBookingsClient() {
                                 }
 
                                 const list = dayMap.get(cell.iso) || [];
-                                const hasAdmin = list.some(r => r.status === "admin");
-                                const onlyAdmin = hasAdmin && list.every(r => r.status === "admin");
+                                const hasAdmin = list.some(
+                                    (r) => r.status === "admin"
+                                );
+                                const onlyAdmin =
+                                    hasAdmin &&
+                                    list.every((r) => r.status === "admin");
                                 const busy = list.length > 0;
 
                                 return (
                                     <button
                                         key={cell.key}
                                         onClick={() => setSelectedDay(cell.iso!)}
-                                        className={`h-16 rounded-md border text-xs flex flex-col items-center justify-center ${onlyAdmin
-                                            ? "bg-neutral-200 border-neutral-300 text-neutral-700"
-                                            : busy
+                                        className={`h-16 rounded-md border text-xs flex flex-col items-center justify-center ${
+                                            onlyAdmin
+                                                ? "bg-neutral-200 border-neutral-300 text-neutral-700"
+                                                : busy
                                                 ? "bg-[var(--color-primary)]/10 border-[var(--color-primary)]/40"
                                                 : "bg-white"
-                                            } hover:bg-neutral-50`}
+                                        } hover:bg-neutral-50`}
                                     >
-                                        <div className="font-semibold">{cell.dayNum}</div>
+                                        <div className="font-semibold">
+                                            {cell.dayNum}
+                                        </div>
                                         {onlyAdmin ? (
-                                            <div className="text-[10px] text-neutral-700">Bloqueado</div>
-                                        ) : busy && (
-                                            <div className="text-[10px] text-[var(--color-primary-dark)]">
-                                                {list.length} reserva{list.length > 1 ? "s" : ""}
+                                            <div className="text-[10px] text-neutral-700">
+                                                Bloqueado
                                             </div>
+                                        ) : (
+                                            busy && (
+                                                <div className="text-[10px] text-[var(--color-primary-dark)]">
+                                                    {list.length} reserva
+                                                    {list.length > 1 ? "s" : ""}
+                                                </div>
+                                            )
                                         )}
-
-
                                     </button>
                                 );
                             })}
@@ -700,31 +765,74 @@ export default function AdminBookingsClient() {
 
                         {selectedDay && (
                             <div className="mt-4 border-t pt-3">
-                                <div className="text-sm font-semibold">Reservas el {selectedDay}</div>
+                                <div className="text-sm font-semibold">
+                                    Reservas el {selectedDay}
+                                </div>
                                 <div className="mt-2 grid gap-2">
                                     {(dayMap.get(selectedDay) || []).map((r) => (
-                                        <div key={r.id} className="rounded-md border p-2 text-xs bg-white">
+                                        <div
+                                            key={r.id}
+                                            className="rounded-md border p-2 text-xs bg-white"
+                                        >
                                             <div className="font-semibold">
-                                                {r.checkIn} → {r.checkOut} <span className="ml-1">({r.status})</span>
+                                                {r.checkIn} → {r.checkOut}{" "}
+                                                <span className="ml-1">
+                                                    ({r.status})
+                                                </span>
                                             </div>
-                                            <div>House: {r.houseId ?? r.houseIds?.join(",")}</div>
                                             <div>
-                                                Huéspedes: {r.guests ?? "—"} · Email: {r.customerEmail ?? "—"}
+                                                House:{" "}
+                                                {r.houseId ??
+                                                    r.houseIds?.join(",")}
                                             </div>
-                                            <div>Total: {(r.discountedTotal ?? r.total ?? 0)}€</div>
+                                            <div>
+                                                Huéspedes:{" "}
+                                                {r.guests ?? "—"} · Email:{" "}
+                                                {r.customerEmail ?? "—"}
+                                            </div>
+                                            <div>
+                                                Total:{" "}
+                                                {(
+                                                    r.discountedTotal ??
+                                                    r.total ??
+                                                    0
+                                                )}
+                                                €
+                                            </div>
                                             <div className="mt-2 flex gap-2">
                                                 <button
                                                     onClick={async () => {
-                                                        if (r.status === "admin") return;
-                                                        if (!confirm("¿Marcar pago completo y completar?")) return;
+                                                        if (
+                                                            r.status === "admin"
+                                                        )
+                                                            return;
+                                                        if (
+                                                            !confirm(
+                                                                "¿Marcar pago completo y completar?"
+                                                            )
+                                                        )
+                                                            return;
                                                         try {
-                                                            await updateStatus(r.id, "complete", true);
+                                                            await updateStatus(
+                                                                r.id,
+                                                                "complete",
+                                                                true
+                                                            );
                                                         } catch (er: any) {
-                                                            alert(er?.message || "Error");
+                                                            alert(
+                                                                er?.message ||
+                                                                    "Error"
+                                                            );
                                                         }
                                                     }}
-                                                    disabled={r.status === "admin"}
-                                                    title={r.status === "admin" ? "Bloqueos de admin no pueden completarse" : undefined}
+                                                    disabled={
+                                                        r.status === "admin"
+                                                    }
+                                                    title={
+                                                        r.status === "admin"
+                                                            ? "Bloqueos de admin no pueden completarse"
+                                                            : undefined
+                                                    }
                                                     className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                                 >
                                                     Pago completo
@@ -732,9 +840,15 @@ export default function AdminBookingsClient() {
                                                 <button
                                                     onClick={async () => {
                                                         try {
-                                                            await updateStatus(r.id, "canceled");
+                                                            await updateStatus(
+                                                                r.id,
+                                                                "canceled"
+                                                            );
                                                         } catch (e: any) {
-                                                            alert(e?.message || "Error");
+                                                            alert(
+                                                                e?.message ||
+                                                                    "Error"
+                                                            );
                                                         }
                                                     }}
                                                     className="rounded-md border px-2 py-1 hover:bg-neutral-50"
@@ -749,32 +863,44 @@ export default function AdminBookingsClient() {
                         )}
                     </div>
 
-
                     {/* Bloqueo */}
                     <div className="bg-white border rounded-xl p-4">
-                        <div className="font-semibold mb-2">Bloquear fechas</div>
+                        <div className="font-semibold mb-2">
+                            Bloquear fechas
+                        </div>
                         <div className="grid gap-2 text-sm">
-                            <label className="text-xs text-neutral-600">Desde</label>
+                            <label className="text-xs text-neutral-600">
+                                Desde
+                            </label>
                             <input
                                 type="date"
                                 value={blockStart}
-                                onChange={(e) => setBlockStart(e.target.value)}
+                                onChange={(e) =>
+                                    setBlockStart(e.target.value)
+                                }
                                 className="border rounded-md p-2"
                             />
 
-                            <label className="text-xs text-neutral-600">Hasta</label>
+                            <label className="text-xs text-neutral-600">
+                                Hasta
+                            </label>
                             <input
                                 type="date"
                                 value={blockEnd}
-                                onChange={(e) => setBlockEnd(e.target.value)}
+                                onChange={(e) =>
+                                    setBlockEnd(e.target.value)
+                                }
                                 className="border rounded-md p-2"
                             />
 
-
-                            <label className="text-xs text-neutral-600">House</label>
+                            <label className="text-xs text-neutral-600">
+                                House
+                            </label>
                             <select
                                 value={blockHouseId}
-                                onChange={(e) => setBlockHouseId(e.target.value)}
+                                onChange={(e) =>
+                                    setBlockHouseId(e.target.value)
+                                }
                                 className="border rounded-md p-2"
                             >
                                 <option value="">— Selecciona —</option>
@@ -785,7 +911,9 @@ export default function AdminBookingsClient() {
                                 ))}
                             </select>
 
-                            <label className="text-xs text-neutral-600">Huéspedes</label>
+                            <label className="text-xs text-neutral-600">
+                                Huéspedes
+                            </label>
                             <input
                                 type="number"
                                 min={1}
@@ -793,18 +921,30 @@ export default function AdminBookingsClient() {
                                 step={1}
                                 value={blockGuests}
                                 onChange={(e) => {
-                                    const n = parseInt(e.target.value || "1", 10);
-                                    const clamped = Math.min(8, Math.max(1, isNaN(n) ? 1 : n));
+                                    const n = parseInt(
+                                        e.target.value || "1",
+                                        10
+                                    );
+                                    const clamped = Math.min(
+                                        8,
+                                        Math.max(
+                                            1,
+                                            isNaN(n) ? 1 : n
+                                        )
+                                    );
                                     setBlockGuests(clamped);
                                 }}
                                 className="border rounded-md p-2"
                             />
 
-
-                            <label className="text-xs text-neutral-600">Nota (opcional)</label>
+                            <label className="text-xs text-neutral-600">
+                                Nota (opcional)
+                            </label>
                             <textarea
                                 value={blockNote}
-                                onChange={(e) => setBlockNote(e.target.value)}
+                                onChange={(e) =>
+                                    setBlockNote(e.target.value)
+                                }
                                 rows={3}
                                 className="border rounded-md p-2"
                             />
@@ -817,7 +957,11 @@ export default function AdminBookingsClient() {
                                 {blockBusy ? "Creando…" : "Bloquear"}
                             </button>
 
-                            {blockMsg && <div className="text-xs mt-1 whitespace-pre-wrap">{blockMsg}</div>}
+                            {blockMsg && (
+                                <div className="text-xs mt-1 whitespace-pre-wrap">
+                                    {blockMsg}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

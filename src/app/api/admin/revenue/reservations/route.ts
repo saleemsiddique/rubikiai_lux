@@ -39,15 +39,24 @@ async function requireAdmin() {
   return decoded;
 }
 
+// Estados que reconocemos en el sistema ahora mismo
+const ALLOWED_STATUSES = new Set([
+  "reserved", // pagada / confirmada
+  "admin",    // bloqueo interno sin pago
+  "complete", // estancia finalizada/cobro final cerrado
+  "canceled", // cancelada
+]);
+
 /**
  * GET /api/admin/revenue/reservations
  * query:
  *  - start=YYYY-MM-DD (inclusive, por campo "by")
  *  - end=YYYY-MM-DD (inclusive) -> internamente se hace exclusivo +1 día
  *  - by=createdAt|paidAt|checkIn|checkOut (default: createdAt)
- *  - status=reserved,complete (por defecto esas dos)
+ *  - status=reserved,complete (por defecto esas dos; deben ser válidos según ALLOWED_STATUSES)
+ *    Nota: normalmente para revenue quieres "reserved" (depósito/pago inicial) y "complete" (total cobrado)
  *  - houseId=... (opcional)
- *  - limit=2000 (opcional, seguridad)
+ *  - limit=2000 (opcional, seguridad; hard cap 5000)
  */
 export async function GET(req: Request) {
   try {
@@ -63,9 +72,13 @@ export async function GET(req: Request) {
     const by = (url.searchParams.get("by") || "createdAt").toLowerCase();
     const statusesRaw = url.searchParams.get("status") || "reserved,complete";
     const houseId = url.searchParams.get("houseId") || "";
-    const limit = Math.min(parseInt(url.searchParams.get("limit") || "2000", 10), 5000);
+    const limit = Math.min(
+      parseInt(url.searchParams.get("limit") || "2000", 10),
+      5000
+    );
 
-    if (!start || !end) return bad("start and end are required (YYYY-MM-DD)");
+    if (!start || !end)
+      return bad("start and end are required (YYYY-MM-DD)");
 
     const startD = parseDateISO(start);
     const endD = parseDateISO(end);
@@ -75,29 +88,46 @@ export async function GET(req: Request) {
     const endExclusive = new Date(endD);
     endExclusive.setDate(endExclusive.getDate() + 1);
 
+    // normalizamos los statuses pedidos
     const statuses = statusesRaw
       .split(",")
-      .map(s => s.trim())
+      .map((s) => s.trim().toLowerCase())
       .filter(Boolean);
+
+    // validación: no dejamos estados que ya no existen ("pending", "expired"...)
+    for (const st of statuses) {
+      if (!ALLOWED_STATUSES.has(st)) {
+        return bad(`Invalid status '${st}'`, 400);
+      }
+    }
 
     const col = adminDb.collection("reservations");
     const resultsMap = new Map<string, any>();
 
-    // Para evitar índices 'in' + rango, hacemos 1 query por status
+    // Para evitar índices compuestos raros (in + rango), hacemos 1 query por status
     for (const st of statuses) {
       let q: FirebaseFirestore.Query = col.where("status", "==", st);
 
-      if (houseId) q = q.where("houseId", "==", houseId);
+      if (houseId) {
+        q = q.where("houseId", "==", houseId);
+      }
 
       if (by === "createdat" || by === "paidat") {
         const field = by === "createdat" ? "createdAt" : "paidAt";
-        q = q.where(field, ">=", startD).where(field, "<", endExclusive).orderBy(field, "desc");
+        // createdAt / paidAt son Timestamp -> rango por Timestamp
+        q = q
+          .where(field, ">=", startD)
+          .where(field, "<", endExclusive)
+          .orderBy(field, "desc");
       } else if (by === "checkin" || by === "checkout") {
         const field = by === "checkin" ? "checkIn" : "checkOut";
-        // Los campos de fecha son strings YYYY-MM-DD -> lexicográfico ok
+        // checkIn/checkOut son strings "YYYY-MM-DD", lexicográfico funciona
         const startStr = toISODateLocal(startD);
         const endStrExclusive = toISODateLocal(endExclusive);
-        q = q.where(field, ">=", startStr).where(field, "<", endStrExclusive).orderBy(field, "desc");
+        q = q
+          .where(field, ">=", startStr)
+          .where(field, "<", endStrExclusive)
+          .orderBy(field, "desc");
       } else {
         return bad("Invalid 'by' parameter");
       }
@@ -108,7 +138,7 @@ export async function GET(req: Request) {
       }
     }
 
-    // Normalización para UI (convertimos Timestamps a ISO)
+    // Normalización para UI (convertimos Timestamps a ISO string legible)
     const cleaned = Array.from(resultsMap.values()).map((r: any) => ({
       id: String(r.id || ""),
       status: String(r.status || ""),
@@ -121,10 +151,14 @@ export async function GET(req: Request) {
       customerEmail: r.customerEmail || null,
       currency: r.currency || "EUR",
       total: Number(r.total ?? 0),
-      discountedTotal: typeof r.discountedTotal === "number" ? r.discountedTotal : null,
-      firstNightBase: typeof r.firstNightBase === "number" ? r.firstNightBase : null,
-      firstNightCharge: typeof r.firstNightCharge === "number" ? r.firstNightCharge : null,
-      discountedFirst: typeof r.discountedFirst === "number" ? r.discountedFirst : null,
+      discountedTotal:
+        typeof r.discountedTotal === "number" ? r.discountedTotal : null,
+      firstNightBase:
+        typeof r.firstNightBase === "number" ? r.firstNightBase : null,
+      firstNightCharge:
+        typeof r.firstNightCharge === "number" ? r.firstNightCharge : null,
+      discountedFirst:
+        typeof r.discountedFirst === "number" ? r.discountedFirst : null,
       paidInFull: !!r.paidInFull,
       createdAtIso: tsToIso(r.createdAt),
       updatedAtIso: tsToIso(r.updatedAt),

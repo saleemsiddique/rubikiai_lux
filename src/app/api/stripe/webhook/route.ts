@@ -155,6 +155,83 @@ async function applyCouponInTx(
   };
 }
 
+/**
+ * Marca un descuento porcentual como usado dentro de la misma transacción.
+ * No resta saldo, solo marca used=true y registra movimiento.
+ *
+ * Recibe:
+ *  - percentId
+ *  - percentCode
+ *  - percentValue (porcentaje)
+ *  - couponAmountApplied (euros de descuento efectivo)
+ *  - reservationId
+ *  - checkoutSessionId
+ */
+async function applyPercentDiscountInTx(
+  tx: FirebaseFirestore.Transaction,
+  {
+    percentId,
+    percentCode,
+    percentValue,
+    couponAmountApplied,
+    reservationId,
+    checkoutSessionId,
+  }: {
+    percentId: string;
+    percentCode: string;
+    percentValue: string;
+    couponAmountApplied: string; // euros string
+    reservationId: string;
+    checkoutSessionId: string;
+  }
+) {
+  const percentRef = db.collection("percentage_discounts").doc(String(percentId));
+  const pSnap = await tx.get(percentRef);
+  if (!pSnap.exists) {
+    return {
+      id: percentId,
+      code: percentCode,
+      percent: Number(percentValue),
+      amountApplied: Number(couponAmountApplied) || 0,
+      deductionError: "percent_not_found_at_webhook",
+      deductionErrorAt: admin.firestore.Timestamp.now(),
+    };
+  }
+
+  const pData: any = pSnap.data();
+  const alreadyUsed = !!pData?.used;
+
+  // Marcamos usado si no lo estaba
+  if (!alreadyUsed) {
+    tx.update(percentRef, {
+      used: true,
+      usedAt: admin.firestore.Timestamp.now(),
+      lastSentAt: pData?.lastSentAt || admin.firestore.Timestamp.now(),
+    });
+  }
+
+  // registramos el "movimiento" en subcollection movements (similar a coupons)
+  const movRef = percentRef.collection("movements").doc();
+  tx.set(movRef, {
+    type: "reservation",
+    reservationId,
+    amountApplied: Number(couponAmountApplied) || 0,
+    percentValue: Number(percentValue) || 0,
+    createdAt: admin.firestore.Timestamp.now(),
+    checkoutSessionId,
+  });
+
+  return {
+    id: percentId,
+    code: percentCode,
+    percent: Number(percentValue) || 0,
+    amountApplied: Number(couponAmountApplied) || 0,
+    deductedAt: admin.firestore.Timestamp.now(),
+    // nota: no restamos saldo, solo registramos
+  };
+}
+
+
 /* ---------- webhook handler ---------- */
 
 export async function POST(req: Request) {
@@ -226,9 +303,9 @@ export async function POST(req: Request) {
             const quantity = Number.isFinite(Number(data.quantity))
               ? Number(data.quantity)
               : parseInt(
-                  String(session.metadata?.quantity || "1"),
-                  10
-                ) || 1;
+                String(session.metadata?.quantity || "1"),
+                10
+              ) || 1;
             const unitAmount = Number.isFinite(Number(data.unitAmount))
               ? Number(data.unitAmount)
               : Number(session.metadata?.unitAmount || 0) || 0;
@@ -389,10 +466,15 @@ export async function POST(req: Request) {
       );
       const currency = session.metadata?.currency || "EUR";
 
+      const discountKind = session.metadata?.discountKind || ""; // "value" | "percent" | ""
       const couponId = session.metadata?.couponId || "";
       const couponCode = session.metadata?.couponCode || "";
+      const percentId = session.metadata?.percentId || "";
+      const percentCode = session.metadata?.percentCode || "";
+      const percentValue = session.metadata?.percentValue || "";
       const couponAmountApplied =
         session.metadata?.couponAmountApplied || "";
+
 
       const app_user_id = session.metadata?.app_user_id || "";
 
@@ -424,7 +506,6 @@ export async function POST(req: Request) {
         const existsAlready = snap.exists;
         const nowTs = admin.firestore.Timestamp.now();
 
-        // bloque común base de la reserva nueva
         const baseReservationPayload: any = {
           houseId:
             houseIds.length === 1
@@ -448,7 +529,7 @@ export async function POST(req: Request) {
           discountedGrandTotal,
           currency,
 
-          status: "reserved", // <- AHORA hacemos la reserva aquí
+          status: "reserved",
           createdAt: existsAlready
             ? snap.data()?.createdAt || nowTs
             : nowTs,
@@ -476,8 +557,13 @@ export async function POST(req: Request) {
           },
         };
 
-        // ¿cupón?
-        if (couponId && Number(couponAmountApplied) > 0) {
+        // <-- CORREGIDO AQUÍ
+        if (
+          discountKind === "coupon" && // antes "value"
+          couponId &&
+          Number(couponAmountApplied) > 0
+        ) {
+          // Cupón saldo €
           const couponBlock = await applyCouponInTx(tx, {
             couponId,
             couponCode,
@@ -486,16 +572,29 @@ export async function POST(req: Request) {
             checkoutSessionId: session.id,
           });
           baseReservationPayload.coupon = couponBlock;
+        } else if (
+          discountKind === "percent" &&
+          percentId
+        ) {
+          // Descuento porcentual
+          const percentBlock = await applyPercentDiscountInTx(tx, {
+            percentId,
+            percentCode,
+            percentValue,
+            couponAmountApplied,
+            reservationId,
+            checkoutSessionId: session.id,
+          });
+          baseReservationPayload.percentDiscount = percentBlock;
         }
 
         if (!existsAlready) {
-          // primera vez que lo escribimos
           tx.set(resRef, baseReservationPayload);
         } else {
-          // si por lo que sea ya existe, mergeamos datos nuevos/importantes
           tx.update(resRef, baseReservationPayload);
         }
       });
+
 
       return NextResponse.json({ received: true });
     }

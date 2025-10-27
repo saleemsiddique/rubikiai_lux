@@ -1,22 +1,9 @@
 // app/api/create-checkout-session/route.ts
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
-import admin from "firebase-admin";
+import admin, { adminDb as db } from "@/lib/firebase-admin"; // <- usa TU helper
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY! as string);
-
-// init firebase-admin once
-if (!admin.apps.length) {
-  const cred = process.env.FIREBASE_ADMIN_SDK
-    ? JSON.parse(process.env.FIREBASE_ADMIN_SDK)
-    : undefined;
-  admin.initializeApp({
-    credential: cred
-      ? admin.credential.cert(cred)
-      : admin.credential.applicationDefault(),
-  });
-}
-const db = admin.firestore();
 
 /* ---------------- Business constants ---------------- */
 const EXTRA_GUEST_PRICE = 40; // € per extra guest per night
@@ -33,7 +20,7 @@ type CheckoutBody = {
   guests: number;
   type?: string;
 
-  // NEW unified discount payload sent from checkout-details
+  // unified discount payload sent from checkout-details
   discount?: {
     kind?: "coupon" | "percent";
     id?: string;          // coupon doc id OR percentage_discounts doc id
@@ -157,27 +144,22 @@ function round2(n: number) {
   return Math.round(n * 100) / 100;
 }
 
-// Stripe rule: we can't leave an initial charge between 0.01€ and 0.49€.
-// Given the first night price and a discount we're *trying* to apply,
-// return the final allowed discount.
+// Stripe rule helper
 function adjustForStripeMin(firstNightBefore: number, discountTry: number) {
   const STRIPE_MIN = 0.5; // 0.50€
   const tentative = firstNightBefore - discountTry;
 
-  // If the guest pays 0 or less -> ok
-  if (tentative <= 0) return round2(discountTry);
+  if (tentative <= 0) return round2(discountTry); // pay 0 now = ok
+  if (tentative >= STRIPE_MIN) return round2(discountTry); // pay >=0.50 = ok
 
-  // If they pay >=0.50 -> ok
-  if (tentative >= STRIPE_MIN) return round2(discountTry);
-
-  // If we'd leave 0.01–0.49, try snapping to 0.50
+  // snap to 0.50
   const neededToPay50 = firstNightBefore - STRIPE_MIN;
   let adjusted = Math.min(discountTry, neededToPay50);
   if (adjusted < 0) adjusted = 0;
 
   const afterAdjust = firstNightBefore - adjusted;
   if (afterAdjust > 0 && afterAdjust < STRIPE_MIN) {
-    // still illegal → just cover full first night (pay 0 now)
+    // still illegal -> cover full first night
     adjusted = Math.min(discountTry, firstNightBefore);
   }
 
@@ -208,10 +190,6 @@ async function fetchHouseDoc(id: string) {
   };
 }
 
-/** Price for a given date:
- * 1) specialPrices["YYYY-MM-DD"] wins
- * 2) otherwise pricePerNight[weekday]
- */
 function getPriceForDate(house: any, d: Date): number | null {
   if (!house) return null;
   const iso = dateIsoLocal(d);
@@ -284,12 +262,6 @@ async function fetchReservationsForId(id: string) {
 }
 
 /* ---------------- Price calculation ---------------- */
-/**
- * Returns:
- *  - totalNightsOnly: sum of all nights + extra guest surcharges
- *  - firstNightCharge: price of first night + extra guest surcharge
- *  - nights, includedBase, extraGuests
- */
 async function calculateNightsCore(
   houseIds: string[],
   startIsoLocal: string,
@@ -312,7 +284,7 @@ async function calculateNightsCore(
   );
   if (nights <= 0) throw new Error("Invalid date range");
 
-  // included guests across *all* booked units
+  // guests included across all units
   const includedBase = houses.reduce(
     (acc, h) =>
       acc + (typeof h.includedGuests === "number" ? h.includedGuests : 2),
@@ -358,13 +330,11 @@ async function calculateNightsCore(
 }
 
 /* ---------------- Stripe customer helper ---------------- */
-async function getOrCreateStripeCustomer(
-  input?: CheckoutBody["customer"]
-) {
+async function getOrCreateStripeCustomer(input?: CheckoutBody["customer"]) {
   const email = String(input?.email || "").trim().toLowerCase();
 
   if (email) {
-    // reuse if known
+    // reuse existing mapping if we have it
     const key = email;
     const mapRef = db.collection("stripe_customer_by_email").doc(key);
     const mapSnap = await mapRef.get();
@@ -373,7 +343,7 @@ async function getOrCreateStripeCustomer(
       return existing.stripeCustomerId;
     }
 
-    // else create
+    // else create new
     const customer = await stripe.customers.create({
       email,
       name: input?.name,
@@ -393,7 +363,7 @@ async function getOrCreateStripeCustomer(
     return customer.id;
   }
 
-  // no email => create ad-hoc customer
+  // no email => ad-hoc
   const customer = await stripe.customers.create({
     name: input?.name,
     phone: input?.phone,
@@ -419,13 +389,13 @@ export async function POST(req: Request) {
       end,
       guests,
       houseSlug,
-      discount, // <-- unified discount payload
+      discount, // unified discount payload
     } = body || {};
 
     const extras = body?.extras || {};
     const customerInput = body.customer || {};
 
-    // --- 1. Validate dates ---
+    // 1. Validate / normalize dates
     let startIso = "";
     let endIso = "";
     try {
@@ -454,7 +424,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // --- 2. Resolve actual Firestore houseIds ---
+    // 2. Resolve actual Firestore houseIds
     const rawValue = houseId || houseSlug!;
     const rawParts = String(rawValue)
       .split("__")
@@ -462,7 +432,7 @@ export async function POST(req: Request) {
       .filter(Boolean);
     const houseIds = await resolveHouseIds(rawParts);
 
-    // --- 3. Check availability again ---
+    // 3. Check availability
     for (const id of houseIds) {
       const reservations = await fetchReservationsForId(id);
       for (const r of reservations) {
@@ -481,7 +451,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // --- 4. Guests ---
+    // 4. Guests
     const guestsNum = Number.isFinite(Number(guests))
       ? parseInt(String(guests || 2), 10)
       : 2;
@@ -492,7 +462,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // --- 5. Core price (no jacuzzi) ---
+    // 5. Core price (no jacuzzi)
     const {
       totalNightsOnly,
       nights,
@@ -501,7 +471,7 @@ export async function POST(req: Request) {
       extraGuests,
     } = await calculateNightsCore(houseIds, startIso, endIso, guestsNum);
 
-    // --- 6. Jacuzzi fee (flat per stay, paid on arrival in your UX) ---
+    // 6. Jacuzzi fee
     let jacuzziFee = 0;
     let jacuzziEnabled = false;
     if (extras?.jacuzzi?.enabled) {
@@ -511,37 +481,10 @@ export async function POST(req: Request) {
         JACUZZI_BASE_PRICE + jacuzziExtraGuests * JACUZZI_EXTRA_PRICE;
     }
 
-    // grandTotal = full stay (lodging + extraGuests surcharge) + jacuzzi flat
+    // grandTotal = lodging + surcharges + jacuzzi (flat)
     const grandTotal = totalNightsOnly + jacuzziFee;
 
-    // --- 7. Discount logic ---
-    // We need to figure out how much we are *actually* discounting:
-    //
-    // Rules:
-    //  - coupon (kind === "coupon"):
-    //        discount.value is "euros to try", front already sanity-picked.
-    //        We re-validate remaining in Firestore.
-    //        We apply up to that amount, but:
-    //           * cannot exceed firstNightCharge
-    //           * cannot exceed grandTotal
-    //        then we run Stripe min rule (no 0.01-0.49 € left).
-    //
-    //  - percent (kind === "percent"):
-    //        discount.value is the percent number (e.g. 10 for 10%).
-    //        It ONLY applies to the first night.
-    //        So we compute discountOnFirstNight = pct * firstNightCharge.
-    //        Then we clamp by grandTotal.
-    //        Then adjust Stripe min.
-    //
-    // Final:
-    //   effectiveDiscountAmount = euros that we will consume now.
-    //   discountedFirst        = firstNightCharge - effectiveDiscountAmount
-    //   discountedGrandTotal   = grandTotal      - effectiveDiscountAmount
-    //
-    // IMPORTANT: for percent, we're effectively treating it
-    // as "a euro discount equal to pct of first night".
-    // This matches CheckoutDetailsClient.
-
+    // 7. Discount logic
     let effectiveDiscountAmount = 0;
     let discountKindForMeta: string = "";
     let discountCodeForMeta: string = "";
@@ -549,7 +492,7 @@ export async function POST(req: Request) {
     let percentValueForMeta: string = "";
 
     if (discount?.kind === "coupon") {
-      // 1. read coupon doc
+      // validate coupon doc
       const couponDocId = discount.id || "";
       if (!couponDocId) {
         return NextResponse.json(
@@ -581,7 +524,7 @@ export async function POST(req: Request) {
         );
       }
 
-      // front-suggested max usage
+      // client-suggested usage
       let proposed = Number(discount.value || 0);
       if (!Number.isFinite(proposed) || proposed <= 0) {
         return NextResponse.json(
@@ -590,10 +533,10 @@ export async function POST(req: Request) {
         );
       }
 
-      // can't exceed remaining, firstNightCharge, or grandTotal
+      // cap by remaining, firstNightCharge, grandTotal
       proposed = Math.min(proposed, remaining, firstNightCharge, grandTotal);
 
-      // Stripe min guard
+      // comply with Stripe min rule
       proposed = adjustForStripeMin(firstNightCharge, proposed);
 
       if (proposed > 0) {
@@ -603,7 +546,7 @@ export async function POST(req: Request) {
         discountIdForMeta = couponDocId;
       }
     } else if (discount?.kind === "percent") {
-      // 1. read percentage_discounts doc
+      // validate percentage_discounts doc
       const percentDocId = discount.id || "";
       if (!percentDocId) {
         return NextResponse.json(
@@ -625,12 +568,12 @@ export async function POST(req: Request) {
       const pData: any = snap.data();
       const used = !!pData?.used;
 
-      // pData.percent is authoritative, but fallback to discount.value
+      // pData.percent wins, fallback to discount.value
       const pctRaw = Number(pData?.percent ?? discount.value ?? 0);
       const pct = pctRaw / 100;
 
-      // expiry check
       const expStr = String(pData?.expiresAt || "").trim();
+
       if (used) {
         return NextResponse.json(
           { error: "Discount already used" },
@@ -653,16 +596,15 @@ export async function POST(req: Request) {
         }
       }
 
-      // We ONLY discount the first night.
-      // discountOnFirstNight = firstNightCharge * pct
+      // only the first night gets discounted
       let proposed = firstNightCharge * pct;
 
-      // don't discount more than grandTotal
+      // don't over-discount beyond total
       if (proposed > grandTotal) {
         proposed = grandTotal;
       }
 
-      // Stripe min guard on firstNightCharge
+      // apply Stripe min rule
       proposed = adjustForStripeMin(firstNightCharge, proposed);
 
       if (proposed > 0) {
@@ -674,7 +616,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // apply effectiveDiscountAmount to totals
+    // calculate totals after discount
     const discountedFirst = Math.max(
       0,
       firstNightCharge - effectiveDiscountAmount
@@ -685,17 +627,16 @@ export async function POST(req: Request) {
     );
 
     const discountedFirstCents = Math.round(discountedFirst * 100);
-
     const isFreeOrder = discountedFirstCents <= 0;
 
-    // --- 8. Stripe customer ---
+    // 8. Stripe customer
     const stripeCustomerId = await getOrCreateStripeCustomer(customerInput);
 
-    // --- 9. Provisional reservationId (we'll persist in webhook) ---
+    // 9. provisional reservationId
     const reservationRef = db.collection("reservations").doc();
     const reservationId = reservationRef.id;
 
-    // --- 10. Create Stripe checkout session ---
+    // 10. Create Stripe Checkout Session
     const methodTypes: Stripe.Checkout.SessionCreateParams.PaymentMethodType[] =
       isFreeOrder ? [] : ["card", "paypal"];
 
@@ -724,11 +665,9 @@ export async function POST(req: Request) {
         },
       ],
       metadata: {
-        // --- identification ---
         reservationId,
         noPayment: isFreeOrder ? "true" : "false",
 
-        // --- stay info ---
         houseIds: houseIds.join(","),
         rawValue,
         checkIn: startIso,
@@ -738,7 +677,6 @@ export async function POST(req: Request) {
         includedBase: String(includedBase),
         extraGuests: String(extraGuests),
 
-        // --- pricing breakdown ---
         totalNightsOnly: String(totalNightsOnly),
         firstNightCharge: String(firstNightCharge),
         discountedFirst: String(discountedFirst),
@@ -748,11 +686,13 @@ export async function POST(req: Request) {
         discountedGrandTotal: String(discountedGrandTotal),
         currency: "EUR",
 
-        // --- discount info (kept in coupon* keys for webhook compatibility) ---
         discountKind: discountKindForMeta,
-        couponId: effectiveDiscountAmount > 0 ? String(discountIdForMeta) : "",
+        couponId:
+          effectiveDiscountAmount > 0 ? String(discountIdForMeta) : "",
         couponCode:
-          effectiveDiscountAmount > 0 ? String(discountCodeForMeta) : "",
+          effectiveDiscountAmount > 0
+            ? String(discountCodeForMeta)
+            : "",
         couponAmountApplied:
           effectiveDiscountAmount > 0
             ? String(effectiveDiscountAmount)
@@ -762,7 +702,6 @@ export async function POST(req: Request) {
             ? percentValueForMeta
             : "",
 
-        // --- customer info for webhook -> Firestore reservation doc ---
         app_user_id: customerInput?.userId || "",
         customerEmail: customerInput?.email || "",
         customerName: customerInput?.name || "",
@@ -778,7 +717,7 @@ export async function POST(req: Request) {
       idempotencyKey: reservationId,
     });
 
-    // --- 11. Return checkout URL ---
+    // 11. Respond with Checkout URL
     console.debug("create-checkout:", {
       houseIds,
       nights,

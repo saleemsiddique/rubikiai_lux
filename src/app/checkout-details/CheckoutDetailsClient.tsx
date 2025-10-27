@@ -407,7 +407,7 @@ export default function CheckoutDetailsClient() {
       }
 
       // raw max we can try to use
-      let rawToUse = Math.min(remaining, firstNightBefore, totalBefore);
+      const rawToUse = Math.min(remaining, firstNightBefore, totalBefore);
       if (rawToUse <= 0) {
         setDiscountError("Nothing to apply.");
         return;

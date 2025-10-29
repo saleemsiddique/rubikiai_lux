@@ -1,4 +1,3 @@
-// app/api/admin/revenue/reservations/route.ts
 import { NextResponse } from "next/server";
 import admin, { adminDb } from "@/lib/firebase-admin";
 import { cookies } from "next/headers";
@@ -15,7 +14,11 @@ function parseDateISO(d: string) {
   // "YYYY-MM-DD" -> Date local 00:00
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d);
   if (!m) return null;
-  const [_, y, mo, da] = m.map(Number) as any;
+  const [_, yStr, moStr, daStr] = m;
+  const y = Number(yStr);
+  const mo = Number(moStr);
+  const da = Number(daStr);
+  if (Number.isNaN(y) || Number.isNaN(mo) || Number.isNaN(da)) return null;
   return new Date(y, mo - 1, da, 0, 0, 0, 0);
 }
 function toISODateLocal(d: Date) {
@@ -25,9 +28,10 @@ function toISODateLocal(d: Date) {
   return `${y}-${m}-${da}`;
 }
 function tsToIso(v: any): string | null {
-  if (!v) return null;
+  if (!v && v !== 0) return null;
   if (typeof v?.toDate === "function") return v.toDate().toISOString();
   if (typeof v === "string") return v;
+  if (v instanceof Date) return v.toISOString();
   return null;
 }
 
@@ -39,10 +43,10 @@ async function requireAdmin() {
   return decoded;
 }
 
-// Estados que reconocemos en el sistema ahora mismo
+// Estados que reconocemos en el sistema ahora mismo (en minúscula)
 const ALLOWED_STATUSES = new Set([
   "reserved", // pagada / confirmada
-  "admin",    // bloqueo interno sin pago
+  "admin", // bloqueo interno sin pago
   "complete", // estancia finalizada/cobro final cerrado
   "canceled", // cancelada
 ]);
@@ -54,7 +58,6 @@ const ALLOWED_STATUSES = new Set([
  *  - end=YYYY-MM-DD (inclusive) -> internamente se hace exclusivo +1 día
  *  - by=createdAt|paidAt|checkIn|checkOut (default: createdAt)
  *  - status=reserved,complete (por defecto esas dos; deben ser válidos según ALLOWED_STATUSES)
- *    Nota: normalmente para revenue quieres "reserved" (depósito/pago inicial) y "complete" (total cobrado)
  *  - houseId=... (opcional)
  *  - limit=2000 (opcional, seguridad; hard cap 5000)
  */
@@ -69,7 +72,8 @@ export async function GET(req: Request) {
     const url = new URL(req.url);
     const start = url.searchParams.get("start") || "";
     const end = url.searchParams.get("end") || "";
-    const by = (url.searchParams.get("by") || "createdAt").toLowerCase();
+    const byRaw = (url.searchParams.get("by") || "createdAt");
+    const by = String(byRaw).toLowerCase();
     const statusesRaw = url.searchParams.get("status") || "reserved,complete";
     const houseId = url.searchParams.get("houseId") || "";
     const limit = Math.min(
@@ -77,8 +81,7 @@ export async function GET(req: Request) {
       5000
     );
 
-    if (!start || !end)
-      return bad("start and end are required (YYYY-MM-DD)");
+    if (!start || !end) return bad("start and end are required (YYYY-MM-DD)");
 
     const startD = parseDateISO(start);
     const endD = parseDateISO(end);
@@ -88,13 +91,13 @@ export async function GET(req: Request) {
     const endExclusive = new Date(endD);
     endExclusive.setDate(endExclusive.getDate() + 1);
 
-    // normalizamos los statuses pedidos
+    // normalizamos los statuses pedidos (lowercase)
     const statuses = statusesRaw
       .split(",")
       .map((s) => s.trim().toLowerCase())
       .filter(Boolean);
 
-    // validación: no dejamos estados que ya no existen ("pending", "expired"...)
+    // validación: no dejamos estados que ya no existen
     for (const st of statuses) {
       if (!ALLOWED_STATUSES.has(st)) {
         return bad(`Invalid status '${st}'`, 400);
@@ -104,7 +107,7 @@ export async function GET(req: Request) {
     const col = adminDb.collection("reservations");
     const resultsMap = new Map<string, any>();
 
-    // Para evitar índices compuestos raros (in + rango), hacemos 1 query por status
+    // Hacemos 1 query por status para evitar combinaciones que piden índice
     for (const st of statuses) {
       let q: FirebaseFirestore.Query = col.where("status", "==", st);
 
@@ -114,7 +117,7 @@ export async function GET(req: Request) {
 
       if (by === "createdat" || by === "paidat") {
         const field = by === "createdat" ? "createdAt" : "paidAt";
-        // createdAt / paidAt son Timestamp -> rango por Timestamp
+        // createdAt / paidAt suelen ser Timestamps -> rango por Date/Timestamp
         q = q
           .where(field, ">=", startD)
           .where(field, "<", endExclusive)
@@ -129,44 +132,86 @@ export async function GET(req: Request) {
           .where(field, "<", endStrExclusive)
           .orderBy(field, "desc");
       } else {
-        return bad("Invalid 'by' parameter");
+        return bad("Invalid 'by' parameter", 400);
       }
 
       const snap = await q.limit(limit).get();
       for (const doc of snap.docs) {
-        resultsMap.set(doc.id, { id: doc.id, ...doc.data() });
+        // Evitar sobrescribir si el mismo doc sale en varios queries
+        if (!resultsMap.has(doc.id)) resultsMap.set(doc.id, { id: doc.id, ...doc.data() });
       }
     }
 
-    // Normalización para UI (convertimos Timestamps a ISO string legible)
-    const cleaned = Array.from(resultsMap.values()).map((r: any) => ({
-      id: String(r.id || ""),
-      status: String(r.status || ""),
-      checkIn: String(r.checkIn || ""),
-      checkOut: String(r.checkOut || ""),
-      nights: Number(r.nights ?? 0),
-      guests: Number(r.guests ?? 0),
-      houseId: r.houseId || null,
-      houseIds: Array.isArray(r.houseIds) ? r.houseIds : null,
-      customerEmail: r.customerEmail || null,
-      currency: r.currency || "EUR",
-      total: Number(r.total ?? 0),
-      discountedTotal:
-        typeof r.discountedTotal === "number" ? r.discountedTotal : null,
-      firstNightBase:
-        typeof r.firstNightBase === "number" ? r.firstNightBase : null,
-      firstNightCharge:
-        typeof r.firstNightCharge === "number" ? r.firstNightCharge : null,
-      discountedFirst:
-        typeof r.discountedFirst === "number" ? r.discountedFirst : null,
-      paidInFull: !!r.paidInFull,
-      createdAtIso: tsToIso(r.createdAt),
-      updatedAtIso: tsToIso(r.updatedAt),
-      paidAtIso: tsToIso(r.paidAt),
-      coupon: r.coupon || null,
-    }));
+    // Normalización para UI (convertimos Timestamps a ISO string legible) y añadimos los nuevos campos
+    const cleaned = Array.from(resultsMap.values()).map((r: any) => {
+      const customerMap = r.customer ?? null;
+      const emailFlatten = r.email ?? r.customerEmail ?? customerMap?.email ?? null;
+      const nameFlatten = r.name ?? customerMap?.name ?? null;
+      const phoneFlatten = r.phone ?? customerMap?.phone ?? null;
 
-    // Orden por fecha (desc) del campo elegido
+      return {
+        id: String(r.id || ""),
+        status: String(r.status || ""),
+        checkIn: String(r.checkIn || ""),
+        checkOut: String(r.checkOut || ""),
+        nights: Number(r.nights ?? 0),
+        guests: Number(r.guests ?? 0),
+        houseId: r.houseId || null,
+        houseIds: Array.isArray(r.houseIds) ? r.houseIds : null,
+        // customer map + flatten fields
+        customer: customerMap,
+        customerEmail: r.customerEmail ?? emailFlatten,
+        email: emailFlatten,
+        name: nameFlatten,
+        phone: phoneFlatten,
+        userId: r.userId ?? customerMap?.userId ?? null,
+        arrivalTime: r.arrivalTime ?? null,
+        comment: r.comment ?? null,
+
+        // moneda y precios
+        currency: r.currency || "EUR",
+        total: Number(r.total ?? 0),
+        grandTotal: Number(r.grandTotal ?? r.total ?? 0),
+        discountedTotal: typeof r.discountedTotal === "number" ? r.discountedTotal : (typeof r.discountedGrandTotal === "number" ? r.discountedGrandTotal : null),
+        discountedGrandTotal: typeof r.discountedGrandTotal === "number" ? r.discountedGrandTotal : (typeof r.discountedTotal === "number" ? r.discountedTotal : null),
+        amountApplied: Number(r.amountApplied ?? 0),
+        code: r.code ?? (r.coupon?.code ?? null),
+        coupon: r.coupon ?? null,
+        totalNightsOnly: Number(r.totalNightsOnly ?? r.total ?? 0),
+        jacuzzi: r.jacuzzi ?? (r.jacuzzi === undefined ? { enabled: false, jacuzziFee: Number(r.jacuzziFee ?? 0) } : r.jacuzzi),
+        jacuzziFee: Number(r.jacuzziFee ?? (r.jacuzzi?.jacuzziFee ?? 0)),
+        includedBase: Number(r.includedBase ?? 2),
+        extraGuests: Number(r.extraGuests ?? Math.max(0, (Number(r.guests ?? 0) - Number(r.includedBase ?? 2)))),
+
+        // primeras noches / cargos
+        firstNightCharge: typeof r.firstNightCharge === "number" ? r.firstNightCharge : (typeof r.firstNightBase === "number" ? r.firstNightBase : null),
+        firstNightBase: typeof r.firstNightBase === "number" ? r.firstNightBase : (typeof r.firstNightCharge === "number" ? r.firstNightCharge : null),
+        discountedFirst: typeof r.discountedFirst === "number" ? r.discountedFirst : null,
+
+        // pagos / stripe
+        paidInFull: !!r.paidInFull,
+        stripeCustomerId: r.stripeCustomerId ?? null,
+        stripePaymentIntentId: r.stripePaymentIntentId ?? null,
+        stripeSessionId: r.stripeSessionId ?? null,
+
+        // timestamps ISO
+        createdAtIso: tsToIso(r.createdAt),
+        updatedAtIso: tsToIso(r.updatedAt),
+        paidAtIso: tsToIso(r.paidAt),
+        deductedAtIso: tsToIso(r.deductedAt),
+
+        // raw for debugging (optional, small)
+        _raw: {
+          // No incluir todo lo que pueda ser enorme; incluir sólo campos de interés
+          id: r.id,
+          status: r.status,
+          checkIn: r.checkIn,
+          checkOut: r.checkOut,
+        },
+      };
+    });
+
+    // Orden por campo elegido (desc)
     cleaned.sort((a: any, b: any) => {
       const fa =
         by === "createdat"
@@ -184,6 +229,7 @@ export async function GET(req: Request) {
           : by === "checkin"
           ? b.checkIn
           : b.checkOut;
+      // nulls -> come last
       return String(fb || "").localeCompare(String(fa || ""));
     });
 

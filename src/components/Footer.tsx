@@ -13,6 +13,7 @@ const Footer: React.FC = () => {
           <Link href="/" className="hover:text-[var(--color-primary-dark)]">Home</Link>
           <Link href="/reservations" className="hover:text-[var(--color-primary-dark)]">Reservation</Link>
           <Link href="/coupons" className="hover:text-[var(--color-primary-dark)]">Coupons</Link>
+          <Link href="/house-rules" className="hover:text-[var(--color-primary-dark)]">House Rules</Link>
           <Link href="/privacy-policy" className="hover:text-[var(--color-primary-dark)]">Privacy</Link>
         </nav>
 

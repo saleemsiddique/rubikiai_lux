@@ -2,7 +2,7 @@
 import { cookies } from "next/headers";
 import admin from "@/lib/firebase-admin";
 import { redirect } from "next/navigation";
-import AdminDiscountsClient from "@/app/admin/discounts/AdminDiscountsClient"
+import AdminDiscountsClient from "@/app/admin/discounts/AdminDiscountsClient";
 
 async function requireAdmin() {
   const session = (await cookies()).get("session")?.value;
@@ -21,23 +21,23 @@ export default async function AdminDiscountsPage() {
 
   return (
     <main className="min-h-screen pt-24 bg-[var(--color-background-main)]">
-      <section className="max-w-3xl mx-auto px-6 pb-24">
-        <header className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-2xl font-bold text-[var(--color-primary-dark)]">Enviar código de % descuento</h1>
-            <p className="text-sm text-neutral-600 mt-1">
-              Crea un código único de descuento porcentual y mándalo por email.
-            </p>
-          </div>
-          <form action="/api/auth/session-logout" method="POST">
-            <button className="rounded-md border px-3 py-2 text-sm hover:bg-neutral-50">
-              Cerrar sesión
-            </button>
-          </form>
-        </header>
+      <section className="max-w-6xl mx-auto px-6 py-10">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-[var(--color-primary-dark)]">
+            Enviar código de % descuento
+          </h1>
+          <a
+            href="/admin/menu"
+            className="rounded-md border px-3 py-2 text-sm hover:bg-neutral-50"
+          >
+            Volver al menú
+          </a>
+        </div>
 
         {/* cliente */}
-        <AdminDiscountsClient adminEmail={(user as any).email ?? (user as any).uid ?? ""} />
+        <AdminDiscountsClient
+          adminEmail={(user as any).email ?? (user as any).uid ?? ""}
+        />
       </section>
     </main>
   );

@@ -77,80 +77,80 @@ export default function AdminDiscountsClient({
       // podríamos limpiar email/percent si quieres:
       // setToEmail("");
       // setPercent("10");
-    }
-    catch (e: any) {
+    } catch (e: any) {
       console.error("discount create error:", e);
       setMsg(`Error: ${e?.message || "No se pudo enviar"}`);
-    }
-    finally {
+    } finally {
       setBusy(false);
     }
   };
 
   return (
-    <div className="bg-white border rounded-2xl shadow-sm p-6 space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Email destino */}
-        <div className="flex flex-col">
-          <label className="text-xs text-neutral-600 font-medium">
-            Email destino
-          </label>
-          <input
-            type="email"
-            className="mt-1 border rounded-md p-2 text-sm"
-            placeholder="cliente@example.com"
-            value={toEmail}
-            onChange={(e) => setToEmail(e.target.value)}
-          />
-        </div>
+    <div className="mt-6">
+      <div className="bg-white border rounded-2xl shadow-sm p-6 space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Email destino */}
+          <div className="flex flex-col">
+            <label className="text-xs text-neutral-600 font-medium">
+              Email destino
+            </label>
+            <input
+              type="email"
+              className="mt-1 border rounded-md p-2 text-sm"
+              placeholder="cliente@example.com"
+              value={toEmail}
+              onChange={(e) => setToEmail(e.target.value)}
+            />
+          </div>
 
-        {/* % Descuento */}
-        <div className="flex flex-col">
-          <label className="text-xs text-neutral-600 font-medium">
-            % Descuento
-          </label>
-          <input
-            type="number"
-            min={1}
-            max={100}
-            step={1}
-            className="mt-1 border rounded-md p-2 text-sm"
-            value={percent}
-            onChange={(e) => {
-              // Forzamos solo enteros positivos en UI, sin decimales
-              const raw = e.target.value;
-              // Permitimos string vacío temporalmente para que pueda borrar
-              if (raw === "") {
-                setPercent("");
-                return;
-              }
-              // Validamos que sea dígitos enteros
-              if (!/^\d+$/.test(raw)) return;
-              const n = parseInt(raw, 10);
-              if (n < 1 || n > 100) return;
-              setPercent(String(n));
-            }}
-          />
-          <div className="text-[11px] text-neutral-500 mt-1">
-            Ej: 5, 10, 20… (máx 100%)
+          {/* % Descuento */}
+          <div className="flex flex-col">
+            <label className="text-xs text-neutral-600 font-medium">
+              % Descuento
+            </label>
+            <input
+              type="number"
+              min={1}
+              max={100}
+              step={1}
+              className="mt-1 border rounded-md p-2 text-sm"
+              value={percent}
+              onChange={(e) => {
+                // Forzamos solo enteros positivos en UI, sin decimales
+                const raw = e.target.value;
+                // Permitimos string vacío temporalmente para que pueda borrar
+                if (raw === "") {
+                  setPercent("");
+                  return;
+                }
+                // Validamos que sea dígitos enteros
+                if (!/^\d+$/.test(raw)) return;
+                const n = parseInt(raw, 10);
+                if (n < 1 || n > 100) return;
+                setPercent(String(n));
+              }}
+            />
+            <div className="text-[11px] text-neutral-500 mt-1">
+              Ej: 5, 10, 20… (máx 100%)
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="pt-4 border-t flex items-center gap-3 flex-wrap">
-        <button
-          disabled={busy}
-          onClick={handleSend}
-          className="rounded-md bg-[var(--color-primary)] text-white px-4 py-2 text-sm font-semibold hover:opacity-95 disabled:opacity-60"
-        >
-          {busy ? "Enviando…" : "Crear y enviar descuento"}
-        </button>
+        <div className="pt-4 border-t flex items-center gap-3 flex-wrap">
+          <button
+            disabled={busy}
+            onClick={handleSend}
+            className="rounded-md bg-[var(--color-primary)] text-white px-4 py-2 text-sm font-semibold hover:opacity-95 disabled:opacity-60"
+          >
+            {busy ? "Enviando…" : "Crear y enviar descuento"}
+          </button>
 
-        {msg && (
-          <div className="text-xs whitespace-pre-wrap text-neutral-700">
-            {msg}
-          </div>
-        )}
+          {msg && (
+            <div className="text-xs whitespace-pre-wrap text-neutral-700">
+              {msg}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

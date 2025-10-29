@@ -1,4 +1,3 @@
-// app/admin/revenue/ui/AdminRevenueClient.tsx
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -15,15 +14,29 @@ type ReservationRow = {
   customerEmail: string | null;
   currency: string;
   total: number;
-  discountedTotal: number | null;
-  firstNightBase: number | null;
-  firstNightCharge: number | null;
-  discountedFirst: number | null;
+  grandTotal?: number | null;
+  discountedTotal?: number | null;
+  discountedGrandTotal?: number | null;
+  amountApplied?: number | null;
+  code?: string | null;
+  coupon?: any | null;
+  totalNightsOnly?: number | null;
+  jacuzzi?: any | null;
+  jacuzziFee?: number | null;
+  includedBase?: number | null;
+  extraGuests?: number | null;
+  firstNightBase?: number | null;
+  firstNightCharge?: number | null;
+  discountedFirst?: number | null;
   paidInFull: boolean;
   createdAtIso: string | null;
   updatedAtIso: string | null;
   paidAtIso: string | null;
-  coupon: any | null;
+  deductedAtIso?: string | null;
+  customer?: any | null;
+  email?: string | null;
+  name?: string | null;
+  phone?: string | null;
 };
 
 type CouponOrderRow = {
@@ -148,29 +161,41 @@ export default function AdminRevenueClient() {
     }
   };
 
+  // helpers seguros
+  const num = (v: any) => {
+    const n = Number(v);
+    return Number.isNaN(n) ? 0 : n;
+  };
+
   // Métricas reservas
   const resMetrics = useMemo(() => {
     let count = 0;
-    let totalContracted = 0; // suma de discountedTotal || total
-    let totalDeposits = 0; // suma de discountedFirst || firstNightCharge
+    let totalContracted = 0; // suma de discountedGrandTotal ?? grandTotal ?? discountedTotal ?? total
+    let totalDeposits = 0; // suma de discountedFirst ?? firstNightCharge
     let totalCollectedNow = 0; // si paidInFull -> contracted; si no -> deposit
 
     reservations.forEach((r) => {
       count++;
 
       const contracted =
-        (typeof r.discountedTotal === "number"
+        (typeof r.discountedGrandTotal === "number"
+          ? r.discountedGrandTotal
+          : typeof r.grandTotal === "number"
+          ? r.grandTotal
+          : typeof r.discountedTotal === "number"
           ? r.discountedTotal
           : r.total) || 0;
-      totalContracted += contracted;
+      totalContracted += num(contracted);
 
       const deposit =
         (typeof r.discountedFirst === "number"
           ? r.discountedFirst
-          : r.firstNightCharge || 0) || 0;
-      totalDeposits += deposit;
+          : typeof r.firstNightCharge === "number"
+          ? r.firstNightCharge
+          : 0) || 0;
+      totalDeposits += num(deposit);
 
-      totalCollectedNow += r.paidInFull ? contracted : deposit;
+      totalCollectedNow += r.paidInFull ? num(contracted) : num(deposit);
     });
 
     return { count, totalContracted, totalDeposits, totalCollectedNow };
@@ -189,10 +214,8 @@ export default function AdminRevenueClient() {
 
   // Métrica combinada
   const combined = useMemo(() => {
-    const collected =
-      resMetrics.totalCollectedNow + couponMetrics.couponsRevenue;
-    const contracted =
-      resMetrics.totalContracted + couponMetrics.couponsRevenue;
+    const collected = resMetrics.totalCollectedNow + couponMetrics.couponsRevenue;
+    const contracted = resMetrics.totalContracted + couponMetrics.couponsRevenue;
     return { collected, contracted };
   }, [resMetrics, couponMetrics]);
 
@@ -202,20 +225,43 @@ export default function AdminRevenueClient() {
       const XLSX = await import("xlsx"); // dynamic import en cliente
       const wb = XLSX.utils.book_new();
 
-      // Sheet: Reservations
-      const resData = reservations.map((r) => ({
-        id: r.id,
-        status: r.status,
-        checkin: r.checkIn,
-        checkout: r.checkOut,
-        nights: r.nights,
-        guests: r.guests,
-        customer: r.customerEmail ?? "",
-        currency: r.currency,
-        total: r.total,
-        firstNightBase: r.firstNightBase ?? "",
-        firstNightCharge: r.discountedFirst ?? "",
-      }));
+      // Sheet: Reservations (añadimos campos nuevos)
+      const resData = reservations.map((r) => {
+        const contracted =
+          (typeof r.discountedGrandTotal === "number"
+            ? r.discountedGrandTotal
+            : typeof r.grandTotal === "number"
+            ? r.grandTotal
+            : typeof r.discountedTotal === "number"
+            ? r.discountedTotal
+            : r.total) || 0;
+        const deposit =
+          (typeof r.discountedFirst === "number"
+            ? r.discountedFirst
+            : typeof r.firstNightCharge === "number"
+            ? r.firstNightCharge
+            : 0) || 0;
+        return {
+          id: r.id,
+          status: r.status,
+          checkin: r.checkIn,
+          checkout: r.checkOut,
+          nights: r.nights,
+          guests: r.guests,
+          customer: r.customerEmail ?? r.email ?? "",
+          currency: r.currency,
+          grandTotal: num(r.grandTotal),
+          discountedGrandTotal: num(r.discountedGrandTotal),
+          code: r.code ?? "",
+          totalNightsOnly: num(r.totalNightsOnly),
+          jacuzzi: r.jacuzzi ? JSON.stringify(r.jacuzzi) : "",
+          firstNightBase: num(r.firstNightBase),
+          firstNightCharge: num(r.firstNightCharge),
+          deposit,
+          paidInFull: !!r.paidInFull,
+          paidAtIso: r.paidAtIso ?? "",
+        };
+      });
       const wsRes = XLSX.utils.json_to_sheet(resData);
       XLSX.utils.book_append_sheet(wb, wsRes, "Reservations");
 
@@ -229,6 +275,7 @@ export default function AdminRevenueClient() {
         currency: o.currency,
         revenue: o.revenue,
         createdAtIso: o.createdAtIso ?? "",
+        completedAtIso: o.completedAtIso ?? "",
       }));
       const wsOrd = XLSX.utils.json_to_sheet(ordData);
       XLSX.utils.book_append_sheet(wb, wsOrd, "CouponOrders");
@@ -435,20 +482,26 @@ export default function AdminRevenueClient() {
                     <th className="px-3 py-2 text-left">House</th>
                     <th className="px-3 py-2 text-left">Huésp.</th>
                     <th className="px-3 py-2 text-left">Email</th>
-                    <th className="px-3 py-2 text-right">Total</th>
+                    <th className="px-3 py-2 text-right">Total (contract)</th>
                     <th className="px-3 py-2 text-right">Cobrado ahora</th>
                   </tr>
                 </thead>
                 <tbody>
                   {reservations.map((r) => {
                     const contracted =
-                      (typeof r.discountedTotal === "number"
+                      (typeof r.discountedGrandTotal === "number"
+                        ? r.discountedGrandTotal
+                        : typeof r.grandTotal === "number"
+                        ? r.grandTotal
+                        : typeof r.discountedTotal === "number"
                         ? r.discountedTotal
                         : r.total) || 0;
                     const deposit =
                       (typeof r.discountedFirst === "number"
                         ? r.discountedFirst
-                        : r.firstNightCharge || 0) || 0;
+                        : typeof r.firstNightCharge === "number"
+                        ? r.firstNightCharge
+                        : 0) || 0;
                     const collected = r.paidInFull ? contracted : deposit;
 
                     return (
@@ -463,17 +516,17 @@ export default function AdminRevenueClient() {
                           <StatusPill s={r.status} />
                         </td>
                         <td className="px-3 py-2">
-                          {r.houseId ?? r.houseIds?.join(",")}
+                          {r.houseId ?? (r.houseIds ? r.houseIds.join(",") : "—")}
                         </td>
                         <td className="px-3 py-2">{r.guests ?? "—"}</td>
                         <td className="px-3 py-2">
-                          {r.customerEmail ?? "—"}
+                          {r.customerEmail ?? r.email ?? "—"}
                         </td>
                         <td className="px-3 py-2 text-right">
-                          {contracted.toFixed(2)}€
+                          {num(contracted).toFixed(2)}€
                         </td>
                         <td className="px-3 py-2 text-right">
-                          {collected.toFixed(2)}€
+                          {num(collected).toFixed(2)}€
                         </td>
                       </tr>
                     );

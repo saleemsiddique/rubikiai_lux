@@ -1,4 +1,3 @@
-// app/api/admin/reservations/block/route.ts
 import admin, { adminDb } from "@/lib/firebase-admin";
 import { cookies } from "next/headers";
 
@@ -24,20 +23,44 @@ async function requireAdmin() {
   }
 }
 
+function toISOIfTimestamp(val: any) {
+  if (!val) return null;
+  if (typeof val?.toDate === "function") return val.toDate().toISOString();
+  if (typeof val === "string") return val;
+  return null;
+}
+
 export async function POST(req: Request) {
   const me = await requireAdmin();
   if (!me) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
     const body = await req.json();
-    const { checkIn, checkOut, houseId, houseIds, note, guests } = body || {};
-    const guestsNum = Math.max(1, Number(guests || 2)); // ← NUEVO (mínimo 1)
+    const {
+      checkIn,
+      checkOut,
+      houseId,
+      houseIds,
+      note,
+      guests,
+      // NUEVO: customer object esperado opcionalmente
+      customer,
+      // Opcionales: coupon/code/amountApplied (si quieres pre-aplicarlos)
+      coupon,
+      amountApplied,
+      code,
+      arrivalTime,
+      comment,
+      userId,
+    } = body || {};
+
+    const guestsNum = Math.max(1, Number(guests || 2)); // ← mínimo 1
 
     if (!isISO(checkIn) || !isISO(checkOut) || checkIn >= checkOut) {
       return Response.json({ error: "Invalid date range" }, { status: 400 });
     }
 
-    // NUEVO: no permitir pasado (comparación por fecha, sin horas)
+    // No permitir bloqueo en el pasado (comparando fechas, sin horas)
     const today = new Date();
     const todayISO = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
     if (checkOut <= todayISO) {
@@ -53,14 +76,10 @@ export async function POST(req: Request) {
       return Response.json({ error: "houseId or houseIds required" }, { status: 400 });
     }
 
-    // NUEVO: comprobar solape con reservas existentes bloqueantes (reserved|complete|admin)
-    // Regla de solape: [Astart, Aend) solapa [Bstart, Bend) si Astart < Bend && Bstart < Aend
+    // Comprobar solape con reservas bloqueantes (reserved|complete|admin)
     const blockingStatuses = ["reserved", "complete", "admin"];
     const reservationsRef = adminDb.collection("reservations");
 
-    // Buscamos por cada houseId tanto en houseId== como en array-contains houseIds
-    // (podrías optimizar con un query compuesto y OR; Firestore no tiene OR puro sin index compuesto,
-    // por lo que hacemos 2 consultas por house y combinamos)
     const conflictPromises = targetHouseIds.map(async (hid) => {
       const q1 = await reservationsRef
         .where("houseId", "==", hid)
@@ -76,7 +95,6 @@ export async function POST(req: Request) {
       q1.docs.forEach(d => docs.set(d.id, d.data()));
       q2.docs.forEach(d => docs.set(d.id, d.data()));
 
-      // Chequeo de solape
       for (const data of docs.values()) {
         const rIn = String(data.checkIn);
         const rOut = String(data.checkOut);
@@ -94,8 +112,6 @@ export async function POST(req: Request) {
 
     // === PRICING: usa el endpoint oficial para calcular precios ===
     const origin = new URL(req.url).origin;
-
-    // Si bloqueas 1 o varias casas, pásalas como "houseId" unidas por "__" (tu /price lo soporta)
     const houseIdForPrice = targetHouseIds.join("__");
 
     const priceRes = await fetch(`${origin}/api/reservations/price`, {
@@ -103,9 +119,9 @@ export async function POST(req: Request) {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         houseId: houseIdForPrice,
-        startDate: checkIn,   // "YYYY-MM-DD"
-        endDate: checkOut,    // "YYYY-MM-DD"
-        guests: guestsNum,    // ← ver paso 3 más abajo
+        startDate: checkIn,
+        endDate: checkOut,
+        guests: guestsNum,
       }),
     });
 
@@ -122,9 +138,38 @@ export async function POST(req: Request) {
     // Valores calculados por el endpoint de precio (fuente de verdad)
     const total = Number(priceJson.total ?? 0);
     const firstNight = Number(priceJson.first ?? 0);
-    const nights = Number(priceJson.nights ?? 0);
+    const nights = Number(priceJson.nights ?? nightsBetween(checkIn, checkOut));
+    const includedBase = Number(priceJson.includedBase ?? 2);
+    const grandTotal = Number(priceJson.grandTotal ?? total);
+    const discountedGrandTotal = Number(priceJson.discountedGrandTotal ?? priceJson.discountedTotal ?? total);
+    const amountAppliedFromPrice = Number(priceJson.amountApplied ?? 0);
+    const couponFromPrice = priceJson.coupon ?? null;
+    const codeFromPrice = couponFromPrice?.code ?? priceJson.code ?? null;
+    const totalNightsOnly = Number(priceJson.totalNightsOnly ?? total);
+    const jacuzziInfo = priceJson.jacuzzi ?? { enabled: false, jacuzziFee: Number(priceJson.jacuzziFee ?? 0) };
+    const discountedFirst = Number(priceJson.discountedFirst ?? 0);
+    const currency = priceJson.currency ?? "EUR";
 
+    // Si viene customer en body, úsalo, si no, construye desde campos sueltos
+    const customerObj: any = customer && typeof customer === "object"
+      ? {
+          name: customer.name ? String(customer.name) : null,
+          email: customer.email ? String(customer.email) : null,
+          phone: customer.phone ? String(customer.phone) : null,
+          userId: customer.userId ? String(customer.userId) : null,
+          // cualquier otro dato que quieras guardar
+          ...customer,
+        }
+      : (body.email || body.name || body.phone || userId)
+        ? {
+            name: body.name ? String(body.name) : null,
+            email: body.email ? String(body.email) : null,
+            phone: body.phone ? String(body.phone) : null,
+            userId: userId ? String(userId) : null,
+          }
+        : null;
 
+    // Construimos el payload; escribimos customer y también los campos raíz para compatibilidad
     const payload: any = {
       status: "admin",
       createdBy: me.email || me.uid,
@@ -133,24 +178,95 @@ export async function POST(req: Request) {
       checkOut: String(checkOut),
       nights,
       adminNote: note || null,
-      // PRECIOS REALES
-      total,
-      discountedTotal: total,   // si quieres, aquí podrías aplicar un descuento interno
+
+      // precios
+      total: total,
+      grandTotal: grandTotal,
+      discountedTotal: discountedGrandTotal,
+      discountedGrandTotal: discountedGrandTotal,
+      discountedFirst: discountedFirst,
       firstNightCharge: firstNight,
-      currency: "EUR",
+      totalNightsOnly: totalNightsOnly,
+      amountApplied: typeof amountApplied === "number" ? Number(amountApplied) : amountAppliedFromPrice,
+      coupon: coupon ?? couponFromPrice ?? null,
+      code: code ?? codeFromPrice ?? null,
+      currency: currency,
+      jacuzzi: {
+        enabled: Boolean(jacuzziInfo?.enabled),
+        jacuzziFee: Number(jacuzziInfo?.jacuzziFee ?? jacuzziInfo?.fee ?? 0),
+      },
+      jacuzziFee: Number(jacuzziInfo?.jacuzziFee ?? jacuzziInfo?.fee ?? 0),
+
+      // huéspedes y ocupación
       guests: guestsNum,
+      includedBase: includedBase,
+      extraGuests: Math.max(0, guestsNum - includedBase),
+
+      // customer: guardamos el mapa completo aquí
+      customer: customerObj,
+      customerEmail: (customerObj?.email ?? body.customerEmail ?? body.email ?? null),
+
+      // campos raíz para compatibilidad con UI que pueda leer email/name/phone directamente
+      email: customerObj?.email ?? body.email ?? null,
+      name: customerObj?.name ?? body.name ?? null,
+      phone: customerObj?.phone ?? body.phone ?? null,
+      userId: customerObj?.userId ?? userId ?? null,
+
+      arrivalTime: arrivalTime ?? null,
+      comment: comment ?? null,
+
+      // stripe / pagos (vacíos en bloqueo admin)
+      stripeCustomerId: null,
+      stripePaymentIntentId: null,
+      stripeSessionId: null,
+
+      // flags de pago
+      paidAt: null,
+      paidInFull: false,
+
       houseIds: targetHouseIds,
       houseId: targetHouseIds[0],
     };
 
-
-
     const ref = await adminDb.collection("reservations").add(payload);
     const snap = await ref.get();
-    return Response.json({ ok: true, reservation: { id: snap.id, ...snap.data() } });
+
+    // Normalizar salida
+    const raw = snap.data() as any;
+    const normalized: any = { id: snap.id, ...raw };
+
+    normalized.createdAt = toISOIfTimestamp(raw?.createdAt);
+    normalized.paidAt = toISOIfTimestamp(raw?.paidAt);
+    normalized.deductedAt = toISOIfTimestamp(raw?.deductedAt);
+    normalized.updatedAt = toISOIfTimestamp(raw?.updatedAt);
+
+    normalized.checkIn = String(raw.checkIn);
+    normalized.checkOut = String(raw.checkOut);
+    normalized.guests = Number(raw.guests ?? guestsNum);
+    normalized.total = Number(raw.total ?? grandTotal);
+    normalized.grandTotal = Number(raw.grandTotal ?? normalized.total);
+    normalized.discountedGrandTotal = Number(raw.discountedGrandTotal ?? normalized.grandTotal);
+    normalized.amountApplied = Number(raw.amountApplied ?? 0);
+    normalized.totalNightsOnly = Number(raw.totalNightsOnly ?? normalized.total);
+    normalized.includedBase = Number(raw.includedBase ?? includedBase);
+    normalized.extraGuests = Number(raw.extraGuests ?? Math.max(0, guestsNum - includedBase));
+    normalized.jacuzzi = raw.jacuzzi ?? { enabled: false, jacuzziFee: Number(raw.jacuzziFee ?? 0) };
+    normalized.coupon = raw.coupon ?? null;
+    normalized.code = raw.code ?? (normalized.coupon?.code ?? null);
+
+    // devolver customer normalizado también
+    normalized.customer = raw.customer ?? null;
+    normalized.customerEmail = raw.customerEmail ?? normalized.email ?? null;
+    normalized.email = raw.email ?? null;
+    normalized.name = raw.name ?? (normalized.customer?.name ?? null);
+    normalized.phone = raw.phone ?? (normalized.customer?.phone ?? null);
+    normalized.userId = raw.userId ?? (normalized.customer?.userId ?? null);
+    normalized.arrivalTime = raw.arrivalTime ?? null;
+    normalized.comment = raw.comment ?? null;
+
+    return Response.json({ ok: true, reservation: normalized });
   } catch (e: any) {
     console.error("[admin/reservations/block] error:", e?.message || e);
     return Response.json({ error: e?.message || "Block error" }, { status: 400 });
   }
 }
-

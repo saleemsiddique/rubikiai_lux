@@ -6,53 +6,97 @@ import React, { useEffect, useMemo, useState } from "react";
 
 type Reservation = {
     id: string;
-    checkIn: string;   // "YYYY-MM-DD" (local)
-    checkOut: string;  // "YYYY-MM-DD" (local)
+    checkIn: string;
+    checkOut: string;
     status?: string;
     houseId?: string;
     houseIds?: string[];
+    
+    // Customer info
+    customer?: {
+        name?: string;
+        email?: string;
+        phone?: string;
+        userId?: string;
+        [k: string]: any;
+    };
     customerEmail?: string;
+    email?: string;
+    name?: string;
+    phone?: string;
+    userId?: string;
+    arrivalTime?: string;
+    comment?: string;
+    
+    // Pricing
     guests?: number;
     total?: number;
+    grandTotal?: number;
     discountedTotal?: number;
+    discountedGrandTotal?: number;
     firstNightCharge?: number;
-    createdAt?: any;
-    paidAt?: any;
+    discountedFirst?: number;
+    totalNightsOnly?: number;
+    amountApplied?: number;
+    jacuzziFee?: number;
+    includedBase?: number;
+    extraGuests?: number;
+    currency?: string;
+    
+    // Jacuzzi
+    jacuzzi?: {
+        enabled: boolean;
+        jacuzziFee?: number;
+    };
+    
+    // Coupon
+    coupon?: any;
+    code?: string;
+    
+    // Timestamps
+    createdAt?: string | null;
+    paidAt?: string | null;
+    deductedAt?: string | null;
+    updatedAt?: string | null;
+    
+    // Payment
+    paidInFull?: boolean;
+    stripeCustomerId?: string | null;
+    stripePaymentIntentId?: string | null;
+    stripeSessionId?: string | null;
+    
+    // Metadata
+    nights?: number;
+    adminNote?: string;
+    createdBy?: string;
+    
     [k: string]: any;
 };
 
-// 🔄 estados permitidos en la UI ahora
 const STATUSES = ["reserved", "admin", "complete", "canceled"] as const;
-
-// estos estados bloquean el calendario (siguen igual)
 const CALENDAR_STATUSES = new Set(["reserved", "admin", "complete"]);
 
-// opciones de casa hardcode
 const HOUSE_OPTIONS = [
     { id: "L0TeFf2LmrWGAaAyS8NY", alias: "Ezero namelis" },
     { id: "PZwbfMYlSXj61uYYJutg", alias: "Šalia Elnių Aptvaro" },
     { id: "oDzv9346CdaAsok162sX", alias: "Elnių Panorama" },
 ];
 
-/* ---------- helpers de fecha (LOCAL, sin toISOString) ---------- */
+/* ---------- Date helpers (LOCAL) ---------- */
 function pad2(n: number) {
     return n < 10 ? `0${n}` : `${n}`;
 }
 function ymdToISO(y: number, m1: number, d: number) {
-    // m1 = month index (0..11)
     return `${y}-${pad2(m1 + 1)}-${pad2(d)}`;
 }
 function parseISOToLocalDate(s: string) {
-    // "YYYY-MM-DD" -> Date local a las 00:00
     const [y, m, d] = s.split("-").map(Number);
-    return new Date(y, (m - 1), d, 0, 0, 0, 0);
+    return new Date(y, m - 1, d, 0, 0, 0, 0);
 }
 function toISOLocal(d: Date) {
-    // Formatea usando campos locales
     return ymdToISO(d.getFullYear(), d.getMonth(), d.getDate());
 }
 function toISO(d: Date) {
-    // alias
     return toISOLocal(d);
 }
 function addDaysISO(dt: string, n: number) {
@@ -67,13 +111,14 @@ function isISODate(s: unknown): s is string {
     return typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
 }
 function isoCmp(a: string, b: string) {
-    // Comparación lexicográfica segura para YYYY-MM-DD
     if (a === b) return 0;
     return a < b ? -1 : 1;
 }
-function isoLt(a: string, b: string) { return isoCmp(a, b) < 0; }
+function isoLt(a: string, b: string) {
+    return isoCmp(a, b) < 0;
+}
 
-/* ---------- helpers de red ---------- */
+/* ---------- Network helpers ---------- */
 async function readError(res: Response) {
     const text = await res.text();
     try {
@@ -83,63 +128,84 @@ async function readError(res: Response) {
         return text || `${res.status} ${res.statusText}`;
     }
 }
-function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}, ms = 20000) {
+function fetchWithTimeout(
+    input: RequestInfo | URL,
+    init: RequestInit = {},
+    ms = 20000
+) {
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), ms);
-    const merged: RequestInit = { ...init, signal: controller.signal, cache: "no-store" as RequestCache };
+    const merged: RequestInit = {
+        ...init,
+        signal: controller.signal,
+        cache: "no-store" as RequestCache,
+    };
     return fetch(input, merged).finally(() => clearTimeout(id));
 }
 
 export default function AdminBookingsClient() {
     const router = useRouter();
 
-    // Filtros (por defecto mostramos las que importan en operación diaria)
-    // antes: ["reserved","pending","admin"]
-    // ahora quitamos "pending", que ya no existe
-    const [statusFilter, setStatusFilter] = useState<string[]>(["reserved", "admin"]);
-
+    // Filters
+    const [statusFilter, setStatusFilter] = useState<string[]>([
+        "reserved",
+        "admin",
+    ]);
     const [rangeStart, setRangeStart] = useState<string>(toISO(new Date()));
-    const [rangeEnd, setRangeEnd] = useState<string>(addDaysISO(toISO(new Date()), 60));
+    const [rangeEnd, setRangeEnd] = useState<string>(
+        addDaysISO(toISO(new Date()), 60)
+    );
     const [houseId, setHouseId] = useState<string>("");
 
     const [rows, setRows] = useState<Reservation[]>([]);
     const [loading, setLoading] = useState(false);
     const [err, setErr] = useState<string | null>(null);
 
-    // Calendario (mes visible)
+    // Calendar
     const today = new Date();
     const [calYear, setCalYear] = useState(today.getFullYear());
-    const [calMonth, setCalMonth] = useState(today.getMonth()); // 0..11
+    const [calMonth, setCalMonth] = useState(today.getMonth());
     const firstDayOfMonthISO = toISO(new Date(calYear, calMonth, 1));
-    const lastDayOfMonthISO = toISO(new Date(calYear, calMonth, daysInMonth(calYear, calMonth)));
+    const lastDayOfMonthISO = toISO(
+        new Date(calYear, calMonth, daysInMonth(calYear, calMonth))
+    );
 
-    // Rango visible del calendario
     const monthStart = firstDayOfMonthISO;
-    const monthEndExclusive = addDaysISO(lastDayOfMonthISO, 1); // exclusivo
+    const monthEndExclusive = addDaysISO(lastDayOfMonthISO, 1);
 
     const [occReservations, setOccReservations] = useState<Reservation[]>([]);
     const [occErr, setOccErr] = useState<string | null>(null);
     const [occLoading, setOccLoading] = useState(false);
 
-    // Detalle lateral día seleccionado
     const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
-    // Bloqueo manual
+    // Block form
     const [blockStart, setBlockStart] = useState<string>(firstDayOfMonthISO);
-    const [blockEnd, setBlockEnd] = useState<string>(addDaysISO(firstDayOfMonthISO, 1));
+    const [blockEnd, setBlockEnd] = useState<string>(
+        addDaysISO(firstDayOfMonthISO, 1)
+    );
     const [blockHouseId, setBlockHouseId] = useState<string>("");
     const [blockNote, setBlockNote] = useState<string>("");
+    const [blockGuests, setBlockGuests] = useState<number>(2);
+    
+    // Customer info for blocking
+    const [blockCustomerName, setBlockCustomerName] = useState<string>("");
+    const [blockCustomerEmail, setBlockCustomerEmail] = useState<string>("");
+    const [blockCustomerPhone, setBlockCustomerPhone] = useState<string>("");
+    const [blockArrivalTime, setBlockArrivalTime] = useState<string>("");
+    const [blockComment, setBlockComment] = useState<string>("");
+    
     const [blockBusy, setBlockBusy] = useState(false);
     const [blockMsg, setBlockMsg] = useState<string | null>(null);
-    const [blockGuests, setBlockGuests] = useState<number>(2);
 
-    /* ---------- fetch listado ---------- */
+    /* ---------- Fetch list ---------- */
     const fetchList = async () => {
         setLoading(true);
         setErr(null);
         try {
             const params = new URLSearchParams();
-            if (statusFilter.length) params.set("status", statusFilter.join(","));
+            if (statusFilter.length)
+                params.set("status", statusFilter.join(","));
             if (rangeStart) params.set("start", rangeStart);
             if (rangeEnd) params.set("end", rangeEnd);
             if (houseId) params.set("houseId", houseId);
@@ -156,7 +222,7 @@ export default function AdminBookingsClient() {
                 throw new Error(detail);
             }
             const json = await res.json();
-            console.timeEnd("[UI] list fetch]");
+            console.timeEnd("[UI] list fetch");
             setRows(json.results || []);
         } catch (e: any) {
             console.error("[UI] list error:", e);
@@ -166,24 +232,24 @@ export default function AdminBookingsClient() {
         }
     };
 
-    /* ---------- fetch ocupación (calendario) ---------- */
-    type DayCell = { key: string; iso?: string; dayNum?: number; isCurrentMonth: boolean };
+    /* ---------- Fetch occupancy ---------- */
+    type DayCell = {
+        key: string;
+        iso?: string;
+        dayNum?: number;
+        isCurrentMonth: boolean;
+    };
 
     const calendarCells = useMemo<DayCell[]>(() => {
-        const firstDayDate = new Date(calYear, calMonth, 1); // local
-
-        // Lunes = 0 ... Domingo = 6
+        const firstDayDate = new Date(calYear, calMonth, 1);
         const firstWeekday = (firstDayDate.getDay() + 6) % 7;
-
         const daysCount = daysInMonth(calYear, calMonth);
         const cells: DayCell[] = [];
 
-        // Placeholders previos
         for (let i = 0; i < firstWeekday; i++) {
             cells.push({ key: `p-${i}`, isCurrentMonth: false });
         }
 
-        // Días actuales
         for (let d = 1; d <= daysCount; d++) {
             const iso = toISO(new Date(calYear, calMonth, d));
             cells.push({
@@ -194,7 +260,6 @@ export default function AdminBookingsClient() {
             });
         }
 
-        // Relleno final hasta múltiplo de 7
         const total = cells.length;
         const rows = Math.ceil(total / 7);
         const trailing = rows * 7 - total;
@@ -246,27 +311,27 @@ export default function AdminBookingsClient() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [calYear, calMonth, houseId]);
 
-    /* ---------- map de días ocupados (ACOTADO AL MES, checkout INCLUIDO) ---------- */
+    /* ---------- Day map ---------- */
     const dayMap = useMemo(() => {
         const m = new Map<string, Reservation[]>();
         const MAX_DAYS_SAFE = 62;
 
         for (const r of occReservations) {
             const st = String(r.status || "").toLowerCase();
-            if (!CALENDAR_STATUSES.has(st as any)) continue; // ignoramos canceled, etc.
+            if (!CALENDAR_STATUSES.has(st as any)) continue;
 
             const ci = r.checkIn;
             const co = r.checkOut;
             if (!isISODate(ci) || !isISODate(co)) continue;
 
-            // recorta al mes visible
             const startUse = isoCmp(ci, monthStart) < 0 ? monthStart : ci;
-            const endUse = isoCmp(co, monthEndExclusive) > 0 ? monthEndExclusive : co;
+            const endUse =
+                isoCmp(co, monthEndExclusive) > 0 ? monthEndExclusive : co;
 
-            // queremos incluir el día de checkout
-            const endLoopExclusive = isoCmp(addDaysISO(endUse, 1), monthEndExclusive) < 0
-                ? addDaysISO(endUse, 1)
-                : monthEndExclusive;
+            const endLoopExclusive =
+                isoCmp(addDaysISO(endUse, 1), monthEndExclusive) < 0
+                    ? addDaysISO(endUse, 1)
+                    : monthEndExclusive;
 
             if (!isoLt(startUse, endLoopExclusive)) continue;
 
@@ -274,9 +339,9 @@ export default function AdminBookingsClient() {
             let guard = 0;
             while (isoLt(d, endLoopExclusive) && guard < MAX_DAYS_SAFE) {
                 const arr = m.get(d) || [];
-                if (!arr.some(x => x.id === r.id)) {
-                    (r as any).__isCheckInDay = (d === r.checkIn);
-                    (r as any).__isCheckOutDay = (d === r.checkOut);
+                if (!arr.some((x) => x.id === r.id)) {
+                    (r as any).__isCheckInDay = d === r.checkIn;
+                    (r as any).__isCheckOutDay = d === r.checkOut;
                     arr.push(r);
                     m.set(d, arr);
                 }
@@ -284,21 +349,34 @@ export default function AdminBookingsClient() {
                 guard++;
             }
             if (guard >= MAX_DAYS_SAFE) {
-                console.warn("[calendar] Reserva acotada por seguridad:", r.id, ci, "→", co);
+                console.warn(
+                    "[calendar] Reserva acotada por seguridad:",
+                    r.id,
+                    ci,
+                    "→",
+                    co
+                );
             }
         }
         return m;
     }, [occReservations, monthStart, monthEndExclusive]);
 
-    // Estados que impiden bloquear si hay solape
     const BLOCKING_STATES = new Set(["reserved", "complete", "admin"]);
 
-    function rangesOverlap(aStart: string, aEnd: string, bStart: string, bEnd: string) {
-        // [start, end) exclusivo
+    function rangesOverlap(
+        aStart: string,
+        aEnd: string,
+        bStart: string,
+        bEnd: string
+    ) {
         return aStart < bEnd && bStart < aEnd;
     }
 
-    async function checkBlockConflicts(startISO: string, endISO: string, houseId: string) {
+    async function checkBlockConflicts(
+        startISO: string,
+        endISO: string,
+        houseId: string
+    ) {
         const params = new URLSearchParams();
         params.set("start", startISO);
         params.set("end", endISO);
@@ -316,17 +394,21 @@ export default function AdminBookingsClient() {
         const json = await res.json();
         const list: Reservation[] = json.results || [];
 
-        const blockers = list.filter(r =>
+        const blockers = list.filter((r) =>
             BLOCKING_STATES.has(String(r.status || "").toLowerCase() as any)
         );
 
-        return blockers.some(r =>
+        return blockers.some((r) =>
             rangesOverlap(startISO, endISO, r.checkIn, r.checkOut)
         );
     }
 
-    /* ---------- acciones ---------- */
-    const updateStatus = async (id: string, status: string, paidInFull?: boolean) => {
+    /* ---------- Actions ---------- */
+    const updateStatus = async (
+        id: string,
+        status: string,
+        paidInFull?: boolean
+    ) => {
         try {
             const body: any = { status };
             if (paidInFull) body.paidInFull = true;
@@ -360,7 +442,10 @@ export default function AdminBookingsClient() {
             if (!blockHouseId) {
                 throw new Error("Debes indicar un House ID para bloquear.");
             }
-            if (!(isISODate(blockStart) && isISODate(blockEnd)) || !(blockStart < blockEnd)) {
+            if (
+                !(isISODate(blockStart) && isISODate(blockEnd)) ||
+                !(blockStart < blockEnd)
+            ) {
                 throw new Error("Rango de fechas inválido.");
             }
 
@@ -369,9 +454,52 @@ export default function AdminBookingsClient() {
                 throw new Error("No puedes bloquear fechas en el pasado.");
             }
 
-            const hasConflict = await checkBlockConflicts(blockStart, blockEnd, blockHouseId);
+            const hasConflict = await checkBlockConflicts(
+                blockStart,
+                blockEnd,
+                blockHouseId
+            );
             if (hasConflict) {
-                throw new Error("Las fechas seleccionadas pisan una reserva existente (reserved / complete / admin).");
+                throw new Error(
+                    "Las fechas seleccionadas pisan una reserva existente (reserved / complete / admin)."
+                );
+            }
+
+            // Build customer object if any field is filled
+            const customer: any = {};
+            let hasCustomerData = false;
+            
+            if (blockCustomerName.trim()) {
+                customer.name = blockCustomerName.trim();
+                hasCustomerData = true;
+            }
+            if (blockCustomerEmail.trim()) {
+                customer.email = blockCustomerEmail.trim();
+                hasCustomerData = true;
+            }
+            if (blockCustomerPhone.trim()) {
+                customer.phone = blockCustomerPhone.trim();
+                hasCustomerData = true;
+            }
+
+            const payload: any = {
+                checkIn: blockStart,
+                checkOut: blockEnd,
+                houseId: blockHouseId,
+                guests: blockGuests,
+            };
+
+            if (blockNote.trim()) {
+                payload.note = blockNote.trim();
+            }
+            if (blockArrivalTime.trim()) {
+                payload.arrivalTime = blockArrivalTime.trim();
+            }
+            if (blockComment.trim()) {
+                payload.comment = blockComment.trim();
+            }
+            if (hasCustomerData) {
+                payload.customer = customer;
             }
 
             const res = await fetchWithTimeout(
@@ -379,13 +507,7 @@ export default function AdminBookingsClient() {
                 {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        checkIn: blockStart,
-                        checkOut: blockEnd,
-                        houseId: blockHouseId || undefined,
-                        note: blockNote || undefined,
-                        guests: blockGuests,
-                    }),
+                    body: JSON.stringify(payload),
                 },
                 20000
             );
@@ -397,6 +519,12 @@ export default function AdminBookingsClient() {
 
             setBlockMsg("Fechas bloqueadas correctamente.");
             setBlockNote("");
+            setBlockCustomerName("");
+            setBlockCustomerEmail("");
+            setBlockCustomerPhone("");
+            setBlockArrivalTime("");
+            setBlockComment("");
+            
             await fetchList();
             await fetchMonthOccupancy();
         } catch (e: any) {
@@ -415,7 +543,10 @@ export default function AdminBookingsClient() {
                         <button
                             type="button"
                             onClick={() => {
-                                if (typeof window !== "undefined" && window.history.length > 1) {
+                                if (
+                                    typeof window !== "undefined" &&
+                                    window.history.length > 1
+                                ) {
                                     router.back();
                                 } else {
                                     router.push("/admin/menu");
@@ -429,7 +560,9 @@ export default function AdminBookingsClient() {
                             <span>Volver</span>
                         </button>
 
-                        <h1 className="text-xl md:text-2xl font-bold text-[var(--color-primary-dark)]">Reservas</h1>
+                        <h1 className="text-xl md:text-2xl font-bold text-[var(--color-primary-dark)]">
+                            Reservas
+                        </h1>
                     </div>
 
                     <button
@@ -441,16 +574,20 @@ export default function AdminBookingsClient() {
                     </button>
                 </div>
 
-                {/* Filtros */}
+                {/* Filters */}
                 <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-3 bg-white border rounded-xl p-4">
                     <div className="flex flex-col">
-                        <label className="text-xs text-neutral-600">Estado</label>
+                        <label className="text-xs text-neutral-600">
+                            Estado
+                        </label>
                         <select
                             multiple
                             value={statusFilter}
                             onChange={(e) =>
                                 setStatusFilter(
-                                    Array.from(e.target.selectedOptions).map((o) => o.value)
+                                    Array.from(e.target.selectedOptions).map(
+                                        (o) => o.value
+                                    )
                                 )
                             }
                             className="mt-1 border rounded-md p-2 h-[96px]"
@@ -467,7 +604,9 @@ export default function AdminBookingsClient() {
                     </div>
 
                     <div className="flex flex-col">
-                        <label className="text-xs text-neutral-600">Desde</label>
+                        <label className="text-xs text-neutral-600">
+                            Desde
+                        </label>
                         <input
                             type="date"
                             value={rangeStart}
@@ -477,7 +616,9 @@ export default function AdminBookingsClient() {
                     </div>
 
                     <div className="flex flex-col">
-                        <label className="text-xs text-neutral-600">Hasta</label>
+                        <label className="text-xs text-neutral-600">
+                            Hasta
+                        </label>
                         <input
                             type="date"
                             value={rangeEnd}
@@ -487,7 +628,9 @@ export default function AdminBookingsClient() {
                     </div>
 
                     <div className="flex flex-col">
-                        <label className="text-xs text-neutral-600">House</label>
+                        <label className="text-xs text-neutral-600">
+                            House
+                        </label>
                         <select
                             value={houseId}
                             onChange={(e) => setHouseId(e.target.value)}
@@ -512,152 +655,266 @@ export default function AdminBookingsClient() {
                     </div>
                 </div>
 
-                {/* Tabla */}
+                {/* Table */}
                 <div className="mt-6 bg-white border rounded-xl overflow-hidden">
-                    <div className="px-4 py-3 border-b text-sm font-semibold">Resultados</div>
+                    <div className="px-4 py-3 border-b text-sm font-semibold">
+                        Resultados
+                    </div>
                     {loading ? (
-                        <div className="p-4 text-sm text-neutral-600">Cargando…</div>
+                        <div className="p-4 text-sm text-neutral-600">
+                            Cargando…
+                        </div>
                     ) : err ? (
-                        <div className="p-4 text-sm text-red-600 whitespace-pre-wrap">{err}</div>
+                        <div className="p-4 text-sm text-red-600 whitespace-pre-wrap">
+                            {err}
+                        </div>
                     ) : rows.length === 0 ? (
-                        <div className="p-4 text-sm text-neutral-600">Sin resultados</div>
+                        <div className="p-4 text-sm text-neutral-600">
+                            Sin resultados
+                        </div>
                     ) : (
                         <div className="overflow-x-auto">
                             <table className="min-w-full text-sm">
                                 <thead className="bg-neutral-50 text-neutral-700">
                                     <tr>
-                                        <th className="px-3 py-2 text-left">Fechas</th>
-                                        <th className="px-3 py-2 text-left">Estado</th>
-                                        <th className="px-3 py-2 text-left">House</th>
-                                        <th className="px-3 py-2 text-left">Huésp.</th>
-                                        <th className="px-3 py-2 text-left">Email</th>
-                                        <th className="px-3 py-2 text-right">Total</th>
-                                        <th className="px-3 py-2">Acciones</th>
+                                        <th className="px-3 py-2 text-left">
+                                            Fechas
+                                        </th>
+                                        <th className="px-3 py-2 text-left">
+                                            Estado
+                                        </th>
+                                        <th className="px-3 py-2 text-left">
+                                            House
+                                        </th>
+                                        <th className="px-3 py-2 text-left">
+                                            Cliente
+                                        </th>
+                                        <th className="px-3 py-2 text-left">
+                                            Email
+                                        </th>
+                                        <th className="px-3 py-2 text-left">
+                                            Huésp.
+                                        </th>
+                                        <th className="px-3 py-2 text-right">
+                                            Total
+                                        </th>
+                                        <th className="px-3 py-2 text-right">
+                                            Pagado
+                                        </th>
+                                        <th className="px-3 py-2">
+                                            Acciones
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {rows.map((r) => (
-                                        <tr key={r.id} className="border-t">
-                                            <td className="px-3 py-2">
-                                                {r.checkIn} → {r.checkOut}{" "}
-                                                <span className="text-[10px] text-neutral-500">
-                                                    ({r.nights ?? "?"}n)
-                                                </span>
-                                            </td>
-                                            <td className="px-3 py-2">
-                                                <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px]">
-                                                    {r.status}
-                                                </span>
-                                            </td>
-                                            <td className="px-3 py-2">
-                                                {r.houseId ?? r.houseIds?.join(",")}
-                                            </td>
-                                            <td className="px-3 py-2">{r.guests ?? "—"}</td>
-                                            <td className="px-3 py-2">
-                                                {r.customerEmail ?? "—"}
-                                            </td>
-                                            <td className="px-3 py-2 text-right">
-                                                {(r.discountedTotal ?? r.total ?? 0)}€
-                                            </td>
-                                            <td className="px-3 py-2">
-                                                <div className="flex flex-wrap gap-2 justify-end">
-                                                    <select
-                                                        className="border rounded-md p-1 text-xs"
-                                                        value={r.status}
-                                                        onChange={async (e) => {
-                                                            try {
-                                                                await updateStatus(
-                                                                    r.id,
-                                                                    e.target.value
-                                                                );
-                                                            } catch (er: any) {
-                                                                alert(er?.message || "Error");
-                                                            }
-                                                        }}
-                                                    >
-                                                        {STATUSES.map((s) => (
-                                                            <option key={s} value={s}>
-                                                                {s}
-                                                            </option>
-                                                        ))}
-                                                    </select>
-
-                                                    <button
-                                                        onClick={async () => {
-                                                            if (r.status === "admin") return;
-                                                            if (
-                                                                !confirm(
-                                                                    "¿Marcar pago completo y completar?"
+                                    {rows.map((r) => {
+                                        const customerName = r.name || r.customer?.name || "—";
+                                        const customerEmail = r.customerEmail || r.email || r.customer?.email || "—";
+                                        const finalTotal = r.discountedGrandTotal ?? r.discountedTotal ?? r.grandTotal ?? r.total ?? 0;
+                                        const firstNight = r.discountedFirst ?? r.firstNightCharge ?? 0;
+                                        
+                                        return (
+                                            <tr key={r.id} className="border-t">
+                                                <td className="px-3 py-2">
+                                                    {r.checkIn} → {r.checkOut}{" "}
+                                                    <span className="text-[10px] text-neutral-500">
+                                                        ({r.nights ?? "?"}n)
+                                                    </span>
+                                                </td>
+                                                <td className="px-3 py-2">
+                                                    <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px]">
+                                                        {r.status}
+                                                    </span>
+                                                    {r.paidInFull && (
+                                                        <span className="ml-1 text-[10px] text-green-600">
+                                                            ✓ Pagado
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td className="px-3 py-2">
+                                                    {r.houseId ??
+                                                        r.houseIds?.join(",")}
+                                                </td>
+                                                <td className="px-3 py-2">
+                                                    {customerName}
+                                                    {r.phone || r.customer?.phone ? (
+                                                        <div className="text-[10px] text-neutral-500">
+                                                            {r.phone || r.customer?.phone}
+                                                        </div>
+                                                    ) : null}
+                                                </td>
+                                                <td className="px-3 py-2">
+                                                    {customerEmail}
+                                                </td>
+                                                <td className="px-3 py-2">
+                                                    {r.guests ?? "—"}
+                                                    {r.extraGuests ? (
+                                                        <span className="text-[10px] text-neutral-500">
+                                                            {" "}(+{r.extraGuests})
+                                                        </span>
+                                                    ) : null}
+                                                </td>
+                                                <td className="px-3 py-2 text-right">
+                                                    {finalTotal.toFixed(2)}€
+                                                    {r.jacuzzi?.enabled && (
+                                                        <div className="text-[10px] text-neutral-500">
+                                                            +{r.jacuzziFee ?? 0}€ jacuzzi
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td className="px-3 py-2 text-right">
+                                                    {firstNight.toFixed(2)}€
+                                                    {r.amountApplied ? (
+                                                        <div className="text-[10px] text-green-600">
+                                                            -{r.amountApplied}€
+                                                        </div>
+                                                    ) : null}
+                                                </td>
+                                                <td className="px-3 py-2">
+                                                    <div className="flex flex-wrap gap-2 justify-end">
+                                                        <select
+                                                            className="border rounded-md p-1 text-xs"
+                                                            value={r.status}
+                                                            onChange={async (
+                                                                e
+                                                            ) => {
+                                                                try {
+                                                                    await updateStatus(
+                                                                        r.id,
+                                                                        e.target
+                                                                            .value
+                                                                    );
+                                                                } catch (
+                                                                    er: any
+                                                                ) {
+                                                                    alert(
+                                                                        er?.message ||
+                                                                            "Error"
+                                                                    );
+                                                                }
+                                                            }}
+                                                        >
+                                                            {STATUSES.map(
+                                                                (s) => (
+                                                                    <option
+                                                                        key={s}
+                                                                        value={s}
+                                                                    >
+                                                                        {s}
+                                                                    </option>
                                                                 )
-                                                            )
-                                                                return;
-                                                            try {
-                                                                await updateStatus(
-                                                                    r.id,
-                                                                    "complete",
-                                                                    true
-                                                                );
-                                                            } catch (er: any) {
-                                                                alert(er?.message || "Error");
-                                                            }
-                                                        }}
-                                                        disabled={
-                                                            r.status === "admin" ||
-                                                            r.status === "complete" ||
-                                                            r.status === "canceled"
-                                                        }
-                                                        title={
-                                                            r.status === "admin"
-                                                                ? "Bloqueos de admin no pueden completarse"
-                                                                : undefined
-                                                        }
-                                                        className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                    >
-                                                        Pago completo
-                                                    </button>
+                                                            )}
+                                                        </select>
 
-                                                    <button
-                                                        onClick={async () => {
-                                                            if (!confirm("¿Cancelar reserva?")) return;
-                                                            try {
-                                                                await updateStatus(
-                                                                    r.id,
+                                                        <button
+                                                            onClick={async () => {
+                                                                if (
+                                                                    r.status ===
+                                                                    "admin"
+                                                                )
+                                                                    return;
+                                                                if (
+                                                                    !confirm(
+                                                                        "¿Marcar pago completo y completar?"
+                                                                    )
+                                                                )
+                                                                    return;
+                                                                try {
+                                                                    await updateStatus(
+                                                                        r.id,
+                                                                        "complete",
+                                                                        true
+                                                                    );
+                                                                } catch (
+                                                                    er: any
+                                                                ) {
+                                                                    alert(
+                                                                        er?.message ||
+                                                                            "Error"
+                                                                    );
+                                                                }
+                                                            }}
+                                                            disabled={
+                                                                r.status ===
+                                                                    "admin" ||
+                                                                r.status ===
+                                                                    "complete" ||
+                                                                r.status ===
                                                                     "canceled"
-                                                                );
-                                                            } catch (er: any) {
-                                                                alert(er?.message || "Error");
                                                             }
-                                                        }}
-                                                        className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                        disabled={
-                                                            r.status === "admin" ||
-                                                            r.status === "complete" ||
-                                                            r.status === "canceled"
-                                                        }
-                                                    >
-                                                        Cancelar
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
+                                                            title={
+                                                                r.status ===
+                                                                "admin"
+                                                                    ? "Bloqueos de admin no pueden completarse"
+                                                                    : undefined
+                                                            }
+                                                            className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        >
+                                                            Pago completo
+                                                        </button>
+
+                                                        <button
+                                                            onClick={async () => {
+                                                                if (
+                                                                    !confirm(
+                                                                        "¿Cancelar reserva?"
+                                                                    )
+                                                                )
+                                                                    return;
+                                                                try {
+                                                                    await updateStatus(
+                                                                        r.id,
+                                                                        "canceled"
+                                                                    );
+                                                                } catch (
+                                                                    er: any
+                                                                ) {
+                                                                    alert(
+                                                                        er?.message ||
+                                                                            "Error"
+                                                                    );
+                                                                }
+                                                            }}
+                                                            className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                            disabled={
+                                                                r.status ===
+                                                                    "admin" ||
+                                                                r.status ===
+                                                                    "complete" ||
+                                                                r.status ===
+                                                                    "canceled"
+                                                            }
+                                                        >
+                                                            Cancelar
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>
                     )}
                 </div>
 
-                {/* Calendario + Bloqueo */}
+                {/* Calendar + Block */}
                 <div className="mt-10 grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Calendario */}
+                    {/* Calendar */}
                     <div className="lg:col-span-2 bg-white border rounded-xl p-4">
                         <div className="flex items-center justify-between mb-3">
-                            <div className="font-semibold">Calendario global</div>
+                            <div className="font-semibold">
+                                Calendario global
+                            </div>
                             <div className="flex items-center gap-2">
                                 <button
                                     className="rounded-md border px-2 py-1 text-xs"
                                     onClick={() => {
-                                        const d = new Date(calYear, calMonth, 1);
+                                        const d = new Date(
+                                            calYear,
+                                            calMonth,
+                                            1
+                                        );
                                         d.setMonth(d.getMonth() - 1);
                                         setCalYear(d.getFullYear());
                                         setCalMonth(d.getMonth());
@@ -666,18 +923,23 @@ export default function AdminBookingsClient() {
                                     ◀
                                 </button>
                                 <div className="text-sm">
-                                    {new Date(calYear, calMonth, 1).toLocaleString(
-                                        undefined,
-                                        {
-                                            month: "long",
-                                            year: "numeric",
-                                        }
-                                    )}
+                                    {new Date(
+                                        calYear,
+                                        calMonth,
+                                        1
+                                    ).toLocaleString(undefined, {
+                                        month: "long",
+                                        year: "numeric",
+                                    })}
                                 </div>
                                 <button
                                     className="rounded-md border px-2 py-1 text-xs"
                                     onClick={() => {
-                                        const d = new Date(calYear, calMonth, 1);
+                                        const d = new Date(
+                                            calYear,
+                                            calMonth,
+                                            1
+                                        );
                                         d.setMonth(d.getMonth() + 1);
                                         setCalYear(d.getFullYear());
                                         setCalMonth(d.getMonth());
@@ -689,13 +951,19 @@ export default function AdminBookingsClient() {
                         </div>
 
                         <div className="grid grid-cols-7 gap-2 text-xs text-neutral-600 mb-1">
-                            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(
-                                (d) => (
-                                    <div key={d} className="text-center">
-                                        {d}
-                                    </div>
-                                )
-                            )}
+                            {[
+                                "Lun",
+                                "Mar",
+                                "Mié",
+                                "Jue",
+                                "Vie",
+                                "Sáb",
+                                "Dom",
+                            ].map((d) => (
+                                <div key={d} className="text-center">
+                                    {d}
+                                </div>
+                            ))}
                         </div>
 
                         {occLoading && (
@@ -711,7 +979,6 @@ export default function AdminBookingsClient() {
 
                         <div className="grid grid-cols-7 gap-2">
                             {calendarCells.map((cell) => {
-                                // Placeholders de relleno
                                 if (!cell.iso) {
                                     return (
                                         <div
@@ -734,7 +1001,9 @@ export default function AdminBookingsClient() {
                                 return (
                                     <button
                                         key={cell.key}
-                                        onClick={() => setSelectedDay(cell.iso!)}
+                                        onClick={() =>
+                                            setSelectedDay(cell.iso!)
+                                        }
                                         className={`h-16 rounded-md border text-xs flex flex-col items-center justify-center ${
                                             onlyAdmin
                                                 ? "bg-neutral-200 border-neutral-300 text-neutral-700"
@@ -769,185 +1038,312 @@ export default function AdminBookingsClient() {
                                     Reservas el {selectedDay}
                                 </div>
                                 <div className="mt-2 grid gap-2">
-                                    {(dayMap.get(selectedDay) || []).map((r) => (
-                                        <div
-                                            key={r.id}
-                                            className="rounded-md border p-2 text-xs bg-white"
-                                        >
-                                            <div className="font-semibold">
-                                                {r.checkIn} → {r.checkOut}{" "}
-                                                <span className="ml-1">
-                                                    ({r.status})
-                                                </span>
-                                            </div>
-                                            <div>
-                                                House:{" "}
-                                                {r.houseId ??
-                                                    r.houseIds?.join(",")}
-                                            </div>
-                                            <div>
-                                                Huéspedes:{" "}
-                                                {r.guests ?? "—"} · Email:{" "}
-                                                {r.customerEmail ?? "—"}
-                                            </div>
-                                            <div>
-                                                Total:{" "}
-                                                {(
-                                                    r.discountedTotal ??
-                                                    r.total ??
-                                                    0
-                                                )}
-                                                €
-                                            </div>
-                                            <div className="mt-2 flex gap-2">
-                                                <button
-                                                    onClick={async () => {
-                                                        if (
-                                                            r.status === "admin"
-                                                        )
-                                                            return;
-                                                        if (
-                                                            !confirm(
-                                                                "¿Marcar pago completo y completar?"
-                                                            )
-                                                        )
-                                                            return;
-                                                        try {
-                                                            await updateStatus(
-                                                                r.id,
-                                                                "complete",
-                                                                true
-                                                            );
-                                                        } catch (er: any) {
-                                                            alert(
-                                                                er?.message ||
-                                                                    "Error"
-                                                            );
-                                                        }
-                                                    }}
-                                                    disabled={
-                                                        r.status === "admin"
-                                                    }
-                                                    title={
-                                                        r.status === "admin"
-                                                            ? "Bloqueos de admin no pueden completarse"
-                                                            : undefined
-                                                    }
-                                                    className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    {(dayMap.get(selectedDay) || []).map(
+                                        (r) => {
+                                            const customerName = r.name || r.customer?.name || "—";
+                                            const customerEmail = r.customerEmail || r.email || r.customer?.email || "—";
+                                            const finalTotal = r.discountedGrandTotal ?? r.discountedTotal ?? r.grandTotal ?? r.total ?? 0;
+                                            
+                                            return (
+                                                <div
+                                                    key={r.id}
+                                                    className="rounded-md border p-2 text-xs bg-white"
                                                 >
-                                                    Pago completo
-                                                </button>
-                                                <button
-                                                    onClick={async () => {
-                                                        try {
-                                                            await updateStatus(
-                                                                r.id,
-                                                                "canceled"
-                                                            );
-                                                        } catch (e: any) {
-                                                            alert(
-                                                                e?.message ||
-                                                                    "Error"
-                                                            );
-                                                        }
-                                                    }}
-                                                    className="rounded-md border px-2 py-1 hover:bg-neutral-50"
-                                                >
-                                                    Cancelar
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))}
+                                                    <div className="font-semibold">
+                                                        {r.checkIn} →{" "}
+                                                        {r.checkOut}{" "}
+                                                        <span className="ml-1">
+                                                            ({r.status})
+                                                        </span>
+                                                    </div>
+                                                    <div>
+                                                        House:{" "}
+                                                        {r.houseId ??
+                                                            r.houseIds?.join(
+                                                                ","
+                                                            )}
+                                                    </div>
+                                                    <div>
+                                                        Cliente: {customerName}
+                                                    </div>
+                                                    <div>
+                                                        Email: {customerEmail}
+                                                    </div>
+                                                    {(r.phone || r.customer?.phone) && (
+                                                        <div>
+                                                            Teléfono: {r.phone || r.customer?.phone}
+                                                        </div>
+                                                    )}
+                                                    <div>
+                                                        Huéspedes:{" "}
+                                                        {r.guests ?? "—"}
+                                                        {r.extraGuests ? ` (+${r.extraGuests} extra)` : ""}
+                                                    </div>
+                                                    <div>
+                                                        Total: {finalTotal.toFixed(2)}€
+                                                        {r.jacuzzi?.enabled && ` (+${r.jacuzziFee ?? 0}€ jacuzzi)`}
+                                                    </div>
+                                                    {r.arrivalTime && (
+                                                        <div>
+                                                            Llegada: {r.arrivalTime}
+                                                        </div>
+                                                    )}
+                                                    {r.comment && (
+                                                        <div className="mt-1 text-neutral-600">
+                                                            Comentario: {r.comment}
+                                                        </div>
+                                                    )}
+                                                    {r.adminNote && (
+                                                        <div className="mt-1 text-neutral-600">
+                                                            Nota admin: {r.adminNote}
+                                                        </div>
+                                                    )}
+                                                    <div className="mt-2 flex gap-2">
+                                                        <button
+                                                            onClick={async () => {
+                                                                if (
+                                                                    r.status ===
+                                                                    "admin"
+                                                                )
+                                                                    return;
+                                                                if (
+                                                                    !confirm(
+                                                                        "¿Marcar pago completo y completar?"
+                                                                    )
+                                                                )
+                                                                    return;
+                                                                try {
+                                                                    await updateStatus(
+                                                                        r.id,
+                                                                        "complete",
+                                                                        true
+                                                                    );
+                                                                } catch (
+                                                                    er: any
+                                                                ) {
+                                                                    alert(
+                                                                        er?.message ||
+                                                                            "Error"
+                                                                    );
+                                                                }
+                                                            }}
+                                                            disabled={
+                                                                r.status ===
+                                                                "admin"
+                                                            }
+                                                            title={
+                                                                r.status ===
+                                                                "admin"
+                                                                    ? "Bloqueos de admin no pueden completarse"
+                                                                    : undefined
+                                                            }
+                                                            className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        >
+                                                            Pago completo
+                                                        </button>
+                                                        <button
+                                                            onClick={async () => {
+                                                                try {
+                                                                    await updateStatus(
+                                                                        r.id,
+                                                                        "canceled"
+                                                                    );
+                                                                } catch (
+                                                                    e: any
+                                                                ) {
+                                                                    alert(
+                                                                        e?.message ||
+                                                                            "Error"
+                                                                    );
+                                                                }
+                                                            }}
+                                                            className="rounded-md border px-2 py-1 hover:bg-neutral-50"
+                                                        >
+                                                            Cancelar
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        }
+                                    )}
                                 </div>
                             </div>
                         )}
                     </div>
 
-                    {/* Bloqueo */}
+                    {/* Block form */}
                     <div className="bg-white border rounded-xl p-4">
                         <div className="font-semibold mb-2">
                             Bloquear fechas
                         </div>
-                        <div className="grid gap-2 text-sm">
-                            <label className="text-xs text-neutral-600">
-                                Desde
-                            </label>
-                            <input
-                                type="date"
-                                value={blockStart}
-                                onChange={(e) =>
-                                    setBlockStart(e.target.value)
-                                }
-                                className="border rounded-md p-2"
-                            />
+                        <div className="grid gap-3 text-sm">
+                            <div>
+                                <label className="text-xs text-neutral-600">
+                                    Desde
+                                </label>
+                                <input
+                                    type="date"
+                                    value={blockStart}
+                                    onChange={(e) =>
+                                        setBlockStart(e.target.value)
+                                    }
+                                    className="w-full border rounded-md p-2 mt-1"
+                                />
+                            </div>
 
-                            <label className="text-xs text-neutral-600">
-                                Hasta
-                            </label>
-                            <input
-                                type="date"
-                                value={blockEnd}
-                                onChange={(e) =>
-                                    setBlockEnd(e.target.value)
-                                }
-                                className="border rounded-md p-2"
-                            />
+                            <div>
+                                <label className="text-xs text-neutral-600">
+                                    Hasta
+                                </label>
+                                <input
+                                    type="date"
+                                    value={blockEnd}
+                                    onChange={(e) =>
+                                        setBlockEnd(e.target.value)
+                                    }
+                                    className="w-full border rounded-md p-2 mt-1"
+                                />
+                            </div>
 
-                            <label className="text-xs text-neutral-600">
-                                House
-                            </label>
-                            <select
-                                value={blockHouseId}
-                                onChange={(e) =>
-                                    setBlockHouseId(e.target.value)
-                                }
-                                className="border rounded-md p-2"
-                            >
-                                <option value="">— Selecciona —</option>
-                                {HOUSE_OPTIONS.map((h) => (
-                                    <option key={h.id} value={h.id}>
-                                        {h.alias}
-                                    </option>
-                                ))}
-                            </select>
+                            <div>
+                                <label className="text-xs text-neutral-600">
+                                    House *
+                                </label>
+                                <select
+                                    value={blockHouseId}
+                                    onChange={(e) =>
+                                        setBlockHouseId(e.target.value)
+                                    }
+                                    className="w-full border rounded-md p-2 mt-1"
+                                >
+                                    <option value="">— Selecciona —</option>
+                                    {HOUSE_OPTIONS.map((h) => (
+                                        <option key={h.id} value={h.id}>
+                                            {h.alias}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
 
-                            <label className="text-xs text-neutral-600">
-                                Huéspedes
-                            </label>
-                            <input
-                                type="number"
-                                min={1}
-                                max={8}
-                                step={1}
-                                value={blockGuests}
-                                onChange={(e) => {
-                                    const n = parseInt(
-                                        e.target.value || "1",
-                                        10
-                                    );
-                                    const clamped = Math.min(
-                                        8,
-                                        Math.max(
-                                            1,
-                                            isNaN(n) ? 1 : n
-                                        )
-                                    );
-                                    setBlockGuests(clamped);
-                                }}
-                                className="border rounded-md p-2"
-                            />
+                            <div>
+                                <label className="text-xs text-neutral-600">
+                                    Huéspedes
+                                </label>
+                                <input
+                                    type="number"
+                                    min={1}
+                                    max={8}
+                                    step={1}
+                                    value={blockGuests}
+                                    onChange={(e) => {
+                                        const n = parseInt(
+                                            e.target.value || "1",
+                                            10
+                                        );
+                                        const clamped = Math.min(
+                                            8,
+                                            Math.max(1, isNaN(n) ? 1 : n)
+                                        );
+                                        setBlockGuests(clamped);
+                                    }}
+                                    className="w-full border rounded-md p-2 mt-1"
+                                />
+                            </div>
 
-                            <label className="text-xs text-neutral-600">
-                                Nota (opcional)
-                            </label>
-                            <textarea
-                                value={blockNote}
-                                onChange={(e) =>
-                                    setBlockNote(e.target.value)
-                                }
-                                rows={3}
-                                className="border rounded-md p-2"
-                            />
+                            <div className="border-t pt-3 mt-2">
+                                <div className="text-xs font-semibold text-neutral-700 mb-2">
+                                    Datos del cliente (opcional)
+                                </div>
+                                
+                                <div className="mb-2">
+                                    <label className="text-xs text-neutral-600">
+                                        Nombre
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={blockCustomerName}
+                                        onChange={(e) =>
+                                            setBlockCustomerName(e.target.value)
+                                        }
+                                        placeholder="Nombre del cliente"
+                                        className="w-full border rounded-md p-2 mt-1"
+                                    />
+                                </div>
+
+                                <div className="mb-2">
+                                    <label className="text-xs text-neutral-600">
+                                        Email
+                                    </label>
+                                    <input
+                                        type="email"
+                                        value={blockCustomerEmail}
+                                        onChange={(e) =>
+                                            setBlockCustomerEmail(e.target.value)
+                                        }
+                                        placeholder="email@ejemplo.com"
+                                        className="w-full border rounded-md p-2 mt-1"
+                                    />
+                                </div>
+
+                                <div className="mb-2">
+                                    <label className="text-xs text-neutral-600">
+                                        Teléfono
+                                    </label>
+                                    <input
+                                        type="tel"
+                                        value={blockCustomerPhone}
+                                        onChange={(e) =>
+                                            setBlockCustomerPhone(e.target.value)
+                                        }
+                                        placeholder="+34 600 000 000"
+                                        className="w-full border rounded-md p-2 mt-1"
+                                    />
+                                </div>
+
+                                <div className="mb-2">
+                                    <label className="text-xs text-neutral-600">
+                                        Hora de llegada
+                                    </label>
+                                    <input
+                                        type="time"
+                                        value={blockArrivalTime}
+                                        onChange={(e) =>
+                                            setBlockArrivalTime(e.target.value)
+                                        }
+                                        className="w-full border rounded-md p-2 mt-1"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="text-xs text-neutral-600">
+                                        Comentario
+                                    </label>
+                                    <textarea
+                                        value={blockComment}
+                                        onChange={(e) =>
+                                            setBlockComment(e.target.value)
+                                        }
+                                        rows={2}
+                                        placeholder="Comentarios adicionales"
+                                        className="w-full border rounded-md p-2 mt-1"
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="text-xs text-neutral-600">
+                                    Nota interna
+                                </label>
+                                <textarea
+                                    value={blockNote}
+                                    onChange={(e) =>
+                                        setBlockNote(e.target.value)
+                                    }
+                                    rows={2}
+                                    placeholder="Notas para el equipo"
+                                    className="w-full border rounded-md p-2 mt-1"
+                                />
+                            </div>
 
                             <button
                                 onClick={createBlock}
@@ -958,7 +1354,13 @@ export default function AdminBookingsClient() {
                             </button>
 
                             {blockMsg && (
-                                <div className="text-xs mt-1 whitespace-pre-wrap">
+                                <div
+                                    className={`text-xs mt-1 whitespace-pre-wrap ${
+                                        blockMsg.startsWith("Error")
+                                            ? "text-red-600"
+                                            : "text-green-600"
+                                    }`}
+                                >
                                     {blockMsg}
                                 </div>
                             )}

@@ -570,6 +570,63 @@ export default function CheckoutDetailsClient() {
     }
   };
 
+  // añade esto dentro del componente CheckoutDetailsClient (por ejemplo, abajo del handleGoToCheckout)
+
+  const handleMontonioCheckout = async () => {
+    if (!canSubmit || !priceData) return;
+
+    try {
+      const body = {
+        houseId,
+        houseSlug: houseSlug || undefined,
+        start: startIso,
+        end: endIso,
+        guests,
+        customer: {
+          email,
+          name: `${firstName} ${lastName}`.trim(),
+          phone,
+        },
+        extras: {
+          jacuzzi: withJacuzzi ? { enabled: true, price: priceData.jacuzziFee } : { enabled: false },
+        },
+        // opcional: mandar un amount si lo tienes
+        amount: totalAfterDiscount ?? undefined,
+      };
+
+      const res = await fetch("/api/montonio/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      let json: any = {};
+      try {
+        json = await res.json();
+      } catch (e) {
+        // body no-JSON
+      }
+
+      if (!res.ok) {
+        console.error("montonio checkout failed", res.status, json);
+        const errMsg = json?.error || `Error ${res.status}`;
+        alert(errMsg);
+        return;
+      }
+
+      if (json.redirectUrl) {
+        window.location.href = json.redirectUrl;
+        return;
+      }
+
+      alert("No checkout url returned from server.");
+    } catch (err) {
+      console.error("handleMontonioCheckout error:", err);
+      alert("Network error creating Montonio checkout");
+    }
+  };
+
+
   const nights = priceData?.nights ?? 0;
 
   return (
@@ -979,6 +1036,14 @@ export default function CheckoutDetailsClient() {
           >
             {canSubmit ? "Continue to payment" : "Fill your details"}
           </button>
+          <button
+            onClick={handleMontonioCheckout}
+            disabled={!canSubmit}
+            className={`w-full py-3 rounded-xl font-bold uppercase tracking-wide text-sm shadow-lg transition-all duration-300 mt-2 ${canSubmit ? "bg-white text-[var(--color-primary)] border border-[var(--color-primary)] hover:shadow-md" : "bg-gray-200 text-gray-400 cursor-not-allowed"}`}
+          >
+            Pay with Bank Transfer (Montonio)
+          </button>
+
 
           <button
             onClick={() => router.back()}

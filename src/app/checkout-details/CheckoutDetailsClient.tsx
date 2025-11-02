@@ -570,14 +570,12 @@ export default function CheckoutDetailsClient() {
     }
   };
 
-  // añade esto dentro del componente CheckoutDetailsClient (por ejemplo, abajo del handleGoToCheckout)
-
   // client-side (React / TSX) - handleMontonioCheckout
   const handleMontonioCheckout = async () => {
     if (!canSubmit || !priceData) return;
 
     try {
-      // build discount payload for backend (same shape that /api/create-checkout-session uses)
+      // build discount payload for backend (same shape used by /api/create-checkout-session)
       let discountPayload: any = null;
 
       if (discountApplied && discountData) {
@@ -596,7 +594,7 @@ export default function CheckoutDetailsClient() {
             kind: "percent",
             id: discountData.percentDoc.id || "",
             code: discountData.percentDoc.code || "",
-            value: Number(discountData.percentDoc.percent || 0), // percent number
+            value: Number(discountData.percentDoc.percent || 0), // %
           };
         }
       }
@@ -618,7 +616,7 @@ export default function CheckoutDetailsClient() {
           jacuzzi: withJacuzzi
             ? {
               enabled: true,
-              price: priceData.jacuzziFee, // backend trustable price
+              price: priceData.jacuzziFee, // backend-calculated price (sent for info)
             }
             : { enabled: false },
         },
@@ -640,13 +638,13 @@ export default function CheckoutDetailsClient() {
       }
 
       if (data.url) {
-        // redirect to Montonio payment page
+        // redirigir a Montonio (pago de la primera noche)
         window.location.href = data.url;
         return;
       }
 
-      // If Montonio returned no url but told us the order was created (free order), redirect to internal success
       if (data.successUrl) {
+        // caso free order (first night <= 0)
         window.location.href = data.successUrl;
         return;
       }
@@ -657,6 +655,7 @@ export default function CheckoutDetailsClient() {
       alert("Network error creating Montonio checkout");
     }
   };
+
 
 
 

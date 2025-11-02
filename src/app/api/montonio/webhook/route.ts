@@ -9,13 +9,11 @@ if (!MONTONIO_SECRET_KEY) {
   console.error("MONTONIO_SECRET_KEY is not set for webhook validation.");
 }
 
-/* helpers (copiados de tu webhook/stripe code) */
 function addMonths(date: Date, months: number) {
   const d = new Date(date);
   d.setMonth(d.getMonth() + months);
   return d;
 }
-
 function makeCode(): string {
   const chunk = () => Math.random().toString(36).slice(2, 6).toUpperCase();
   return `${chunk()}-${chunk()}`;
@@ -156,12 +154,10 @@ async function applyPercentDiscountInTx(
   };
 }
 
-/* webhook handler */
 export async function POST(req: Request) {
   try {
     const url = new URL(req.url);
     const body = await req.json().catch(() => ({}));
-    // Montonio may send token in body.orderToken or query param order-token
     const token = body?.orderToken || url.searchParams.get("order-token");
     if (!token) {
       console.warn("No orderToken in webhook request");
@@ -194,7 +190,6 @@ export async function POST(req: Request) {
     console.log("🔍 uuid:", uuid);
     console.log("🔍 status:", statusFromMontonio);
 
-    // Only interested in paid/captured/confirmed
     if (statusFromMontonio === "paid" || statusFromMontonio === "captured" || statusFromMontonio === "confirmed") {
       const metadata = payload?.metadata || {};
       const type = metadata?.type || payload?.type || "";
@@ -202,7 +197,7 @@ export async function POST(req: Request) {
       console.log("📦 Metadata recibida:", JSON.stringify(metadata, null, 2));
 
       if (String(type) === "coupon") {
-        // coupon purchase flow (kept identical to your Stripe webhook handling)
+        // coupon purchase flow (igual que Stripe)
         const orderId = metadata?.orderId || payload?.orderId || payload?.merchantReference || merchantReference;
         if (!orderId) return NextResponse.json({ ok: true });
 
@@ -312,7 +307,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ received: true });
       }
 
-      // Normal reservation flow
+      // Reserva normal: reconstruct from metadata
       const reservationId = merchantReference || metadata?.reservationId || payload?.reservationId;
       if (!reservationId) {
         console.log("⚠️ No se encontró reservationId en el payload");
@@ -390,6 +385,7 @@ export async function POST(req: Request) {
           currency,
           status: "reserved",
           createdAt: existsAlready ? snap.data()?.createdAt || nowTs : nowTs,
+          // paidAt marks moment of receiving notification that first-night payment was successful
           paidAt: nowTs,
           montonioOrderUuid: uuid || null,
           customerEmail: customerEmailFromMeta || null,
@@ -439,7 +435,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ received: true });
     }
 
-    // Handle cancelled/failed/expired
+    // failed/cancelled/expired
     if (statusFromMontonio === "expired" || statusFromMontonio === "cancelled" || statusFromMontonio === "failed") {
       console.log("❌ Pago fallido/cancelado:", statusFromMontonio);
       const reservationId = merchantReference || payload?.reservationId;
@@ -458,7 +454,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ received: true });
     }
 
-    // Default: store notification in reservation if exists
+    // default: attach notification to reservation if exists
     console.log("⚠️ Status desconocido:", statusFromMontonio);
 
     if (merchantReference) {

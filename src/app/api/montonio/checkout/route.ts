@@ -44,7 +44,6 @@ if (!process.env.MONTONIO_ACCESS_KEY || !process.env.MONTONIO_SECRET_KEY) {
   console.warn("Montonio keys not configured (MONTONIO_ACCESS_KEY / MONTONIO_SECRET_KEY)");
 }
 
-/* Business constants same as Stripe flow */
 const JACUZZI_BASE_PRICE = 65;
 const JACUZZI_EXTRA_PRICE = 10;
 
@@ -52,7 +51,6 @@ function round2(n: number) {
   return Math.round(n * 100) / 100;
 }
 
-/** Same stripe min helper (to respect minimum payment) */
 function adjustForStripeMin(firstNightBefore: number, discountTry: number) {
   const STRIPE_MIN = 0.5; // 0.50€
   const tentative = firstNightBefore - discountTry;
@@ -81,7 +79,7 @@ export async function POST(req: Request) {
     const extras = body?.extras || {};
     const customerInput = body?.customer || {};
 
-    // 1. Validate dates and normalize (LOCAL date-only)
+    // normalize dates
     let startIso = "";
     let endIso = "";
     try {
@@ -101,23 +99,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing params: houseId or houseSlug required" }, { status: 400 });
     }
 
-    // 2. Resolve actual houseIds (same helper as Stripe)
     const rawValue = houseId || houseSlug!;
     const rawParts = String(rawValue).split("__").map((s) => s.trim()).filter(Boolean);
     const houseIds = await resolveHouseIds(rawParts);
 
-    // 3. Check availability (same logic as Stripe flow)
+    // availability check (same as Stripe)
     const ref = db.collection("reservations");
     for (const id of houseIds) {
-      // fetch reservations
-      const reservations = await (async function fetchReservationsForId(id: string) {
-        const map = new Map<string, any>();
-        const s1 = await ref.where("houseId", "==", id).get();
-        s1.docs.forEach((d) => map.set(d.id, d.data()));
-        const s2 = await ref.where("houseIds", "array-contains", id).get();
-        s2.docs.forEach((d) => map.set(d.id, d.data()));
-        return Array.from(map.values());
-      })(id);
+      const map = new Map<string, any>();
+      const s1 = await ref.where("houseId", "==", id).get();
+      s1.docs.forEach((d) => map.set(d.id, d.data()));
+      const s2 = await ref.where("houseIds", "array-contains", id).get();
+      s2.docs.forEach((d) => map.set(d.id, d.data()));
+      const reservations = Array.from(map.values());
 
       for (const r of reservations) {
         const status = String(r?.status ?? "").toLowerCase();
@@ -132,30 +126,28 @@ export async function POST(req: Request) {
       }
     }
 
-    // 4. Guests normalization
     const guestsNum = Number.isFinite(Number(guests)) ? parseInt(String(guests || 2), 10) : 2;
     if (!Number.isFinite(guestsNum) || guestsNum <= 0) {
       return NextResponse.json({ error: "Invalid guests number" }, { status: 400 });
     }
 
-    // 5. Core price calculation (uses same helper calculateNightsCore as Stripe)
+    // core pricing
     const { totalNightsOnly, nights, firstNightCharge, includedBase, extraGuests } =
       await calculateNightsCore(houseIds, startIso, endIso, guestsNum);
 
-    // 6. Jacuzzi fee (same rules)
+    // jacuzzi fee (flat per stay)
     let jacuzziFee = 0;
     let jacuzziEnabled = false;
     if (extras?.jacuzzi?.enabled) {
       jacuzziEnabled = true;
       const jacuzziExtraGuests = Math.max(0, guestsNum - 2);
       jacuzziFee = JACUZZI_BASE_PRICE + jacuzziExtraGuests * JACUZZI_EXTRA_PRICE;
-      // If client sent a price, trust server-side calculation (we don't use client price to guard)
     }
 
-    // 7. Grand total before discount
+    // grandTotal = lodging + jacuzzi (full stay)
     const grandTotal = totalNightsOnly + jacuzziFee;
 
-    // 8. Discount logic (mirror Stripe code)
+    // discount logic (mirror Stripe)
     let effectiveDiscountAmount = 0;
     let discountKindForMeta: string = "";
     let discountCodeForMeta: string = "";
@@ -176,6 +168,7 @@ export async function POST(req: Request) {
       let proposed = Number(discount.value || 0);
       if (!Number.isFinite(proposed) || proposed <= 0) return NextResponse.json({ error: "Invalid coupon value" }, { status: 400 });
 
+      // IMPORTANT: cap by remaining, firstNightCharge, grandTotal (but we only apply to first night)
       proposed = Math.min(proposed, remaining, firstNightCharge, grandTotal);
       proposed = adjustForStripeMin(firstNightCharge, proposed);
 
@@ -197,6 +190,7 @@ export async function POST(req: Request) {
       if (used) return NextResponse.json({ error: "Discount already used" }, { status: 400 });
       if (!Number.isFinite(pctRaw) || pctRaw <= 0 || pctRaw > 100) return NextResponse.json({ error: "Invalid percent value" }, { status: 400 });
 
+      // apply only to first night
       let proposed = firstNightCharge * pct;
       if (proposed > grandTotal) proposed = grandTotal;
       proposed = adjustForStripeMin(firstNightCharge, proposed);
@@ -210,18 +204,18 @@ export async function POST(req: Request) {
       }
     }
 
-    // 9. Totals after discount
+    // totals after discount (only affects first night now)
     const discountedFirst = Math.max(0, firstNightCharge - effectiveDiscountAmount);
     const discountedGrandTotal = Math.max(0, grandTotal - effectiveDiscountAmount);
 
-    // 10. Create reservationId (Firestore doc id) but DO NOT write DB yet; webhook will write on payment
+    // prepare reservationId (Firestore id) — will be used as merchantReference
     const reservationRef = db.collection("reservations").doc();
     const reservationId = reservationRef.id;
 
-    // 11. Build metadata (the SAME keys Stripe used) — ensure all string values
+    // build metadata (same keys Stripe uses)
     const metadata: { [k: string]: string } = {
       reservationId,
-      noPayment: discountedGrandTotal <= 0 ? "true" : "false",
+      noPayment: discountedFirst <= 0 ? "true" : "false", // important: first-night free -> no payment
       houseIds: houseIds.join(","),
       rawValue,
       checkIn: startIso,
@@ -251,14 +245,15 @@ export async function POST(req: Request) {
       comment: customerInput?.comment || "",
     };
 
-    // 12. Build Montonio payload and JWT (merchantReference = reservationId to match webhook)
+    // MONTONIO PAY ONLY FIRST NIGHT: set grandTotal/payment.amount to discountedFirst (lo que debe cobrarse ahora)
+    const amountToPayNow = parseFloat(discountedFirst.toFixed(2)); // importe que cobramos ahora (primera noche)
     const montonioPayload: any = {
       accessKey: process.env.MONTONIO_ACCESS_KEY || "",
       merchantReference: reservationId,
       returnUrl: `${process.env.NEXT_PUBLIC_APP_URL}/payment/success?ref=${reservationId}`,
-      notificationUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/montonio/webhook`, // Montonio will post here
+      notificationUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/montonio/webhook`,
       currency: "EUR",
-      grandTotal: parseFloat(discountedGrandTotal.toFixed(2)),
+      grandTotal: amountToPayNow, // IMPORTANT: only first night
       locale: "en",
       billingAddress: {
         firstName: (customerInput?.name || "Guest").split(" ")[0] || "Guest",
@@ -270,57 +265,45 @@ export async function POST(req: Request) {
         country: "EE",
         postalCode: "12345",
       },
+      // lineItems: represent first night only (price after discount)
       lineItems: [
         {
-          name: `Accommodation - ${houseSlug || rawValue}`,
+          name: `First night - ${startIso}`,
           quantity: 1,
-          finalPrice: parseFloat(totalNightsOnly.toFixed(2)),
+          finalPrice: parseFloat(discountedFirst.toFixed(2)),
         },
       ],
       payment: {
         method: "paymentInitiation",
         methodDisplay: "Pay with your bank",
         methodOptions: {
-          paymentDescription: `Payment for booking ${reservationId}`,
+          paymentDescription: `Payment for booking ${reservationId} (first night)`,
           preferredCountry: "EE",
         },
-        amount: parseFloat(discountedGrandTotal.toFixed(2)),
+        amount: parseFloat(amountToPayNow.toFixed(2)),
         currency: "EUR",
       },
-      metadata, // CRÍTICO: include metadata so webhook can reconstruct reservation
+      metadata,
     };
 
-    // Add jacuzzi line item if present
-    if (jacuzziEnabled && jacuzziFee > 0) {
-      montonioPayload.lineItems.push({
-        name: "Private Jacuzzi",
-        quantity: 1,
-        finalPrice: parseFloat(jacuzziFee.toFixed(2)),
-      });
-    }
+    // NOTE: NO añadimos linea separada para jacuzzi ni linea de descuento porque:
+    // - cobramos solo la primera noche (discountedFirst ya lo incorpora)
+    // - jacuzziFee se factura/guarda en metadata y se cobrará a la llegada (o como tú gestiones)
+    // Esto deja la pasarela cobrando exactamente lo mismo que Stripe (primera noche).
 
-    // Add discount as negative line item if applicable
-    if (effectiveDiscountAmount > 0) {
-      montonioPayload.lineItems.push({
-        name: `Discount ${discountKindForMeta === "coupon" ? `(Code: ${metadata.couponCode})` : `(${metadata.percentValue}%)`}`,
-        quantity: 1,
-        finalPrice: parseFloat((-effectiveDiscountAmount).toFixed(2)),
-      });
-    }
-
-    // 13. Sign JWT
+    // sign JWT
     const token = jwt.sign(montonioPayload, process.env.MONTONIO_SECRET_KEY || "", {
       algorithm: "HS256",
       expiresIn: "10m",
     });
 
-    // 14. POST to Montonio API
     const apiUrl: string = process.env.MONTONIO_ENVIRONMENT === "production"
       ? "https://stargate.montonio.com/api/orders"
       : "https://sandbox-stargate.montonio.com/api/orders";
 
     console.log("Montonio checkout - API URL:", apiUrl);
     console.log("Montonio checkout - Metadata:", metadata);
+    console.log("Montonio checkout - amountToPayNow (first night):", amountToPayNow);
 
     const response = await axios.post(
       apiUrl,
@@ -334,12 +317,10 @@ export async function POST(req: Request) {
       }
     );
 
-    // If Montonio returned a paymentUrl -> redirect
     const paymentUrl = response.data?.paymentUrl || response.data?.payment_url || null;
 
-    // If discountedGrandTotal <= 0 (free), we can create reservation immediately and return a successUrl
-    if (Number(discountedGrandTotal) <= 0) {
-      // Write reservation directly as paid (webhook might not be called for free flows)
+    // If first night is free (discountedFirst <= 0) -> create reservation now and return successUrl
+    if (Number(amountToPayNow) <= 0) {
       const nowTs = admin.firestore.Timestamp.now();
       const baseReservationPayload: any = {
         houseId: houseIds.length === 1 ? houseIds[0] : houseIds.join("__"),
@@ -374,13 +355,12 @@ export async function POST(req: Request) {
         metadata,
       };
 
-      // create reservation doc
       await reservationRef.set(baseReservationPayload);
 
       return NextResponse.json({ successUrl: montonioPayload.returnUrl });
     }
 
-    // Otherwise return payment URL to client (Montonio)
+    // normal flow: return Montonio paymentUrl (to pay first night)
     return NextResponse.json({
       url: paymentUrl,
       merchantReference: reservationId,

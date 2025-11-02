@@ -87,18 +87,6 @@ interface MontonioPayload {
   };
 }
 
-interface ReservationData {
-  merchantReference: string;
-  houseId: string;
-  start: string;
-  end: string;
-  guests: number;
-  customer: CustomerData;
-  extras?: ExtrasData;
-  grandTotal: number;
-  status: string;
-}
-
 export async function POST(req: NextRequest) {
   try {
     const body: RequestBody = await req.json();
@@ -223,7 +211,7 @@ export async function POST(req: NextRequest) {
         {
           name: `Accommodation - ${houseSlug || houseId}`,
           quantity: 1,
-          finalPrice: discountedGrandTotal
+          finalPrice: parseFloat(basePrice.toFixed(2))
         }
       ],
       payment: {
@@ -233,7 +221,7 @@ export async function POST(req: NextRequest) {
           paymentDescription: `Payment for booking ${merchantReference}`,
           preferredCountry: "EE"
         },
-        amount: parseFloat(discountedGrandTotal.toFixed(2)),
+        amount: parseFloat(finalAmount.toFixed(2)),
         currency: "EUR"
       },
       // CRÍTICO: incluir metadata en el payload
@@ -245,7 +233,7 @@ export async function POST(req: NextRequest) {
       payload.lineItems.push({
         name: "Private Jacuzzi",
         quantity: 1,
-        finalPrice: jacuzziPrice
+        finalPrice: parseFloat(jacuzziPrice.toFixed(2))
       });
     }
 
@@ -254,7 +242,7 @@ export async function POST(req: NextRequest) {
       payload.lineItems.push({
         name: `Discount ${discountKind === 'coupon' ? `(Code: ${couponCode})` : `(${percentValue}%)`}`,
         quantity: 1,
-        finalPrice: -discountAmount
+        finalPrice: parseFloat((-discountAmount).toFixed(2))
       });
     }
 
@@ -285,18 +273,8 @@ export async function POST(req: NextRequest) {
       }
     );
 
-    // Store initial reservation data in your database
-    await saveReservationData({
-      merchantReference,
-      houseId,
-      start,
-      end,
-      guests,
-      customer,
-      extras,
-      grandTotal: finalAmount,
-      status: 'pending'
-    });
+    // NO guardamos nada en la base de datos aquí
+    // La reserva se creará en el webhook cuando el pago sea exitoso
 
     return NextResponse.json({
       url: response.data.paymentUrl,
@@ -329,15 +307,4 @@ function calculateBasePrice(houseId: string, start: string, end: string, guests:
   const extraGuestFee = guests > 2 ? (guests - 2) * 20 : 0;
 
   return (baseRatePerNight * nights) + extraGuestFee;
-}
-
-// Helper function to save reservation data (replace with your database logic)
-async function saveReservationData(reservationData: ReservationData): Promise<boolean> {
-  // Replace this with your actual database save logic
-  console.log('Saving initial reservation:', reservationData);
-
-  // Example with a database:
-  // await db.collection('reservations').add(reservationData);
-
-  return true;
 }

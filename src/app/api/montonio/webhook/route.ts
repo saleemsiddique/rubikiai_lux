@@ -201,12 +201,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "invalid_token" }, { status: 401 });
     }
 
-    console.log("📩 Montonio webhook payload:", payload);
+    console.log("📩 Montonio webhook payload completo:", JSON.stringify(payload, null, 2));
 
     // Mapeos principales: merchantReference (reservationId / orderId), uuid, status
     const merchantReference: string | undefined = payload?.merchantReference || payload?.merchant_reference || payload?.merchant_reference_id || payload?.merchantRef;
     const uuid: string | undefined = payload?.uuid || payload?.order_uuid || payload?.id;
     const statusFromMontonio: string | undefined = (payload?.status || payload?.paymentStatus || payload?.state || "").toString().toLowerCase();
+
+    console.log("🔍 merchantReference:", merchantReference);
+    console.log("🔍 uuid:", uuid);
+    console.log("🔍 status:", statusFromMontonio);
 
     // --------- CASO: pago completado (equivalente checkout.session.completed) ---------
     // Montonio puede enviar status: paid / captured / confirmed
@@ -214,6 +218,8 @@ export async function POST(req: Request) {
       // verificamos si es compra de cupones: intentamos leer type desde payload.metadata o merchant metadata
       const metadata = payload?.metadata || {};
       const type = metadata?.type || payload?.type || "";
+
+      console.log("📦 Metadata recibida:", JSON.stringify(metadata, null, 2));
 
       // Si es compra de cupón -> crear coupon_orders y cupones (igual que Stripe)
       if (String(type) === "coupon") {
@@ -355,63 +361,82 @@ export async function POST(req: Request) {
 
       const reservationId = merchantReference || metadata?.reservationId || payload?.reservationId;
       if (!reservationId) {
-        // no hay reserva asociada
+        console.log("⚠️ No se encontró reservationId en el payload");
         return NextResponse.json({ ok: true });
       }
 
+      console.log("✅ Procesando reserva:", reservationId);
+
       const resRef = db.collection("reservations").doc(reservationId);
 
-      // Intentamos leer la metadata que usamos en create-checkout-session (se puede enviar por merchantReference metadata)
+      // CRÍTICO: Leer metadata que viene en el JWT
       const meta = metadata || {};
 
-      const rawValue = meta?.rawValue || payload?.rawValue || "";
-      const houseIdsCsv = meta?.houseIds || payload?.houseIds || "";
+      console.log("📋 Extrayendo datos de metadata...");
+      
+      const houseIdsCsv = meta?.houseIds || "";
       const houseIds = String(houseIdsCsv)
         .split(",")
         .map((s) => s.trim())
         .filter(Boolean);
 
-      const checkIn = meta?.checkIn || payload?.checkIn || "";
-      const checkOut = meta?.checkOut || payload?.checkOut || "";
-      const nights = Number(meta?.nights ?? payload?.nights ?? 0);
+      console.log("🏠 houseIds:", houseIds);
 
-      const guestsNum = Number(meta?.guests ?? payload?.guests ?? 0);
-      const includedBase = Number(meta?.includedBase ?? payload?.includedBase ?? 0);
-      const extraGuests = Number(meta?.extraGuests ?? payload?.extraGuests ?? 0);
+      const checkIn = meta?.checkIn || "";
+      const checkOut = meta?.checkOut || "";
+      const nights = Number(meta?.nights ?? 0);
 
-      const totalNightsOnly = Number(meta?.totalNightsOnly ?? payload?.totalNightsOnly ?? 0);
-      const firstNightCharge = Number(meta?.firstNightCharge ?? payload?.firstNightCharge ?? 0);
-      const discountedFirst = Number(meta?.discountedFirst ?? payload?.discountedFirst ?? 0);
+      console.log("📅 Fechas - checkIn:", checkIn, "checkOut:", checkOut, "nights:", nights);
 
-      const jacuzziEnabled = (meta?.jacuzziEnabled ?? payload?.jacuzziEnabled) === "true" || meta?.jacuzziEnabled === true || payload?.jacuzziEnabled === true;
-      const jacuzziFee = Number(meta?.jacuzziFee ?? payload?.jacuzziFee ?? 0);
+      const guestsNum = Number(meta?.guests ?? 0);
+      const includedBase = Number(meta?.includedBase ?? 2);
+      const extraGuests = Number(meta?.extraGuests ?? 0);
 
-      const grandTotal = Number(meta?.grandTotal ?? payload?.grandTotal ?? payload?.amount ?? 0);
-      const discountedGrandTotal = Number(meta?.discountedGrandTotal ?? payload?.discountedGrandTotal ?? 0);
-      const currency = (meta?.currency || payload?.currency || "EUR").toUpperCase();
+      console.log("👥 Huéspedes - guests:", guestsNum, "included:", includedBase, "extra:", extraGuests);
 
-      const discountKind = meta?.discountKind || payload?.discountKind || ""; // "coupon" | "percent" | ""
-      const couponId = meta?.couponId || payload?.couponId || "";
-      const couponCode = meta?.couponCode || payload?.couponCode || "";
-      const percentId = meta?.percentId || payload?.percentId || "";
-      const percentCode = meta?.percentCode || payload?.percentCode || "";
-      const percentValue = meta?.percentValue || payload?.percentValue || "";
-      const couponAmountApplied = meta?.couponAmountApplied || payload?.couponAmountApplied || "";
+      const totalNightsOnly = Number(meta?.totalNightsOnly ?? 0);
+      const firstNightCharge = Number(meta?.firstNightCharge ?? 0);
+      const discountedFirst = Number(meta?.discountedFirst ?? 0);
 
-      const app_user_id = meta?.app_user_id || payload?.app_user_id || "";
+      const jacuzziEnabled = meta?.jacuzziEnabled === "true" || meta?.jacuzziEnabled === true;
+      const jacuzziFee = Number(meta?.jacuzziFee ?? 0);
 
-      const customerEmailFromMeta = meta?.customerEmail || payload?.customerEmail || "";
-      const customerNameFromMeta = meta?.customerName || payload?.customerName || "";
-      const customerPhoneFromMeta = meta?.customerPhone || payload?.customerPhone || "";
-      const arrivalTime = meta?.arrivalTime || payload?.arrivalTime || "";
-      const comment = meta?.comment || payload?.comment || "";
+      console.log("🛁 Jacuzzi - enabled:", jacuzziEnabled, "fee:", jacuzziFee);
 
-      // 2. Creamos / mergeamos la reserva en Firestore con status "reserved"
+      const grandTotal = Number(meta?.grandTotal ?? 0);
+      const discountedGrandTotal = Number(meta?.discountedGrandTotal ?? 0);
+      const currency = (meta?.currency || "EUR").toUpperCase();
+
+      console.log("💰 Precios - grandTotal:", grandTotal, "discounted:", discountedGrandTotal);
+
+      const discountKind = meta?.discountKind || ""; // "coupon" | "percent" | ""
+      const couponId = meta?.couponId || "";
+      const couponCode = meta?.couponCode || "";
+      const percentId = meta?.percentId || "";
+      const percentCode = meta?.percentCode || "";
+      const percentValue = meta?.percentValue || "";
+      const couponAmountApplied = meta?.couponAmountApplied || "";
+
+      console.log("🎫 Descuento - kind:", discountKind, "couponId:", couponId, "percentId:", percentId);
+
+      const app_user_id = meta?.app_user_id || "";
+
+      const customerEmailFromMeta = meta?.customerEmail || "";
+      const customerNameFromMeta = meta?.customerName || "";
+      const customerPhoneFromMeta = meta?.customerPhone || "";
+      const arrivalTime = meta?.arrivalTime || "";
+      const comment = meta?.comment || "";
+
+      console.log("👤 Customer - email:", customerEmailFromMeta, "name:", customerNameFromMeta);
+
+      // 2. Creamos la reserva en Firestore con status "reserved"
       //    y descontamos cupón dentro de UNA MISMA transacción
       await db.runTransaction(async (tx) => {
         const snap = await tx.get(resRef);
         const existsAlready = snap.exists;
         const nowTs = admin.firestore.Timestamp.now();
+
+        console.log("💾 Guardando reserva - existe?:", existsAlready);
 
         const baseReservationPayload: any = {
           houseId:
@@ -462,6 +487,7 @@ export async function POST(req: Request) {
           couponId &&
           Number(couponAmountApplied) > 0
         ) {
+          console.log("💳 Aplicando cupón:", couponId);
           const couponBlock = await applyCouponInTx(tx, {
             couponId,
             couponCode,
@@ -474,6 +500,7 @@ export async function POST(req: Request) {
           discountKind === "percent" &&
           percentId
         ) {
+          console.log("📊 Aplicando descuento porcentual:", percentId);
           const percentBlock = await applyPercentDiscountInTx(tx, {
             percentId,
             percentCode,
@@ -486,11 +513,15 @@ export async function POST(req: Request) {
         }
 
         if (!existsAlready) {
+          console.log("✨ Creando nueva reserva");
           tx.set(resRef, baseReservationPayload);
         } else {
+          console.log("🔄 Actualizando reserva existente");
           tx.update(resRef, baseReservationPayload);
         }
       });
+
+      console.log("✅ Reserva procesada exitosamente:", reservationId);
 
       return NextResponse.json({ received: true });
     }
@@ -498,6 +529,8 @@ export async function POST(req: Request) {
     // --------- CASO: checkout.session.expired (equivalente) ---------
     // status can be expired / cancelled / failed
     if (statusFromMontonio === "expired" || statusFromMontonio === "cancelled" || statusFromMontonio === "failed") {
+      console.log("❌ Pago fallido/cancelado:", statusFromMontonio);
+      
       // Si viene merchantReference -> cancelamos reserva y la marcamos canceled
       const reservationId = merchantReference || payload?.reservationId;
       if (reservationId) {
@@ -520,6 +553,8 @@ export async function POST(req: Request) {
     }
 
     // Si no coincide ningún caso, simplemente guardamos la notificación en la reserva si existe
+    console.log("⚠️ Status desconocido:", statusFromMontonio);
+    
     if (merchantReference) {
       const docRef = db.collection("reservations").doc(merchantReference);
       const snap = await docRef.get();
@@ -535,7 +570,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true });
   } catch (err: any) {
-    console.error("Error processing Montonio webhook:", err);
+    console.error("❌ Error processing Montonio webhook:", err);
     return NextResponse.json({ error: err?.message || "internal_error" }, { status: 500 });
   }
 }

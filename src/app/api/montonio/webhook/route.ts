@@ -19,6 +19,10 @@ function makeCode(): string {
   return `${chunk()}-${chunk()}`;
 }
 
+/**
+ * Coupon: resta saldo y crea movimiento. Debe llamarse DENTRO de una transaction.
+ * Devuelve un bloque con info del coupon o con deductionError.
+ */
 async function applyCouponInTx(
   tx: FirebaseFirestore.Transaction,
   {
@@ -71,11 +75,13 @@ async function applyCouponInTx(
     };
   }
 
+  // restar saldo
   tx.update(couponRef, {
     remaining: remaining - amountNumber,
     lastUsedAt: admin.firestore.Timestamp.now(),
   });
 
+  // registrar movimiento
   const movRef = couponRef.collection("movements").doc();
   tx.set(movRef, {
     type: "reservation",
@@ -85,14 +91,22 @@ async function applyCouponInTx(
     checkoutSessionId,
   });
 
+  // devolver bloque consistente (incluye createdAt/deductedAt para que el reservation doc lo muestre)
+  const now = admin.firestore.Timestamp.now();
   return {
     id: couponId,
     code: couponCode,
     amountApplied: amountNumber,
-    deductedAt: admin.firestore.Timestamp.now(),
+    deductedAt: now,
+    createdAt: now,
+    checkoutSessionId,
   };
 }
 
+/**
+ * Percent discount: marca used=true y registra movimiento.
+ * Debe llamarse DENTRO de una transaction.
+ */
 async function applyPercentDiscountInTx(
   tx: FirebaseFirestore.Transaction,
   {
@@ -497,6 +511,11 @@ export async function POST(req: Request) {
       const arrivalTime = meta?.arrivalTime || "";
       const comment = meta?.comment || "";
 
+      // Montonio-specific info that is analogous to Stripe fields
+      const montonioOrderUuid = uuid || null;
+      const montonioNotification = payload;
+
+      // Transaction: create/update reservation and apply discounts (coupons/percent) atomically
       await db.runTransaction(async (tx) => {
         const snap = await tx.get(resRef);
         const existsAlready = snap.exists;
@@ -525,8 +544,8 @@ export async function POST(req: Request) {
           createdAt: existsAlready ? snap.data()?.createdAt || nowTs : nowTs,
           // paidAt marks moment of receiving notification that first-night payment was successful
           paidAt: nowTs,
-          montonioOrderUuid: uuid || null,
-          montonioNotification: payload, // save payload for audit
+          montonioOrderUuid: montonioOrderUuid,
+          montonioNotification, // save payload for audit
           customerEmail: customerEmailFromMeta || null,
           customer: {
             email: customerEmailFromMeta || null,
@@ -539,37 +558,73 @@ export async function POST(req: Request) {
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         };
 
+        // APPLY COUPON OR PERCENT within same transaction (mirrors Stripe webhook)
         if (discountKind === "coupon" && couponId && Number(couponAmountApplied) > 0) {
-          console.log("💳 Aplicando cupón:", couponId);
+          console.log("💳 Aplicando cupón (webhook):", couponId);
           const couponBlock = await applyCouponInTx(tx, {
             couponId,
             couponCode,
             couponAmountApplied,
             reservationId,
-            checkoutSessionId: uuid || "montonio",
+            checkoutSessionId: montonioOrderUuid || "montonio",
           });
           baseReservationPayload.coupon = couponBlock;
+
+          // Also adjust discountedFirst/discountedGrandTotal if coupon was successfully deducted
+          if (!couponBlock.deductionError && Number(couponBlock.amountApplied) > 0) {
+            // Use the couponBlock.amountApplied (euros)
+            const applied = Number(couponBlock.amountApplied || couponBlock.amountApplied || 0);
+            // Only adjust if the metadata didn't already reflect the deduction (defensive)
+            baseReservationPayload.discountedFirst = Math.max(0, (baseReservationPayload.discountedFirst || discountedFirst) - applied);
+            baseReservationPayload.discountedGrandTotal = Math.max(0, (baseReservationPayload.discountedGrandTotal || discountedGrandTotal) - applied);
+          }
         } else if (discountKind === "percent" && percentId) {
-          console.log("📊 Aplicando descuento porcentual:", percentId);
+          console.log("📊 Aplicando descuento porcentual (webhook):", percentId);
           const percentBlock = await applyPercentDiscountInTx(tx, {
             percentId,
             percentCode,
             percentValue,
             couponAmountApplied,
             reservationId,
-            checkoutSessionId: uuid || "montonio",
+            checkoutSessionId: montonioOrderUuid || "montonio",
           });
           baseReservationPayload.percentDiscount = percentBlock;
+
+          // For percent discounts, the checkout flow already computed discountedFirst (metadata),
+          // but we ensure discountedGrandTotal reflects the applied amount (defensive).
+          if (!percentBlock.deductionError && Number(percentBlock.amountApplied) > 0) {
+            const applied = Number(percentBlock.amountApplied || 0);
+            baseReservationPayload.discountedFirst = Math.max(0, (baseReservationPayload.discountedFirst || discountedFirst) - applied);
+            baseReservationPayload.discountedGrandTotal = Math.max(0, (baseReservationPayload.discountedGrandTotal || discountedGrandTotal) - applied);
+          }
         }
 
         if (!existsAlready) {
-          console.log("✨ Creando nueva reserva");
+          console.log("✨ Creando nueva reserva (webhook)");
           tx.set(resRef, baseReservationPayload);
         } else {
-          console.log("🔄 Actualizando reserva existente");
+          console.log("🔄 Actualizando reserva existente (webhook)");
           tx.update(resRef, baseReservationPayload);
         }
       });
+
+      // After successful transaction: cleanup checkout_intent (mark consumed)
+      try {
+        const intentRef = db.collection("checkout_intents").doc(reservationId);
+        const intentSnap = await intentRef.get();
+        if (intentSnap.exists) {
+          // prefer to mark consumed (so we keep archive), but you can delete if preferred
+          await intentRef.update({
+            consumed: true,
+            consumedAt: admin.firestore.Timestamp.now(),
+            montonioOrderUuid: montonioOrderUuid || null,
+            lastWebhookAt: admin.firestore.Timestamp.now(),
+          });
+          console.log("🧹 checkout_intent marked consumed for", reservationId);
+        }
+      } catch (e) {
+        console.warn("Could not mark checkout_intent as consumed:", e);
+      }
 
       console.log("✅ Reserva procesada exitosamente:", reservationId);
       return NextResponse.json({ received: true });

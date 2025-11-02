@@ -588,40 +588,37 @@ export default function CheckoutDetailsClient() {
           phone,
         },
         extras: {
-          jacuzzi: withJacuzzi ? { enabled: true, price: priceData.jacuzziFee } : { enabled: false },
+          jacuzzi: withJacuzzi
+            ? { enabled: true, price: priceData.jacuzziFee }
+            : { enabled: false },
         },
-        // opcional: mandar un amount si lo tienes
-        amount: totalAfterDiscount ?? undefined,
       };
 
       const res = await fetch("/api/montonio/checkout", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json"
+        },
         body: JSON.stringify(body),
       });
 
-      let json: any = {};
-      try {
-        json = await res.json();
-      } catch (e) {
-        // body no-JSON
-      }
+      const data = await res.json();
 
       if (!res.ok) {
-        console.error("montonio checkout failed", res.status, json);
-        const errMsg = json?.error || `Error ${res.status}`;
-        alert(errMsg);
+        console.error("Montonio checkout failed", data);
+        alert(`Error: ${data.error || 'Unknown error'}`);
         return;
       }
 
-      if (json.redirectUrl) {
-        window.location.href = json.redirectUrl;
+      if (data.url) {
+        window.location.href = data.url;
         return;
       }
 
-      alert("No checkout url returned from server.");
+      alert("No checkout URL returned");
     } catch (err) {
-      console.error("handleMontonioCheckout error:", err);
+      console.error("Montonio checkout error:", err);
       alert("Network error creating Montonio checkout");
     }
   };

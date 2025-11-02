@@ -291,6 +291,50 @@ export async function POST(req: Request) {
     // - jacuzziFee se factura/guarda en metadata y se cobrará a la llegada (o como tú gestiones)
     // Esto deja la pasarela cobrando exactamente lo mismo que Stripe (primera noche).
 
+    // --- CREATE A LIGHTWEIGHT checkout_intent BEFORE CALLING MONTONIO ---
+    // This is NOT the final reservation. It is an intent living for a short TTL.
+    // The webhook will use this as fallback if Montonio doesn't echo all metadata.
+    try {
+      const intentRef = db.collection("checkout_intents").doc(reservationId);
+      const nowTs = admin.firestore.Timestamp.now();
+      await intentRef.set({
+        reservationId,
+        houseIds,
+        checkIn: startIso,
+        checkOut: endIso,
+        nights,
+        guests: guestsNum,
+        includedBase,
+        extraGuests,
+        totalNightsOnly,
+        firstNightCharge,
+        discountedFirst,
+        jacuzziEnabled,
+        jacuzziFee,
+        grandTotal,
+        discountedGrandTotal,
+        currency: "EUR",
+        metadata, // keep exactly what we send to Montonio
+        customer: {
+          email: customerInput?.email || null,
+          name: customerInput?.name || null,
+          phone: customerInput?.phone || null,
+          arrivalTime: customerInput?.arrivalTime || null,
+          comment: customerInput?.comment || null,
+          userId: customerInput?.userId || null,
+        },
+        createdAt: nowTs,
+        // optional: set a TTL or expiresAt if you want to auto-clean
+        expiresAt: admin.firestore.Timestamp.fromDate(new Date(Date.now() + 1000 * 60 * 60 * 24)), // e.g., 24h
+        createdBy: "checkout",
+      });
+      console.log("✅ checkout_intent created for", reservationId);
+    } catch (e) {
+      console.error("Failed to create checkout_intent (non-fatal):", e);
+      // non-fatal: proceed to create montonio order anyway; webhook will attempt fallback to reservation doc if needed
+    }
+
+
     // sign JWT
     const token = jwt.sign(montonioPayload, process.env.MONTONIO_SECRET_KEY || "", {
       algorithm: "HS256",
@@ -316,6 +360,17 @@ export async function POST(req: Request) {
         timeout: 30000,
       }
     );
+
+    // after axios.post and obtaining response
+    try {
+      await db.collection("checkout_intents").doc(reservationId).update({
+        montonioResponse: response.data || null,
+        montonioResponseAt: admin.firestore.Timestamp.now(),
+      });
+    } catch (e) {
+      console.warn("Could not update checkout_intent with Montonio response:", e);
+    }
+
 
     const paymentUrl = response.data?.paymentUrl || response.data?.payment_url || null;
 

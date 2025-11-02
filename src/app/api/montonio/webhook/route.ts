@@ -154,13 +154,55 @@ async function applyPercentDiscountInTx(
   };
 }
 
+function firstNonEmpty(...objs: any[]) {
+  for (const o of objs) {
+    if (o && typeof o === "object" && Object.keys(o).length > 0) return o;
+  }
+  return {};
+}
+
 export async function POST(req: Request) {
   try {
+    // read raw body first (some webhooks send raw jwt or nested structure)
     const url = new URL(req.url);
-    const body = await req.json().catch(() => ({}));
-    const token = body?.orderToken || url.searchParams.get("order-token");
+    const rawText = await req.text().catch(() => "");
+    let bodyParsed: any = {};
+    try {
+      if (rawText && rawText.trim().length > 0) {
+        bodyParsed = JSON.parse(rawText);
+      }
+    } catch (e) {
+      // not JSON — maybe raw JWT or other format
+      bodyParsed = {};
+    }
+
+    // robust token extraction (query param, common body shapes, raw jwt)
+    const tokenFromQuery = url.searchParams.get("order-token") || url.searchParams.get("orderToken") || null;
+    const tokenFromBodyCandidates =
+      bodyParsed?.orderToken ||
+      bodyParsed?.order?.orderToken ||
+      bodyParsed?.data ||
+      bodyParsed?.token ||
+      bodyParsed?.order?.token ||
+      bodyParsed?.payload ||
+      null;
+
+    let token: string | null = tokenFromQuery || tokenFromBodyCandidates || null;
+
+    // if bodyParsed.data is an object that contains the token as "data" or "orderToken"
+    if (!token && typeof bodyParsed?.data === "object") {
+      token = bodyParsed.data?.orderToken || bodyParsed.data?.token || bodyParsed.data?.data || null;
+    }
+
+    // if still nothing, maybe the raw body is directly the JWT
+    if (!token && typeof rawText === "string" && rawText.split(".").length === 3) {
+      token = rawText.trim();
+    }
+
     if (!token) {
-      console.warn("No orderToken in webhook request");
+      console.warn("No orderToken found in webhook request (tried query/body/raw). rawText length:", (rawText || "").length);
+      console.log("Raw headers:", Object.fromEntries(req.headers.entries()));
+      console.log("Raw body preview:", (rawText || "").slice(0, 1000));
       return NextResponse.json({ error: "missing_orderToken" }, { status: 400 });
     }
 
@@ -182,40 +224,134 @@ export async function POST(req: Request) {
 
     console.log("📩 Montonio webhook payload completo:", JSON.stringify(payload, null, 2));
 
-    const merchantReference: string | undefined = payload?.merchantReference || payload?.merchant_reference || payload?.merchant_reference_id || payload?.merchantRef;
-    const uuid: string | undefined = payload?.uuid || payload?.order_uuid || payload?.id;
+    const merchantReference: string | undefined =
+      payload?.merchantReference ||
+      payload?.merchant_reference ||
+      payload?.merchant_reference_id ||
+      payload?.merchantRef ||
+      payload?.orderReference ||
+      payload?.merchant_reference_id;
+
+    const uuid: string | undefined = payload?.uuid || payload?.order_uuid || payload?.id || payload?.order?.id;
     const statusFromMontonio: string | undefined = (payload?.status || payload?.paymentStatus || payload?.state || "").toString().toLowerCase();
 
     console.log("🔍 merchantReference:", merchantReference);
     console.log("🔍 uuid:", uuid);
     console.log("🔍 status:", statusFromMontonio);
 
+    // robust metadata extraction: try many places montonio might use
+    const metadataCandidate: any = firstNonEmpty(
+      payload?.metadata,
+      payload?.data?.metadata,
+      payload?.order?.metadata,
+      payload?.order?.data?.metadata,
+      payload?.attributes?.metadata,
+      payload?.meta,
+      payload?.data,
+      payload?.order
+    ) || {};
+
+    console.log("➡️ metadataCandidate keys:", Object.keys(metadataCandidate || {}));
+
+    // Helper to load checkout_intent fallback and reservation fallback if metadata empty
+    async function buildMetaWithFallback(reservationId?: string) {
+      let meta: any = metadataCandidate && Object.keys(metadataCandidate || {}).length > 0 ? metadataCandidate : {};
+      if ((!meta || Object.keys(meta).length === 0) && reservationId) {
+        // try checkout_intents collection (lightweight persisted intent from checkout)
+        try {
+          const intentSnap = await db.collection("checkout_intents").doc(reservationId).get();
+          if (intentSnap.exists) {
+            const intent = intentSnap.data() || {};
+            console.log("ℹ️ Found checkout_intent fallback for", reservationId);
+            meta = {
+              checkIn: intent.checkIn,
+              checkOut: intent.checkOut,
+              nights: intent.nights,
+              guests: intent.guests,
+              includedBase: intent.includedBase,
+              extraGuests: intent.extraGuests,
+              totalNightsOnly: intent.totalNightsOnly,
+              firstNightCharge: intent.firstNightCharge,
+              discountedFirst: intent.discountedFirst,
+              jacuzziEnabled: intent.jacuzziEnabled ?? (intent.jacuzzi?.enabled ?? false),
+              jacuzziFee: intent.jacuzziFee ?? intent.jacuzzi?.fee ?? 0,
+              grandTotal: intent.grandTotal,
+              discountedGrandTotal: intent.discountedGrandTotal,
+              currency: intent.currency,
+              customerEmail: intent.customer?.email || intent.customerEmail,
+              customerName: intent.customer?.name || "",
+              customerPhone: intent.customer?.phone || "",
+              arrivalTime: intent.customer?.arrivalTime || "",
+              comment: intent.customer?.comment || "",
+              houseIds: intent.houseIds,
+              app_user_id: intent.customer?.userId || intent.app_user_id,
+              // include any other safe fields you trust from intent
+            };
+          } else {
+            // as last fallback, maybe a reservation doc exists (e.g., free-order flow or manual create)
+            const resSnap = await db.collection("reservations").doc(reservationId).get();
+            if (resSnap.exists) {
+              const existing = resSnap.data() || {};
+              console.log("ℹ️ Found existing reservation doc fallback for", reservationId);
+              meta = {
+                checkIn: existing.checkIn,
+                checkOut: existing.checkOut,
+                nights: existing.nights,
+                guests: existing.guests,
+                includedBase: existing.includedBase,
+                extraGuests: existing.extraGuests,
+                totalNightsOnly: existing.totalNightsOnly,
+                firstNightCharge: existing.firstNightCharge,
+                discountedFirst: existing.discountedFirst,
+                jacuzziEnabled: existing.jacuzzi?.enabled,
+                jacuzziFee: existing.jacuzziFee,
+                grandTotal: existing.grandTotal,
+                discountedGrandTotal: existing.discountedGrandTotal,
+                currency: existing.currency,
+                customerEmail: existing.customerEmail || existing?.customer?.email,
+                customerName: existing?.customer?.name,
+                customerPhone: existing?.customer?.phone,
+                arrivalTime: existing?.customer?.arrivalTime,
+                comment: existing?.customer?.comment,
+                houseIds: existing.houseIds,
+                app_user_id: existing?.customer?.userId || existing.app_user_id,
+              };
+            } else {
+              console.log("ℹ️ No checkout_intent or reservation doc found for fallback:", reservationId);
+            }
+          }
+        } catch (e) {
+          console.error("Error while fetching fallback intent/reservation:", e);
+        }
+      }
+
+      return meta || {};
+    }
+
+    // ---------- PROCESS "PAID / CAPTURED / CONFIRMED" ----------
     if (statusFromMontonio === "paid" || statusFromMontonio === "captured" || statusFromMontonio === "confirmed") {
-      const metadata = payload?.metadata || {};
-      const type = metadata?.type || payload?.type || "";
+      const type = metadataCandidate?.type || payload?.type || "";
 
-      console.log("📦 Metadata recibida:", JSON.stringify(metadata, null, 2));
-
+      // coupon flow
       if (String(type) === "coupon") {
-        // coupon purchase flow (igual que Stripe)
-        const orderId = metadata?.orderId || payload?.orderId || payload?.merchantReference || merchantReference;
+        const orderId = metadataCandidate?.orderId || payload?.orderId || payload?.merchantReference || merchantReference;
         if (!orderId) return NextResponse.json({ ok: true });
 
         const orderRef = db.collection("coupon_orders").doc(orderId);
         const paymentUuid = uuid || null;
-        const buyerEmail = payload?.customer?.email || metadata?.buyerEmail || payload?.email || null;
+        const buyerEmail = payload?.customer?.email || metadataCandidate?.buyerEmail || payload?.email || null;
 
         const result = await db.runTransaction(async (tx) => {
           const snap = await tx.get(orderRef);
           if (!snap.exists) {
-            const quantity = parseInt(String(metadata?.quantity || 1), 10) || 1;
-            const unitAmount = Number(metadata?.unitAmount || payload?.amount || 0) || 0;
+            const quantity = parseInt(String(metadataCandidate?.quantity || 1), 10) || 1;
+            const unitAmount = Number(metadataCandidate?.unitAmount || payload?.amount || 0) || 0;
             tx.set(orderRef, {
               status: "processing",
               unitAmount,
               unitAmountCents: Math.round(unitAmount * 100),
               quantity,
-              currency: (metadata?.currency || payload?.currency || "EUR").toUpperCase(),
+              currency: (metadataCandidate?.currency || payload?.currency || "EUR").toUpperCase(),
               createdAt: admin.firestore.Timestamp.now(),
               montonioOrderUuid: paymentUuid,
               buyerEmail: buyerEmail || null,
@@ -226,8 +362,8 @@ export async function POST(req: Request) {
             if (data.status === "completed") {
               return { quantity: Number(data.quantity || 1), unitAmount: Number(data.unitAmount || 0), alreadyCompleted: true };
             }
-            const quantity = Number.isFinite(Number(data.quantity)) ? Number(data.quantity) : parseInt(String(metadata?.quantity || 1), 10) || 1;
-            const unitAmount = Number.isFinite(Number(data.unitAmount)) ? Number(data.unitAmount) : Number(metadata?.unitAmount || payload?.amount || 0) || 0;
+            const quantity = Number.isFinite(Number(data.quantity)) ? Number(data.quantity) : parseInt(String(metadataCandidate?.quantity || 1), 10) || 1;
+            const unitAmount = Number.isFinite(Number(data.unitAmount)) ? Number(data.unitAmount) : Number(metadataCandidate?.unitAmount || payload?.amount || 0) || 0;
             tx.update(orderRef, { status: "processing", montonioOrderUuid: paymentUuid, buyerEmail: data.buyerEmail || buyerEmail || null, unitAmount, quantity });
             return { quantity, unitAmount, alreadyCompleted: false };
           }
@@ -251,7 +387,7 @@ export async function POST(req: Request) {
             batch.set(cRef, {
               status: "active",
               code,
-              currency: (metadata?.currency || payload?.currency || "EUR").toUpperCase(),
+              currency: (metadataCandidate?.currency || payload?.currency || "EUR").toUpperCase(),
               unitAmount,
               remaining: unitAmount,
               purchasedAt,
@@ -289,7 +425,7 @@ export async function POST(req: Request) {
                 data: {
                   unitAmount,
                   quantity,
-                  currency: (metadata?.currency || payload?.currency || "EUR").toUpperCase(),
+                  currency: (metadataCandidate?.currency || payload?.currency || "EUR").toUpperCase(),
                   codes: createdCodes,
                   expiresAt: expiresAt.toDate().toISOString().slice(0, 10),
                 },
@@ -307,8 +443,8 @@ export async function POST(req: Request) {
         return NextResponse.json({ received: true });
       }
 
-      // Reserva normal: reconstruct from metadata
-      const reservationId = merchantReference || metadata?.reservationId || payload?.reservationId;
+      // Reserva normal: try to construct meta with fallbacks
+      const reservationId = merchantReference || metadataCandidate?.reservationId || payload?.reservationId;
       if (!reservationId) {
         console.log("⚠️ No se encontró reservationId en el payload");
         return NextResponse.json({ ok: true });
@@ -317,9 +453,11 @@ export async function POST(req: Request) {
       console.log("✅ Procesando reserva:", reservationId);
 
       const resRef = db.collection("reservations").doc(reservationId);
-      const meta = metadata || {};
 
-      console.log("📋 Extrayendo datos de metadata...");
+      // build meta with fallback to checkout_intent/reservation doc
+      const meta = await buildMetaWithFallback(reservationId);
+
+      console.log("📋 Extrayendo datos de metadata final (meta):", JSON.stringify(meta, null, 2));
 
       const houseIdsCsv = meta?.houseIds || "";
       const houseIds = String(houseIdsCsv).split(",").map((s) => s.trim()).filter(Boolean);
@@ -388,6 +526,7 @@ export async function POST(req: Request) {
           // paidAt marks moment of receiving notification that first-night payment was successful
           paidAt: nowTs,
           montonioOrderUuid: uuid || null,
+          montonioNotification: payload, // save payload for audit
           customerEmail: customerEmailFromMeta || null,
           customer: {
             email: customerEmailFromMeta || null,
@@ -397,6 +536,7 @@ export async function POST(req: Request) {
             comment: comment || null,
             userId: app_user_id || null,
           },
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         };
 
         if (discountKind === "coupon" && couponId && Number(couponAmountApplied) > 0) {

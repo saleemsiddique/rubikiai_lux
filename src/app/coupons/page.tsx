@@ -30,7 +30,25 @@ export default function CouponPage(): JSX.Element {
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [lookup, setLookup] = useState<LookupResult | null>(null);
 
+  // Montonio modal / email
+  const [showBankModal, setShowBankModal] = useState(false);
+  const [buyerEmail, setBuyerEmail] = useState<string>("");
+  const [bankSubmitting, setBankSubmitting] = useState(false);
+
+  // Control scroll when modal is open
+  React.useEffect(() => {
+    if (showBankModal) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [showBankModal]);
+
   const handleBuy = async () => {
+    // Stripe flow (existing)
     try {
       setLoading(true);
       const res = await fetch("/api/coupons/create-checkout-session", {
@@ -39,19 +57,56 @@ export default function CouponPage(): JSX.Element {
         body: JSON.stringify({ unitAmount: selected, quantity }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "No pudimos iniciar el checkout");
+      if (!res.ok) throw new Error(data?.error || "Could not start checkout");
       if (data?.url) {
         window.location.assign(data.url);
         return;
       }
-      throw new Error("Respuesta inesperada del servidor");
+      throw new Error("Unexpected server response");
     } catch (e: any) {
       console.error(e);
       if (typeof window !== "undefined" && window.alert) {
-        window.alert(e?.message || "No se pudo iniciar el pago");
+        window.alert(e?.message || "Could not start payment");
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  // When clicking the bank button, open modal to ask for email
+  const handleOpenBankModal = () => {
+    setBuyerEmail("");
+    setShowBankModal(true);
+  };
+
+  // Confirm modal: call Montonio checkout endpoint with buyerEmail
+  const handleConfirmBankPayment = async () => {
+    if (!buyerEmail || !buyerEmail.includes("@")) {
+      window.alert("Introduce un correo válido para enviar el cupón.");
+      return;
+    }
+    try {
+      setBankSubmitting(true);
+      const res = await fetch("/api/montonio/coupon/checkout", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ unitAmount: selected, quantity, buyerEmail }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Could not start Montonio checkout");
+      const url = data?.url || data?.paymentUrl || data?.payment_url;
+      if (url) {
+        // close modal briefly (good UX) then redirect
+        setShowBankModal(false);
+        window.location.assign(url);
+        return;
+      }
+      throw new Error("Montonio did not return a payment URL");
+    } catch (e: any) {
+      console.error(e);
+      window.alert(e?.message || "Could not start bank payment");
+    } finally {
+      setBankSubmitting(false);
     }
   };
 
@@ -168,17 +223,25 @@ export default function CouponPage(): JSX.Element {
             <div className="mt-6 flex flex-col sm:flex-row sm:items-end sm:gap-6 gap-4 border-t pt-6 border-[var(--color-primary)]/20">
               <div className="flex items-center gap-3">
                 <strong className="font-semibold">Total a pagar:</strong> <span className="font-black text-2xl text-[var(--color-primary-dark)]">{(selected * quantity).toFixed(2)} €</span>
-
               </div>
               <div className="flex-1" />
-              <div className="flex items-end">
+              <div className="flex items-end gap-3">
                 <button
                   onClick={handleBuy}
                   disabled={loading}
                   className="px-6 py-3 rounded-xl font-bold text-lg shadow-lg hover:scale-[1.03] disabled:opacity-50 disabled:cursor-not-allowed transition-transform duration-200"
                   style={{ background: 'var(--color-secondary)', color: 'white' }}
                 >
-                  {loading ? 'Redirigiendo…' : `Comprar Ahora (${selected}€)`}
+                  {loading ? 'Redirecting…' : `Pay now (${selected}€)`}
+                </button>
+
+                <button
+                  onClick={handleOpenBankModal}
+                  disabled={loading}
+                  className="px-6 py-3 rounded-xl font-bold text-lg shadow-lg hover:scale-[1.03] disabled:opacity-50 disabled:cursor-not-allowed transition-transform duration-200 border border-[var(--color-primary)]"
+                  style={{ background: 'white', color: 'var(--color-highlight)' }}
+                >
+                  {loading ? 'Redirecting…' : 'Pay with bank transfer'}
                 </button>
               </div>
             </div>
@@ -274,6 +337,46 @@ export default function CouponPage(): JSX.Element {
           </div>
         </section>
       </main>
+
+      {/* -------------------- Bank email modal -------------------- */}
+      {showBankModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm">
+          <div className="absolute inset-0" onClick={() => setShowBankModal(false)} />
+          <div className="relative z-10 w-full max-w-md bg-white rounded-2xl p-6 shadow-xl">
+            <h3 className="text-lg font-semibold">Correo para enviar el cupón</h3>
+            <p className="text-sm text-[var(--color-text)]/70 mt-2">Introduce el correo electrónico donde quieres recibir el cupón tras completar el pago por transferencia bancaria.</p>
+
+            <div className="mt-4">
+              <label className="block text-sm mb-1">Correo electrónico</label>
+              <input
+                value={buyerEmail}
+                onChange={(e) => setBuyerEmail(e.target.value)}
+                placeholder="tu@correo.com"
+                type="email"
+                className="w-full p-3 rounded-lg border-2 border-[var(--color-primary)] bg-white text-base focus:border-[var(--color-secondary)] focus:ring-0 transition"
+              />
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                className="px-4 py-2 rounded-lg border"
+                onClick={() => setShowBankModal(false)}
+                disabled={bankSubmitting}
+              >
+                Cancelar
+              </button>
+              <button
+                className="px-4 py-2 rounded-lg font-bold"
+                onClick={handleConfirmBankPayment}
+                disabled={bankSubmitting}
+                style={{ background: 'var(--color-secondary)', color: 'white' }}
+              >
+                {bankSubmitting ? "Iniciando…" : "Continuar al pago"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

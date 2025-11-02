@@ -372,6 +372,7 @@ export async function POST(req: Request) {
         const paymentUuid = uuid || null;
         const buyerEmail = payload?.customer?.email || metadataCandidate?.buyerEmail || payload?.email || null;
 
+        // Ensure order doc exists/merge and set processing
         const result = await db.runTransaction(async (tx) => {
           const snap = await tx.get(orderRef);
           if (!snap.exists) {
@@ -402,31 +403,33 @@ export async function POST(req: Request) {
 
         if (result.alreadyCompleted) return NextResponse.json({ received: true });
 
+        // create coupon docs and mark order completed
         const purchasedAt = admin.firestore.Timestamp.now();
         const expiresAt = admin.firestore.Timestamp.fromDate(addMonths(new Date(), 12));
         const quantity = result.quantity;
         const unitAmount = result.unitAmount;
-
         const batch = db.batch();
         const createdCodes: Array<{ code: string; remaining: number }> = [];
 
         for (let i = 0; i < quantity; i++) {
-          const cRef = db.collection("coupons").doc(`${orderId}_${i}`);
+          const cDocId = `${orderId}_${i}`;
+          const cRef = db.collection("coupons").doc(cDocId);
           const cSnap = await cRef.get();
           if (!cSnap.exists) {
             const code = makeCode();
             batch.set(cRef, {
-              status: "active",
-              code,
-              currency: (metadataCandidate?.currency || payload?.currency || "EUR").toUpperCase(),
-              unitAmount,
-              remaining: unitAmount,
-              purchasedAt,
-              expiresAt,
-              montonioOrderUuid: paymentUuid || null,
-              orderId,
               buyerEmail: buyerEmail || null,
+              code,
               createdByWebhook: true,
+              currency: (metadataCandidate?.currency || payload?.currency || "EUR").toUpperCase(),
+              expiresAt,
+              orderId,
+              purchasedAt,
+              remaining: unitAmount,
+              status: "active",
+              montonioOrderUuid: paymentUuid || null,
+              unitAmount,
+              unitAmountCents: Math.round(unitAmount * 100),
             });
             createdCodes.push({ code, remaining: unitAmount });
           } else {
@@ -435,16 +438,23 @@ export async function POST(req: Request) {
           }
         }
 
+        // update order doc fields to match your example
         batch.update(orderRef, {
           status: "completed",
           completedAt: admin.firestore.Timestamp.now(),
+          lastWebhookAt: admin.firestore.Timestamp.now(),
           montonioOrderUuid: paymentUuid || null,
           buyerEmail: buyerEmail || null,
-          lastWebhookAt: admin.firestore.Timestamp.now(),
+          unitAmount,
+          unitAmountCents: Math.round(unitAmount * 100),
+          quantity,
+          currency: (metadataCandidate?.currency || payload?.currency || "EUR").toUpperCase(),
+          montonioPaymentUrl: payload?.paymentUrl || payload?.payment_url || payload?.order?.payment_url || null,
         });
 
         await batch.commit();
 
+        // send email with codes (if buyerEmail present)
         if (buyerEmail) {
           try {
             await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
@@ -474,7 +484,12 @@ export async function POST(req: Request) {
         return NextResponse.json({ received: true });
       }
 
-      // Reserva normal: try to construct meta with fallbacks
+      // ----------------- RESERVA NORMAL -----------------
+      // Aquí mantenemos TODA la lógica de reservas que tenías antes:
+      // 1) extraer reservationId desde metadata/merchantReference
+      // 2) construir meta con buildMetaWithFallback(...)
+      // 3) crear/mergear reserva dentro de una transaction y aplicar coupons/percents
+      // 4) marcar checkout_intent consumido
       const reservationId = merchantReference || metadataCandidate?.reservationId || payload?.reservationId;
       if (!reservationId) {
         console.log("⚠️ No se encontró reservationId en el payload");

@@ -21,7 +21,6 @@ function makeCode(): string {
 
 /**
  * Coupon: resta saldo y crea movimiento. Debe llamarse DENTRO de una transaction.
- * Devuelve un bloque con info del coupon o con deductionError.
  */
 async function applyCouponInTx(
   tx: FirebaseFirestore.Transaction,
@@ -91,7 +90,6 @@ async function applyCouponInTx(
     checkoutSessionId,
   });
 
-  // devolver bloque consistente (incluye createdAt/deductedAt para que el reservation doc lo muestre)
   const now = admin.firestore.Timestamp.now();
   return {
     id: couponId,
@@ -177,7 +175,6 @@ function firstNonEmpty(...objs: any[]) {
 
 export async function POST(req: Request) {
   try {
-    // read raw body first (some webhooks send raw jwt or nested structure)
     const url = new URL(req.url);
     const rawText = await req.text().catch(() => "");
     let bodyParsed: any = {};
@@ -186,11 +183,9 @@ export async function POST(req: Request) {
         bodyParsed = JSON.parse(rawText);
       }
     } catch (e) {
-      // not JSON — maybe raw JWT or other format
       bodyParsed = {};
     }
 
-    // robust token extraction (query param, common body shapes, raw jwt)
     const tokenFromQuery = url.searchParams.get("order-token") || url.searchParams.get("orderToken") || null;
     const tokenFromBodyCandidates =
       bodyParsed?.orderToken ||
@@ -203,12 +198,10 @@ export async function POST(req: Request) {
 
     let token: string | null = tokenFromQuery || tokenFromBodyCandidates || null;
 
-    // if bodyParsed.data is an object that contains the token as "data" or "orderToken"
     if (!token && typeof bodyParsed?.data === "object") {
       token = bodyParsed.data?.orderToken || bodyParsed.data?.token || bodyParsed.data?.data || null;
     }
 
-    // if still nothing, maybe the raw body is directly the JWT
     if (!token && typeof rawText === "string" && rawText.split(".").length === 3) {
       token = rawText.trim();
     }
@@ -253,7 +246,6 @@ export async function POST(req: Request) {
     console.log("🔍 uuid:", uuid);
     console.log("🔍 status:", statusFromMontonio);
 
-    // robust metadata extraction: try many places montonio might use
     const metadataCandidate: any = firstNonEmpty(
       payload?.metadata,
       payload?.data?.metadata,
@@ -267,68 +259,93 @@ export async function POST(req: Request) {
 
     console.log("➡️ metadataCandidate keys:", Object.keys(metadataCandidate || {}));
 
-    // Helper to load checkout_intent fallback and reservation fallback if metadata empty
     async function buildMetaWithFallback(reservationId?: string) {
-      let meta: any = metadataCandidate && Object.keys(metadataCandidate || {}).length > 0 ? metadataCandidate : {};
+      let meta: any = metadataCandidate && Object.keys(metadataCandidate || {}).length > 0 ? { ...metadataCandidate } : {};
+
       if ((!meta || Object.keys(meta).length === 0) && reservationId) {
-        // try checkout_intents collection (lightweight persisted intent from checkout)
         try {
           const intentSnap = await db.collection("checkout_intents").doc(reservationId).get();
           if (intentSnap.exists) {
             const intent = intentSnap.data() || {};
             console.log("ℹ️ Found checkout_intent fallback for", reservationId);
+
+            // start from intent.metadata if present, otherwise from explicit fields
+            const fromIntentMeta = (intent.metadata && typeof intent.metadata === "object") ? { ...intent.metadata } : {};
+
             meta = {
-              checkIn: intent.checkIn,
-              checkOut: intent.checkOut,
-              nights: intent.nights,
-              guests: intent.guests,
-              includedBase: intent.includedBase,
-              extraGuests: intent.extraGuests,
-              totalNightsOnly: intent.totalNightsOnly,
-              firstNightCharge: intent.firstNightCharge,
-              discountedFirst: intent.discountedFirst,
-              jacuzziEnabled: intent.jacuzziEnabled ?? (intent.jacuzzi?.enabled ?? false),
-              jacuzziFee: intent.jacuzziFee ?? intent.jacuzzi?.fee ?? 0,
-              grandTotal: intent.grandTotal,
-              discountedGrandTotal: intent.discountedGrandTotal,
-              currency: intent.currency,
-              customerEmail: intent.customer?.email || intent.customerEmail,
-              customerName: intent.customer?.name || "",
-              customerPhone: intent.customer?.phone || "",
-              arrivalTime: intent.customer?.arrivalTime || "",
-              comment: intent.customer?.comment || "",
-              houseIds: intent.houseIds,
-              app_user_id: intent.customer?.userId || intent.app_user_id,
-              // include any other safe fields you trust from intent
+              ...fromIntentMeta,
+              // legacy / top-level intent fields (if not in metadata)
+              checkIn: fromIntentMeta.checkIn ?? intent.checkIn,
+              checkOut: fromIntentMeta.checkOut ?? intent.checkOut,
+              nights: fromIntentMeta.nights ?? intent.nights,
+              guests: fromIntentMeta.guests ?? intent.guests,
+              includedBase: fromIntentMeta.includedBase ?? intent.includedBase,
+              extraGuests: fromIntentMeta.extraGuests ?? intent.extraGuests,
+              totalNightsOnly: fromIntentMeta.totalNightsOnly ?? intent.totalNightsOnly,
+              firstNightCharge: fromIntentMeta.firstNightCharge ?? intent.firstNightCharge,
+              discountedFirst: fromIntentMeta.discountedFirst ?? intent.discountedFirst,
+              jacuzziEnabled: fromIntentMeta.jacuzziEnabled ?? (intent.jacuzziEnabled ?? (intent.jacuzzi?.enabled ?? false)),
+              jacuzziFee: fromIntentMeta.jacuzziFee ?? (intent.jacuzziFee ?? intent.jacuzzi?.fee ?? 0),
+              grandTotal: fromIntentMeta.grandTotal ?? intent.grandTotal,
+              discountedGrandTotal: fromIntentMeta.discountedGrandTotal ?? intent.discountedGrandTotal,
+              currency: fromIntentMeta.currency ?? intent.currency,
+              customerEmail: fromIntentMeta.customerEmail ?? (intent.customer?.email || intent.customerEmail),
+              customerName: fromIntentMeta.customerName ?? (intent.customer?.name || ""),
+              customerPhone: fromIntentMeta.customerPhone ?? (intent.customer?.phone || ""),
+              arrivalTime: fromIntentMeta.arrivalTime ?? (intent.customer?.arrivalTime || ""),
+              comment: fromIntentMeta.comment ?? (intent.customer?.comment || ""),
+              houseIds: fromIntentMeta.houseIds ?? intent.houseIds,
+              app_user_id: fromIntentMeta.app_user_id ?? (intent.customer?.userId || intent.app_user_id),
+              // include coupon/percent fields if present in metadata
+              discountKind: fromIntentMeta.discountKind ?? intent.metadata?.discountKind ?? "",
+              couponId: fromIntentMeta.couponId ?? intent.metadata?.couponId ?? "",
+              couponCode: fromIntentMeta.couponCode ?? intent.metadata?.couponCode ?? "",
+              couponAmountApplied: fromIntentMeta.couponAmountApplied ?? intent.metadata?.couponAmountApplied ?? "",
+              percentId: fromIntentMeta.percentId ?? intent.metadata?.percentId ?? "",
+              percentCode: fromIntentMeta.percentCode ?? intent.metadata?.percentCode ?? "",
+              percentValue: fromIntentMeta.percentValue ?? intent.metadata?.percentValue ?? "",
+              rawValue: fromIntentMeta.rawValue ?? intent.metadata?.rawValue ?? "",
             };
           } else {
-            // as last fallback, maybe a reservation doc exists (e.g., free-order flow or manual create)
             const resSnap = await db.collection("reservations").doc(reservationId).get();
             if (resSnap.exists) {
               const existing = resSnap.data() || {};
               console.log("ℹ️ Found existing reservation doc fallback for", reservationId);
+
+              // if existing has metadata (from checkout), prefer that for coupon fields
+              const existingMeta = (existing.metadata && typeof existing.metadata === "object") ? { ...existing.metadata } : {};
+
               meta = {
-                checkIn: existing.checkIn,
-                checkOut: existing.checkOut,
-                nights: existing.nights,
-                guests: existing.guests,
-                includedBase: existing.includedBase,
-                extraGuests: existing.extraGuests,
-                totalNightsOnly: existing.totalNightsOnly,
-                firstNightCharge: existing.firstNightCharge,
-                discountedFirst: existing.discountedFirst,
-                jacuzziEnabled: existing.jacuzzi?.enabled,
-                jacuzziFee: existing.jacuzziFee,
-                grandTotal: existing.grandTotal,
-                discountedGrandTotal: existing.discountedGrandTotal,
-                currency: existing.currency,
-                customerEmail: existing.customerEmail || existing?.customer?.email,
-                customerName: existing?.customer?.name,
-                customerPhone: existing?.customer?.phone,
-                arrivalTime: existing?.customer?.arrivalTime,
-                comment: existing?.customer?.comment,
-                houseIds: existing.houseIds,
-                app_user_id: existing?.customer?.userId || existing.app_user_id,
+                checkIn: existingMeta.checkIn ?? existing.checkIn,
+                checkOut: existingMeta.checkOut ?? existing.checkOut,
+                nights: existingMeta.nights ?? existing.nights,
+                guests: existingMeta.guests ?? existing.guests,
+                includedBase: existingMeta.includedBase ?? existing.includedBase,
+                extraGuests: existingMeta.extraGuests ?? existing.extraGuests,
+                totalNightsOnly: existingMeta.totalNightsOnly ?? existing.totalNightsOnly,
+                firstNightCharge: existingMeta.firstNightCharge ?? existing.firstNightCharge,
+                discountedFirst: existingMeta.discountedFirst ?? existing.discountedFirst,
+                jacuzziEnabled: existingMeta.jacuzziEnabled ?? existing.jacuzzi?.enabled ?? false,
+                jacuzziFee: existingMeta.jacuzziFee ?? existing.jacuzziFee ?? 0,
+                grandTotal: existingMeta.grandTotal ?? existing.grandTotal,
+                discountedGrandTotal: existingMeta.discountedGrandTotal ?? existing.discountedGrandTotal,
+                currency: existingMeta.currency ?? existing.currency,
+                customerEmail: existingMeta.customerEmail ?? existing.customerEmail ?? existing?.customer?.email,
+                customerName: existingMeta.customerName ?? existing?.customer?.name,
+                customerPhone: existingMeta.customerPhone ?? existing?.customer?.phone,
+                arrivalTime: existingMeta.arrivalTime ?? existing?.customer?.arrivalTime,
+                comment: existingMeta.comment ?? existing?.customer?.comment,
+                houseIds: existingMeta.houseIds ?? existing.houseIds,
+                app_user_id: existingMeta.app_user_id ?? existing?.customer?.userId ?? existing.app_user_id,
+                // coupon/percent fields
+                discountKind: existingMeta.discountKind ?? existing.discountKind ?? "",
+                couponId: existingMeta.couponId ?? existing.coupon?.id ?? existing.couponId ?? "",
+                couponCode: existingMeta.couponCode ?? existing.coupon?.code ?? existing.couponCode ?? "",
+                couponAmountApplied: existingMeta.couponAmountApplied ?? existing.coupon?.amountApplied ?? existing.couponAmountApplied ?? "",
+                percentId: existingMeta.percentId ?? existing.percentDiscount?.id ?? existing.percentId ?? "",
+                percentCode: existingMeta.percentCode ?? existing.percentDiscount?.code ?? existing.percentCode ?? "",
+                percentValue: existingMeta.percentValue ?? existing.percentDiscount?.percent ?? existing.percentValue ?? "",
+                rawValue: existingMeta.rawValue ?? existing.rawValue ?? "",
               };
             } else {
               console.log("ℹ️ No checkout_intent or reservation doc found for fallback:", reservationId);
@@ -346,7 +363,7 @@ export async function POST(req: Request) {
     if (statusFromMontonio === "paid" || statusFromMontonio === "captured" || statusFromMontonio === "confirmed") {
       const type = metadataCandidate?.type || payload?.type || "";
 
-      // coupon flow
+      // coupon purchase (coupon orders)
       if (String(type) === "coupon") {
         const orderId = metadataCandidate?.orderId || payload?.orderId || payload?.merchantReference || merchantReference;
         if (!orderId) return NextResponse.json({ ok: true });
@@ -511,7 +528,6 @@ export async function POST(req: Request) {
       const arrivalTime = meta?.arrivalTime || "";
       const comment = meta?.comment || "";
 
-      // Montonio-specific info that is analogous to Stripe fields
       const montonioOrderUuid = uuid || null;
       const montonioNotification = payload;
 
@@ -542,10 +558,9 @@ export async function POST(req: Request) {
           currency,
           status: "reserved",
           createdAt: existsAlready ? snap.data()?.createdAt || nowTs : nowTs,
-          // paidAt marks moment of receiving notification that first-night payment was successful
           paidAt: nowTs,
           montonioOrderUuid: montonioOrderUuid,
-          montonioNotification, // save payload for audit
+          montonioNotification,
           customerEmail: customerEmailFromMeta || null,
           customer: {
             email: customerEmailFromMeta || null,
@@ -558,7 +573,7 @@ export async function POST(req: Request) {
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         };
 
-        // APPLY COUPON OR PERCENT within same transaction (mirrors Stripe webhook)
+        // APPLY COUPON OR PERCENT within same transaction
         if (discountKind === "coupon" && couponId && Number(couponAmountApplied) > 0) {
           console.log("💳 Aplicando cupón (webhook):", couponId);
           const couponBlock = await applyCouponInTx(tx, {
@@ -570,11 +585,8 @@ export async function POST(req: Request) {
           });
           baseReservationPayload.coupon = couponBlock;
 
-          // Also adjust discountedFirst/discountedGrandTotal if coupon was successfully deducted
           if (!couponBlock.deductionError && Number(couponBlock.amountApplied) > 0) {
-            // Use the couponBlock.amountApplied (euros)
-            const applied = Number(couponBlock.amountApplied || couponBlock.amountApplied || 0);
-            // Only adjust if the metadata didn't already reflect the deduction (defensive)
+            const applied = Number(couponBlock.amountApplied || 0);
             baseReservationPayload.discountedFirst = Math.max(0, (baseReservationPayload.discountedFirst || discountedFirst) - applied);
             baseReservationPayload.discountedGrandTotal = Math.max(0, (baseReservationPayload.discountedGrandTotal || discountedGrandTotal) - applied);
           }
@@ -590,8 +602,6 @@ export async function POST(req: Request) {
           });
           baseReservationPayload.percentDiscount = percentBlock;
 
-          // For percent discounts, the checkout flow already computed discountedFirst (metadata),
-          // but we ensure discountedGrandTotal reflects the applied amount (defensive).
           if (!percentBlock.deductionError && Number(percentBlock.amountApplied) > 0) {
             const applied = Number(percentBlock.amountApplied || 0);
             baseReservationPayload.discountedFirst = Math.max(0, (baseReservationPayload.discountedFirst || discountedFirst) - applied);
@@ -613,7 +623,6 @@ export async function POST(req: Request) {
         const intentRef = db.collection("checkout_intents").doc(reservationId);
         const intentSnap = await intentRef.get();
         if (intentSnap.exists) {
-          // prefer to mark consumed (so we keep archive), but you can delete if preferred
           await intentRef.update({
             consumed: true,
             consumedAt: admin.firestore.Timestamp.now(),

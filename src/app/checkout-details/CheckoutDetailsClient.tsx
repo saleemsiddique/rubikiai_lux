@@ -572,11 +572,12 @@ export default function CheckoutDetailsClient() {
 
   // añade esto dentro del componente CheckoutDetailsClient (por ejemplo, abajo del handleGoToCheckout)
 
+  // client-side (React / TSX) - handleMontonioCheckout
   const handleMontonioCheckout = async () => {
     if (!canSubmit || !priceData) return;
 
     try {
-      // Build discount payload for backend
+      // build discount payload for backend (same shape that /api/create-checkout-session uses)
       let discountPayload: any = null;
 
       if (discountApplied && discountData) {
@@ -585,19 +586,22 @@ export default function CheckoutDetailsClient() {
             kind: "coupon",
             id: discountData.coupon.id || "",
             code: discountData.coupon.code || "",
-            value: appliedEuroDiscount,
+            value: appliedEuroDiscount, // euros
           };
-        } else if (discountData.kind === "percent" && discountData.percentDoc) {
+        } else if (
+          discountData.kind === "percent" &&
+          discountData.percentDoc
+        ) {
           discountPayload = {
             kind: "percent",
             id: discountData.percentDoc.id || "",
             code: discountData.percentDoc.code || "",
-            value: Number(discountData.percentDoc.percent || 0),
+            value: Number(discountData.percentDoc.percent || 0), // percent number
           };
         }
       }
 
-      const body = {
+      const body: any = {
         houseId,
         houseSlug: houseSlug || undefined,
         start: startIso,
@@ -612,52 +616,48 @@ export default function CheckoutDetailsClient() {
         },
         extras: {
           jacuzzi: withJacuzzi
-            ? { enabled: true, price: priceData.jacuzziFee }
+            ? {
+              enabled: true,
+              price: priceData.jacuzziFee, // backend trustable price
+            }
             : { enabled: false },
         },
-        // Datos de pricing detallado
-        includedBase: priceData.includedBase,
-        totalNightsOnly: priceData.total,
-        firstNightCharge: priceData.first,
-        discountedFirst: 0,
-        // Descuento
-        discountKind: discountPayload?.kind || "",
-        couponId: discountPayload?.kind === "coupon" ? discountPayload.id : "",
-        couponCode: discountPayload?.kind === "coupon" ? discountPayload.code : "",
-        couponAmountApplied: discountPayload?.kind === "coupon" ? String(discountPayload.value) : "",
-        percentId: discountPayload?.kind === "percent" ? discountPayload.id : "",
-        percentCode: discountPayload?.kind === "percent" ? discountPayload.code : "",
-        percentValue: discountPayload?.kind === "percent" ? String(discountPayload.value) : "",
+        discount: discountPayload || undefined,
       };
 
       const res = await fetch("/api/montonio/checkout", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json"
-        },
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify(body),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        console.error("Montonio checkout failed", data);
-        alert(`Error: ${data.error || 'Unknown error'}`);
+        console.error("montonio checkout failed", data);
+        alert(data.error || "Error creating Montonio checkout");
         return;
       }
 
       if (data.url) {
+        // redirect to Montonio payment page
         window.location.href = data.url;
+        return;
+      }
+
+      // If Montonio returned no url but told us the order was created (free order), redirect to internal success
+      if (data.successUrl) {
+        window.location.href = data.successUrl;
         return;
       }
 
       alert("No checkout URL returned");
     } catch (err) {
-      console.error("Montonio checkout error:", err);
+      console.error("handleMontonioCheckout error:", err);
       alert("Network error creating Montonio checkout");
     }
   };
+
 
 
   const nights = priceData?.nights ?? 0;

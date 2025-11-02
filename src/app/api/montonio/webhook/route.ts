@@ -9,8 +9,7 @@ if (!MONTONIO_SECRET_KEY) {
   console.error("MONTONIO_SECRET_KEY is not set for webhook validation.");
 }
 
-/* ---------- helpers (portadas desde el webhook de Stripe) ---------- */
-
+/* helpers (copiados de tu webhook/stripe code) */
 function addMonths(date: Date, months: number) {
   const d = new Date(date);
   d.setMonth(d.getMonth() + months);
@@ -22,12 +21,6 @@ function makeCode(): string {
   return `${chunk()}-${chunk()}`;
 }
 
-/**
- * Descuenta saldo de cupón en Firestore y devuelve el bloque `coupon`
- * actualizado (con deductedAt o con error).
- *
- * IMPORTANTE: debe llamarse DENTRO de una transaction.
- */
 async function applyCouponInTx(
   tx: FirebaseFirestore.Transaction,
   {
@@ -102,9 +95,6 @@ async function applyCouponInTx(
   };
 }
 
-/**
- * Marca un descuento porcentual como usado dentro de la misma transacción.
- */
 async function applyPercentDiscountInTx(
   tx: FirebaseFirestore.Transaction,
   {
@@ -166,19 +156,12 @@ async function applyPercentDiscountInTx(
   };
 }
 
-/* ---------- webhook handler ---------- */
-
-/**
- * Webhook endpoint para recibir notificaciones de Montonio.
- * Valida orderToken (JWT) con MONTONIO_SECRET_KEY, luego actúa exactamente
- * como el webhook de Stripe: crea coupon_orders + coupons para tipo=coupon
- * y crea/mergea reservas para pagos normales, descontando cupones/porcentajes
- * dentro de transacciones.
- */
+/* webhook handler */
 export async function POST(req: Request) {
   try {
     const url = new URL(req.url);
     const body = await req.json().catch(() => ({}));
+    // Montonio may send token in body.orderToken or query param order-token
     const token = body?.orderToken || url.searchParams.get("order-token");
     if (!token) {
       console.warn("No orderToken in webhook request");
@@ -203,7 +186,6 @@ export async function POST(req: Request) {
 
     console.log("📩 Montonio webhook payload completo:", JSON.stringify(payload, null, 2));
 
-    // Mapeos principales: merchantReference (reservationId / orderId), uuid, status
     const merchantReference: string | undefined = payload?.merchantReference || payload?.merchant_reference || payload?.merchant_reference_id || payload?.merchantRef;
     const uuid: string | undefined = payload?.uuid || payload?.order_uuid || payload?.id;
     const statusFromMontonio: string | undefined = (payload?.status || payload?.paymentStatus || payload?.state || "").toString().toLowerCase();
@@ -212,26 +194,22 @@ export async function POST(req: Request) {
     console.log("🔍 uuid:", uuid);
     console.log("🔍 status:", statusFromMontonio);
 
-    // --------- CASO: pago completado (equivalente checkout.session.completed) ---------
-    // Montonio puede enviar status: paid / captured / confirmed
+    // Only interested in paid/captured/confirmed
     if (statusFromMontonio === "paid" || statusFromMontonio === "captured" || statusFromMontonio === "confirmed") {
-      // verificamos si es compra de cupones: intentamos leer type desde payload.metadata o merchant metadata
       const metadata = payload?.metadata || {};
       const type = metadata?.type || payload?.type || "";
 
       console.log("📦 Metadata recibida:", JSON.stringify(metadata, null, 2));
 
-      // Si es compra de cupón -> crear coupon_orders y cupones (igual que Stripe)
       if (String(type) === "coupon") {
+        // coupon purchase flow (kept identical to your Stripe webhook handling)
         const orderId = metadata?.orderId || payload?.orderId || payload?.merchantReference || merchantReference;
         if (!orderId) return NextResponse.json({ ok: true });
 
         const orderRef = db.collection("coupon_orders").doc(orderId);
-        // Montonio no tiene session id como Stripe; guardaremos montonio uuid
         const paymentUuid = uuid || null;
         const buyerEmail = payload?.customer?.email || metadata?.buyerEmail || payload?.email || null;
 
-        // Paso 1: asegurar que coupon_orders está en "processing"
         const result = await db.runTransaction(async (tx) => {
           const snap = await tx.get(orderRef);
           if (!snap.exists) {
@@ -251,36 +229,17 @@ export async function POST(req: Request) {
           } else {
             const data: any = snap.data();
             if (data.status === "completed") {
-              return {
-                quantity: Number(data.quantity || 1),
-                unitAmount: Number(data.unitAmount || 0),
-                alreadyCompleted: true,
-              };
+              return { quantity: Number(data.quantity || 1), unitAmount: Number(data.unitAmount || 0), alreadyCompleted: true };
             }
-            const quantity = Number.isFinite(Number(data.quantity))
-              ? Number(data.quantity)
-              : parseInt(String(metadata?.quantity || 1), 10) || 1;
-            const unitAmount = Number.isFinite(Number(data.unitAmount))
-              ? Number(data.unitAmount)
-              : Number(metadata?.unitAmount || payload?.amount || 0) || 0;
-
-            tx.update(orderRef, {
-              status: "processing",
-              montonioOrderUuid: paymentUuid,
-              buyerEmail: data.buyerEmail || buyerEmail || null,
-              unitAmount,
-              quantity,
-            });
-
+            const quantity = Number.isFinite(Number(data.quantity)) ? Number(data.quantity) : parseInt(String(metadata?.quantity || 1), 10) || 1;
+            const unitAmount = Number.isFinite(Number(data.unitAmount)) ? Number(data.unitAmount) : Number(metadata?.unitAmount || payload?.amount || 0) || 0;
+            tx.update(orderRef, { status: "processing", montonioOrderUuid: paymentUuid, buyerEmail: data.buyerEmail || buyerEmail || null, unitAmount, quantity });
             return { quantity, unitAmount, alreadyCompleted: false };
           }
         });
 
-        if (result.alreadyCompleted) {
-          return NextResponse.json({ received: true });
-        }
+        if (result.alreadyCompleted) return NextResponse.json({ received: true });
 
-        // Paso 2: crear códigos de cupón reales
         const purchasedAt = admin.firestore.Timestamp.now();
         const expiresAt = admin.firestore.Timestamp.fromDate(addMonths(new Date(), 12));
         const quantity = result.quantity;
@@ -310,10 +269,7 @@ export async function POST(req: Request) {
             createdCodes.push({ code, remaining: unitAmount });
           } else {
             const cData: any = cSnap.data();
-            createdCodes.push({
-              code: String(cData.code),
-              remaining: Number(cData.remaining ?? unitAmount),
-            });
+            createdCodes.push({ code: String(cData.code), remaining: Number(cData.remaining ?? unitAmount) });
           }
         }
 
@@ -327,7 +283,6 @@ export async function POST(req: Request) {
 
         await batch.commit();
 
-        // Paso 3: email con los códigos
         if (buyerEmail) {
           try {
             await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
@@ -357,8 +312,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ received: true });
       }
 
-      // ----------------- RESERVA NORMAL (pago Montonio -> tratamos como checkout.session.completed) -----------------
-
+      // Normal reservation flow
       const reservationId = merchantReference || metadata?.reservationId || payload?.reservationId;
       if (!reservationId) {
         console.log("⚠️ No se encontró reservationId en el payload");
@@ -368,31 +322,20 @@ export async function POST(req: Request) {
       console.log("✅ Procesando reserva:", reservationId);
 
       const resRef = db.collection("reservations").doc(reservationId);
-
-      // CRÍTICO: Leer metadata que viene en el JWT
       const meta = metadata || {};
 
       console.log("📋 Extrayendo datos de metadata...");
-      
-      const houseIdsCsv = meta?.houseIds || "";
-      const houseIds = String(houseIdsCsv)
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
 
-      console.log("🏠 houseIds:", houseIds);
+      const houseIdsCsv = meta?.houseIds || "";
+      const houseIds = String(houseIdsCsv).split(",").map((s) => s.trim()).filter(Boolean);
 
       const checkIn = meta?.checkIn || "";
       const checkOut = meta?.checkOut || "";
       const nights = Number(meta?.nights ?? 0);
 
-      console.log("📅 Fechas - checkIn:", checkIn, "checkOut:", checkOut, "nights:", nights);
-
       const guestsNum = Number(meta?.guests ?? 0);
       const includedBase = Number(meta?.includedBase ?? 2);
       const extraGuests = Number(meta?.extraGuests ?? 0);
-
-      console.log("👥 Huéspedes - guests:", guestsNum, "included:", includedBase, "extra:", extraGuests);
 
       const totalNightsOnly = Number(meta?.totalNightsOnly ?? 0);
       const firstNightCharge = Number(meta?.firstNightCharge ?? 0);
@@ -401,23 +344,17 @@ export async function POST(req: Request) {
       const jacuzziEnabled = meta?.jacuzziEnabled === "true" || meta?.jacuzziEnabled === true;
       const jacuzziFee = Number(meta?.jacuzziFee ?? 0);
 
-      console.log("🛁 Jacuzzi - enabled:", jacuzziEnabled, "fee:", jacuzziFee);
-
       const grandTotal = Number(meta?.grandTotal ?? 0);
       const discountedGrandTotal = Number(meta?.discountedGrandTotal ?? 0);
       const currency = (meta?.currency || "EUR").toUpperCase();
 
-      console.log("💰 Precios - grandTotal:", grandTotal, "discounted:", discountedGrandTotal);
-
-      const discountKind = meta?.discountKind || ""; // "coupon" | "percent" | ""
+      const discountKind = meta?.discountKind || "";
       const couponId = meta?.couponId || "";
       const couponCode = meta?.couponCode || "";
       const percentId = meta?.percentId || "";
       const percentCode = meta?.percentCode || "";
       const percentValue = meta?.percentValue || "";
       const couponAmountApplied = meta?.couponAmountApplied || "";
-
-      console.log("🎫 Descuento - kind:", discountKind, "couponId:", couponId, "percentId:", percentId);
 
       const app_user_id = meta?.app_user_id || "";
 
@@ -427,10 +364,6 @@ export async function POST(req: Request) {
       const arrivalTime = meta?.arrivalTime || "";
       const comment = meta?.comment || "";
 
-      console.log("👤 Customer - email:", customerEmailFromMeta, "name:", customerNameFromMeta);
-
-      // 2. Creamos la reserva en Firestore con status "reserved"
-      //    y descontamos cupón dentro de UNA MISMA transacción
       await db.runTransaction(async (tx) => {
         const snap = await tx.get(resRef);
         const existsAlready = snap.exists;
@@ -439,10 +372,7 @@ export async function POST(req: Request) {
         console.log("💾 Guardando reserva - existe?:", existsAlready);
 
         const baseReservationPayload: any = {
-          houseId:
-            houseIds.length === 1
-              ? houseIds[0]
-              : houseIds.join("__"),
+          houseId: houseIds.length === 1 ? houseIds[0] : houseIds.join("__"),
           houseIds,
           checkIn,
           checkOut,
@@ -453,25 +383,16 @@ export async function POST(req: Request) {
           totalNightsOnly,
           firstNightCharge,
           discountedFirst,
-          jacuzzi: jacuzziEnabled
-            ? { enabled: true, fee: jacuzziFee }
-            : { enabled: false, fee: 0 },
+          jacuzzi: jacuzziEnabled ? { enabled: true, fee: jacuzziFee } : { enabled: false, fee: 0 },
           jacuzziFee,
           grandTotal,
           discountedGrandTotal,
           currency,
-
           status: "reserved",
-          createdAt: existsAlready
-            ? snap.data()?.createdAt || nowTs
-            : nowTs,
+          createdAt: existsAlready ? snap.data()?.createdAt || nowTs : nowTs,
           paidAt: nowTs,
-
           montonioOrderUuid: uuid || null,
-
-          customerEmail:
-            customerEmailFromMeta || null,
-
+          customerEmail: customerEmailFromMeta || null,
           customer: {
             email: customerEmailFromMeta || null,
             name: customerNameFromMeta || null,
@@ -482,11 +403,7 @@ export async function POST(req: Request) {
           },
         };
 
-        if (
-          discountKind === "coupon" &&
-          couponId &&
-          Number(couponAmountApplied) > 0
-        ) {
+        if (discountKind === "coupon" && couponId && Number(couponAmountApplied) > 0) {
           console.log("💳 Aplicando cupón:", couponId);
           const couponBlock = await applyCouponInTx(tx, {
             couponId,
@@ -496,10 +413,7 @@ export async function POST(req: Request) {
             checkoutSessionId: uuid || "montonio",
           });
           baseReservationPayload.coupon = couponBlock;
-        } else if (
-          discountKind === "percent" &&
-          percentId
-        ) {
+        } else if (discountKind === "percent" && percentId) {
           console.log("📊 Aplicando descuento porcentual:", percentId);
           const percentBlock = await applyPercentDiscountInTx(tx, {
             percentId,
@@ -522,39 +436,31 @@ export async function POST(req: Request) {
       });
 
       console.log("✅ Reserva procesada exitosamente:", reservationId);
-
       return NextResponse.json({ received: true });
     }
 
-    // --------- CASO: checkout.session.expired (equivalente) ---------
-    // status can be expired / cancelled / failed
+    // Handle cancelled/failed/expired
     if (statusFromMontonio === "expired" || statusFromMontonio === "cancelled" || statusFromMontonio === "failed") {
       console.log("❌ Pago fallido/cancelado:", statusFromMontonio);
-      
-      // Si viene merchantReference -> cancelamos reserva y la marcamos canceled
       const reservationId = merchantReference || payload?.reservationId;
       if (reservationId) {
         const resRef = db.collection("reservations").doc(reservationId);
-        await resRef.set(
-          {
-            status: "canceled",
-            paymentRejectedReason: `montonio_${statusFromMontonio}`,
-            canceledAt: admin.firestore.Timestamp.now(),
-            montonioNotification: payload,
-            montonioStatus: statusFromMontonio,
-            montonioOrderUuid: uuid || admin.firestore.FieldValue.delete(),
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-          },
-          { merge: true }
-        );
+        await resRef.set({
+          status: "canceled",
+          paymentRejectedReason: `montonio_${statusFromMontonio}`,
+          canceledAt: admin.firestore.Timestamp.now(),
+          montonioNotification: payload,
+          montonioStatus: statusFromMontonio,
+          montonioOrderUuid: uuid || admin.firestore.FieldValue.delete(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
       }
-
       return NextResponse.json({ received: true });
     }
 
-    // Si no coincide ningún caso, simplemente guardamos la notificación en la reserva si existe
+    // Default: store notification in reservation if exists
     console.log("⚠️ Status desconocido:", statusFromMontonio);
-    
+
     if (merchantReference) {
       const docRef = db.collection("reservations").doc(merchantReference);
       const snap = await docRef.get();

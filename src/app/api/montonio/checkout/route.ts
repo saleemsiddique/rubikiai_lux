@@ -23,6 +23,23 @@ interface RequestBody {
   guests: number;
   customer: CustomerData;
   extras?: ExtrasData;
+  // Nuevos campos opcionales para pricing detallado
+  includedBase?: number;
+  totalNightsOnly?: number;
+  firstNightCharge?: number;
+  discountedFirst?: number;
+  // Descuentos
+  discountKind?: string; // "coupon" | "percent" | ""
+  couponId?: string;
+  couponCode?: string;
+  couponAmountApplied?: string;
+  percentId?: string;
+  percentCode?: string;
+  percentValue?: string;
+  // Usuario
+  app_user_id?: string;
+  arrivalTime?: string;
+  comment?: string;
 }
 
 interface BillingAddress {
@@ -64,6 +81,10 @@ interface MontonioPayload {
   billingAddress: BillingAddress;
   lineItems: LineItem[];
   payment: PaymentOptions;
+  // CRÍTICO: Agregar metadata para que el webhook pueda reconstruir la reserva
+  metadata?: {
+    [key: string]: string;
+  };
 }
 
 interface ReservationData {
@@ -81,20 +102,103 @@ interface ReservationData {
 export async function POST(req: NextRequest) {
   try {
     const body: RequestBody = await req.json();
-    const { houseId, houseSlug, start, end, guests, customer, extras } = body;
+    const { 
+      houseId, 
+      houseSlug, 
+      start, 
+      end, 
+      guests, 
+      customer, 
+      extras,
+      includedBase = 2,
+      totalNightsOnly = 0,
+      firstNightCharge = 0,
+      discountedFirst = 0,
+      discountKind = "",
+      couponId = "",
+      couponCode = "",
+      couponAmountApplied = "",
+      percentId = "",
+      percentCode = "",
+      percentValue = "",
+      app_user_id = "",
+      arrivalTime = "",
+      comment = ""
+    } = body;
 
     // Validate required fields
     if (!houseId || !start || !end || !guests || !customer) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // Calculate total amount (replace with your pricing logic)
+    // Calculate dates and nights
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    const nights = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+
+    // Calculate pricing
     const basePrice: number = calculateBasePrice(houseId, start, end, guests);
     const jacuzziPrice: number = extras?.jacuzzi?.enabled ? (extras.jacuzzi.price || 0) : 0;
     const grandTotal: number = basePrice + jacuzziPrice;
+    
+    // Calculate discount
+    const discountAmount = Number(couponAmountApplied) || 0;
+    const discountedGrandTotal = grandTotal - discountAmount;
+    const finalAmount = Math.max(discountedGrandTotal, 0);
 
     // Generate unique merchant reference
     const merchantReference: string = `booking-${houseId}-${Date.now()}`;
+
+    // Calculate extra guests
+    const extraGuests = guests > includedBase ? guests - includedBase : 0;
+
+    // Create metadata with ALL reservation data
+    const metadata: { [key: string]: string } = {
+      // IDs y referencias
+      reservationId: merchantReference,
+      houseIds: houseId,
+      
+      // Fechas
+      checkIn: start,
+      checkOut: end,
+      nights: String(nights),
+      
+      // Huéspedes
+      guests: String(guests),
+      includedBase: String(includedBase),
+      extraGuests: String(extraGuests),
+      
+      // Pricing
+      totalNightsOnly: String(totalNightsOnly || basePrice),
+      firstNightCharge: String(firstNightCharge),
+      discountedFirst: String(discountedFirst),
+      grandTotal: String(grandTotal),
+      discountedGrandTotal: String(finalAmount),
+      currency: "EUR",
+      
+      // Jacuzzi
+      jacuzziEnabled: String(extras?.jacuzzi?.enabled || false),
+      jacuzziFee: String(jacuzziPrice),
+      
+      // Customer info
+      customerEmail: customer.email,
+      customerName: customer.name,
+      customerPhone: customer.phone || "",
+      arrivalTime: arrivalTime || "",
+      comment: comment || "",
+      
+      // Descuentos
+      discountKind: discountKind || "",
+      couponId: couponId || "",
+      couponCode: couponCode || "",
+      couponAmountApplied: couponAmountApplied || "",
+      percentId: percentId || "",
+      percentCode: percentCode || "",
+      percentValue: percentValue || "",
+      
+      // Usuario
+      app_user_id: app_user_id || "",
+    };
 
     // Create JWT payload for Montonio
     const payload: MontonioPayload = {
@@ -103,7 +207,7 @@ export async function POST(req: NextRequest) {
       returnUrl: `${process.env.NEXT_PUBLIC_APP_URL}/payment/success?ref=${merchantReference}`,
       notificationUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/montonio/webhook`,
       currency: "EUR",
-      grandTotal: parseFloat(grandTotal.toFixed(2)),
+      grandTotal: parseFloat(finalAmount.toFixed(2)),
       locale: "en",
       billingAddress: {
         firstName: customer.name.split(' ')[0] || 'Guest',
@@ -119,7 +223,7 @@ export async function POST(req: NextRequest) {
         {
           name: `Accommodation - ${houseSlug || houseId}`,
           quantity: 1,
-          finalPrice: basePrice
+          finalPrice: discountedGrandTotal
         }
       ],
       payment: {
@@ -129,9 +233,11 @@ export async function POST(req: NextRequest) {
           paymentDescription: `Payment for booking ${merchantReference}`,
           preferredCountry: "EE"
         },
-        amount: parseFloat(grandTotal.toFixed(2)),
+        amount: parseFloat(discountedGrandTotal.toFixed(2)),
         currency: "EUR"
-      }
+      },
+      // CRÍTICO: incluir metadata en el payload
+      metadata: metadata
     };
 
     // Add jacuzzi as separate line item if enabled
@@ -140,6 +246,15 @@ export async function POST(req: NextRequest) {
         name: "Private Jacuzzi",
         quantity: 1,
         finalPrice: jacuzziPrice
+      });
+    }
+
+    // Add discount as line item if applicable
+    if (discountAmount > 0) {
+      payload.lineItems.push({
+        name: `Discount ${discountKind === 'coupon' ? `(Code: ${couponCode})` : `(${percentValue}%)`}`,
+        quantity: 1,
+        finalPrice: -discountAmount
       });
     }
 
@@ -154,16 +269,8 @@ export async function POST(req: NextRequest) {
       ? 'https://stargate.montonio.com/api/orders'
       : 'https://sandbox-stargate.montonio.com/api/orders';
 
-    console.log('Montonio checkout payload:', apiUrl);
-
-    // Add this before generating the token
-    console.log('JWT Payload:', JSON.stringify(payload, null, 2));
-
-    // Add this after generating the token
-    console.log('Generated Token:', token);
-
-    // Add this to see the full request
-    console.log('Request body:', JSON.stringify({ data: token }, null, 2));
+    console.log('Montonio checkout - API URL:', apiUrl);
+    console.log('Montonio checkout - Metadata:', metadata);
 
     // Create order with Montonio
     const response = await axios.post(
@@ -178,7 +285,7 @@ export async function POST(req: NextRequest) {
       }
     );
 
-    // Store reservation data in your database here
+    // Store initial reservation data in your database
     await saveReservationData({
       merchantReference,
       houseId,
@@ -187,7 +294,7 @@ export async function POST(req: NextRequest) {
       guests,
       customer,
       extras,
-      grandTotal,
+      grandTotal: finalAmount,
       status: 'pending'
     });
 
@@ -199,12 +306,16 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     console.error('Montonio checkout error:', error);
 
-    // Add this to see the detailed error from Montonio
     if (error.response) {
       console.error('Error response data:', error.response.data);
       console.error('Error response status:', error.response.status);
       console.error('Error response headers:', error.response.headers);
     }
+
+    return NextResponse.json(
+      { error: error.response?.data?.message || 'Checkout failed' },
+      { status: error.response?.status || 500 }
+    );
   }
 }
 
@@ -223,7 +334,7 @@ function calculateBasePrice(houseId: string, start: string, end: string, guests:
 // Helper function to save reservation data (replace with your database logic)
 async function saveReservationData(reservationData: ReservationData): Promise<boolean> {
   // Replace this with your actual database save logic
-  console.log('Saving reservation:', reservationData);
+  console.log('Saving initial reservation:', reservationData);
 
   // Example with a database:
   // await db.collection('reservations').add(reservationData);

@@ -576,6 +576,27 @@ export default function CheckoutDetailsClient() {
     if (!canSubmit || !priceData) return;
 
     try {
+      // Build discount payload for backend
+      let discountPayload: any = null;
+
+      if (discountApplied && discountData) {
+        if (discountData.kind === "coupon" && discountData.coupon) {
+          discountPayload = {
+            kind: "coupon",
+            id: discountData.coupon.id || "",
+            code: discountData.coupon.code || "",
+            value: appliedEuroDiscount,
+          };
+        } else if (discountData.kind === "percent" && discountData.percentDoc) {
+          discountPayload = {
+            kind: "percent",
+            id: discountData.percentDoc.id || "",
+            code: discountData.percentDoc.code || "",
+            value: Number(discountData.percentDoc.percent || 0),
+          };
+        }
+      }
+
       const body = {
         houseId,
         houseSlug: houseSlug || undefined,
@@ -586,12 +607,27 @@ export default function CheckoutDetailsClient() {
           email,
           name: `${firstName} ${lastName}`.trim(),
           phone,
+          arrivalTime: arrivalTime || undefined,
+          comment: comment || undefined,
         },
         extras: {
           jacuzzi: withJacuzzi
             ? { enabled: true, price: priceData.jacuzziFee }
             : { enabled: false },
         },
+        // Datos de pricing detallado
+        includedBase: priceData.includedBase,
+        totalNightsOnly: priceData.total,
+        firstNightCharge: priceData.first,
+        discountedFirst: 0,
+        // Descuento
+        discountKind: discountPayload?.kind || "",
+        couponId: discountPayload?.kind === "coupon" ? discountPayload.id : "",
+        couponCode: discountPayload?.kind === "coupon" ? discountPayload.code : "",
+        couponAmountApplied: discountPayload?.kind === "coupon" ? String(discountPayload.value) : "",
+        percentId: discountPayload?.kind === "percent" ? discountPayload.id : "",
+        percentCode: discountPayload?.kind === "percent" ? discountPayload.code : "",
+        percentValue: discountPayload?.kind === "percent" ? String(discountPayload.value) : "",
       };
 
       const res = await fetch("/api/montonio/checkout", {

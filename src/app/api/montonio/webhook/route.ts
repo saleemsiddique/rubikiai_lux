@@ -369,7 +369,7 @@ export async function POST(req: Request) {
 
     // ---------- PROCESS "PAID / CAPTURED / CONFIRMED" ----------
     if (statusFromMontonio === "paid" || statusFromMontonio === "captured" || statusFromMontonio === "confirmed") {
-      
+
       let type = String(metadataCandidate?.type || payload?.type || "").toLowerCase();
       // fallback: if there is an existing coupon_orders doc with merchantReference/orderId, treat it as coupon
       const possibleOrderId = metadataCandidate?.orderId || payload?.orderId || payload?.merchantReference || merchantReference;
@@ -390,7 +390,6 @@ export async function POST(req: Request) {
         const paymentUuid = uuid || null;
         const buyerEmail = payload?.customer?.email || metadataCandidate?.buyerEmail || payload?.email || null;
 
-        // Ensure order doc exists/merge and set processing
         const result = await db.runTransaction(async (tx) => {
           const snap = await tx.get(orderRef);
           if (!snap.exists) {
@@ -406,26 +405,30 @@ export async function POST(req: Request) {
               montonioOrderUuid: paymentUuid,
               buyerEmail: buyerEmail || null,
             });
-            return { quantity, unitAmount, alreadyCompleted: false };
+            return { quantity, unitAmount, alreadyCompleted: false, buyerEmail: buyerEmail || null };
           } else {
             const data: any = snap.data();
             if (data.status === "completed") {
-              return { quantity: Number(data.quantity || 1), unitAmount: Number(data.unitAmount || 0), alreadyCompleted: true };
+              return { quantity: Number(data.quantity || 1), unitAmount: Number(data.unitAmount || 0), alreadyCompleted: true, buyerEmail: data.buyerEmail || null };
             }
             const quantity = Number.isFinite(Number(data.quantity)) ? Number(data.quantity) : parseInt(String(metadataCandidate?.quantity || 1), 10) || 1;
             const unitAmount = Number.isFinite(Number(data.unitAmount)) ? Number(data.unitAmount) : Number(metadataCandidate?.unitAmount || payload?.amount || 0) || 0;
-            tx.update(orderRef, { status: "processing", montonioOrderUuid: paymentUuid, buyerEmail: data.buyerEmail || buyerEmail || null, unitAmount, quantity });
-            return { quantity, unitAmount, alreadyCompleted: false };
+            // Preferir el buyerEmail ya almacenado en el doc si existe, si no usar el que venía en payload/metadata
+            const effectiveBuyerEmail = data.buyerEmail || buyerEmail || null;
+            tx.update(orderRef, { status: "processing", montonioOrderUuid: paymentUuid, buyerEmail: effectiveBuyerEmail, unitAmount, quantity });
+            return { quantity, unitAmount, alreadyCompleted: false, buyerEmail: effectiveBuyerEmail };
           }
         });
 
+
         if (result.alreadyCompleted) return NextResponse.json({ received: true });
 
-        // create coupon docs and mark order completed
         const purchasedAt = admin.firestore.Timestamp.now();
         const expiresAt = admin.firestore.Timestamp.fromDate(addMonths(new Date(), 12));
         const quantity = result.quantity;
         const unitAmount = result.unitAmount;
+        const buyerEmailFinal = result.buyerEmail || null; // <-- usar este valor garantizado
+
         const batch = db.batch();
         const createdCodes: Array<{ code: string; remaining: number }> = [];
 
@@ -436,7 +439,7 @@ export async function POST(req: Request) {
           if (!cSnap.exists) {
             const code = makeCode();
             batch.set(cRef, {
-              buyerEmail: buyerEmail || null,
+              buyerEmail: buyerEmailFinal,
               code,
               createdByWebhook: true,
               currency: (metadataCandidate?.currency || payload?.currency || "EUR").toUpperCase(),
@@ -456,13 +459,13 @@ export async function POST(req: Request) {
           }
         }
 
-        // update order doc fields to match your example
+        // cuando actualices el order doc, también puedes asegurar buyerEmail allí
         batch.update(orderRef, {
           status: "completed",
           completedAt: admin.firestore.Timestamp.now(),
           lastWebhookAt: admin.firestore.Timestamp.now(),
           montonioOrderUuid: paymentUuid || null,
-          buyerEmail: buyerEmail || null,
+          buyerEmail: buyerEmailFinal,
           unitAmount,
           unitAmountCents: Math.round(unitAmount * 100),
           quantity,
@@ -470,17 +473,18 @@ export async function POST(req: Request) {
           montonioPaymentUrl: payload?.paymentUrl || payload?.payment_url || payload?.order?.payment_url || null,
         });
 
+
         await batch.commit();
 
         // send email with codes (if buyerEmail present)
-        if (buyerEmail) {
+        if (buyerEmailFinal) {
           try {
             await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
               method: "POST",
               headers: { "content-type": "application/json" },
               body: JSON.stringify({
                 type: "coupon_purchase",
-                to: buyerEmail,
+                to: buyerEmailFinal,
                 data: {
                   unitAmount,
                   quantity,

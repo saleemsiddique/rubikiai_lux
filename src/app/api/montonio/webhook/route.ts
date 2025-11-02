@@ -220,6 +220,14 @@ export async function POST(req: Request) {
 
     const secret = new TextEncoder().encode(MONTONIO_SECRET_KEY);
 
+    // DEBUG: print minimal info at start
+    console.log("---- Montonio webhook: headers ----");
+    console.log(Object.fromEntries(req.headers.entries()));
+    const rawText1 = await req.text().catch(() => "");
+    console.log("---- Montonio webhook: raw body length ----", rawText1?.length);
+    console.log("---- Montonio webhook: raw body preview ----", (rawText1 || "").slice(0, 1000));
+
+
     let payload: any;
     try {
       const verified = await jwtVerify(token, secret);
@@ -361,7 +369,17 @@ export async function POST(req: Request) {
 
     // ---------- PROCESS "PAID / CAPTURED / CONFIRMED" ----------
     if (statusFromMontonio === "paid" || statusFromMontonio === "captured" || statusFromMontonio === "confirmed") {
-      const type = metadataCandidate?.type || payload?.type || "";
+      
+      let type = String(metadataCandidate?.type || payload?.type || "").toLowerCase();
+      // fallback: if there is an existing coupon_orders doc with merchantReference/orderId, treat it as coupon
+      const possibleOrderId = metadataCandidate?.orderId || payload?.orderId || payload?.merchantReference || merchantReference;
+      if (!type && possibleOrderId) {
+        const orderSnap = await db.collection("coupon_orders").doc(String(possibleOrderId)).get();
+        if (orderSnap.exists) {
+          console.log("Webhook fallback: found coupon_orders doc for", possibleOrderId, "— treating as coupon.");
+          type = "coupon";
+        }
+      }
 
       // coupon purchase (coupon orders)
       if (String(type) === "coupon") {

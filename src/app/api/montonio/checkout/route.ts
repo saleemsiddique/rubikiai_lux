@@ -100,8 +100,8 @@ export async function POST(req: NextRequest) {
     const payload: MontonioPayload = {
       accessKey: process.env.MONTONIO_ACCESS_KEY!,
       merchantReference: merchantReference,
-      returnUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/payment/success?ref=${merchantReference}`,
-      notificationUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/api/montonio/webhook`,
+      returnUrl: `${process.env.NEXT_PUBLIC_APP_URL}/payment/success?ref=${merchantReference}`,
+      notificationUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/montonio/webhook`,
       currency: "EUR",
       grandTotal: parseFloat(grandTotal.toFixed(2)),
       locale: "en",

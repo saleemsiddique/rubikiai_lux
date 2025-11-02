@@ -79,7 +79,7 @@ export default function CouponPage(): JSX.Element {
     setShowBankModal(true);
   };
 
-  // Confirm modal: call Montonio checkout endpoint with buyerEmail
+// Confirm modal: call Montonio checkout endpoint with buyerEmail
   const handleConfirmBankPayment = async () => {
     if (!buyerEmail || !buyerEmail.includes("@")) {
       window.alert("Introduce un correo válido para enviar el cupón.");
@@ -96,7 +96,7 @@ export default function CouponPage(): JSX.Element {
       if (!res.ok) throw new Error(data?.error || "Could not start Montonio checkout");
       const url = data?.url || data?.paymentUrl || data?.payment_url;
       if (url) {
-        // close modal briefly (good UX) then redirect
+        // close modal and redirect
         setShowBankModal(false);
         window.location.assign(url);
         return;

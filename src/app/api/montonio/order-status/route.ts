@@ -1,35 +1,41 @@
 // app/api/montonio/order-status/route.ts
 import { NextResponse } from "next/server";
-import admin, { adminDb as db } from "@/lib/firebase-admin";
-
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+import { adminDb as db } from "@/lib/firebase-admin";
 
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
     const orderId = url.searchParams.get("orderId");
+
     if (!orderId) {
-      return NextResponse.json({ error: "missing orderId" }, { status: 400 });
+      return NextResponse.json({ error: "Missing orderId" }, { status: 400 });
     }
 
-    const snap = await db.collection("coupon_orders").doc(orderId).get();
+    const orderRef = db.collection("coupon_orders").doc(orderId);
+    const snap = await orderRef.get();
+
     if (!snap.exists) {
-      return NextResponse.json({ status: "not_found" }, { status: 404 });
+      return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
-    const data = snap.data() || {};
-    // devolver un objeto pequeño
+
+    const data: any = snap.data();
+    const status = data?.status || "pending";
+
     return NextResponse.json({
-      status: data.status || "pending",
-      buyerEmail: data.buyerEmail || null,
-      unitAmount: data.unitAmount || null,
-      quantity: data.quantity || 1,
-      montonioOrderUuid: data.montonioOrderUuid || null,
-      montonioPaymentUrl: data.montonioPaymentUrl || null,
-      lastWebhookAt: data.lastWebhookAt || null,
+      orderId,
+      status,
+      unitAmount: data?.unitAmount,
+      quantity: data?.quantity,
+      buyerEmail: data?.buyerEmail,
+      createdAt: data?.createdAt?.toDate?.()?.toISOString() || null,
+      completedAt: data?.completedAt?.toDate?.()?.toISOString() || null,
+      montonioOrderUuid: data?.montonioOrderUuid || null,
     });
-  } catch (err: any) {
-    console.error("order-status error:", err);
-    return NextResponse.json({ error: err?.message || "internal_error" }, { status: 500 });
+  } catch (error: any) {
+    console.error("Order status error:", error);
+    return NextResponse.json(
+      { error: error.message || "Failed to get order status" },
+      { status: 500 }
+    );
   }
 }

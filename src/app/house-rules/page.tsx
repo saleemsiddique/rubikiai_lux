@@ -1,172 +1,130 @@
 // app/house-rules/page.tsx
 import React from "react";
+import HouseRulesClient from "./HouseRulesClient";
 
 export const metadata = {
   title: "House Rules | Rubikiai Lux",
 };
+const EZERO_NAMELIS = `TRUMPALAIKIO APGYVENDINIMO PASLAUGŲ SUTARTIS
+Haroldas Aukštikalnis gyv. Piliakalnio vs 1, LT-29203, Anykščių r., toliau sutartyje vadinamas paslaugų
+teikėju, ir ...........................................................................,
+gyv.vieta/buveinė ................................................................................................................................................, toliau sutartyje
+vadinamas Klientu, sudarydami 20....................... trumpalaikio apgyvendinimo paslaugų sutartį, susitariame, kad Klientas
+įsipareigoja besąlygiškai laikytis vidaus tvarkos taisyklių sodyboje „Rubikiai Lux Spa Apartments“, esančioje adresu Piliakalnio vs
+1, LT-29203, Anykščių r.
+Klientas privalo užtikrinti, kad su vidaus tvarkos taisyklėmis būtų supažindinti ir jų laikytųsi visi kartu su juo atvykę į sodybą
+svečiai. Jeigu klientas ar bet kuris iš kartu su klientu atvykusių svečių vidaus tvarkos taisyklių nesilaiko, už bet kokias kilusias
+pasekmes klientas atsako asmeniškai teisės aktų nustatyta tvarka.
 
-const RULES = `Dupleksas ir ežero namelis yra skirti tik svečiams norintiems ramaus poilsio, todėl primename, kad:
+Kitos nuostatos:
+1. Apgyvendinimo para prasideda 16 val., baigiasi kitos dienos 12 val.
+2. Atvykus reikia sumokėti likusią rezervacijos sumą.
+3. Atvykti su augintiniais griežtai draudžiama. Visgi atvykus, bus paprašyta išvykti. Mokėjimas nebus grąžinamas.
+4. Neišstumdyti baldų ir neperdėti daiktų į ne jiems skirtas vietas. Palaikyti apartamentuose tvarką ir švarą. Viskas yra idealaus
+stovio ir mes norėtumėme tai išlaikyti.
+5. Prašome saugoti musų turtą. Jei inventorius sulaužomas, sudaužomas ar kitaip sugadinamas - informuoti ir atsiskaityti
+reikia iš karto. Jeigu minėtą žalą padaro nepilnamečiai vaikai, materialiai už juos atsako jų tėvai ar globėjai, o šiems
+atsisakius žalą atlygina – visais atvejais Klientas.
+6. Jei Klientas atvyksta su nepilnamečiais vaikais - privalo rūpintis jais, t.y. nepalikti jų be
+priežiūros, ir pilnai atsako pats už jų saugumą bei pilnai materialiai atsako už vaikų padarytus sodyboje nuostolius
+(sulaužytą, sugadintą inventorių, turtą).
+7. Priimame svečius tik ramiam poilsiui, todėl prašome gerbti aplinkinių ramybę, ramybės valandos nuo 24 iki 9 valandos..
+8. RŪKYTI VIDUJE DRAUDŽIAMA. Rūkant lauke, nuorūkas mesti tik į tam skirtas talpas terasoje.
+9. Nepjaustyti ant stalo ar stalviršių, naudoti pjaustymo lenteles.
+10. Orkaitėje naudoti kepimo popierių ar foliją.
+11. Naudotis elektros prietaisais laikantis saugumo reikalavimų, neleisti jais naudotis vaikams. Nepalikti be priežiūros įjungtų
+elektros prietaisų. Prašome išjungti visas šviesas ir užsukti vandens čiaupus prieš paliekant apartamentus.
+12. Antklodės, rankšluosčiai ir kitas kambarių inventorius negali buti naudojamas pliaže ar iškyloje lauke.
 
-​
+Jacuzzi naudojimo taisykles:
+1. Jei jacuzzi paslauga neapmokėta, ja naudotis griežtai draudžiama!
+2. Jacuzzi naudojimosi laikas nuo 18 val iki 24 val.
+3. Jacuzzi nėra skirta prausimuisi, todėl prieš naudojantis ja, rekomenduojame nusiprausti duše !!!
+4. Nedėvėti papuošalų ir aksesuarų (žiedų, apyrankių, grandinėlių, laikrodžių...) dėl galimybės juos prarasti bei sugadinti
+jacuzzi siurblius...turėsite padengti taisymo išlaidas...€
+5. Draudžiama naudotis jacuzzi išsitepus bet kokiais kremais ar aliejais,
+6. Nevalgyti ir negerti sūkurinėje vonioje ir nepilti į ją jokių skysčių, nei šampūno, muilo... - taip galite sugadinti
+filtravimo sistemą bei siurblius ir turėsite padengti taisymo išlaidas ...€..
+7. Draudžiama atidaryti jacuzzi dangtį naudojant grilių – šašlykinę,
+8. Po kiekvieno naudojimosi sūkurine vonia BŪTINA uždaryti dangtį.
 
-Vienuose duplekso apartamentuose gali apsistoti iki 4 asmenų. Rezervuoti gali tik pilnamečiai asmenys.
+Rubikiai LUX darbuotojai turi teisę iškeldinti iš apartamentų anksčiau nustatyto termino asmenis (be pinigų grąžinimo),
+kurie nesilaiko ir šiurkščiai pažeidžia vidaus tvarkos ir elgesio taisykles, taip pat reikalauti atlyginti padarytą žalą ir
+nuostolius pagal LR įstatymus.
 
-Nepilnamečiai vaikai priimami tik nuo 16 metų, nebent iš anksto susitarus, rezervuojant abu duplekso apartamentus.
+Haroldas Aukštikalnis
+`;
 
-Apartamentuose, bei jų lauko zonose ar jacuzzi vienu metu negali būti daugiau žmonių nei nurodyta rezervacijoje.
+const DUPLEKSAS = `TRUMPALAIKIO APGYVENDINIMO PASLAUGŲ SUTARTIS
+Haroldas Aukštikalnis gyv. Piliakalnio vs 1, LT-29203, Anykščių r., toliau sutartyje vadinamas paslaugų
+teikėju, ir ...........................................................................,
+gyv.vieta/buveinė ................................................................................................................................................, toliau sutartyje
+vadinamas Klientu, sudarydami 20....................... trumpalaikio apgyvendinimo paslaugų sutartį, susitariame, kad Klientas
+įsipareigoja besąlygiškai laikytis vidaus tvarkos taisyklių sodyboje „Rubikiai Lux Spa Apartments“, esančioje adresu Piliakalnio vs
+1, LT-29203, Anykščių r.
+Klientas privalo užtikrinti, kad su vidaus tvarkos taisyklėmis būtų supažindinti ir jų laikytųsi visi kartu su juo atvykę į sodybą
+svečiai. Jeigu klientas ar bet kuris iš kartu su klientu atvykusių svečių vidaus tvarkos taisyklių nesilaiko, už bet kokias kilusias
+pasekmes klientas atsako asmeniškai teisės aktų nustatyta tvarka.
 
-Be papildomo apmokėjimo gali apsistoti tik tiek asmenų, kiek buvo nurodyta rezervacijos metu.
+Kitos nuostatos:
+1. Apgyvendinimo para prasideda 16 val., baigiasi kitos dienos 11 val.
+2. Atvykus reikia sumokėti likusią rezervacijos sumą.
+3. Atvykti su augintiniais griežtai draudžiama. Visgi atvykus, bus paprašyta išvykti. Mokėjimas nebus grąžinamas.
+4. Neišstumdyti baldų ir neperdėti daiktų į ne jiems skirtas vietas. Palaikyti apartamentuose tvarką ir švarą. Viskas yra idealaus
+stovio ir mes norėtumėme tai išlaikyti.
+5. Prašome saugoti musų turtą. Jei inventorius sulaužomas, sudaužomas ar kitaip sugadinamas - informuoti ir atsiskaityti
+reikia iš karto. Jeigu minėtą žalą padaro nepilnamečiai vaikai, materialiai už juos atsako jų tėvai ar globėjai, o šiems
+atsisakius žalą atlygina – visais atvejais Klientas.
+6. Jei Klientas ar su juo atvykę asmenys atvyksta su nepilnamečiais vaikais - privalo rūpintis jais, t.y. nepalikti jų be
+priežiūros, ir pilnai atsako patys už jų saugumą bei pilnai materialiai atsako už vaikų padarytus sodyboje nuostolius
+(sulaužytą, sugadintą inventorių, turtą).
+7. Priimame svečius tik ramiam poilsiui, todėl prašome gerbti aplinkinių ramybę, ramybės valandos nuo 24 iki 9 valandos..
+8. RŪKYTI VIDUJE DRAUDŽIAMA. Rūkant lauke, nuorūkas mesti tik į tam skirtas talpas terasoje.
+9. Nepjaustyti ant stalo ar stalviršių, naudoti pjaustymo lenteles.
+10. Orkaitėje naudoti kepimo popierių ar foliją.
+11. Naudotis elektros prietaisais laikantis saugumo reikalavimų, neleisti jais naudotis vaikams. Nepalikti be priežiūros įjungtų
+elektros prietaisų. Prašome išjungti visas šviesas ir užsukti vandens čiaupus prieš paliekant apartamentus.
+12. Kambaryje esančia krosnelę kūrenti tik leidus sodybos šeimininkui ir išklausius instruktažą.
+13. Nedėti daiktų ant krosnelės, nekūrenti krosnelės buitinėmis atliekomis.
+14. Laikytis saugaus atstumo nuo įkaitusios krosnelės, bei nepalikti kūrentis be priežiūros.
+15. Antklodės, rankšluosčiai ir kitas kambarių inventorius negali buti naudojamas pliaže ar iškyloje lauke.
+16. Nemaitinti elnių danielių kitu maistu, tik vaisiais ar daržovėmis.
 
-Atvykti su augintiniais griežtai draudžiama. Atvykus bus paprašyta išvykti. Rezervacijos mokestis nebus grąžinamas.
+Jacuzzi naudojimo taisykles:
+1. Jei jacuzzi paslauga neapmokėta, ja naudotis griežtai draudžiama!
+2. Jacuzzi naudojimosi laikas nuo 18 val iki 24 val.
+3. Jacuzzi nėra skirta prausimuisi, todėl prieš naudojantis ja, rekomenduojame nusiprausti duše !!!
+4. Griežtai draužiama šokinėti į ir iš Jacuzzi
+5. Nedėvėti papuošalų ir aksesuarų (žiedų, apyrankių, grandinėlių, laikrodžių...) dėl galimybės juos prarasti bei sugadinti
+jacuzzi siurblius...turėsite padengti taisymo išlaidas...€
+6. Draudžiama naudotis jacuzzi išsitepus bet kokiais kremais ar aliejais,
+7. Nevalgyti ir negerti sūkurinėje vonioje ir nepilti į ją jokių skysčių, nei šampūno, muilo... - taip galite sugadinti
+filtravimo sistemą bei siurblius ir turėsite padengti taisymo išlaidas ...€
+8. Draudžiama atidaryti jacuzzi dangtį naudojant grilių – šašlykinę,
+9. Po kiekvieno naudojimosi sūkurine vonia BŪTINA uždaryti dangtį.
 
-Vakarėliai ir renginiai neleidžiami. Gerbkite savo ir kitų svečių ramybę. Ramybės valandos nuo 24 iki 9 valandos.
+Rubikiai LUX darbuotojai turi teisę iškeldinti iš apartamentų anksčiau nustatyto termino asmenis (be pinigų grąžinimo),
+kurie nesilaiko ir šiurkščiai pažeidžia vidaus tvarkos ir elgesio taisykles, taip pat reikalauti atlyginti padarytą žalą ir
+nuostolius pagal LR įstatymus.
 
-​​
-
-Rubikiai Lux darbuotojai turi teisę iškeldinti iš apartamentų ankščiau nustatyto termino asmenis (be jokio sumokėtos paslaugų kainos atlyginimo), kurie nesilaiko ir šiurkščiai pažeidžia vidaus tvarkos ir elgesio taisykles, taip pat reikalauti atlyginti padarytą žalą ir nuostolius.
-
-​
-
-Poilsiautojai visiškai materialiai atsako už sugadintą ar sunaikintą sodyboje ir jos teritorijoje esantį kilnojamąjį ir nekilnojamąjį turtą, bei materialines vertybes (už padarytą materialinę žalą klientas atsako LR įstatymų nustatyta tvarka).
-
- 
-
-Už galimus nelaimingus atsitikimus, galinčius įvykti sodybos teritorijoje ar už jos ribų  (namo viduje, terasoje, miške, kieme, sūkurinėje vonioje, maudantis ežere, plaukiojant su irklentėm ir t.t.) yra atsakingi patys poilsiautojai.
-
-​
-
- 
-
-Poilsiautojai privalo:
-
-​​
-
-atvykus sumokėti likusią rezervacijos sumą.
-
-palaikyti apartamentuose tvarką ir švarą. Viskas yra idealaus stovio ir mes norėtumėme tai išlaikyti. 
-
-neišstumdyti ir neperdėti daiktų į ne jiems skirtas vietas. 
-
-Antklodės, rankšluosčiai ir kitas kambarių inventorius negali būti naudojamas pliaže ar iškyloje lauke.
-
-nepjaustyti ant stalo ar stalviršių, naudoti pjaustymo lenteles. 
-
-orkaitėje naudoti kepimo popierių ar foliją.
-
-RŪKYTI VIDUJE DRAUDŽIAMA. Rūkant lauke, nuorūkas mesti tik į tam skirtas talpas terasoje. 
-
-nemaitinti elnių danielių be šeimininkų leidimo.
-
-nepalikti be priežiūros įjungtų elektros prietaisų. Prašome išjungti visas šviesas ir užsukti vandenį prieš paliekant apartamentus.
-
-tėvai, arba prižiūrintys asmenys privalo užtikrinti vaikų saugumą.
-
-kambaryje esančią krosnelę kūrenti tik leidus sodybos šeimininkui ir išklausius instruktažą.
-
-nedėti daiktų ant krosnelės. nekūrenti krosnelės buitinėmis atliekomis.
-
-laikytis saugaus atstumo nuo įkaitusios krosnelės, dėl nudegimo galimybės
-
-​​
-
-JACUZZI NAUDOJIMO TAISYKLĖS:
-
-​​
-
-jei jacuzzi paslauga neapmokėta, ja naudotis draudžiama!
-
-Jei pamiršote ar per klaidą nerezervavote jacuzzi, galite tai padaryti atvykę.
-
-Jacuzzi NĖRA skirta prausimuisi, todėl prieš naudojantis ja, BŪTINA nusiprausti duše !!!
-
-Nedėvėti papuošalų ir aksesuarų (žiedų, apyrankių, grandinėlių, laikrodžių…) dėl galimybės juos prarasti bei sugadinti jacuzzi siurblius...
-
-Nelipti ir nedėti jokių daiktų ant jacuzzi dangčio.
-
-Nešokinėti į ir iš jacuzzi.
-
-Draudžiama atidaryti jacuzzi dangtį naudojant grilių - šašlykinę.
-
-Nevalgyti ir negerti sūkurinėje vonioje ir nepilti į ją jokių skysčių, įskaitant šampūnus, muilus - taip galite sugadinti filtravimo sistemą.
-
-Nepalikti nepilnamečių vaikų be priežiūros sūkurinėje vonioje.
-
-Po kiekvieno naudojimosi sūkurine vonia būtina uždaryti dangtį!!!
-
-​
-
-​
-
-Check-in ir Check-out
-
-Duplekso atvykimas nuo 16:00, išvykimas iki 11:00. 
-
-Ežero Namelio atvykimas nuo 16:00, išvykimas iki 12:00. 
-
-​
-
-Rezervacijos atšaukimas
-
-Rezervacijos datą vieną kartą galima pakeisti nemokamai likus ne mažiau kaip 7 dienos iki atvykimo. Depozitas negrąžinamas. Daugkartinis datos keitimas apmokestinamas 20€ suma.
-
-​
-
-Dovanų kuponas
-
-Dovanų kuponas turi būti galiojantis atvykimo dieną. Dovanų kuponą galima pratęsti, jei kuponas nėra panaudotas ir jo galiojimas nėra pasibaigęs. Pratęsti dovanų kuponą galima 2 mėnesiams ir tik vieną kartą. Dovanų kupono pratęsimas kainuoja 20 eur. Pinigai už dovanų kuponus nėra grąžinami.`;
+Haroldas Aukštikalnis
+`;
 
 export default function Page() {
-  const paragraphs = RULES.split("\n\n");
-
   return (
     <main className="bg-[var(--color-background-main)] min-h-screen pt-8">
       <div className="max-w-4xl mx-auto px-6 md:px-8 py-12 md:py-16">
-        <header className="mb-8">
+        <header className="mb-6">
           <h1 className="text-3xl md:text-4xl font-bold text-[var(--color-primary-dark)]">
-            House Rules
+            House Rules / Taisyklės
           </h1>
           <p className="text-sm text-gray-600">
-            Please read the house rules carefully to ensure a pleasant stay for all guests.
+            Please read the house rules carefully to ensure a pleasant stay for
+            all guests.
           </p>
         </header>
 
-        <article className="bg-white shadow-sm rounded-2xl p-6 prose max-w-none">
-          <section>
-            <h2>Normas generales</h2>
-            <div style={{ whiteSpace: "pre-wrap" }}>
-              {paragraphs.slice(0, 7).map((p, i) => (
-                <p key={i}>{p}</p>
-              ))}
-            </div>
-          </section>
-
-          <section>
-            <h2>Obligaciones del huésped</h2>
-            <div style={{ whiteSpace: "pre-wrap" }}>
-              {paragraphs.slice(7, 12).map((p, i) => (
-                <p key={i}>{p}</p>
-              ))}
-            </div>
-          </section>
-
-          <section>
-            <h2>Reglas de uso del jacuzzi</h2>
-            <div style={{ whiteSpace: "pre-wrap" }}>
-              {paragraphs.slice(12, 19).map((p, i) => (
-                <p key={i}>{p}</p>
-              ))}
-            </div>
-          </section>
-
-          <section>
-            <h2>Check-in / Check-out y políticas</h2>
-            <div style={{ whiteSpace: "pre-wrap" }}>
-              {paragraphs.slice(19).map((p, i) => (
-                <p key={i}>{p}</p>
-              ))}
-            </div>
-          </section>
-        </article>
+        <HouseRulesClient ezeroText={EZERO_NAMELIS} dupleksText={DUPLEKSAS} />
       </div>
     </main>
   );

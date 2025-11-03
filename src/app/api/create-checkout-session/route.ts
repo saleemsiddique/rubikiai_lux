@@ -52,6 +52,7 @@ type CheckoutBody = {
   extras?: {
     jacuzzi?: {
       enabled: boolean;
+      days?: number;  // ✅ AÑADIDO
       price?: number;
     };
   };
@@ -262,14 +263,33 @@ export async function POST(req: Request) {
       extraGuests,
     } = await calculateNightsCore(houseIds, startIso, endIso, guestsNum);
 
-    // 6. Jacuzzi fee
+    // ✅ 6. Jacuzzi fee (multi-day calculation - MISMO CÓDIGO QUE MONTONIO)
     let jacuzziFee = 0;
     let jacuzziEnabled = false;
+    let jacuzziDays = 0;
+
     if (extras?.jacuzzi?.enabled) {
       jacuzziEnabled = true;
+      jacuzziDays = Number(extras?.jacuzzi?.days || 1);
+
+      // Validar que jacuzziDays no exceda nights
+      if (jacuzziDays > nights) {
+        jacuzziDays = nights;
+      }
+      if (jacuzziDays < 1) {
+        jacuzziDays = 1;
+      }
+
       const jacuzziExtraGuests = Math.max(0, guestsNum - 2);
-      jacuzziFee =
-        JACUZZI_BASE_PRICE + jacuzziExtraGuests * JACUZZI_EXTRA_PRICE;
+
+      // Primer día: 65€ + 10€ por guest extra
+      const firstDayFee = 65 + (jacuzziExtraGuests * 10);
+
+      // Días adicionales: 45€ + 10€ por guest extra cada día
+      const additionalDays = Math.max(0, jacuzziDays - 1);
+      const additionalDaysFee = additionalDays * (45 + (jacuzziExtraGuests * 10));
+
+      jacuzziFee = firstDayFee + additionalDaysFee;
     }
 
     // grandTotal = lodging + jacuzzi
@@ -474,6 +494,7 @@ export async function POST(req: Request) {
         discountedFirst: String(discountedFirst),
         jacuzziEnabled: jacuzziEnabled ? "true" : "false",
         jacuzziFee: String(jacuzziFee),
+        jacuzziDays: String(jacuzziDays), // ✅ NUEVO CAMPO
         grandTotal: String(grandTotal),
         discountedGrandTotal: String(discountedGrandTotal),
         
@@ -532,6 +553,7 @@ export async function POST(req: Request) {
       payAtArrival,
       totalStay,
       jacuzziFee,
+      jacuzziDays, // ✅ AÑADIDO AL LOG
       effectiveDiscountAmount,
       discountKindForMeta,
       reservationId,

@@ -284,7 +284,7 @@ export default function CheckoutDetailsClient() {
   const { payNowAfterDiscount, totalAfterDiscount, effectiveDiscountUsedNow } =
     computedBreakdown;
 
-  // Fetch price (with or without jacuzzi)
+  // Fetch price (with or without jacuzzi AND jacuzzi days)
   useEffect(() => {
     const fetchPrice = async () => {
       setLoadingPrice(true);
@@ -300,6 +300,7 @@ export default function CheckoutDetailsClient() {
             endDate: endIso,
             guests,
             jacuzzi: withJacuzzi,
+            jacuzziDays: withJacuzzi ? jacuzziDays : 0, // AÑADIR ESTE CAMPO
           }),
         });
 
@@ -328,7 +329,7 @@ export default function CheckoutDetailsClient() {
       setLoadingPrice(false);
       setPriceError("Missing reservation parameters.");
     }
-  }, [houseId, startIso, endIso, guests, withJacuzzi]);
+  }, [houseId, startIso, endIso, guests, withJacuzzi, jacuzziDays]); // AÑADIR jacuzziDays AQUÍ
 
   // Lookup discount code from backend
   const handleLookupDiscount = async () => {

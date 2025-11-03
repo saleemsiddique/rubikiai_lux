@@ -113,18 +113,18 @@ function normalizeSpecialPrices(raw: any): UnifiedSpecialPrices {
 
   const ranges: RangeEntry[] = Array.isArray(raw?.ranges)
     ? raw.ranges
-        .filter(
-          (r: any) =>
-            r &&
-            typeof r.start === "string" &&
-            typeof r.end === "string" &&
-            typeof r.price === "number"
-        )
-        .map((r: any) => ({
-          start: r.start,
-          end: r.end,
-          price: r.price,
-        }))
+      .filter(
+        (r: any) =>
+          r &&
+          typeof r.start === "string" &&
+          typeof r.end === "string" &&
+          typeof r.price === "number"
+      )
+      .map((r: any) => ({
+        start: r.start,
+        end: r.end,
+        price: r.price,
+      }))
     : [];
 
   return { singleDays, ranges };
@@ -275,6 +275,7 @@ export async function POST(req: Request) {
       endDate,
       guests = 2,
       jacuzzi = false,
+      jacuzziDays: rawJacuzziDays = 0, // <-- nuevo campo aceptado
     } = body;
 
     if (!startDate || !endDate) {
@@ -393,19 +394,39 @@ export async function POST(req: Request) {
     const extraGuests = Math.max(0, guestsNum - includedBase);
     const perNightSurcharge = extraGuests * EXTRA_GUEST_PRICE;
 
-    // ---- Jacuzzi: cargo único por estancia
-    let jacuzziFee = 0;
-    if (jacuzzi) {
-      const jacuzziExtraGuests = Math.max(0, guestsNum - 2);
-      jacuzziFee =
-        JACUZZI_BASE_PRICE + jacuzziExtraGuests * JACUZZI_EXTRA_PRICE;
-    }
-
-    // ---- Total por noches
+    // ---- Jacuzzi: cargo en función de jacuzziDays (cargo plano por la estancia, no por noche)
+    // Normalizamos jacuzziDays y lo limitamos a [0, nights]
     const nights = Math.round(
       (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)
     );
 
+    let jacuzziDays = Number(rawJacuzziDays || 0);
+    if (!Number.isFinite(jacuzziDays) || jacuzziDays < 0) jacuzziDays = 0;
+    jacuzziDays = Math.floor(jacuzziDays);
+    // si jacuzzi está activado, forzamos al menos 1 día como mínimo si jacuzziDays era 0 en el request?
+    // Aquí respetamos lo enviado: si jacuzzi === true pero jacuzziDays === 0 lo limitamos a 1
+    if (jacuzzi && jacuzziDays === 0) jacuzziDays = 1;
+    // cap al número de noches
+    jacuzziDays = Math.min(jacuzziDays, nights);
+
+    let jacuzziFee = 0;
+    if (jacuzzi && jacuzziDays > 0) {
+      // El frontend espera que el extra por jacuzzi se base en guests - 2 (no en includedBase)
+      const jacuzziExtraGuests = Math.max(0, guestsNum - 2);
+
+      // primer día
+      const firstDayFee = JACUZZI_BASE_PRICE + jacuzziExtraGuests * JACUZZI_EXTRA_PRICE;
+
+      // días adicionales
+      const additionalDays = Math.max(0, jacuzziDays - 1);
+      const additionalDaysFee = additionalDays * (45 + jacuzziExtraGuests * JACUZZI_EXTRA_PRICE);
+
+      jacuzziFee = firstDayFee + additionalDaysFee;
+    } else {
+      jacuzziFee = 0;
+    }
+
+    // ---- Total por noches
     let totalNightsOnly = 0;
     const perNightBreakdown: Array<{
       date: string;
@@ -478,7 +499,8 @@ export async function POST(req: Request) {
       nights,
       extraGuests,
       includedBase,
-      jacuzziFee, // cargo jacuzzi (único)
+      jacuzziFee, // cargo jacuzzi (único para la estancia, calculado por jacuzziDays)
+      jacuzziDays, // añadido para transparencia (opcional)
       extrasTotal, // actualmente solo jacuzzi
       grandTotal, // total final con jacuzzi
       variable: false,

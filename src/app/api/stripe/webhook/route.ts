@@ -170,7 +170,7 @@ async function applyPercentDiscountInTx(
 ) {
   const percentRef = db.collection("percentage_discounts").doc(String(percentId));
   const pSnap = await tx.get(percentRef);
-  
+
   if (!pSnap.exists) {
     return {
       id: percentId,
@@ -287,9 +287,9 @@ export async function POST(req: Request) {
             const quantity = Number.isFinite(Number(data.quantity))
               ? Number(data.quantity)
               : parseInt(
-                  String(session.metadata?.quantity || "1"),
-                  10
-                ) || 1;
+                String(session.metadata?.quantity || "1"),
+                10
+              ) || 1;
             const unitAmount = Number.isFinite(Number(data.unitAmount))
               ? Number(data.unitAmount)
               : Number(session.metadata?.unitAmount || 0) || 0;
@@ -443,6 +443,8 @@ export async function POST(req: Request) {
       const jacuzziEnabled =
         session.metadata?.jacuzziEnabled === "true";
       const jacuzziFee = Number(session.metadata?.jacuzziFee || 0);
+      const jacuzziDays = Number(session.metadata?.jacuzziDays || 0); // ✅ NUEVO
+
 
       const currency = session.metadata?.currency || "EUR";
 
@@ -509,8 +511,8 @@ export async function POST(req: Request) {
           firstNightCharge,
 
           jacuzzi: jacuzziEnabled
-            ? { enabled: true, fee: jacuzziFee }
-            : { enabled: false, fee: 0 },
+            ? { enabled: true, fee: jacuzziFee, days: jacuzziDays } // ✅ AÑADIDO days
+            : { enabled: false, fee: 0, days: 0 },
           jacuzziFee,
 
           currency,

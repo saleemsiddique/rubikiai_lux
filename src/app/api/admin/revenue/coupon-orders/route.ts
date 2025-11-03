@@ -1,4 +1,3 @@
-// app/api/admin/revenue/coupon-orders/route.ts
 import { NextResponse } from "next/server";
 import admin, { adminDb } from "@/lib/firebase-admin";
 import { cookies } from "next/headers";

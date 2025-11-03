@@ -1,3 +1,4 @@
+// app/api/admin/reservations/block/route.ts
 import admin, { adminDb } from "@/lib/firebase-admin";
 import { cookies } from "next/headers";
 
@@ -135,7 +136,7 @@ export async function POST(req: Request) {
       return Response.json({ error: `Price API: ${priceJson.error}` }, { status: 422 });
     }
 
-    // Valores calculados por el endpoint de precio (fuente de verdad)
+    // ✅ Valores calculados por el endpoint de precio (fuente de verdad)
     const total = Number(priceJson.total ?? 0);
     const firstNight = Number(priceJson.first ?? 0);
     const nights = Number(priceJson.nights ?? nightsBetween(checkIn, checkOut));
@@ -146,9 +147,21 @@ export async function POST(req: Request) {
     const couponFromPrice = priceJson.coupon ?? null;
     const codeFromPrice = couponFromPrice?.code ?? priceJson.code ?? null;
     const totalNightsOnly = Number(priceJson.totalNightsOnly ?? total);
-    const jacuzziInfo = priceJson.jacuzzi ?? { enabled: false, jacuzziFee: Number(priceJson.jacuzziFee ?? 0) };
+    
+    // ✅ Jacuzzi con days
+    const jacuzziInfo = priceJson.jacuzzi ?? { 
+      enabled: false, 
+      fee: Number(priceJson.jacuzziFee ?? 0),
+      days: 0
+    };
+    
     const discountedFirst = Number(priceJson.discountedFirst ?? 0);
     const currency = priceJson.currency ?? "EUR";
+
+    // ✅ Campos simplificados
+    const payNow = Number(priceJson.payNow ?? discountedFirst);
+    const totalStay = Number(priceJson.totalStay ?? discountedGrandTotal);
+    const payAtArrival = Number(priceJson.payAtArrival ?? Math.max(0, totalStay - payNow));
 
     // Si viene customer en body, úsalo, si no, construye desde campos sueltos
     const customerObj: any = customer && typeof customer === "object"
@@ -157,15 +170,19 @@ export async function POST(req: Request) {
           email: customer.email ? String(customer.email) : null,
           phone: customer.phone ? String(customer.phone) : null,
           userId: customer.userId ? String(customer.userId) : null,
+          arrivalTime: customer.arrivalTime ? String(customer.arrivalTime) : null,
+          comment: customer.comment ? String(customer.comment) : null,
           // cualquier otro dato que quieras guardar
           ...customer,
         }
-      : (body.email || body.name || body.phone || userId)
+      : (body.email || body.name || body.phone || userId || arrivalTime || comment)
         ? {
             name: body.name ? String(body.name) : null,
             email: body.email ? String(body.email) : null,
             phone: body.phone ? String(body.phone) : null,
             userId: userId ? String(userId) : null,
+            arrivalTime: arrivalTime ? String(arrivalTime) : null,
+            comment: comment ? String(comment) : null,
           }
         : null;
 
@@ -179,7 +196,12 @@ export async function POST(req: Request) {
       nights,
       adminNote: note || null,
 
-      // precios
+      // ✅ CAMPOS SIMPLIFICADOS (NUEVOS)
+      payNow,
+      payAtArrival,
+      totalStay,
+
+      // precios legacy (mantener por compatibilidad)
       total: total,
       grandTotal: grandTotal,
       discountedTotal: discountedGrandTotal,
@@ -191,11 +213,14 @@ export async function POST(req: Request) {
       coupon: coupon ?? couponFromPrice ?? null,
       code: code ?? codeFromPrice ?? null,
       currency: currency,
+      
+      // ✅ jacuzzi con days
       jacuzzi: {
         enabled: Boolean(jacuzziInfo?.enabled),
-        jacuzziFee: Number(jacuzziInfo?.jacuzziFee ?? jacuzziInfo?.fee ?? 0),
+        fee: Number(jacuzziInfo?.fee ?? jacuzziInfo?.jacuzziFee ?? 0),
+        days: Number(jacuzziInfo?.days ?? 0),
       },
-      jacuzziFee: Number(jacuzziInfo?.jacuzziFee ?? jacuzziInfo?.fee ?? 0),
+      jacuzziFee: Number(jacuzziInfo?.fee ?? jacuzziInfo?.jacuzziFee ?? 0),
 
       // huéspedes y ocupación
       guests: guestsNum,
@@ -212,8 +237,8 @@ export async function POST(req: Request) {
       phone: customerObj?.phone ?? body.phone ?? null,
       userId: customerObj?.userId ?? userId ?? null,
 
-      arrivalTime: arrivalTime ?? null,
-      comment: comment ?? null,
+      arrivalTime: customerObj?.arrivalTime ?? arrivalTime ?? null,
+      comment: customerObj?.comment ?? comment ?? null,
 
       // stripe / pagos (vacíos en bloqueo admin)
       stripeCustomerId: null,
@@ -243,6 +268,13 @@ export async function POST(req: Request) {
     normalized.checkIn = String(raw.checkIn);
     normalized.checkOut = String(raw.checkOut);
     normalized.guests = Number(raw.guests ?? guestsNum);
+    
+    // ✅ Campos simplificados
+    normalized.payNow = Number(raw.payNow ?? payNow);
+    normalized.payAtArrival = Number(raw.payAtArrival ?? payAtArrival);
+    normalized.totalStay = Number(raw.totalStay ?? totalStay);
+    
+    // Legacy
     normalized.total = Number(raw.total ?? grandTotal);
     normalized.grandTotal = Number(raw.grandTotal ?? normalized.total);
     normalized.discountedGrandTotal = Number(raw.discountedGrandTotal ?? normalized.grandTotal);
@@ -250,9 +282,16 @@ export async function POST(req: Request) {
     normalized.totalNightsOnly = Number(raw.totalNightsOnly ?? normalized.total);
     normalized.includedBase = Number(raw.includedBase ?? includedBase);
     normalized.extraGuests = Number(raw.extraGuests ?? Math.max(0, guestsNum - includedBase));
-    normalized.jacuzzi = raw.jacuzzi ?? { enabled: false, jacuzziFee: Number(raw.jacuzziFee ?? 0) };
+    
+    // ✅ Jacuzzi con days
+    normalized.jacuzzi = raw.jacuzzi ?? { 
+      enabled: false, 
+      fee: Number(raw.jacuzziFee ?? 0),
+      days: 0
+    };
     normalized.coupon = raw.coupon ?? null;
     normalized.code = raw.code ?? (normalized.coupon?.code ?? null);
+    normalized.percentDiscount = raw.percentDiscount ?? null;
 
     // devolver customer normalizado también
     normalized.customer = raw.customer ?? null;
@@ -261,8 +300,8 @@ export async function POST(req: Request) {
     normalized.name = raw.name ?? (normalized.customer?.name ?? null);
     normalized.phone = raw.phone ?? (normalized.customer?.phone ?? null);
     normalized.userId = raw.userId ?? (normalized.customer?.userId ?? null);
-    normalized.arrivalTime = raw.arrivalTime ?? null;
-    normalized.comment = raw.comment ?? null;
+    normalized.arrivalTime = raw.arrivalTime ?? (normalized.customer?.arrivalTime ?? null);
+    normalized.comment = raw.comment ?? (normalized.customer?.comment ?? null);
 
     return Response.json({ ok: true, reservation: normalized });
   } catch (e: any) {

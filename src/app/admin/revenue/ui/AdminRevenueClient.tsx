@@ -13,30 +13,28 @@ type ReservationRow = {
   houseIds: string[] | null;
   customerEmail: string | null;
   currency: string;
-  total: number;
-  grandTotal?: number | null;
-  discountedTotal?: number | null;
-  discountedGrandTotal?: number | null;
-  amountApplied?: number | null;
-  code?: string | null;
-  coupon?: any | null;
-  totalNightsOnly?: number | null;
+  totalNightsOnly: number;
+  totalStay: number;
   jacuzzi?: any | null;
   jacuzziFee?: number | null;
   includedBase?: number | null;
   extraGuests?: number | null;
-  firstNightBase?: number | null;
   firstNightCharge?: number | null;
-  discountedFirst?: number | null;
-  paidInFull: boolean;
+  payNow?: number | null;
+  payAtArrival?: number | null;
   createdAtIso: string | null;
   updatedAtIso: string | null;
   paidAtIso: string | null;
-  deductedAtIso?: string | null;
+  confirmationEmailSentAtIso?: string | null;
   customer?: any | null;
   email?: string | null;
   name?: string | null;
   phone?: string | null;
+  stripeCustomerId?: string | null;
+  stripePaymentIntentId?: string | null;
+  stripeSessionId?: string | null;
+  montonioOrderUuid?: string | null;
+  montonioNotification?: any | null;
 };
 
 type CouponOrderRow = {
@@ -167,38 +165,21 @@ export default function AdminRevenueClient() {
     return Number.isNaN(n) ? 0 : n;
   };
 
-  // Métricas reservas
+  // Métricas reservas (usando los nuevos campos)
   const resMetrics = useMemo(() => {
     let count = 0;
-    let totalContracted = 0; // suma de discountedGrandTotal ?? grandTotal ?? discountedTotal ?? total
-    let totalDeposits = 0; // suma de discountedFirst ?? firstNightCharge
-    let totalCollectedNow = 0; // si paidInFull -> contracted; si no -> deposit
+    let totalContracted = 0; // totalStay
+    let totalPayNow = 0; // payNow
+    let totalPayAtArrival = 0; // payAtArrival
 
     reservations.forEach((r) => {
       count++;
-
-      const contracted =
-        (typeof r.discountedGrandTotal === "number"
-          ? r.discountedGrandTotal
-          : typeof r.grandTotal === "number"
-          ? r.grandTotal
-          : typeof r.discountedTotal === "number"
-          ? r.discountedTotal
-          : r.total) || 0;
-      totalContracted += num(contracted);
-
-      const deposit =
-        (typeof r.discountedFirst === "number"
-          ? r.discountedFirst
-          : typeof r.firstNightCharge === "number"
-          ? r.firstNightCharge
-          : 0) || 0;
-      totalDeposits += num(deposit);
-
-      totalCollectedNow += r.paidInFull ? num(contracted) : num(deposit);
+      totalContracted += num(r.totalStay);
+      totalPayNow += num(r.payNow);
+      totalPayAtArrival += num(r.payAtArrival);
     });
 
-    return { count, totalContracted, totalDeposits, totalCollectedNow };
+    return { count, totalContracted, totalPayNow, totalPayAtArrival };
   }, [reservations]);
 
   // Métricas cupones
@@ -214,54 +195,40 @@ export default function AdminRevenueClient() {
 
   // Métrica combinada
   const combined = useMemo(() => {
-    const collected = resMetrics.totalCollectedNow + couponMetrics.couponsRevenue;
+    const collected = resMetrics.totalPayNow + couponMetrics.couponsRevenue;
     const contracted = resMetrics.totalContracted + couponMetrics.couponsRevenue;
-    return { collected, contracted };
+    const pending = resMetrics.totalPayAtArrival;
+    return { collected, contracted, pending };
   }, [resMetrics, couponMetrics]);
 
   // Exportación Excel
   const exportExcel = async () => {
     try {
-      const XLSX = await import("xlsx"); // dynamic import en cliente
+      const XLSX = await import("xlsx");
       const wb = XLSX.utils.book_new();
 
-      // Sheet: Reservations (añadimos campos nuevos)
-      const resData = reservations.map((r) => {
-        const contracted =
-          (typeof r.discountedGrandTotal === "number"
-            ? r.discountedGrandTotal
-            : typeof r.grandTotal === "number"
-            ? r.grandTotal
-            : typeof r.discountedTotal === "number"
-            ? r.discountedTotal
-            : r.total) || 0;
-        const deposit =
-          (typeof r.discountedFirst === "number"
-            ? r.discountedFirst
-            : typeof r.firstNightCharge === "number"
-            ? r.firstNightCharge
-            : 0) || 0;
-        return {
-          id: r.id,
-          status: r.status,
-          checkin: r.checkIn,
-          checkout: r.checkOut,
-          nights: r.nights,
-          guests: r.guests,
-          customer: r.customerEmail ?? r.email ?? "",
-          currency: r.currency,
-          grandTotal: num(r.grandTotal),
-          discountedGrandTotal: num(r.discountedGrandTotal),
-          code: r.code ?? "",
-          totalNightsOnly: num(r.totalNightsOnly),
-          jacuzzi: r.jacuzzi ? JSON.stringify(r.jacuzzi) : "",
-          firstNightBase: num(r.firstNightBase),
-          firstNightCharge: num(r.firstNightCharge),
-          deposit,
-          paidInFull: !!r.paidInFull,
-          paidAtIso: r.paidAtIso ?? "",
-        };
-      });
+      // Sheet: Reservations
+      const resData = reservations.map((r) => ({
+        id: r.id,
+        status: r.status,
+        checkin: r.checkIn,
+        checkout: r.checkOut,
+        nights: r.nights,
+        guests: r.guests,
+        customer: r.customerEmail ?? r.email ?? "",
+        name: r.name ?? "",
+        phone: r.phone ?? "",
+        currency: r.currency,
+        totalNightsOnly: num(r.totalNightsOnly),
+        jacuzziFee: num(r.jacuzziFee),
+        totalStay: num(r.totalStay),
+        payNow: num(r.payNow),
+        payAtArrival: num(r.payAtArrival),
+        stripeSessionId: r.stripeSessionId ?? "",
+        montonioOrderUuid: r.montonioOrderUuid ?? "",
+        paidAtIso: r.paidAtIso ?? "",
+        createdAtIso: r.createdAtIso ?? "",
+      }));
       const wsRes = XLSX.utils.json_to_sheet(resData);
       XLSX.utils.book_append_sheet(wb, wsRes, "Reservations");
 
@@ -283,10 +250,13 @@ export default function AdminRevenueClient() {
       // Sheet: Summary
       const summaryRows = [
         ["Reservas (cantidad)", reservations.length],
-        ["Reservas - cobrado", resMetrics.totalCollectedNow],
+        ["Reservas - cobrado ahora", resMetrics.totalPayNow],
+        ["Reservas - pendiente llegada", resMetrics.totalPayAtArrival],
+        ["Reservas - total contratado", resMetrics.totalContracted],
         ["Cupones (cantidad)", couponMetrics.ordersCount],
         ["Cupones - cobrado", couponMetrics.couponsRevenue],
         ["TOTAL COBRADO (res+cupones)", combined.collected],
+        ["TOTAL CONTRACTUAL", combined.contracted],
       ];
       const wsSum = XLSX.utils.aoa_to_sheet(summaryRows);
       XLSX.utils.book_append_sheet(wb, wsSum, "Summary");
@@ -348,7 +318,6 @@ export default function AdminRevenueClient() {
               Estados reserva:
             </label>
 
-            {/* estados válidos actuales */}
             {["reserved", "complete", "admin", "canceled"].map((s) => {
               const checked = resStatuses.includes(s);
               return (
@@ -430,15 +399,15 @@ export default function AdminRevenueClient() {
             {resMetrics.count} reservas
           </div>
           <div className="text-xs text-neutral-600 mt-1">
-            Contrato total:{" "}
+            Total contratado:{" "}
             <b>{resMetrics.totalContracted.toFixed(2)} €</b>
           </div>
           <div className="text-xs text-neutral-600">
-            Depósitos: <b>{resMetrics.totalDeposits.toFixed(2)} €</b>
+            Cobrado ahora: <b>{resMetrics.totalPayNow.toFixed(2)} €</b>
           </div>
           <div className="text-xs text-neutral-600">
-            Cobrado ahora:{" "}
-            <b>{resMetrics.totalCollectedNow.toFixed(2)} €</b>
+            Pendiente (llegada):{" "}
+            <b>{resMetrics.totalPayAtArrival.toFixed(2)} €</b>
           </div>
         </div>
 
@@ -461,6 +430,9 @@ export default function AdminRevenueClient() {
           <div className="text-xs text-neutral-600">
             Contractual: {combined.contracted.toFixed(2)} €
           </div>
+          <div className="text-xs text-neutral-600">
+            Pendiente: {combined.pending.toFixed(2)} €
+          </div>
         </div>
       </div>
 
@@ -482,27 +454,19 @@ export default function AdminRevenueClient() {
                     <th className="px-3 py-2 text-left">House</th>
                     <th className="px-3 py-2 text-left">Huésp.</th>
                     <th className="px-3 py-2 text-left">Email</th>
-                    <th className="px-3 py-2 text-right">Total (contract)</th>
-                    <th className="px-3 py-2 text-right">Cobrado ahora</th>
+                    <th className="px-3 py-2 text-right">Total contrato</th>
+                    <th className="px-3 py-2 text-right">Cobrado</th>
+                    <th className="px-3 py-2 text-right">Pendiente</th>
+                    <th className="px-3 py-2 text-left">Pago</th>
                   </tr>
                 </thead>
                 <tbody>
                   {reservations.map((r) => {
-                    const contracted =
-                      (typeof r.discountedGrandTotal === "number"
-                        ? r.discountedGrandTotal
-                        : typeof r.grandTotal === "number"
-                        ? r.grandTotal
-                        : typeof r.discountedTotal === "number"
-                        ? r.discountedTotal
-                        : r.total) || 0;
-                    const deposit =
-                      (typeof r.discountedFirst === "number"
-                        ? r.discountedFirst
-                        : typeof r.firstNightCharge === "number"
-                        ? r.firstNightCharge
-                        : 0) || 0;
-                    const collected = r.paidInFull ? contracted : deposit;
+                    const paymentMethod = r.stripeSessionId
+                      ? "Stripe"
+                      : r.montonioOrderUuid
+                      ? "Montonio"
+                      : "—";
 
                     return (
                       <tr key={r.id} className="border-t">
@@ -523,11 +487,15 @@ export default function AdminRevenueClient() {
                           {r.customerEmail ?? r.email ?? "—"}
                         </td>
                         <td className="px-3 py-2 text-right">
-                          {num(contracted).toFixed(2)}€
+                          {num(r.totalStay).toFixed(2)}€
                         </td>
                         <td className="px-3 py-2 text-right">
-                          {num(collected).toFixed(2)}€
+                          {num(r.payNow).toFixed(2)}€
                         </td>
+                        <td className="px-3 py-2 text-right">
+                          {num(r.payAtArrival).toFixed(2)}€
+                        </td>
+                        <td className="px-3 py-2 text-xs">{paymentMethod}</td>
                       </tr>
                     );
                   })}

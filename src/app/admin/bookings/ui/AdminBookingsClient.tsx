@@ -18,6 +18,8 @@ type Reservation = {
         email?: string;
         phone?: string;
         userId?: string;
+        arrivalTime?: string;
+        comment?: string;
         [k: string]: any;
     };
     customerEmail?: string;
@@ -28,7 +30,12 @@ type Reservation = {
     arrivalTime?: string;
     comment?: string;
     
-    // Pricing
+    // ✅ Pricing (NUEVOS CAMPOS SIMPLIFICADOS)
+    payNow?: number;
+    payAtArrival?: number;
+    totalStay?: number;
+    
+    // Pricing (legacy - mantener para compatibilidad)
     guests?: number;
     total?: number;
     grandTotal?: number;
@@ -43,15 +50,18 @@ type Reservation = {
     extraGuests?: number;
     currency?: string;
     
-    // Jacuzzi
+    // ✅ Jacuzzi (ACTUALIZADO CON DAYS)
     jacuzzi?: {
         enabled: boolean;
+        fee?: number;
         jacuzziFee?: number;
+        days?: number;
     };
     
     // Coupon
     coupon?: any;
     code?: string;
+    percentDiscount?: any;
     
     // Timestamps
     createdAt?: string | null;
@@ -710,8 +720,11 @@ export default function AdminBookingsClient() {
                                     {rows.map((r) => {
                                         const customerName = r.name || r.customer?.name || "—";
                                         const customerEmail = r.customerEmail || r.email || r.customer?.email || "—";
-                                        const finalTotal = r.discountedGrandTotal ?? r.discountedTotal ?? r.grandTotal ?? r.total ?? 0;
-                                        const firstNight = r.discountedFirst ?? r.firstNightCharge ?? 0;
+                                        
+                                        // ✅ Usar campos simplificados con fallback a legacy
+                                        const totalStay = r.totalStay ?? r.discountedGrandTotal ?? r.discountedTotal ?? r.grandTotal ?? r.total ?? 0;
+                                        const payNow = r.payNow ?? r.discountedFirst ?? r.firstNightCharge ?? 0;
+                                        const jacuzziDays = r.jacuzzi?.days ?? 0;
                                         
                                         return (
                                             <tr key={r.id} className="border-t">
@@ -755,15 +768,16 @@ export default function AdminBookingsClient() {
                                                     ) : null}
                                                 </td>
                                                 <td className="px-3 py-2 text-right">
-                                                    {finalTotal.toFixed(2)}€
+                                                    {totalStay.toFixed(2)}€
                                                     {r.jacuzzi?.enabled && (
                                                         <div className="text-[10px] text-neutral-500">
                                                             +{r.jacuzziFee ?? 0}€ jacuzzi
+                                                            {jacuzziDays > 0 && ` (${jacuzziDays}d)`}
                                                         </div>
                                                     )}
                                                 </td>
                                                 <td className="px-3 py-2 text-right">
-                                                    {firstNight.toFixed(2)}€
+                                                    {payNow.toFixed(2)}€
                                                     {r.amountApplied ? (
                                                         <div className="text-[10px] text-green-600">
                                                             -{r.amountApplied}€
@@ -1042,7 +1056,8 @@ export default function AdminBookingsClient() {
                                         (r) => {
                                             const customerName = r.name || r.customer?.name || "—";
                                             const customerEmail = r.customerEmail || r.email || r.customer?.email || "—";
-                                            const finalTotal = r.discountedGrandTotal ?? r.discountedTotal ?? r.grandTotal ?? r.total ?? 0;
+                                            const totalStay = r.totalStay ?? r.discountedGrandTotal ?? r.discountedTotal ?? r.grandTotal ?? r.total ?? 0;
+                                            const jacuzziDays = r.jacuzzi?.days ?? 0;
                                             
                                             return (
                                                 <div
@@ -1080,17 +1095,22 @@ export default function AdminBookingsClient() {
                                                         {r.extraGuests ? ` (+${r.extraGuests} extra)` : ""}
                                                     </div>
                                                     <div>
-                                                        Total: {finalTotal.toFixed(2)}€
-                                                        {r.jacuzzi?.enabled && ` (+${r.jacuzziFee ?? 0}€ jacuzzi)`}
+                                                        Total: {totalStay.toFixed(2)}€
+                                                        {r.jacuzzi?.enabled && (
+                                                            <span>
+                                                                {" "}(+{r.jacuzziFee ?? 0}€ jacuzzi
+                                                                {jacuzziDays > 0 && ` ${jacuzziDays}d`})
+                                                            </span>
+                                                        )}
                                                     </div>
-                                                    {r.arrivalTime && (
+                                                    {(r.arrivalTime || r.customer?.arrivalTime) && (
                                                         <div>
-                                                            Llegada: {r.arrivalTime}
+                                                            Llegada: {r.arrivalTime || r.customer?.arrivalTime}
                                                         </div>
                                                     )}
-                                                    {r.comment && (
+                                                    {(r.comment || r.customer?.comment) && (
                                                         <div className="mt-1 text-neutral-600">
-                                                            Comentario: {r.comment}
+                                                            Comentario: {r.comment || r.customer?.comment}
                                                         </div>
                                                     )}
                                                     {r.adminNote && (

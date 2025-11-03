@@ -142,7 +142,7 @@ export async function GET(req: Request) {
       }
     }
 
-    // Normalización para UI (convertimos Timestamps a ISO string legible) y añadimos los nuevos campos
+    // Normalización para UI (convertimos Timestamps a ISO string legible)
     const cleaned = Array.from(resultsMap.values()).map((r: any) => {
       const customerMap = r.customer ?? null;
       const emailFlatten = r.email ?? r.customerEmail ?? customerMap?.email ?? null;
@@ -158,6 +158,7 @@ export async function GET(req: Request) {
         guests: Number(r.guests ?? 0),
         houseId: r.houseId || null,
         houseIds: Array.isArray(r.houseIds) ? r.houseIds : null,
+        
         // customer map + flatten fields
         customer: customerMap,
         customerEmail: r.customerEmail ?? emailFlatten,
@@ -165,49 +166,43 @@ export async function GET(req: Request) {
         name: nameFlatten,
         phone: phoneFlatten,
         userId: r.userId ?? customerMap?.userId ?? null,
-        arrivalTime: r.arrivalTime ?? null,
-        comment: r.comment ?? null,
+        arrivalTime: r.arrivalTime ?? customerMap?.arrivalTime ?? null,
+        comment: r.comment ?? customerMap?.comment ?? null,
 
-        // moneda y precios
+        // moneda y precios (nuevos campos)
         currency: r.currency || "EUR",
-        total: Number(r.total ?? 0),
-        grandTotal: Number(r.grandTotal ?? r.total ?? 0),
-        discountedTotal: typeof r.discountedTotal === "number" ? r.discountedTotal : (typeof r.discountedGrandTotal === "number" ? r.discountedGrandTotal : null),
-        discountedGrandTotal: typeof r.discountedGrandTotal === "number" ? r.discountedGrandTotal : (typeof r.discountedTotal === "number" ? r.discountedTotal : null),
-        amountApplied: Number(r.amountApplied ?? 0),
-        code: r.code ?? (r.coupon?.code ?? null),
-        coupon: r.coupon ?? null,
-        totalNightsOnly: Number(r.totalNightsOnly ?? r.total ?? 0),
-        jacuzzi: r.jacuzzi ?? (r.jacuzzi === undefined ? { enabled: false, jacuzziFee: Number(r.jacuzziFee ?? 0) } : r.jacuzzi),
-        jacuzziFee: Number(r.jacuzziFee ?? (r.jacuzzi?.jacuzziFee ?? 0)),
+        totalNightsOnly: Number(r.totalNightsOnly ?? 0),
+        totalStay: Number(r.totalStay ?? r.totalNightsOnly ?? 0),
+        
+        // jacuzzi
+        jacuzzi: r.jacuzzi ?? null,
+        jacuzziFee: Number(r.jacuzziFee ?? (r.jacuzzi?.fee ?? 0)),
+        
+        // extras
         includedBase: Number(r.includedBase ?? 2),
-        extraGuests: Number(r.extraGuests ?? Math.max(0, (Number(r.guests ?? 0) - Number(r.includedBase ?? 2)))),
+        extraGuests: Number(r.extraGuests ?? 0),
 
         // primeras noches / cargos
-        firstNightCharge: typeof r.firstNightCharge === "number" ? r.firstNightCharge : (typeof r.firstNightBase === "number" ? r.firstNightBase : null),
-        firstNightBase: typeof r.firstNightBase === "number" ? r.firstNightBase : (typeof r.firstNightCharge === "number" ? r.firstNightCharge : null),
-        discountedFirst: typeof r.discountedFirst === "number" ? r.discountedFirst : null,
+        firstNightCharge: typeof r.firstNightCharge === "number" ? r.firstNightCharge : null,
+        
+        // nuevos campos de pago
+        payNow: typeof r.payNow === "number" ? r.payNow : null,
+        payAtArrival: typeof r.payAtArrival === "number" ? r.payAtArrival : null,
 
         // pagos / stripe
-        paidInFull: !!r.paidInFull,
         stripeCustomerId: r.stripeCustomerId ?? null,
         stripePaymentIntentId: r.stripePaymentIntentId ?? null,
         stripeSessionId: r.stripeSessionId ?? null,
+        
+        // montonio
+        montonioOrderUuid: r.montonioOrderUuid ?? null,
+        montonioNotification: r.montonioNotification ?? null,
 
         // timestamps ISO
         createdAtIso: tsToIso(r.createdAt),
         updatedAtIso: tsToIso(r.updatedAt),
         paidAtIso: tsToIso(r.paidAt),
-        deductedAtIso: tsToIso(r.deductedAt),
-
-        // raw for debugging (optional, small)
-        _raw: {
-          // No incluir todo lo que pueda ser enorme; incluir sólo campos de interés
-          id: r.id,
-          status: r.status,
-          checkIn: r.checkIn,
-          checkOut: r.checkOut,
-        },
+        confirmationEmailSentAtIso: tsToIso(r.confirmationEmailSentAt),
       };
     });
 

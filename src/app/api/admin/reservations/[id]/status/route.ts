@@ -1,3 +1,4 @@
+// app/api/admin/reservations/[id]/status/route.ts
 import admin, { adminDb } from "@/lib/firebase-admin";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
@@ -48,24 +49,39 @@ function normalizeSnap(snap: FirebaseFirestore.DocumentSnapshot) {
   out.name = raw?.name ?? (raw?.customer?.name ?? null);
   out.phone = raw?.phone ?? (raw?.customer?.phone ?? null);
   out.userId = raw?.userId ?? (raw?.customer?.userId ?? null);
-  out.arrivalTime = raw?.arrivalTime ?? null;
-  out.comment = raw?.comment ?? null;
+  out.arrivalTime = raw?.arrivalTime ?? (raw?.customer?.arrivalTime ?? null);
+  out.comment = raw?.comment ?? (raw?.customer?.comment ?? null);
 
   out.guests = Number(raw?.guests ?? 0);
+  
+  // ✅ Campos simplificados (NUEVOS)
+  out.payNow = Number(raw?.payNow ?? raw?.discountedFirst ?? 0);
+  out.payAtArrival = Number(raw?.payAtArrival ?? 0);
+  out.totalStay = Number(raw?.totalStay ?? raw?.discountedGrandTotal ?? raw?.grandTotal ?? 0);
+  
+  // Legacy fields (mantener para compatibilidad)
   out.total = Number(raw?.total ?? raw?.grandTotal ?? 0);
   out.firstNightCharge = Number(raw?.firstNightCharge ?? 0);
+  out.discountedFirst = Number(raw?.discountedFirst ?? 0);
   out.discountedTotal = Number(raw?.discountedTotal ?? raw?.discountedGrandTotal ?? 0);
   out.amountApplied = Number(raw?.amountApplied ?? 0);
   out.totalNightsOnly = Number(raw?.totalNightsOnly ?? out.total);
   out.includedBase = Number(raw?.includedBase ?? 2);
   out.extraGuests = Number(raw?.extraGuests ?? Math.max(0, out.guests - out.includedBase));
-  out.jacuzzi = raw?.jacuzzi ?? { enabled: false, jacuzziFee: Number(raw?.jacuzziFee ?? 0) };
-  out.jacuzziFee = Number(raw?.jacuzziFee ?? out.jacuzzi?.jacuzziFee ?? 0);
+  
+  // ✅ Jacuzzi con days
+  out.jacuzzi = raw?.jacuzzi ?? { 
+    enabled: false, 
+    fee: Number(raw?.jacuzziFee ?? 0),
+    days: Number(raw?.jacuzzi?.days ?? 0)
+  };
+  out.jacuzziFee = Number(raw?.jacuzziFee ?? out.jacuzzi?.fee ?? 0);
   out.grandTotal = Number(raw?.grandTotal ?? out.total);
   out.discountedGrandTotal = Number(raw?.discountedGrandTotal ?? out.discountedTotal ?? out.grandTotal);
 
   out.coupon = raw?.coupon ?? null;
   out.code = raw?.code ?? (out.coupon?.code ?? null);
+  out.percentDiscount = raw?.percentDiscount ?? null;
 
   return out;
 }

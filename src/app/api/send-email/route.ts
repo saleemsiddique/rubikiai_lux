@@ -53,12 +53,9 @@ export type SendEmailBody =
         nights: number;
         roomType: string;
         guests: number;
-        unitAmount: number;
-        taxes?: number;
-        fees?: number;
-        totalAmount?: number;
+        unitAmount: number; // amount charged now (first night)
+        totalAmount?: number; // grand total for whole stay (to be paid at arrival)
         currency?: string;
-        paymentMethod?: string;
         hotelName?: string;
         hotelContactEmail?: string;
         hotelContactPhone?: string;
@@ -157,11 +154,8 @@ export async function POST(req: Request) {
           roomType,
           guests,
           unitAmount,
-          taxes,
-          fees,
           totalAmount,
           currency = "EUR",
-          paymentMethod,
           hotelName,
           hotelContactEmail,
           hotelContactPhone,
@@ -178,12 +172,11 @@ export async function POST(req: Request) {
           nights,
           roomType,
           guests,
+          // unitAmount = amount charged now (first night)
           unitAmount,
-          taxes,
-          fees,
+          // totalAmount = grand total for whole stay (to be paid at arrival)
           totalAmount,
           currency,
-          paymentMethod,
           hotelName,
           hotelContactEmail,
           hotelContactPhone,

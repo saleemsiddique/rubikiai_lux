@@ -946,8 +946,8 @@ export async function POST(req: Request) {
       try {
         const customerEmail = customerEmailFromMeta || null;
         if (customerEmail) {
-          // calcular precio por noche seguro: preferir firstNightCharge, si no dividir grandTotal entre noches
-          const unitAmountPerNight =
+          // Prefer firstNightCharge; fallback: evenly split grandTotal
+          const firstNightChargeSafe =
             Number(firstNightCharge) > 0
               ? Number(firstNightCharge)
               : nights > 0
@@ -956,18 +956,21 @@ export async function POST(req: Request) {
                   ) / 100
                 : Number(grandTotal || 0);
 
+          const grandTotalToSend = Number(
+            discountedGrandTotal || grandTotal || 0
+          );
+
           await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({
               type: "reservation_confirmation",
               to: customerEmail,
-              // for this webhook we always send the English template as requested
               lang: "en",
               data: {
                 reservationId,
                 guestName: customerNameFromMeta || customerEmail,
-                bookingDate: new Date().toISOString().slice(0, 19), // timestamp of confirmation
+                bookingDate: new Date().toISOString().slice(0, 19),
                 checkIn,
                 checkOut,
                 nights,
@@ -976,13 +979,11 @@ export async function POST(req: Request) {
                     ? houseIds[0]
                     : meta?.roomType || houseIds.join(", ")) || "Accommodation",
                 guests: guestsNum,
-                unitAmount: unitAmountPerNight,
-                taxes: Number(meta?.taxes ?? 0),
-                fees: Number(meta?.fees ?? 0),
-                totalAmount: Number(discountedGrandTotal || grandTotal || 0),
+                // unitAmount = amount charged now (first night)
+                unitAmount: firstNightChargeSafe,
+                // totalAmount = grand total for whole stay (to be paid at arrival)
+                totalAmount: grandTotalToSend,
                 currency,
-                paymentMethod:
-                  payload?.paymentMethod || payload?.payment?.method || "—",
                 hotelName: "Rubikiai Lux",
                 hotelContactEmail: "info@rubikiailux.lt",
                 hotelContactPhone: "",
@@ -1032,6 +1033,7 @@ export async function POST(req: Request) {
           e
         );
       }
+      // --- FIN BLOQUE ---
 
       console.log("✅ Reserva procesada exitosamente:", reservationId);
       return NextResponse.json({ received: true });

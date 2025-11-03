@@ -9,12 +9,9 @@ type ReservationConfirmationEmailParams = {
   nights: number;
   roomType: string;
   guests: number;
-  unitAmount: number; // price per night
-  taxes?: number; // optional
-  fees?: number; // optional
-  totalAmount?: number; // optionally precomputed
+  unitAmount: number; // amount charged now (first night)
+  totalAmount?: number; // grandTotal (total for whole stay, to be paid at arrival)
   currency?: string;
-  paymentMethod?: string; // e.g. "Card **** 4242"
   hotelName?: string;
   hotelContactEmail?: string;
   hotelContactPhone?: string;
@@ -31,20 +28,17 @@ export function ReservationConfirmationEmailHtmlEN(params: ReservationConfirmati
     nights,
     roomType,
     guests,
-    unitAmount,
-    taxes = 0,
-    fees = 0,
+    unitAmount = 0, // treated as firstNightCharge / amount already charged
     totalAmount,
     currency = "EUR",
-    paymentMethod = "—",
     hotelName = "Rubikiai Lux",
     hotelContactEmail = "info@rubikiailux.lt",
     hotelContactPhone = "",
     logoCid = "rubikiai-logo",
   } = params;
 
-  const subtotal = unitAmount * nights;
-  const calculatedTotal = typeof totalAmount === "number" ? totalAmount : subtotal + (taxes ?? 0) + (fees ?? 0);
+  const paidNow = Number(unitAmount || 0);
+  const totalDueAtArrival = typeof totalAmount === "number" ? Number(totalAmount) : paidNow; // fallback if not provided
 
   return `
   <div style="margin:0;padding:0;background:#f4efe9;">
@@ -114,12 +108,9 @@ export function ReservationConfirmationEmailHtmlEN(params: ReservationConfirmati
                     <td style="padding:14px 18px;">
                       <div style="font:600 13px/1 Inter,Arial,sans-serif;color:#6b7280;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">Payment</div>
                       <div style="font:600 16px/1.5 Inter,Arial,sans-serif;color:#0f172a;">
-                        <div>Price per night: <strong>${formatCurrency(unitAmount, currency)}</strong></div>
-                        <div>Subtotal: <strong>${formatCurrency(subtotal, currency)}</strong></div>
-                        <div>Taxes: <strong>${formatCurrency(taxes, currency)}</strong></div>
-                        <div>Additional fees: <strong>${formatCurrency(fees, currency)}</strong></div>
-                        <div style="margin-top:8px;font-size:18px;color:#214235;">Total: <strong>${formatCurrency(calculatedTotal, currency)}</strong></div>
-                        <div style="margin-top:6px;font-size:14px;color:#475569;">Payment method: <strong>${paymentMethod}</strong></div>
+                        <div style="margin-top:6px;font-size:16px;color:#0f172a;">Amount charged now (first night): <strong>${formatCurrency(paidNow, currency)}</strong></div>
+
+                        <div style="margin-top:10px;font-size:18px;color:#214235;">Total to be paid at arrival: <strong>${formatCurrency(totalDueAtArrival, currency)}</strong></div>
                       </div>
                     </td>
                   </tr>
@@ -156,20 +147,12 @@ export function ReservationConfirmationEmailHtmlEN(params: ReservationConfirmati
                   </thead>
                   <tbody>
                     <tr>
-                      <td align="left" style="padding:12px 14px;border-bottom:1px solid #eee;">${nights} × ${roomType} (per night)</td>
-                      <td align="right" style="padding:12px 14px;border-bottom:1px solid #eee;">${formatCurrency(subtotal, currency)}</td>
+                      <td align="left" style="padding:12px 14px;border-bottom:1px solid #eee;">Amount charged now (first night)</td>
+                      <td align="right" style="padding:12px 14px;border-bottom:1px solid #eee;">${formatCurrency(paidNow, currency)}</td>
                     </tr>
                     <tr>
-                      <td align="left" style="padding:12px 14px;border-bottom:1px solid #eee;">Taxes</td>
-                      <td align="right" style="padding:12px 14px;border-bottom:1px solid #eee;">${formatCurrency(taxes, currency)}</td>
-                    </tr>
-                    <tr>
-                      <td align="left" style="padding:12px 14px;border-bottom:1px solid #eee;">Additional fees</td>
-                      <td align="right" style="padding:12px 14px;border-bottom:1px solid #eee;">${formatCurrency(fees, currency)}</td>
-                    </tr>
-                    <tr>
-                      <td align="left" style="padding:12px 14px;font:700 14px/1 Inter,Arial,sans-serif;color:#0f172a;">Total</td>
-                      <td align="right" style="padding:12px 14px;font:700 14px/1 Inter,Arial,sans-serif;color:#214235;">${formatCurrency(calculatedTotal, currency)}</td>
+                      <td align="left" style="padding:12px 14px;font:700 14px/1 Inter,Arial,sans-serif;color:#0f172a;">Total to be paid at arrival</td>
+                      <td align="right" style="padding:12px 14px;font:700 14px/1 Inter,Arial,sans-serif;color:#214235;">${formatCurrency(totalDueAtArrival, currency)}</td>
                     </tr>
                   </tbody>
                 </table>

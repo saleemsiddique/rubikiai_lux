@@ -115,14 +115,14 @@ async function applyPercentDiscountInTx(
     percentId,
     percentCode,
     percentValue,
-    couponAmountApplied,
+    percentAmountApplied, // <-- cambiar de couponAmountApplied
     reservationId,
     checkoutSessionId,
   }: {
     percentId: string;
     percentCode: string;
     percentValue: string;
-    couponAmountApplied: string;
+    percentAmountApplied: string; // <-- nuevo nombre
     reservationId: string;
     checkoutSessionId: string;
   }
@@ -131,12 +131,13 @@ async function applyPercentDiscountInTx(
     .collection("percentage_discounts")
     .doc(String(percentId));
   const pSnap = await tx.get(percentRef);
+
   if (!pSnap.exists) {
     return {
       id: percentId,
       code: percentCode,
       percent: Number(percentValue),
-      amountApplied: Number(couponAmountApplied) || 0,
+      amountApplied: Number(percentAmountApplied) || 0,
       deductionError: "percent_not_found_at_webhook",
       deductionErrorAt: admin.firestore.Timestamp.now(),
     };
@@ -157,18 +158,23 @@ async function applyPercentDiscountInTx(
   tx.set(movRef, {
     type: "reservation",
     reservationId,
-    amountApplied: Number(couponAmountApplied) || 0,
+    amountApplied: Number(percentAmountApplied) || 0,
     percentValue: Number(percentValue) || 0,
     createdAt: admin.firestore.Timestamp.now(),
     checkoutSessionId,
   });
 
+  const now = admin.firestore.Timestamp.now();
+
+  // ESTRUCTURA IGUAL QUE COUPON:
   return {
     id: percentId,
     code: percentCode,
     percent: Number(percentValue) || 0,
-    amountApplied: Number(couponAmountApplied) || 0,
-    deductedAt: admin.firestore.Timestamp.now(),
+    amountApplied: Number(percentAmountApplied) || 0,
+    deductedAt: now,
+    createdAt: now,
+    checkoutSessionId,
   };
 }
 
@@ -404,6 +410,10 @@ export async function POST(req: Request) {
               percentValue:
                 fromIntentMeta.percentValue ??
                 intent.metadata?.percentValue ??
+                "",
+              percentAmountApplied:
+                fromIntentMeta.percentAmountApplied ??
+                intent.metadata?.percentAmountApplied ??
                 "",
               rawValue:
                 fromIntentMeta.rawValue ?? intent.metadata?.rawValue ?? "",
@@ -815,6 +825,12 @@ export async function POST(req: Request) {
 
         console.log("💾 Guardando reserva - existe?:", existsAlready);
 
+        const payNow = Number(meta?.payNow ?? discountedFirst ?? 0);
+        const totalStay = Number(meta?.totalStay ?? discountedGrandTotal ?? 0);
+        const payAtArrival = Number(
+          meta?.payAtArrival ?? Math.max(0, totalStay - payNow)
+        );
+
         const baseReservationPayload: any = {
           houseId: houseIds.length === 1 ? houseIds[0] : houseIds.join("__"),
           houseIds,
@@ -822,17 +838,23 @@ export async function POST(req: Request) {
           checkOut,
           nights,
           guests: guestsNum,
+
+          // CAMPOS SIMPLIFICADOS
+          payNow,
+          payAtArrival,
+          totalStay,
+
+          // campos legacy (opcional, por compatibilidad):
           includedBase,
           extraGuests,
           totalNightsOnly,
           firstNightCharge,
-          discountedFirst,
+
           jacuzzi: jacuzziEnabled
             ? { enabled: true, fee: jacuzziFee }
             : { enabled: false, fee: 0 },
           jacuzziFee,
-          grandTotal,
-          discountedGrandTotal,
+
           currency,
           status: "reserved",
           createdAt: existsAlready ? snap.data()?.createdAt || nowTs : nowTs,
@@ -888,14 +910,19 @@ export async function POST(req: Request) {
             "📊 Aplicando descuento porcentual (webhook):",
             percentId
           );
+
+          const percentAmountApplied =
+            meta?.percentAmountApplied || couponAmountApplied || ""; // fallback
+
           const percentBlock = await applyPercentDiscountInTx(tx, {
             percentId,
             percentCode,
             percentValue,
-            couponAmountApplied,
+            percentAmountApplied, // <-- usar el nuevo campo
             reservationId,
             checkoutSessionId: montonioOrderUuid || "montonio",
           });
+
           baseReservationPayload.percentDiscount = percentBlock;
 
           if (

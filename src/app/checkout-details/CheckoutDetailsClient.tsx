@@ -4,14 +4,14 @@ import React, { useEffect, useState, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 
 interface PriceResponse {
-  total: number | null;        // lodging + extra guests per night, no jacuzzi
-  first: number | null;        // first-night charge estimate (no jacuzzi)
+  total: number | null; // lodging + extra guests per night, no jacuzzi
+  first: number | null; // first-night charge estimate (no jacuzzi)
   nights: number;
   extraGuests: number;
   includedBase: number;
-  jacuzziFee: number;          // jacuzzi surcharge (flat for whole stay)
-  extrasTotal: number;         // currently == jacuzziFee or 0
-  grandTotal: number;          // total stay with jacuzzi
+  jacuzziFee: number; // jacuzzi surcharge (flat for whole stay)
+  extrasTotal: number; // currently == jacuzziFee or 0
+  grandTotal: number; // total stay with jacuzzi
   variable: boolean;
   perNightBreakdown: Array<{
     date: string;
@@ -145,12 +145,10 @@ export default function CheckoutDetailsClient() {
   const startPretty = startIso
     ? new Date(startIso).toLocaleDateString("en-GB")
     : "-";
-  const endPretty = endIso
-    ? new Date(endIso).toLocaleDateString("en-GB")
-    : "-";
+  const endPretty = endIso ? new Date(endIso).toLocaleDateString("en-GB") : "-";
 
   // derive jacuzzi fee shown
-  const jacuzziFeeShown = withJacuzzi ? priceData?.jacuzziFee ?? 0 : 0;
+  const jacuzziFeeShown = withJacuzzi ? (priceData?.jacuzziFee ?? 0) : 0;
 
   /**
    * computedBreakdown:
@@ -243,10 +241,7 @@ export default function CheckoutDetailsClient() {
         return {
           effectiveDiscountUsedNow: firstNightBefore,
           payNowAfterDiscount: 0,
-          totalAfterDiscount: Math.max(
-            0,
-            fullStayBefore - firstNightBefore
-          ),
+          totalAfterDiscount: Math.max(0, fullStayBefore - firstNightBefore),
         };
       }
 
@@ -272,11 +267,8 @@ export default function CheckoutDetailsClient() {
     appliedEuroDiscount,
   ]);
 
-  const {
-    payNowAfterDiscount,
-    totalAfterDiscount,
-    effectiveDiscountUsedNow,
-  } = computedBreakdown;
+  const { payNowAfterDiscount, totalAfterDiscount, effectiveDiscountUsedNow } =
+    computedBreakdown;
 
   // Fetch price (with or without jacuzzi)
   useEffect(() => {
@@ -300,9 +292,7 @@ export default function CheckoutDetailsClient() {
         const data = await res.json();
         if (!res.ok) {
           console.error("price error", data);
-          setPriceError(
-            data.error || "Could not calculate the price."
-          );
+          setPriceError(data.error || "Could not calculate the price.");
           setPriceData(null);
           setLoadingPrice(false);
           return;
@@ -344,7 +334,9 @@ export default function CheckoutDetailsClient() {
 
       // Caso especial: 404 = no encontrado
       if (res.status === 404) {
-        setDiscountError("No hemos encontrado ningún descuento con ese código.");
+        setDiscountError(
+          "No hemos encontrado ningún descuento con ese código."
+        );
         setDiscountData(null);
         setDiscountLookupLoading(false);
         return;
@@ -416,9 +408,7 @@ export default function CheckoutDetailsClient() {
       // enforce Stripe min rule on what's charged now
       const { used } = applyCreditToFirstNight(firstNightBefore, rawToUse);
       if (used <= 0) {
-        setDiscountError(
-          "Nothing to apply after Stripe minimum charge rule."
-        );
+        setDiscountError("Nothing to apply after Stripe minimum charge rule.");
         return;
       }
 
@@ -478,7 +468,6 @@ export default function CheckoutDetailsClient() {
     setDiscountError("Unknown discount type.");
   };
 
-
   const handleClearDiscount = () => {
     setDiscountApplied(false);
     setAppliedEuroDiscount(0);
@@ -504,10 +493,7 @@ export default function CheckoutDetailsClient() {
             // how many euros we're effectively applying now
             value: appliedEuroDiscount,
           };
-        } else if (
-          discountData.kind === "percent" &&
-          discountData.percentDoc
-        ) {
+        } else if (discountData.kind === "percent" && discountData.percentDoc) {
           discountPayload = {
             kind: "percent",
             id: discountData.percentDoc.id || "",
@@ -517,12 +503,23 @@ export default function CheckoutDetailsClient() {
         }
       }
 
+      // En handleMontonioCheckout, después de calcular computedBreakdown:
       const body: any = {
-        houseId: houseId,
+        houseId,
+        houseSlug: houseSlug || undefined,
         start: startIso,
         end: endIso,
         guests,
-        houseSlug: houseSlug || undefined,
+
+        // NUEVOS CAMPOS DE PRECIO SIMPLIFICADOS
+        pricing: {
+          payNow: payNowAfterDiscount ?? priceData.first ?? 0,
+          totalStay:
+            totalAfterDiscount ??
+            (withJacuzzi ? priceData.grandTotal : priceData.total) ??
+            0,
+          // payAtArrival se calcula en backend: totalStay - payNow
+        },
 
         customer: {
           email,
@@ -535,9 +532,9 @@ export default function CheckoutDetailsClient() {
         extras: {
           jacuzzi: withJacuzzi
             ? {
-              enabled: true,
-              price: priceData.jacuzziFee, // backend-computed
-            }
+                enabled: true,
+                price: priceData.jacuzziFee,
+              }
             : { enabled: false },
         },
 
@@ -586,10 +583,7 @@ export default function CheckoutDetailsClient() {
             code: discountData.coupon.code || "",
             value: appliedEuroDiscount, // euros
           };
-        } else if (
-          discountData.kind === "percent" &&
-          discountData.percentDoc
-        ) {
+        } else if (discountData.kind === "percent" && discountData.percentDoc) {
           discountPayload = {
             kind: "percent",
             id: discountData.percentDoc.id || "",
@@ -615,9 +609,9 @@ export default function CheckoutDetailsClient() {
         extras: {
           jacuzzi: withJacuzzi
             ? {
-              enabled: true,
-              price: priceData.jacuzziFee, // backend-calculated price (sent for info)
-            }
+                enabled: true,
+                price: priceData.jacuzziFee, // backend-calculated price (sent for info)
+              }
             : { enabled: false },
         },
         discount: discountPayload || undefined,
@@ -625,7 +619,10 @@ export default function CheckoutDetailsClient() {
 
       const res = await fetch("/api/montonio/checkout", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
         body: JSON.stringify(body),
       });
 
@@ -655,9 +652,6 @@ export default function CheckoutDetailsClient() {
       alert("Network error creating Montonio checkout");
     }
   };
-
-
-
 
   const nights = priceData?.nights ?? 0;
 
@@ -724,10 +718,11 @@ export default function CheckoutDetailsClient() {
                 </label>
                 <input
                   type="email"
-                  className={`border rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 ${email2 && !emailsMatch
-                    ? "border-red-500 focus:ring-red-400"
-                    : "border-gray-300 focus:ring-[var(--color-primary)] focus:border-[var(--color-primary)]"
-                    }`}
+                  className={`border rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 ${
+                    email2 && !emailsMatch
+                      ? "border-red-500 focus:ring-red-400"
+                      : "border-gray-300 focus:ring-[var(--color-primary)] focus:border-[var(--color-primary)]"
+                  }`}
                   value={email2}
                   onChange={(e) => setEmail2(e.target.value)}
                   placeholder="Repeat your email"
@@ -804,8 +799,8 @@ export default function CheckoutDetailsClient() {
                   )}
                 </div>
                 <div className="text-sm text-gray-600 leading-relaxed">
-                  65€ covers up to 2 guests. +10€/extra guest. One-time fee
-                  for the stay.
+                  65€ covers up to 2 guests. +10€/extra guest. One-time fee for
+                  the stay.
                 </div>
               </div>
             </label>
@@ -875,34 +870,31 @@ export default function CheckoutDetailsClient() {
                   </>
                 )}
 
-                {discountData.kind === "percent" &&
-                  discountData.percentDoc && (
-                    <>
-                      <div className="font-medium">
-                        Code: {discountData.percentDoc.code}{" "}
-                        <span className="text-xs text-gray-500">
-                          ({discountData.state})
-                        </span>
+                {discountData.kind === "percent" && discountData.percentDoc && (
+                  <>
+                    <div className="font-medium">
+                      Code: {discountData.percentDoc.code}{" "}
+                      <span className="text-xs text-gray-500">
+                        ({discountData.state})
+                      </span>
+                    </div>
+                    <div>
+                      Discount:{" "}
+                      <span className="font-semibold">
+                        {discountData.percentDoc.percent}% off (first night
+                        only)
+                      </span>
+                    </div>
+                    {discountData.percentDoc.expiresAt && (
+                      <div className="text-xs text-gray-500">
+                        Expires: {discountData.percentDoc.expiresAt}
                       </div>
-                      <div>
-                        Discount:{" "}
-                        <span className="font-semibold">
-                          {discountData.percentDoc.percent}% off (first
-                          night only)
-                        </span>
-                      </div>
-                      {discountData.percentDoc.expiresAt && (
-                        <div className="text-xs text-gray-500">
-                          Expires: {discountData.percentDoc.expiresAt}
-                        </div>
-                      )}
-                      {discountData.percentDoc.used && (
-                        <div className="text-xs text-red-600">
-                          (Already used)
-                        </div>
-                      )}
-                    </>
-                  )}
+                    )}
+                    {discountData.percentDoc.used && (
+                      <div className="text-xs text-red-600">(Already used)</div>
+                    )}
+                  </>
+                )}
 
                 {!discountApplied ? (
                   <button
@@ -1002,11 +994,11 @@ export default function CheckoutDetailsClient() {
                         ? formatCurrency(totalAfterDiscount)
                         : priceData
                           ? // fallback if for some reason we don't have totalAfterDiscount
-                          formatCurrency(
-                            withJacuzzi
-                              ? priceData.grandTotal
-                              : priceData.total
-                          )
+                            formatCurrency(
+                              withJacuzzi
+                                ? priceData.grandTotal
+                                : priceData.total
+                            )
                           : "—"}
                 </span>
               </div>
@@ -1036,10 +1028,10 @@ export default function CheckoutDetailsClient() {
                     <div className="mt-2 text-xs text-gray-600 leading-relaxed">
                       {discountData.kind === "percent"
                         ? `A ${discountData.percentDoc?.percent}% discount has been applied to the first night.`
-                        : `A coupon has been applied (${discountData.coupon?.code ||
-                        ""}).`}{" "}
-                      You pay now{" "}
-                      {formatCurrency(payNowAfterDiscount ?? 0)}.
+                        : `A coupon has been applied (${
+                            discountData.coupon?.code || ""
+                          }).`}{" "}
+                      You pay now {formatCurrency(payNowAfterDiscount ?? 0)}.
                     </div>
                   )}
 
@@ -1051,9 +1043,7 @@ export default function CheckoutDetailsClient() {
 
               {/* pricing fetch error */}
               {priceError && (
-                <p className="text-xs text-red-600 mt-2 italic">
-                  {priceError}
-                </p>
+                <p className="text-xs text-red-600 mt-2 italic">{priceError}</p>
               )}
             </div>
           </div>
@@ -1061,10 +1051,11 @@ export default function CheckoutDetailsClient() {
           <button
             disabled={!canSubmit}
             onClick={handleGoToCheckout}
-            className={`w-full py-4 rounded-xl font-bold uppercase tracking-wide text-sm shadow-lg transition-all duration-300 ${canSubmit
-              ? "bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] hover:shadow-xl transform hover:-translate-y-0.5"
-              : "bg-gray-300 text-gray-500 cursor-not-allowed"
-              }`}
+            className={`w-full py-4 rounded-xl font-bold uppercase tracking-wide text-sm shadow-lg transition-all duration-300 ${
+              canSubmit
+                ? "bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] hover:shadow-xl transform hover:-translate-y-0.5"
+                : "bg-gray-300 text-gray-500 cursor-not-allowed"
+            }`}
           >
             {canSubmit ? "Continue to payment" : "Fill your details"}
           </button>
@@ -1075,7 +1066,6 @@ export default function CheckoutDetailsClient() {
           >
             Pay with Bank Transfer (Montonio)
           </button>
-
 
           <button
             onClick={() => router.back()}

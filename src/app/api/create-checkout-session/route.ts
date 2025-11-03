@@ -1,7 +1,7 @@
 // app/api/create-checkout-session/route.ts
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
-import admin, { adminDb as db } from "@/lib/firebase-admin"; // <- usa TU helper
+import admin, { adminDb as db } from "@/lib/firebase-admin";
 import {
   dateFromIsoLocal,
   addDaysLocal,
@@ -13,39 +13,36 @@ import {
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY! as string);
 
 /* ---------------- Business constants ---------------- */
-const EXTRA_GUEST_PRICE = 40; // € per extra guest per night
-// Jacuzzi: 65€ covers up to 2 people, +10€/extra guest, flat once per stay
 const JACUZZI_BASE_PRICE = 65;
 const JACUZZI_EXTRA_PRICE = 10;
 
 /* ---------------- Types ---------------- */
 type CheckoutBody = {
-  houseId?: string;        // could be "a__b"
+  houseId?: string;
   houseSlug?: string;
   start: string | Date;
   end: string | Date;
   guests: number;
   type?: string;
 
-  // unified discount payload sent from checkout-details
   discount?: {
     kind?: "coupon" | "percent";
-    id?: string;          // coupon doc id OR percentage_discounts doc id
-    code?: string;        // human-readable code
-    value?: number;       // coupon: euros to try to apply; percent: % number
+    id?: string;
+    code?: string;
+    value?: number;
   };
 
   customer?: {
     email?: string;
     name?: string;
-    phone?: string; // E.164
+    phone?: string;
     address?: {
       line1?: string;
       line2?: string;
       city?: string;
       state?: string;
       postal_code?: string;
-      country?: string; // ISO2
+      country?: string;
     };
     userId?: string;
     arrivalTime?: string;
@@ -65,7 +62,6 @@ function pad2(n: number) {
   return n < 10 ? `0${n}` : String(n);
 }
 
-/** Date -> YYYY-MM-DD (LOCAL, no UTC shift) */
 function dateIsoLocal(d: Date) {
   const y = d.getFullYear();
   const m = pad2(d.getMonth() + 1);
@@ -86,27 +82,23 @@ function weekdayKey(date: Date) {
   return map[date.getDay()];
 }
 
-// Round to 2 decimals
 function round2(n: number) {
   return Math.round(n * 100) / 100;
 }
 
-// Stripe rule helper
 function adjustForStripeMin(firstNightBefore: number, discountTry: number) {
-  const STRIPE_MIN = 0.5; // 0.50€
+  const STRIPE_MIN = 0.5;
   const tentative = firstNightBefore - discountTry;
 
-  if (tentative <= 0) return round2(discountTry); // pay 0 now = ok
-  if (tentative >= STRIPE_MIN) return round2(discountTry); // pay >=0.50 = ok
+  if (tentative <= 0) return round2(discountTry);
+  if (tentative >= STRIPE_MIN) return round2(discountTry);
 
-  // snap to 0.50
   const neededToPay50 = firstNightBefore - STRIPE_MIN;
   let adjusted = Math.min(discountTry, neededToPay50);
   if (adjusted < 0) adjusted = 0;
 
   const afterAdjust = firstNightBefore - adjusted;
   if (afterAdjust > 0 && afterAdjust < STRIPE_MIN) {
-    // still illegal -> cover full first night
     adjusted = Math.min(discountTry, firstNightBefore);
   }
 
@@ -114,40 +106,6 @@ function adjustForStripeMin(firstNightBefore: number, discountTry: number) {
 }
 
 /* ---------------- Firestore helpers ---------------- */
-async function fetchHouseDoc(id: string) {
-  const snap = await db.collection("houses").doc(id).get();
-  if (!snap.exists) return null;
-  const data = snap.data() || {};
-  return {
-    id: snap.id,
-    alias: data.alias || "",
-    name: data.name || "",
-    type: data.type ?? null,
-    maxGuests: typeof data.maxGuests === "number" ? data.maxGuests : null,
-    includedGuests:
-      typeof data.includedGuests === "number" ? data.includedGuests : 2,
-    pricePerNight:
-      typeof data.pricePerNight === "object" && data.pricePerNight
-        ? data.pricePerNight
-        : {},
-    specialPrices:
-      typeof data.specialPrices === "object" && data.specialPrices
-        ? data.specialPrices
-        : {},
-  };
-}
-
-function getPriceForDate(house: any, d: Date): number | null {
-  if (!house) return null;
-  const iso = dateIsoLocal(d);
-  const sp = house?.specialPrices?.[iso];
-  if (typeof sp === "number") return sp;
-  const key = weekdayKey(d);
-  const val = house?.pricePerNight?.[key];
-  return typeof val === "number" ? val : null;
-}
-
-/* ---------------- Availability check ---------------- */
 function shouldIncludeReservation(res: any) {
   const status = String(res?.status ?? "").toLowerCase();
   return status === "admin" || status === "reserved" || status === "complete";
@@ -157,11 +115,9 @@ async function fetchReservationsForId(id: string) {
   const map = new Map<string, any>();
   const ref = db.collection("reservations");
 
-  // houseId == id
   const s1 = await ref.where("houseId", "==", id).get();
   s1.docs.forEach((d) => map.set(d.id, d.data()));
 
-  // houseIds array-contains id
   const s2 = await ref.where("houseIds", "array-contains", id).get();
   s2.docs.forEach((d) => map.set(d.id, d.data()));
 
@@ -173,7 +129,6 @@ async function getOrCreateStripeCustomer(input?: CheckoutBody["customer"]) {
   const email = String(input?.email || "").trim().toLowerCase();
 
   if (email) {
-    // reuse existing mapping if we have it
     const key = email;
     const mapRef = db.collection("stripe_customer_by_email").doc(key);
     const mapSnap = await mapRef.get();
@@ -182,7 +137,6 @@ async function getOrCreateStripeCustomer(input?: CheckoutBody["customer"]) {
       return existing.stripeCustomerId;
     }
 
-    // else create new
     const customer = await stripe.customers.create({
       email,
       name: input?.name,
@@ -202,7 +156,6 @@ async function getOrCreateStripeCustomer(input?: CheckoutBody["customer"]) {
     return customer.id;
   }
 
-  // no email => ad-hoc
   const customer = await stripe.customers.create({
     name: input?.name,
     phone: input?.phone,
@@ -228,7 +181,7 @@ export async function POST(req: Request) {
       end,
       guests,
       houseSlug,
-      discount, // unified discount payload
+      discount,
     } = body || {};
 
     const extras = body?.extras || {};
@@ -280,7 +233,6 @@ export async function POST(req: Request) {
         const co = toDateOnlyLocal(r.checkOut);
         const ciIso = dateIsoLocal(ci);
         const coIso = dateIsoLocal(co);
-        // overlap if !(co <= start || ci >= end)
         if (!(coIso <= startIso || ciIso >= endIso)) {
           return NextResponse.json(
             { error: "Dates already booked" },
@@ -320,7 +272,7 @@ export async function POST(req: Request) {
         JACUZZI_BASE_PRICE + jacuzziExtraGuests * JACUZZI_EXTRA_PRICE;
     }
 
-    // grandTotal = lodging + surcharges + jacuzzi (flat)
+    // grandTotal = lodging + jacuzzi
     const grandTotal = totalNightsOnly + jacuzziFee;
 
     // 7. Discount logic
@@ -331,7 +283,6 @@ export async function POST(req: Request) {
     let percentValueForMeta: string = "";
 
     if (discount?.kind === "coupon") {
-      // validate coupon doc
       const couponDocId = discount.id || "";
       if (!couponDocId) {
         return NextResponse.json(
@@ -363,7 +314,6 @@ export async function POST(req: Request) {
         );
       }
 
-      // client-suggested usage
       let proposed = Number(discount.value || 0);
       if (!Number.isFinite(proposed) || proposed <= 0) {
         return NextResponse.json(
@@ -372,10 +322,7 @@ export async function POST(req: Request) {
         );
       }
 
-      // cap by remaining, firstNightCharge, grandTotal
       proposed = Math.min(proposed, remaining, firstNightCharge, grandTotal);
-
-      // comply with Stripe min rule
       proposed = adjustForStripeMin(firstNightCharge, proposed);
 
       if (proposed > 0) {
@@ -385,7 +332,6 @@ export async function POST(req: Request) {
         discountIdForMeta = couponDocId;
       }
     } else if (discount?.kind === "percent") {
-      // validate percentage_discounts doc
       const percentDocId = discount.id || "";
       if (!percentDocId) {
         return NextResponse.json(
@@ -407,7 +353,6 @@ export async function POST(req: Request) {
       const pData: any = snap.data();
       const used = !!pData?.used;
 
-      // pData.percent wins, fallback to discount.value
       const pctRaw = Number(pData?.percent ?? discount.value ?? 0);
       const pct = pctRaw / 100;
 
@@ -435,15 +380,12 @@ export async function POST(req: Request) {
         }
       }
 
-      // only the first night gets discounted
       let proposed = firstNightCharge * pct;
 
-      // don't over-discount beyond total
       if (proposed > grandTotal) {
         proposed = grandTotal;
       }
 
-      // apply Stripe min rule
       proposed = adjustForStripeMin(firstNightCharge, proposed);
 
       if (proposed > 0) {
@@ -464,6 +406,11 @@ export async function POST(req: Request) {
       0,
       grandTotal - effectiveDiscountAmount
     );
+
+    // ✅ NUEVOS CAMPOS SIMPLIFICADOS
+    const payNow = discountedFirst;
+    const totalStay = discountedGrandTotal;
+    const payAtArrival = Math.max(0, totalStay - payNow);
 
     const discountedFirstCents = Math.round(discountedFirst * 100);
     const isFreeOrder = discountedFirstCents <= 0;
@@ -516,6 +463,12 @@ export async function POST(req: Request) {
         includedBase: String(includedBase),
         extraGuests: String(extraGuests),
 
+        // ✅ CAMPOS SIMPLIFICADOS (NUEVOS)
+        payNow: String(payNow),
+        payAtArrival: String(payAtArrival),
+        totalStay: String(totalStay),
+
+        // campos legacy (mantener por compatibilidad)
         totalNightsOnly: String(totalNightsOnly),
         firstNightCharge: String(firstNightCharge),
         discountedFirst: String(discountedFirst),
@@ -523,24 +476,40 @@ export async function POST(req: Request) {
         jacuzziFee: String(jacuzziFee),
         grandTotal: String(grandTotal),
         discountedGrandTotal: String(discountedGrandTotal),
+        
         currency: "EUR",
 
+        // descuentos
         discountKind: discountKindForMeta,
         couponId:
-          effectiveDiscountAmount > 0 ? String(discountIdForMeta) : "",
+          effectiveDiscountAmount > 0 && discountKindForMeta === "coupon"
+            ? String(discountIdForMeta)
+            : "",
         couponCode:
-          effectiveDiscountAmount > 0
+          effectiveDiscountAmount > 0 && discountKindForMeta === "coupon"
             ? String(discountCodeForMeta)
             : "",
         couponAmountApplied:
-          effectiveDiscountAmount > 0
+          effectiveDiscountAmount > 0 && discountKindForMeta === "coupon"
             ? String(effectiveDiscountAmount)
             : "",
+        
+        percentId:
+          effectiveDiscountAmount > 0 && discountKindForMeta === "percent"
+            ? String(discountIdForMeta)
+            : "",
+        percentCode:
+          effectiveDiscountAmount > 0 && discountKindForMeta === "percent"
+            ? String(discountCodeForMeta)
+            : "",
         percentValue:
-          discountKindForMeta === "percent"
-            ? percentValueForMeta
+          discountKindForMeta === "percent" ? percentValueForMeta : "",
+        percentAmountApplied:
+          effectiveDiscountAmount > 0 && discountKindForMeta === "percent"
+            ? String(effectiveDiscountAmount)
             : "",
 
+        // customer
         app_user_id: customerInput?.userId || "",
         customerEmail: customerInput?.email || "",
         customerName: customerInput?.name || "",
@@ -556,16 +525,14 @@ export async function POST(req: Request) {
       idempotencyKey: reservationId,
     });
 
-    // 11. Respond with Checkout URL
     console.debug("create-checkout:", {
       houseIds,
       nights,
-      firstNightCharge,
+      payNow,
+      payAtArrival,
+      totalStay,
       jacuzziFee,
-      grandTotal,
       effectiveDiscountAmount,
-      discountedFirst,
-      discountedGrandTotal,
       discountKindForMeta,
       reservationId,
     });

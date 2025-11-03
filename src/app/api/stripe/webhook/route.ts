@@ -44,7 +44,6 @@ function makeCode(): string {
   return `${chunk()}-${chunk()}`;
 }
 
-// cancelar PaymentIntent para liberar la autorización si no vamos a capturar
 async function safeCancelPI(
   paymentIntentId: string | null,
   reservationId: string,
@@ -65,17 +64,7 @@ async function safeCancelPI(
 }
 
 /**
- * Descuenta saldo de cupón en Firestore y devuelve el bloque `coupon`
- * actualizado (con deductedAt o con error).
- *
- * Recibe:
- * - couponId
- * - couponCode
- * - couponAmountApplied (euros en string)
- * - reservationId
- * - checkoutSessionId
- *
- * IMPORTANTE: debe llamarse DENTRO de una transaction.
+ * Coupon: resta saldo y crea movimiento. Debe llamarse DENTRO de una transaction.
  */
 async function applyCouponInTx(
   tx: FirebaseFirestore.Transaction,
@@ -110,7 +99,6 @@ async function applyCouponInTx(
   const remaining = Number(cData?.remaining ?? 0);
 
   if (!Number.isFinite(amountNumber) || amountNumber <= 0) {
-    // cantidad inválida -> no hacemos nada
     return {
       id: couponId,
       code: couponCode,
@@ -121,7 +109,6 @@ async function applyCouponInTx(
   }
 
   if (remaining < amountNumber) {
-    // no hay saldo suficiente
     return {
       id: couponId,
       code: couponCode,
@@ -131,7 +118,7 @@ async function applyCouponInTx(
     };
   }
 
-  // ok -> restar saldo
+  // restar saldo
   tx.update(couponRef, {
     remaining: remaining - amountNumber,
     lastUsedAt: admin.firestore.Timestamp.now(),
@@ -147,25 +134,21 @@ async function applyCouponInTx(
     checkoutSessionId,
   });
 
+  const now = admin.firestore.Timestamp.now();
   return {
     id: couponId,
     code: couponCode,
     amountApplied: amountNumber,
-    deductedAt: admin.firestore.Timestamp.now(),
+    deductedAt: now,
+    createdAt: now,
+    checkoutSessionId,
   };
 }
 
 /**
- * Marca un descuento porcentual como usado dentro de la misma transacción.
- * No resta saldo, solo marca used=true y registra movimiento.
- *
- * Recibe:
- *  - percentId
- *  - percentCode
- *  - percentValue (porcentaje)
- *  - couponAmountApplied (euros de descuento efectivo)
- *  - reservationId
- *  - checkoutSessionId
+ * Percent discount: marca used=true y registra movimiento.
+ * Debe llamarse DENTRO de una transaction.
+ * ✅ ESTRUCTURA IGUAL QUE COUPON
  */
 async function applyPercentDiscountInTx(
   tx: FirebaseFirestore.Transaction,
@@ -173,26 +156,27 @@ async function applyPercentDiscountInTx(
     percentId,
     percentCode,
     percentValue,
-    couponAmountApplied,
+    percentAmountApplied,
     reservationId,
     checkoutSessionId,
   }: {
     percentId: string;
     percentCode: string;
     percentValue: string;
-    couponAmountApplied: string; // euros string
+    percentAmountApplied: string;
     reservationId: string;
     checkoutSessionId: string;
   }
 ) {
   const percentRef = db.collection("percentage_discounts").doc(String(percentId));
   const pSnap = await tx.get(percentRef);
+  
   if (!pSnap.exists) {
     return {
       id: percentId,
       code: percentCode,
       percent: Number(percentValue),
-      amountApplied: Number(couponAmountApplied) || 0,
+      amountApplied: Number(percentAmountApplied) || 0,
       deductionError: "percent_not_found_at_webhook",
       deductionErrorAt: admin.firestore.Timestamp.now(),
     };
@@ -201,7 +185,6 @@ async function applyPercentDiscountInTx(
   const pData: any = pSnap.data();
   const alreadyUsed = !!pData?.used;
 
-  // Marcamos usado si no lo estaba
   if (!alreadyUsed) {
     tx.update(percentRef, {
       used: true,
@@ -210,27 +193,29 @@ async function applyPercentDiscountInTx(
     });
   }
 
-  // registramos el "movimiento" en subcollection movements (similar a coupons)
   const movRef = percentRef.collection("movements").doc();
   tx.set(movRef, {
     type: "reservation",
     reservationId,
-    amountApplied: Number(couponAmountApplied) || 0,
+    amountApplied: Number(percentAmountApplied) || 0,
     percentValue: Number(percentValue) || 0,
     createdAt: admin.firestore.Timestamp.now(),
     checkoutSessionId,
   });
 
+  const now = admin.firestore.Timestamp.now();
+
+  // ✅ ESTRUCTURA IGUAL QUE COUPON
   return {
     id: percentId,
     code: percentCode,
     percent: Number(percentValue) || 0,
-    amountApplied: Number(couponAmountApplied) || 0,
-    deductedAt: admin.firestore.Timestamp.now(),
-    // nota: no restamos saldo, solo registramos
+    amountApplied: Number(percentAmountApplied) || 0,
+    deductedAt: now,
+    createdAt: now,
+    checkoutSessionId,
   };
 }
-
 
 /* ---------- webhook handler ---------- */
 
@@ -260,7 +245,7 @@ export async function POST(req: Request) {
       // ¿Es compra de cupón?
       const type = session.metadata?.type;
       if (type === "coupon") {
-        // --- LÓGICA CUPONES (la dejé igual, salvo el status final no cambia):
+        // --- LÓGICA CUPONES (mantener igual) ---
         const orderId = session.metadata?.orderId;
         if (!orderId) return NextResponse.json({ ok: true });
 
@@ -271,7 +256,6 @@ export async function POST(req: Request) {
           session.customer_email ||
           null;
 
-        // Paso 1: asegurar que coupon_orders está en "processing"
         const result = await db.runTransaction(async (tx) => {
           const snap = await tx.get(orderRef);
           if (!snap.exists) {
@@ -303,9 +287,9 @@ export async function POST(req: Request) {
             const quantity = Number.isFinite(Number(data.quantity))
               ? Number(data.quantity)
               : parseInt(
-                String(session.metadata?.quantity || "1"),
-                10
-              ) || 1;
+                  String(session.metadata?.quantity || "1"),
+                  10
+                ) || 1;
             const unitAmount = Number.isFinite(Number(data.unitAmount))
               ? Number(data.unitAmount)
               : Number(session.metadata?.unitAmount || 0) || 0;
@@ -327,7 +311,6 @@ export async function POST(req: Request) {
           return NextResponse.json({ received: true });
         }
 
-        // Paso 2: crear códigos de cupón reales
         const purchasedAt = admin.firestore.Timestamp.now();
         const expiresAt = admin.firestore.Timestamp.fromDate(
           addMonths(new Date(), 12)
@@ -380,7 +363,6 @@ export async function POST(req: Request) {
 
         await batch.commit();
 
-        // Paso 3: email con los códigos
         if (buyerEmail) {
           try {
             await fetch(
@@ -422,7 +404,6 @@ export async function POST(req: Request) {
 
       // ----------------- RESERVA NORMAL -----------------
 
-      // 1. Recuperamos metadata que mandamos en create-checkout-session
       const reservationId = session.metadata?.reservationId;
       if (!reservationId) {
         return NextResponse.json({ ok: true });
@@ -430,7 +411,7 @@ export async function POST(req: Request) {
 
       const resRef = db.collection("reservations").doc(reservationId);
 
-      // Datos principales
+      // Datos principales desde metadata
       const rawValue = session.metadata?.rawValue || "";
       const houseIdsCsv = session.metadata?.houseIds || "";
       const houseIds = houseIdsCsv
@@ -446,35 +427,36 @@ export async function POST(req: Request) {
       const includedBase = Number(session.metadata?.includedBase || 0);
       const extraGuests = Number(session.metadata?.extraGuests || 0);
 
+      // ✅ LEER CAMPOS SIMPLIFICADOS (NUEVOS)
+      const payNow = Number(session.metadata?.payNow ?? 0);
+      const payAtArrival = Number(session.metadata?.payAtArrival ?? 0);
+      const totalStay = Number(session.metadata?.totalStay ?? 0);
+
+      // campos legacy (para compatibilidad / fallback)
       const totalNightsOnly = Number(
         session.metadata?.totalNightsOnly || 0
       );
       const firstNightCharge = Number(
         session.metadata?.firstNightCharge || 0
       );
-      const discountedFirst = Number(
-        session.metadata?.discountedFirst || 0
-      );
 
       const jacuzziEnabled =
         session.metadata?.jacuzziEnabled === "true";
       const jacuzziFee = Number(session.metadata?.jacuzziFee || 0);
 
-      const grandTotal = Number(session.metadata?.grandTotal || 0);
-      const discountedGrandTotal = Number(
-        session.metadata?.discountedGrandTotal || 0
-      );
       const currency = session.metadata?.currency || "EUR";
 
-      const discountKind = session.metadata?.discountKind || ""; // "value" | "percent" | ""
+      const discountKind = session.metadata?.discountKind || "";
       const couponId = session.metadata?.couponId || "";
       const couponCode = session.metadata?.couponCode || "";
-      const percentId = session.metadata?.percentId || "";
-      const percentCode = session.metadata?.percentCode || "";
-      const percentValue = session.metadata?.percentValue || "";
       const couponAmountApplied =
         session.metadata?.couponAmountApplied || "";
 
+      const percentId = session.metadata?.percentId || "";
+      const percentCode = session.metadata?.percentCode || "";
+      const percentValue = session.metadata?.percentValue || "";
+      const percentAmountApplied =
+        session.metadata?.percentAmountApplied || "";
 
       const app_user_id = session.metadata?.app_user_id || "";
 
@@ -487,7 +469,6 @@ export async function POST(req: Request) {
       const arrivalTime = session.metadata?.arrivalTime || "";
       const comment = session.metadata?.comment || "";
 
-      // También pillamos info directa de Stripe por si hay mejor email
       const stripePaymentIntentId =
         getSessionPaymentIntentId(session);
       const stripeCustomerId =
@@ -499,8 +480,7 @@ export async function POST(req: Request) {
         session.customer_email ||
         null;
 
-      // 2. Creamos / mergeamos la reserva en Firestore con status "reserved"
-      //    y descontamos cupón dentro de UNA MISMA transacción
+      // ✅ Crear/mergear reserva con campos simplificados
       await db.runTransaction(async (tx) => {
         const snap = await tx.get(resRef);
         const existsAlready = snap.exists;
@@ -516,17 +496,23 @@ export async function POST(req: Request) {
           checkOut,
           nights,
           guests: guestsNum,
+
+          // ✅ CAMPOS SIMPLIFICADOS (NUEVOS)
+          payNow,
+          payAtArrival,
+          totalStay,
+
+          // campos legacy (mantener para compatibilidad)
           includedBase,
           extraGuests,
           totalNightsOnly,
           firstNightCharge,
-          discountedFirst,
+
           jacuzzi: jacuzziEnabled
             ? { enabled: true, fee: jacuzziFee }
             : { enabled: false, fee: 0 },
           jacuzziFee,
-          grandTotal,
-          discountedGrandTotal,
+
           currency,
 
           status: "reserved",
@@ -557,13 +543,12 @@ export async function POST(req: Request) {
           },
         };
 
-        // <-- CORREGIDO AQUÍ
+        // ✅ APLICAR DESCUENTOS (coupon o percent)
         if (
-          discountKind === "coupon" && // antes "value"
+          discountKind === "coupon" &&
           couponId &&
           Number(couponAmountApplied) > 0
         ) {
-          // Cupón saldo €
           const couponBlock = await applyCouponInTx(tx, {
             couponId,
             couponCode,
@@ -576,12 +561,11 @@ export async function POST(req: Request) {
           discountKind === "percent" &&
           percentId
         ) {
-          // Descuento porcentual
           const percentBlock = await applyPercentDiscountInTx(tx, {
             percentId,
             percentCode,
             percentValue,
-            couponAmountApplied,
+            percentAmountApplied,
             reservationId,
             checkoutSessionId: session.id,
           });
@@ -595,6 +579,75 @@ export async function POST(req: Request) {
         }
       });
 
+      // ✅ Enviar email de confirmación
+      try {
+        const customerEmail = stripeCheckoutEmail || customerEmailFromMeta || null;
+        if (customerEmail) {
+          const firstNightChargeSafe =
+            Number(firstNightCharge) > 0
+              ? Number(firstNightCharge)
+              : nights > 0
+                ? Math.round((Number(totalStay || 0) / Math.max(1, nights)) * 100) / 100
+                : Number(totalStay || 0);
+
+          await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              type: "reservation_confirmation",
+              to: customerEmail,
+              lang: "en",
+              data: {
+                reservationId,
+                guestName: customerNameFromMeta || customerEmail,
+                bookingDate: new Date().toISOString().slice(0, 19),
+                checkIn,
+                checkOut,
+                nights,
+                roomType:
+                  (houseIds.length === 1
+                    ? houseIds[0]
+                    : rawValue || houseIds.join(", ")) || "Accommodation",
+                guests: guestsNum,
+                unitAmount: firstNightChargeSafe,
+                totalAmount: Number(totalStay || 0),
+                currency,
+                hotelName: "Rubikiai Lux",
+                hotelContactEmail: "info@rubikiailux.lt",
+                hotelContactPhone: "",
+              },
+            }),
+          })
+            .then(async (res) => {
+              if (!res.ok) {
+                const text = await res.text().catch(() => "");
+                console.error(
+                  "Reservation confirmation email send failed:",
+                  res.status,
+                  text
+                );
+                await resRef.update({
+                  emailSendErrorAt: admin.firestore.Timestamp.now(),
+                  emailSendError: `status_${res.status}`,
+                  lastEmailResponse: text,
+                });
+              } else {
+                await resRef.update({
+                  confirmationEmailSentAt: admin.firestore.Timestamp.now(),
+                });
+              }
+            })
+            .catch(async (e) => {
+              console.error("Reservation confirmation email send error:", e);
+              await resRef.update({
+                emailSendErrorAt: admin.firestore.Timestamp.now(),
+                emailSendError: String(e?.message ?? e),
+              });
+            });
+        }
+      } catch (e) {
+        console.error("Unexpected error when sending reservation confirmation email:", e);
+      }
 
       return NextResponse.json({ received: true });
     }
@@ -606,7 +659,6 @@ export async function POST(req: Request) {
       const session = event.data.object as Stripe.Checkout.Session;
       const type = session.metadata?.type;
 
-      // cupón caducado antes de pagar
       if (type === "coupon") {
         const orderId = session.metadata?.orderId;
         if (orderId) {
@@ -624,12 +676,10 @@ export async function POST(req: Request) {
         return NextResponse.json({ received: true });
       }
 
-      // reserva caducada (el user no pagó)
       const reservationId = session.metadata?.reservationId;
       if (reservationId) {
         const resRef = db.collection("reservations").doc(reservationId);
 
-        // Marcamos la reserva como "canceled"
         await resRef.set(
           {
             status: "canceled",
@@ -639,7 +689,6 @@ export async function POST(req: Request) {
           { merge: true }
         );
 
-        // Liberar autorización bancaria si había PI
         const paymentIntentId = getSessionPaymentIntentId(session);
         await safeCancelPI(
           paymentIntentId,
@@ -651,7 +700,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ received: true });
     }
 
-    // default
     return NextResponse.json({ received: true });
   } catch (err) {
     console.error("Webhook handling error:", err);

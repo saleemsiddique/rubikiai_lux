@@ -3,7 +3,11 @@ import { NextResponse } from "next/server";
 import admin, { adminDb as db } from "@/lib/firebase-admin";
 import { jwtVerify } from "jose";
 
-const MONTONIO_SECRET_KEY = (process.env.MONTONIO_SECRET_KEY ?? process.env.MONTONIO_WEBHOOK_SECRET ?? "").trim();
+const MONTONIO_SECRET_KEY = (
+  process.env.MONTONIO_SECRET_KEY ??
+  process.env.MONTONIO_WEBHOOK_SECRET ??
+  ""
+).trim();
 
 if (!MONTONIO_SECRET_KEY) {
   console.error("MONTONIO_SECRET_KEY is not set for webhook validation.");
@@ -123,7 +127,9 @@ async function applyPercentDiscountInTx(
     checkoutSessionId: string;
   }
 ) {
-  const percentRef = db.collection("percentage_discounts").doc(String(percentId));
+  const percentRef = db
+    .collection("percentage_discounts")
+    .doc(String(percentId));
   const pSnap = await tx.get(percentRef);
   if (!pSnap.exists) {
     return {
@@ -186,7 +192,10 @@ export async function POST(req: Request) {
       bodyParsed = {};
     }
 
-    const tokenFromQuery = url.searchParams.get("order-token") || url.searchParams.get("orderToken") || null;
+    const tokenFromQuery =
+      url.searchParams.get("order-token") ||
+      url.searchParams.get("orderToken") ||
+      null;
     const tokenFromBodyCandidates =
       bodyParsed?.orderToken ||
       bodyParsed?.order?.orderToken ||
@@ -196,26 +205,44 @@ export async function POST(req: Request) {
       bodyParsed?.payload ||
       null;
 
-    let token: string | null = tokenFromQuery || tokenFromBodyCandidates || null;
+    let token: string | null =
+      tokenFromQuery || tokenFromBodyCandidates || null;
 
     if (!token && typeof bodyParsed?.data === "object") {
-      token = bodyParsed.data?.orderToken || bodyParsed.data?.token || bodyParsed.data?.data || null;
+      token =
+        bodyParsed.data?.orderToken ||
+        bodyParsed.data?.token ||
+        bodyParsed.data?.data ||
+        null;
     }
 
-    if (!token && typeof rawText === "string" && rawText.split(".").length === 3) {
+    if (
+      !token &&
+      typeof rawText === "string" &&
+      rawText.split(".").length === 3
+    ) {
       token = rawText.trim();
     }
 
     if (!token) {
-      console.warn("No orderToken found in webhook request (tried query/body/raw). rawText length:", (rawText || "").length);
+      console.warn(
+        "No orderToken found in webhook request (tried query/body/raw). rawText length:",
+        (rawText || "").length
+      );
       console.log("Raw headers:", Object.fromEntries(req.headers.entries()));
       console.log("Raw body preview:", (rawText || "").slice(0, 1000));
-      return NextResponse.json({ error: "missing_orderToken" }, { status: 400 });
+      return NextResponse.json(
+        { error: "missing_orderToken" },
+        { status: 400 }
+      );
     }
 
     if (!MONTONIO_SECRET_KEY) {
       console.error("Missing MONTONIO_SECRET_KEY; cannot validate token.");
-      return NextResponse.json({ error: "server_misconfiguration" }, { status: 500 });
+      return NextResponse.json(
+        { error: "server_misconfiguration" },
+        { status: 500 }
+      );
     }
 
     const secret = new TextEncoder().encode(MONTONIO_SECRET_KEY);
@@ -224,9 +251,14 @@ export async function POST(req: Request) {
     console.log("---- Montonio webhook: headers ----");
     console.log(Object.fromEntries(req.headers.entries()));
     const rawText1 = await req.text().catch(() => "");
-    console.log("---- Montonio webhook: raw body length ----", rawText1?.length);
-    console.log("---- Montonio webhook: raw body preview ----", (rawText1 || "").slice(0, 1000));
-
+    console.log(
+      "---- Montonio webhook: raw body length ----",
+      rawText1?.length
+    );
+    console.log(
+      "---- Montonio webhook: raw body preview ----",
+      (rawText1 || "").slice(0, 1000)
+    );
 
     let payload: any;
     try {
@@ -237,7 +269,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "invalid_token" }, { status: 401 });
     }
 
-    console.log("📩 Montonio webhook payload completo:", JSON.stringify(payload, null, 2));
+    console.log(
+      "📩 Montonio webhook payload completo:",
+      JSON.stringify(payload, null, 2)
+    );
 
     const merchantReference: string | undefined =
       payload?.merchantReference ||
@@ -247,38 +282,59 @@ export async function POST(req: Request) {
       payload?.orderReference ||
       payload?.merchant_reference_id;
 
-    const uuid: string | undefined = payload?.uuid || payload?.order_uuid || payload?.id || payload?.order?.id;
-    const statusFromMontonio: string | undefined = (payload?.status || payload?.paymentStatus || payload?.state || "").toString().toLowerCase();
+    const uuid: string | undefined =
+      payload?.uuid || payload?.order_uuid || payload?.id || payload?.order?.id;
+    const statusFromMontonio: string | undefined = (
+      payload?.status ||
+      payload?.paymentStatus ||
+      payload?.state ||
+      ""
+    )
+      .toString()
+      .toLowerCase();
 
     console.log("🔍 merchantReference:", merchantReference);
     console.log("🔍 uuid:", uuid);
     console.log("🔍 status:", statusFromMontonio);
 
-    const metadataCandidate: any = firstNonEmpty(
-      payload?.metadata,
-      payload?.data?.metadata,
-      payload?.order?.metadata,
-      payload?.order?.data?.metadata,
-      payload?.attributes?.metadata,
-      payload?.meta,
-      payload?.data,
-      payload?.order
-    ) || {};
+    const metadataCandidate: any =
+      firstNonEmpty(
+        payload?.metadata,
+        payload?.data?.metadata,
+        payload?.order?.metadata,
+        payload?.order?.data?.metadata,
+        payload?.attributes?.metadata,
+        payload?.meta,
+        payload?.data,
+        payload?.order
+      ) || {};
 
-    console.log("➡️ metadataCandidate keys:", Object.keys(metadataCandidate || {}));
+    console.log(
+      "➡️ metadataCandidate keys:",
+      Object.keys(metadataCandidate || {})
+    );
 
     async function buildMetaWithFallback(reservationId?: string) {
-      let meta: any = metadataCandidate && Object.keys(metadataCandidate || {}).length > 0 ? { ...metadataCandidate } : {};
+      let meta: any =
+        metadataCandidate && Object.keys(metadataCandidate || {}).length > 0
+          ? { ...metadataCandidate }
+          : {};
 
       if ((!meta || Object.keys(meta).length === 0) && reservationId) {
         try {
-          const intentSnap = await db.collection("checkout_intents").doc(reservationId).get();
+          const intentSnap = await db
+            .collection("checkout_intents")
+            .doc(reservationId)
+            .get();
           if (intentSnap.exists) {
             const intent = intentSnap.data() || {};
             console.log("ℹ️ Found checkout_intent fallback for", reservationId);
 
             // start from intent.metadata if present, otherwise from explicit fields
-            const fromIntentMeta = (intent.metadata && typeof intent.metadata === "object") ? { ...intent.metadata } : {};
+            const fromIntentMeta =
+              intent.metadata && typeof intent.metadata === "object"
+                ? { ...intent.metadata }
+                : {};
 
             meta = {
               ...fromIntentMeta,
@@ -289,74 +345,167 @@ export async function POST(req: Request) {
               guests: fromIntentMeta.guests ?? intent.guests,
               includedBase: fromIntentMeta.includedBase ?? intent.includedBase,
               extraGuests: fromIntentMeta.extraGuests ?? intent.extraGuests,
-              totalNightsOnly: fromIntentMeta.totalNightsOnly ?? intent.totalNightsOnly,
-              firstNightCharge: fromIntentMeta.firstNightCharge ?? intent.firstNightCharge,
-              discountedFirst: fromIntentMeta.discountedFirst ?? intent.discountedFirst,
-              jacuzziEnabled: fromIntentMeta.jacuzziEnabled ?? (intent.jacuzziEnabled ?? (intent.jacuzzi?.enabled ?? false)),
-              jacuzziFee: fromIntentMeta.jacuzziFee ?? (intent.jacuzziFee ?? intent.jacuzzi?.fee ?? 0),
+              totalNightsOnly:
+                fromIntentMeta.totalNightsOnly ?? intent.totalNightsOnly,
+              firstNightCharge:
+                fromIntentMeta.firstNightCharge ?? intent.firstNightCharge,
+              discountedFirst:
+                fromIntentMeta.discountedFirst ?? intent.discountedFirst,
+              jacuzziEnabled:
+                fromIntentMeta.jacuzziEnabled ??
+                intent.jacuzziEnabled ??
+                intent.jacuzzi?.enabled ??
+                false,
+              jacuzziFee:
+                fromIntentMeta.jacuzziFee ??
+                intent.jacuzziFee ??
+                intent.jacuzzi?.fee ??
+                0,
               grandTotal: fromIntentMeta.grandTotal ?? intent.grandTotal,
-              discountedGrandTotal: fromIntentMeta.discountedGrandTotal ?? intent.discountedGrandTotal,
+              discountedGrandTotal:
+                fromIntentMeta.discountedGrandTotal ??
+                intent.discountedGrandTotal,
               currency: fromIntentMeta.currency ?? intent.currency,
-              customerEmail: fromIntentMeta.customerEmail ?? (intent.customer?.email || intent.customerEmail),
-              customerName: fromIntentMeta.customerName ?? (intent.customer?.name || ""),
-              customerPhone: fromIntentMeta.customerPhone ?? (intent.customer?.phone || ""),
-              arrivalTime: fromIntentMeta.arrivalTime ?? (intent.customer?.arrivalTime || ""),
-              comment: fromIntentMeta.comment ?? (intent.customer?.comment || ""),
+              customerEmail:
+                fromIntentMeta.customerEmail ??
+                (intent.customer?.email || intent.customerEmail),
+              customerName:
+                fromIntentMeta.customerName ?? (intent.customer?.name || ""),
+              customerPhone:
+                fromIntentMeta.customerPhone ?? (intent.customer?.phone || ""),
+              arrivalTime:
+                fromIntentMeta.arrivalTime ??
+                (intent.customer?.arrivalTime || ""),
+              comment:
+                fromIntentMeta.comment ?? (intent.customer?.comment || ""),
               houseIds: fromIntentMeta.houseIds ?? intent.houseIds,
-              app_user_id: fromIntentMeta.app_user_id ?? (intent.customer?.userId || intent.app_user_id),
+              app_user_id:
+                fromIntentMeta.app_user_id ??
+                (intent.customer?.userId || intent.app_user_id),
               // include coupon/percent fields if present in metadata
-              discountKind: fromIntentMeta.discountKind ?? intent.metadata?.discountKind ?? "",
-              couponId: fromIntentMeta.couponId ?? intent.metadata?.couponId ?? "",
-              couponCode: fromIntentMeta.couponCode ?? intent.metadata?.couponCode ?? "",
-              couponAmountApplied: fromIntentMeta.couponAmountApplied ?? intent.metadata?.couponAmountApplied ?? "",
-              percentId: fromIntentMeta.percentId ?? intent.metadata?.percentId ?? "",
-              percentCode: fromIntentMeta.percentCode ?? intent.metadata?.percentCode ?? "",
-              percentValue: fromIntentMeta.percentValue ?? intent.metadata?.percentValue ?? "",
-              rawValue: fromIntentMeta.rawValue ?? intent.metadata?.rawValue ?? "",
+              discountKind:
+                fromIntentMeta.discountKind ??
+                intent.metadata?.discountKind ??
+                "",
+              couponId:
+                fromIntentMeta.couponId ?? intent.metadata?.couponId ?? "",
+              couponCode:
+                fromIntentMeta.couponCode ?? intent.metadata?.couponCode ?? "",
+              couponAmountApplied:
+                fromIntentMeta.couponAmountApplied ??
+                intent.metadata?.couponAmountApplied ??
+                "",
+              percentId:
+                fromIntentMeta.percentId ?? intent.metadata?.percentId ?? "",
+              percentCode:
+                fromIntentMeta.percentCode ??
+                intent.metadata?.percentCode ??
+                "",
+              percentValue:
+                fromIntentMeta.percentValue ??
+                intent.metadata?.percentValue ??
+                "",
+              rawValue:
+                fromIntentMeta.rawValue ?? intent.metadata?.rawValue ?? "",
             };
           } else {
-            const resSnap = await db.collection("reservations").doc(reservationId).get();
+            const resSnap = await db
+              .collection("reservations")
+              .doc(reservationId)
+              .get();
             if (resSnap.exists) {
               const existing = resSnap.data() || {};
-              console.log("ℹ️ Found existing reservation doc fallback for", reservationId);
+              console.log(
+                "ℹ️ Found existing reservation doc fallback for",
+                reservationId
+              );
 
               // if existing has metadata (from checkout), prefer that for coupon fields
-              const existingMeta = (existing.metadata && typeof existing.metadata === "object") ? { ...existing.metadata } : {};
+              const existingMeta =
+                existing.metadata && typeof existing.metadata === "object"
+                  ? { ...existing.metadata }
+                  : {};
 
               meta = {
                 checkIn: existingMeta.checkIn ?? existing.checkIn,
                 checkOut: existingMeta.checkOut ?? existing.checkOut,
                 nights: existingMeta.nights ?? existing.nights,
                 guests: existingMeta.guests ?? existing.guests,
-                includedBase: existingMeta.includedBase ?? existing.includedBase,
+                includedBase:
+                  existingMeta.includedBase ?? existing.includedBase,
                 extraGuests: existingMeta.extraGuests ?? existing.extraGuests,
-                totalNightsOnly: existingMeta.totalNightsOnly ?? existing.totalNightsOnly,
-                firstNightCharge: existingMeta.firstNightCharge ?? existing.firstNightCharge,
-                discountedFirst: existingMeta.discountedFirst ?? existing.discountedFirst,
-                jacuzziEnabled: existingMeta.jacuzziEnabled ?? existing.jacuzzi?.enabled ?? false,
+                totalNightsOnly:
+                  existingMeta.totalNightsOnly ?? existing.totalNightsOnly,
+                firstNightCharge:
+                  existingMeta.firstNightCharge ?? existing.firstNightCharge,
+                discountedFirst:
+                  existingMeta.discountedFirst ?? existing.discountedFirst,
+                jacuzziEnabled:
+                  existingMeta.jacuzziEnabled ??
+                  existing.jacuzzi?.enabled ??
+                  false,
                 jacuzziFee: existingMeta.jacuzziFee ?? existing.jacuzziFee ?? 0,
                 grandTotal: existingMeta.grandTotal ?? existing.grandTotal,
-                discountedGrandTotal: existingMeta.discountedGrandTotal ?? existing.discountedGrandTotal,
+                discountedGrandTotal:
+                  existingMeta.discountedGrandTotal ??
+                  existing.discountedGrandTotal,
                 currency: existingMeta.currency ?? existing.currency,
-                customerEmail: existingMeta.customerEmail ?? existing.customerEmail ?? existing?.customer?.email,
-                customerName: existingMeta.customerName ?? existing?.customer?.name,
-                customerPhone: existingMeta.customerPhone ?? existing?.customer?.phone,
-                arrivalTime: existingMeta.arrivalTime ?? existing?.customer?.arrivalTime,
+                customerEmail:
+                  existingMeta.customerEmail ??
+                  existing.customerEmail ??
+                  existing?.customer?.email,
+                customerName:
+                  existingMeta.customerName ?? existing?.customer?.name,
+                customerPhone:
+                  existingMeta.customerPhone ?? existing?.customer?.phone,
+                arrivalTime:
+                  existingMeta.arrivalTime ?? existing?.customer?.arrivalTime,
                 comment: existingMeta.comment ?? existing?.customer?.comment,
                 houseIds: existingMeta.houseIds ?? existing.houseIds,
-                app_user_id: existingMeta.app_user_id ?? existing?.customer?.userId ?? existing.app_user_id,
+                app_user_id:
+                  existingMeta.app_user_id ??
+                  existing?.customer?.userId ??
+                  existing.app_user_id,
                 // coupon/percent fields
-                discountKind: existingMeta.discountKind ?? existing.discountKind ?? "",
-                couponId: existingMeta.couponId ?? existing.coupon?.id ?? existing.couponId ?? "",
-                couponCode: existingMeta.couponCode ?? existing.coupon?.code ?? existing.couponCode ?? "",
-                couponAmountApplied: existingMeta.couponAmountApplied ?? existing.coupon?.amountApplied ?? existing.couponAmountApplied ?? "",
-                percentId: existingMeta.percentId ?? existing.percentDiscount?.id ?? existing.percentId ?? "",
-                percentCode: existingMeta.percentCode ?? existing.percentDiscount?.code ?? existing.percentCode ?? "",
-                percentValue: existingMeta.percentValue ?? existing.percentDiscount?.percent ?? existing.percentValue ?? "",
+                discountKind:
+                  existingMeta.discountKind ?? existing.discountKind ?? "",
+                couponId:
+                  existingMeta.couponId ??
+                  existing.coupon?.id ??
+                  existing.couponId ??
+                  "",
+                couponCode:
+                  existingMeta.couponCode ??
+                  existing.coupon?.code ??
+                  existing.couponCode ??
+                  "",
+                couponAmountApplied:
+                  existingMeta.couponAmountApplied ??
+                  existing.coupon?.amountApplied ??
+                  existing.couponAmountApplied ??
+                  "",
+                percentId:
+                  existingMeta.percentId ??
+                  existing.percentDiscount?.id ??
+                  existing.percentId ??
+                  "",
+                percentCode:
+                  existingMeta.percentCode ??
+                  existing.percentDiscount?.code ??
+                  existing.percentCode ??
+                  "",
+                percentValue:
+                  existingMeta.percentValue ??
+                  existing.percentDiscount?.percent ??
+                  existing.percentValue ??
+                  "",
                 rawValue: existingMeta.rawValue ?? existing.rawValue ?? "",
               };
             } else {
-              console.log("ℹ️ No checkout_intent or reservation doc found for fallback:", reservationId);
+              console.log(
+                "ℹ️ No checkout_intent or reservation doc found for fallback:",
+                reservationId
+              );
             }
           }
         } catch (e) {
@@ -368,63 +517,122 @@ export async function POST(req: Request) {
     }
 
     // ---------- PROCESS "PAID / CAPTURED / CONFIRMED" ----------
-    if (statusFromMontonio === "paid" || statusFromMontonio === "captured" || statusFromMontonio === "confirmed") {
-
-      let type = String(metadataCandidate?.type || payload?.type || "").toLowerCase();
+    if (
+      statusFromMontonio === "paid" ||
+      statusFromMontonio === "captured" ||
+      statusFromMontonio === "confirmed"
+    ) {
+      let type = String(
+        metadataCandidate?.type || payload?.type || ""
+      ).toLowerCase();
       // fallback: if there is an existing coupon_orders doc with merchantReference/orderId, treat it as coupon
-      const possibleOrderId = metadataCandidate?.orderId || payload?.orderId || payload?.merchantReference || merchantReference;
+      const possibleOrderId =
+        metadataCandidate?.orderId ||
+        payload?.orderId ||
+        payload?.merchantReference ||
+        merchantReference;
       if (!type && possibleOrderId) {
-        const orderSnap = await db.collection("coupon_orders").doc(String(possibleOrderId)).get();
+        const orderSnap = await db
+          .collection("coupon_orders")
+          .doc(String(possibleOrderId))
+          .get();
         if (orderSnap.exists) {
-          console.log("Webhook fallback: found coupon_orders doc for", possibleOrderId, "— treating as coupon.");
+          console.log(
+            "Webhook fallback: found coupon_orders doc for",
+            possibleOrderId,
+            "— treating as coupon."
+          );
           type = "coupon";
         }
       }
 
       // coupon purchase (coupon orders)
       if (String(type) === "coupon") {
-        const orderId = metadataCandidate?.orderId || payload?.orderId || payload?.merchantReference || merchantReference;
+        const orderId =
+          metadataCandidate?.orderId ||
+          payload?.orderId ||
+          payload?.merchantReference ||
+          merchantReference;
         if (!orderId) return NextResponse.json({ ok: true });
 
         const orderRef = db.collection("coupon_orders").doc(orderId);
         const paymentUuid = uuid || null;
-        const buyerEmail = payload?.customer?.email || metadataCandidate?.buyerEmail || payload?.email || null;
+        const buyerEmail =
+          payload?.customer?.email ||
+          metadataCandidate?.buyerEmail ||
+          payload?.email ||
+          null;
 
         const result = await db.runTransaction(async (tx) => {
           const snap = await tx.get(orderRef);
           if (!snap.exists) {
-            const quantity = parseInt(String(metadataCandidate?.quantity || 1), 10) || 1;
-            const unitAmount = Number(metadataCandidate?.unitAmount || payload?.amount || 0) || 0;
+            const quantity =
+              parseInt(String(metadataCandidate?.quantity || 1), 10) || 1;
+            const unitAmount =
+              Number(metadataCandidate?.unitAmount || payload?.amount || 0) ||
+              0;
             tx.set(orderRef, {
               status: "processing",
               unitAmount,
               unitAmountCents: Math.round(unitAmount * 100),
               quantity,
-              currency: (metadataCandidate?.currency || payload?.currency || "EUR").toUpperCase(),
+              currency: (
+                metadataCandidate?.currency ||
+                payload?.currency ||
+                "EUR"
+              ).toUpperCase(),
               createdAt: admin.firestore.Timestamp.now(),
               montonioOrderUuid: paymentUuid,
               buyerEmail: buyerEmail || null,
             });
-            return { quantity, unitAmount, alreadyCompleted: false, buyerEmail: buyerEmail || null };
+            return {
+              quantity,
+              unitAmount,
+              alreadyCompleted: false,
+              buyerEmail: buyerEmail || null,
+            };
           } else {
             const data: any = snap.data();
             if (data.status === "completed") {
-              return { quantity: Number(data.quantity || 1), unitAmount: Number(data.unitAmount || 0), alreadyCompleted: true, buyerEmail: data.buyerEmail || null };
+              return {
+                quantity: Number(data.quantity || 1),
+                unitAmount: Number(data.unitAmount || 0),
+                alreadyCompleted: true,
+                buyerEmail: data.buyerEmail || null,
+              };
             }
-            const quantity = Number.isFinite(Number(data.quantity)) ? Number(data.quantity) : parseInt(String(metadataCandidate?.quantity || 1), 10) || 1;
-            const unitAmount = Number.isFinite(Number(data.unitAmount)) ? Number(data.unitAmount) : Number(metadataCandidate?.unitAmount || payload?.amount || 0) || 0;
+            const quantity = Number.isFinite(Number(data.quantity))
+              ? Number(data.quantity)
+              : parseInt(String(metadataCandidate?.quantity || 1), 10) || 1;
+            const unitAmount = Number.isFinite(Number(data.unitAmount))
+              ? Number(data.unitAmount)
+              : Number(metadataCandidate?.unitAmount || payload?.amount || 0) ||
+                0;
             // Preferir el buyerEmail ya almacenado en el doc si existe, si no usar el que venía en payload/metadata
             const effectiveBuyerEmail = data.buyerEmail || buyerEmail || null;
-            tx.update(orderRef, { status: "processing", montonioOrderUuid: paymentUuid, buyerEmail: effectiveBuyerEmail, unitAmount, quantity });
-            return { quantity, unitAmount, alreadyCompleted: false, buyerEmail: effectiveBuyerEmail };
+            tx.update(orderRef, {
+              status: "processing",
+              montonioOrderUuid: paymentUuid,
+              buyerEmail: effectiveBuyerEmail,
+              unitAmount,
+              quantity,
+            });
+            return {
+              quantity,
+              unitAmount,
+              alreadyCompleted: false,
+              buyerEmail: effectiveBuyerEmail,
+            };
           }
         });
 
-
-        if (result.alreadyCompleted) return NextResponse.json({ received: true });
+        if (result.alreadyCompleted)
+          return NextResponse.json({ received: true });
 
         const purchasedAt = admin.firestore.Timestamp.now();
-        const expiresAt = admin.firestore.Timestamp.fromDate(addMonths(new Date(), 12));
+        const expiresAt = admin.firestore.Timestamp.fromDate(
+          addMonths(new Date(), 12)
+        );
         const quantity = result.quantity;
         const unitAmount = result.unitAmount;
         const buyerEmailFinal = result.buyerEmail || null; // <-- usar este valor garantizado
@@ -442,7 +650,11 @@ export async function POST(req: Request) {
               buyerEmail: buyerEmailFinal,
               code,
               createdByWebhook: true,
-              currency: (metadataCandidate?.currency || payload?.currency || "EUR").toUpperCase(),
+              currency: (
+                metadataCandidate?.currency ||
+                payload?.currency ||
+                "EUR"
+              ).toUpperCase(),
               expiresAt,
               orderId,
               purchasedAt,
@@ -455,7 +667,10 @@ export async function POST(req: Request) {
             createdCodes.push({ code, remaining: unitAmount });
           } else {
             const cData: any = cSnap.data();
-            createdCodes.push({ code: String(cData.code), remaining: Number(cData.remaining ?? unitAmount) });
+            createdCodes.push({
+              code: String(cData.code),
+              remaining: Number(cData.remaining ?? unitAmount),
+            });
           }
         }
 
@@ -469,10 +684,17 @@ export async function POST(req: Request) {
           unitAmount,
           unitAmountCents: Math.round(unitAmount * 100),
           quantity,
-          currency: (metadataCandidate?.currency || payload?.currency || "EUR").toUpperCase(),
-          montonioPaymentUrl: payload?.paymentUrl || payload?.payment_url || payload?.order?.payment_url || null,
+          currency: (
+            metadataCandidate?.currency ||
+            payload?.currency ||
+            "EUR"
+          ).toUpperCase(),
+          montonioPaymentUrl:
+            payload?.paymentUrl ||
+            payload?.payment_url ||
+            payload?.order?.payment_url ||
+            null,
         });
-
 
         await batch.commit();
 
@@ -488,7 +710,11 @@ export async function POST(req: Request) {
                 data: {
                   unitAmount,
                   quantity,
-                  currency: (metadataCandidate?.currency || payload?.currency || "EUR").toUpperCase(),
+                  currency: (
+                    metadataCandidate?.currency ||
+                    payload?.currency ||
+                    "EUR"
+                  ).toUpperCase(),
                   codes: createdCodes,
                   expiresAt: expiresAt.toDate().toISOString().slice(0, 10),
                 },
@@ -496,10 +722,13 @@ export async function POST(req: Request) {
             });
           } catch (e: any) {
             console.error("coupon email send failed:", e?.message || e);
-            await db.collection("coupon_orders").doc(orderId).update({
-              emailSendErrorAt: admin.firestore.Timestamp.now(),
-              emailSendError: String(e?.message ?? e),
-            });
+            await db
+              .collection("coupon_orders")
+              .doc(orderId)
+              .update({
+                emailSendErrorAt: admin.firestore.Timestamp.now(),
+                emailSendError: String(e?.message ?? e),
+              });
           }
         }
 
@@ -512,7 +741,10 @@ export async function POST(req: Request) {
       // 2) construir meta con buildMetaWithFallback(...)
       // 3) crear/mergear reserva dentro de una transaction y aplicar coupons/percents
       // 4) marcar checkout_intent consumido
-      const reservationId = merchantReference || metadataCandidate?.reservationId || payload?.reservationId;
+      const reservationId =
+        merchantReference ||
+        metadataCandidate?.reservationId ||
+        payload?.reservationId;
       if (!reservationId) {
         console.log("⚠️ No se encontró reservationId en el payload");
         return NextResponse.json({ ok: true });
@@ -525,10 +757,16 @@ export async function POST(req: Request) {
       // build meta with fallback to checkout_intent/reservation doc
       const meta = await buildMetaWithFallback(reservationId);
 
-      console.log("📋 Extrayendo datos de metadata final (meta):", JSON.stringify(meta, null, 2));
+      console.log(
+        "📋 Extrayendo datos de metadata final (meta):",
+        JSON.stringify(meta, null, 2)
+      );
 
       const houseIdsCsv = meta?.houseIds || "";
-      const houseIds = String(houseIdsCsv).split(",").map((s) => s.trim()).filter(Boolean);
+      const houseIds = String(houseIdsCsv)
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
 
       const checkIn = meta?.checkIn || "";
       const checkOut = meta?.checkOut || "";
@@ -542,7 +780,8 @@ export async function POST(req: Request) {
       const firstNightCharge = Number(meta?.firstNightCharge ?? 0);
       const discountedFirst = Number(meta?.discountedFirst ?? 0);
 
-      const jacuzziEnabled = meta?.jacuzziEnabled === "true" || meta?.jacuzziEnabled === true;
+      const jacuzziEnabled =
+        meta?.jacuzziEnabled === "true" || meta?.jacuzziEnabled === true;
       const jacuzziFee = Number(meta?.jacuzziFee ?? 0);
 
       const grandTotal = Number(meta?.grandTotal ?? 0);
@@ -588,7 +827,9 @@ export async function POST(req: Request) {
           totalNightsOnly,
           firstNightCharge,
           discountedFirst,
-          jacuzzi: jacuzziEnabled ? { enabled: true, fee: jacuzziFee } : { enabled: false, fee: 0 },
+          jacuzzi: jacuzziEnabled
+            ? { enabled: true, fee: jacuzziFee }
+            : { enabled: false, fee: 0 },
           jacuzziFee,
           grandTotal,
           discountedGrandTotal,
@@ -611,7 +852,11 @@ export async function POST(req: Request) {
         };
 
         // APPLY COUPON OR PERCENT within same transaction
-        if (discountKind === "coupon" && couponId && Number(couponAmountApplied) > 0) {
+        if (
+          discountKind === "coupon" &&
+          couponId &&
+          Number(couponAmountApplied) > 0
+        ) {
           console.log("💳 Aplicando cupón (webhook):", couponId);
           const couponBlock = await applyCouponInTx(tx, {
             couponId,
@@ -622,13 +867,27 @@ export async function POST(req: Request) {
           });
           baseReservationPayload.coupon = couponBlock;
 
-          if (!couponBlock.deductionError && Number(couponBlock.amountApplied) > 0) {
+          if (
+            !couponBlock.deductionError &&
+            Number(couponBlock.amountApplied) > 0
+          ) {
             const applied = Number(couponBlock.amountApplied || 0);
-            baseReservationPayload.discountedFirst = Math.max(0, (baseReservationPayload.discountedFirst || discountedFirst) - applied);
-            baseReservationPayload.discountedGrandTotal = Math.max(0, (baseReservationPayload.discountedGrandTotal || discountedGrandTotal) - applied);
+            baseReservationPayload.discountedFirst = Math.max(
+              0,
+              (baseReservationPayload.discountedFirst || discountedFirst) -
+                applied
+            );
+            baseReservationPayload.discountedGrandTotal = Math.max(
+              0,
+              (baseReservationPayload.discountedGrandTotal ||
+                discountedGrandTotal) - applied
+            );
           }
         } else if (discountKind === "percent" && percentId) {
-          console.log("📊 Aplicando descuento porcentual (webhook):", percentId);
+          console.log(
+            "📊 Aplicando descuento porcentual (webhook):",
+            percentId
+          );
           const percentBlock = await applyPercentDiscountInTx(tx, {
             percentId,
             percentCode,
@@ -639,10 +898,21 @@ export async function POST(req: Request) {
           });
           baseReservationPayload.percentDiscount = percentBlock;
 
-          if (!percentBlock.deductionError && Number(percentBlock.amountApplied) > 0) {
+          if (
+            !percentBlock.deductionError &&
+            Number(percentBlock.amountApplied) > 0
+          ) {
             const applied = Number(percentBlock.amountApplied || 0);
-            baseReservationPayload.discountedFirst = Math.max(0, (baseReservationPayload.discountedFirst || discountedFirst) - applied);
-            baseReservationPayload.discountedGrandTotal = Math.max(0, (baseReservationPayload.discountedGrandTotal || discountedGrandTotal) - applied);
+            baseReservationPayload.discountedFirst = Math.max(
+              0,
+              (baseReservationPayload.discountedFirst || discountedFirst) -
+                applied
+            );
+            baseReservationPayload.discountedGrandTotal = Math.max(
+              0,
+              (baseReservationPayload.discountedGrandTotal ||
+                discountedGrandTotal) - applied
+            );
           }
         }
 
@@ -672,25 +942,123 @@ export async function POST(req: Request) {
         console.warn("Could not mark checkout_intent as consumed:", e);
       }
 
+      // --- AÑADIR BLOQUE: enviar email de confirmación (usar la plantilla EN) ---
+      try {
+        const customerEmail = customerEmailFromMeta || null;
+        if (customerEmail) {
+          // calcular precio por noche seguro: preferir firstNightCharge, si no dividir grandTotal entre noches
+          const unitAmountPerNight =
+            Number(firstNightCharge) > 0
+              ? Number(firstNightCharge)
+              : nights > 0
+                ? Math.round(
+                    (Number(grandTotal || 0) / Math.max(1, nights)) * 100
+                  ) / 100
+                : Number(grandTotal || 0);
+
+          await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              type: "reservation_confirmation",
+              to: customerEmail,
+              // for this webhook we always send the English template as requested
+              lang: "en",
+              data: {
+                reservationId,
+                guestName: customerNameFromMeta || customerEmail,
+                bookingDate: new Date().toISOString().slice(0, 19), // timestamp of confirmation
+                checkIn,
+                checkOut,
+                nights,
+                roomType:
+                  (houseIds.length === 1
+                    ? houseIds[0]
+                    : meta?.roomType || houseIds.join(", ")) || "Accommodation",
+                guests: guestsNum,
+                unitAmount: unitAmountPerNight,
+                taxes: Number(meta?.taxes ?? 0),
+                fees: Number(meta?.fees ?? 0),
+                totalAmount: Number(discountedGrandTotal || grandTotal || 0),
+                currency,
+                paymentMethod:
+                  payload?.paymentMethod || payload?.payment?.method || "—",
+                hotelName: "Rubikiai Lux",
+                hotelContactEmail: "info@rubikiailux.lt",
+                hotelContactPhone: "",
+              },
+            }),
+          })
+            .then(async (res) => {
+              if (!res.ok) {
+                const text = await res.text().catch(() => "");
+                console.error(
+                  "Reservation confirmation email send failed:",
+                  res.status,
+                  text
+                );
+                await db
+                  .collection("reservations")
+                  .doc(reservationId)
+                  .update({
+                    emailSendErrorAt: admin.firestore.Timestamp.now(),
+                    emailSendError: `status_${res.status}`,
+                    lastEmailResponse: text,
+                  });
+              } else {
+                await db.collection("reservations").doc(reservationId).update({
+                  confirmationEmailSentAt: admin.firestore.Timestamp.now(),
+                });
+              }
+            })
+            .catch(async (e) => {
+              console.error("Reservation confirmation email send error:", e);
+              await db
+                .collection("reservations")
+                .doc(reservationId)
+                .update({
+                  emailSendErrorAt: admin.firestore.Timestamp.now(),
+                  emailSendError: String(e?.message ?? e),
+                });
+            });
+        } else {
+          console.log(
+            "No customer email available — skipping reservation confirmation email."
+          );
+        }
+      } catch (e) {
+        console.error(
+          "Unexpected error when sending reservation confirmation email:",
+          e
+        );
+      }
+
       console.log("✅ Reserva procesada exitosamente:", reservationId);
       return NextResponse.json({ received: true });
     }
 
     // failed/cancelled/expired
-    if (statusFromMontonio === "expired" || statusFromMontonio === "cancelled" || statusFromMontonio === "failed") {
+    if (
+      statusFromMontonio === "expired" ||
+      statusFromMontonio === "cancelled" ||
+      statusFromMontonio === "failed"
+    ) {
       console.log("❌ Pago fallido/cancelado:", statusFromMontonio);
       const reservationId = merchantReference || payload?.reservationId;
       if (reservationId) {
         const resRef = db.collection("reservations").doc(reservationId);
-        await resRef.set({
-          status: "canceled",
-          paymentRejectedReason: `montonio_${statusFromMontonio}`,
-          canceledAt: admin.firestore.Timestamp.now(),
-          montonioNotification: payload,
-          montonioStatus: statusFromMontonio,
-          montonioOrderUuid: uuid || admin.firestore.FieldValue.delete(),
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        }, { merge: true });
+        await resRef.set(
+          {
+            status: "canceled",
+            paymentRejectedReason: `montonio_${statusFromMontonio}`,
+            canceledAt: admin.firestore.Timestamp.now(),
+            montonioNotification: payload,
+            montonioStatus: statusFromMontonio,
+            montonioOrderUuid: uuid || admin.firestore.FieldValue.delete(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
       }
       return NextResponse.json({ received: true });
     }
@@ -714,6 +1082,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   } catch (err: any) {
     console.error("❌ Error processing Montonio webhook:", err);
-    return NextResponse.json({ error: err?.message || "internal_error" }, { status: 500 });
+    return NextResponse.json(
+      { error: err?.message || "internal_error" },
+      { status: 500 }
+    );
   }
 }

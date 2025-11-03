@@ -6,6 +6,7 @@ import fs from "fs/promises";
 import path from "path";
 import { CouponPurchaseEmailHtmlEN } from "@/app/emails/CouponPurchaseEmailHtmlEN";
 import { DiscountCodeEmailHtml } from "@/app/emails/DiscountCodeEmailHtml";
+import { ReservationConfirmationEmailHtmlEN } from "@/app/emails/ReservationConfirmationEmailHtmlEN";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -36,6 +37,31 @@ export type SendEmailBody =
         code: string;
         percent: number;
         expiresAt: string; // YYYY-MM-DD
+      };
+      lang?: "en" | "es";
+      fromName?: string;
+    }
+  | {
+      type: "reservation_confirmation";
+      to: string | string[];
+      data: {
+        reservationId: string;
+        guestName: string;
+        bookingDate: string;
+        checkIn: string;
+        checkOut: string;
+        nights: number;
+        roomType: string;
+        guests: number;
+        unitAmount: number;
+        taxes?: number;
+        fees?: number;
+        totalAmount?: number;
+        currency?: string;
+        paymentMethod?: string;
+        hotelName?: string;
+        hotelContactEmail?: string;
+        hotelContactPhone?: string;
       };
       lang?: "en" | "es";
       fromName?: string;
@@ -114,6 +140,53 @@ export async function POST(req: Request) {
           code,
           percent,
           expiresAt,
+          logoCid,
+        });
+        break;
+      }
+
+      case "reservation_confirmation": {
+        // This endpoint uses the English reservation confirmation template.
+        const {
+          reservationId,
+          guestName,
+          bookingDate,
+          checkIn,
+          checkOut,
+          nights,
+          roomType,
+          guests,
+          unitAmount,
+          taxes,
+          fees,
+          totalAmount,
+          currency = "EUR",
+          paymentMethod,
+          hotelName,
+          hotelContactEmail,
+          hotelContactPhone,
+        } = body.data;
+
+        subject = `Reservation confirmation — ${reservationId}`;
+
+        html = ReservationConfirmationEmailHtmlEN({
+          reservationId,
+          guestName,
+          bookingDate,
+          checkIn,
+          checkOut,
+          nights,
+          roomType,
+          guests,
+          unitAmount,
+          taxes,
+          fees,
+          totalAmount,
+          currency,
+          paymentMethod,
+          hotelName,
+          hotelContactEmail,
+          hotelContactPhone,
           logoCid,
         });
         break;

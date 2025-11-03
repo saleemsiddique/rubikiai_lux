@@ -367,6 +367,11 @@ export async function POST(req: Request) {
                 intent.jacuzziFee ??
                 intent.jacuzzi?.fee ??
                 0,
+              jacuzziDays: // NUEVO
+                fromIntentMeta.jacuzziDays ??
+                intent.jacuzziDays ??
+                intent.jacuzzi?.days ??
+                0,
               grandTotal: fromIntentMeta.grandTotal ?? intent.grandTotal,
               discountedGrandTotal:
                 fromIntentMeta.discountedGrandTotal ??
@@ -455,6 +460,10 @@ export async function POST(req: Request) {
                   existing.jacuzzi?.enabled ??
                   false,
                 jacuzziFee: existingMeta.jacuzziFee ?? existing.jacuzziFee ?? 0,
+                jacuzziDays: // NUEVO
+                  existingMeta.jacuzziDays ??
+                  existing.jacuzzi?.days ??
+                  0,
                 grandTotal: existingMeta.grandTotal ?? existing.grandTotal,
                 discountedGrandTotal:
                   existingMeta.discountedGrandTotal ??
@@ -617,7 +626,7 @@ export async function POST(req: Request) {
             const unitAmount = Number.isFinite(Number(data.unitAmount))
               ? Number(data.unitAmount)
               : Number(metadataCandidate?.unitAmount || payload?.amount || 0) ||
-                0;
+              0;
             // Preferir el buyerEmail ya almacenado en el doc si existe, si no usar el que venía en payload/metadata
             const effectiveBuyerEmail = data.buyerEmail || buyerEmail || null;
             tx.update(orderRef, {
@@ -790,9 +799,11 @@ export async function POST(req: Request) {
       const firstNightCharge = Number(meta?.firstNightCharge ?? 0);
       const discountedFirst = Number(meta?.discountedFirst ?? 0);
 
+      // Después de extraer jacuzziFee:
       const jacuzziEnabled =
         meta?.jacuzziEnabled === "true" || meta?.jacuzziEnabled === true;
       const jacuzziFee = Number(meta?.jacuzziFee ?? 0);
+      const jacuzziDays = Number(meta?.jacuzziDays ?? 0); // NUEVO
 
       const grandTotal = Number(meta?.grandTotal ?? 0);
       const discountedGrandTotal = Number(meta?.discountedGrandTotal ?? 0);
@@ -851,8 +862,8 @@ export async function POST(req: Request) {
           firstNightCharge,
 
           jacuzzi: jacuzziEnabled
-            ? { enabled: true, fee: jacuzziFee }
-            : { enabled: false, fee: 0 },
+            ? { enabled: true, fee: jacuzziFee, days: jacuzziDays } // AÑADIR days
+            : { enabled: false, fee: 0, days: 0 },
           jacuzziFee,
 
           currency,
@@ -897,7 +908,7 @@ export async function POST(req: Request) {
             baseReservationPayload.discountedFirst = Math.max(
               0,
               (baseReservationPayload.discountedFirst || discountedFirst) -
-                applied
+              applied
             );
             baseReservationPayload.discountedGrandTotal = Math.max(
               0,
@@ -933,7 +944,7 @@ export async function POST(req: Request) {
             baseReservationPayload.discountedFirst = Math.max(
               0,
               (baseReservationPayload.discountedFirst || discountedFirst) -
-                applied
+              applied
             );
             baseReservationPayload.discountedGrandTotal = Math.max(
               0,
@@ -979,8 +990,8 @@ export async function POST(req: Request) {
               ? Number(firstNightCharge)
               : nights > 0
                 ? Math.round(
-                    (Number(grandTotal || 0) / Math.max(1, nights)) * 100
-                  ) / 100
+                  (Number(grandTotal || 0) / Math.max(1, nights)) * 100
+                ) / 100
                 : Number(grandTotal || 0);
 
           const grandTotalToSend = Number(

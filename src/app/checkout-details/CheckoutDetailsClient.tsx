@@ -108,6 +108,7 @@ export default function CheckoutDetailsClient() {
   const [discountCode, setDiscountCode] = useState("");
   const [discountLookupLoading, setDiscountLookupLoading] = useState(false);
   const [discountError, setDiscountError] = useState<string | null>(null);
+  const [jacuzziDays, setJacuzziDays] = useState(1); // días de jacuzzi solicitados
 
   /**
    * discountData can be:
@@ -148,8 +149,21 @@ export default function CheckoutDetailsClient() {
   const endPretty = endIso ? new Date(endIso).toLocaleDateString("en-GB") : "-";
 
   // derive jacuzzi fee shown
-  const jacuzziFeeShown = withJacuzzi ? (priceData?.jacuzziFee ?? 0) : 0;
+  const jacuzziFeeShown = useMemo(() => {
+    if (!withJacuzzi || !priceData) return 0;
 
+    const nights = priceData.nights || 0;
+    const extraGuestsForJacuzzi = Math.max(0, guests - 2);
+
+    // Primer día: 65€ + 10€ por guest extra
+    const firstDayFee = 65 + (extraGuestsForJacuzzi * 10);
+
+    // Días adicionales (si jacuzziDays > 1): 45€ + 10€ por guest extra cada día
+    const additionalDays = Math.max(0, Math.min(jacuzziDays, nights) - 1);
+    const additionalDaysFee = additionalDays * (45 + (extraGuestsForJacuzzi * 10));
+
+    return firstDayFee + additionalDaysFee;
+  }, [withJacuzzi, jacuzziDays, guests, priceData]);
   /**
    * computedBreakdown:
    * - payNowAfterDiscount: what Stripe will try to charge now
@@ -532,9 +546,10 @@ export default function CheckoutDetailsClient() {
         extras: {
           jacuzzi: withJacuzzi
             ? {
-                enabled: true,
-                price: priceData.jacuzziFee,
-              }
+              enabled: true,
+              days: jacuzziDays,
+              price: jacuzziFeeShown,
+            }
             : { enabled: false },
         },
 
@@ -609,9 +624,10 @@ export default function CheckoutDetailsClient() {
         extras: {
           jacuzzi: withJacuzzi
             ? {
-                enabled: true,
-                price: priceData.jacuzziFee, // backend-calculated price (sent for info)
-              }
+              enabled: true,
+              days: jacuzziDays,
+              price: jacuzziFeeShown,
+            }
             : { enabled: false },
         },
         discount: discountPayload || undefined,
@@ -718,11 +734,10 @@ export default function CheckoutDetailsClient() {
                 </label>
                 <input
                   type="email"
-                  className={`border rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 ${
-                    email2 && !emailsMatch
-                      ? "border-red-500 focus:ring-red-400"
-                      : "border-gray-300 focus:ring-[var(--color-primary)] focus:border-[var(--color-primary)]"
-                  }`}
+                  className={`border rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 ${email2 && !emailsMatch
+                    ? "border-red-500 focus:ring-red-400"
+                    : "border-gray-300 focus:ring-[var(--color-primary)] focus:border-[var(--color-primary)]"
+                    }`}
                   value={email2}
                   onChange={(e) => setEmail2(e.target.value)}
                   placeholder="Repeat your email"
@@ -787,7 +802,10 @@ export default function CheckoutDetailsClient() {
                 type="checkbox"
                 className="mt-1 w-5 h-5 rounded border-gray-400 text-[var(--color-primary)] focus:ring-[var(--color-primary)]"
                 checked={withJacuzzi}
-                onChange={(e) => setWithJacuzzi(e.target.checked)}
+                onChange={(e) => {
+                  setWithJacuzzi(e.target.checked);
+                  if (!e.target.checked) setJacuzziDays(1); // reset si se desmarca
+                }}
               />
               <div className="flex-1">
                 <div className="text-base font-semibold text-gray-900 flex flex-wrap items-baseline gap-2">
@@ -798,10 +816,42 @@ export default function CheckoutDetailsClient() {
                     </span>
                   )}
                 </div>
-                <div className="text-sm text-gray-600 leading-relaxed">
-                  65€ covers up to 2 guests. +10€/extra guest. One-time fee for
-                  the stay.
+                <div className="text-sm text-gray-600 leading-relaxed mb-3">
+                  First day: 65€ (up to 2 guests, +10€/extra guest).
+                  Additional days: 45€/day (+10€/extra guest).
                 </div>
+
+                {withJacuzzi && priceData && priceData.nights > 0 && (
+                  <div className="mt-3 flex items-center gap-3">
+                    <label className="text-sm font-medium text-gray-700">
+                      Number of days:
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setJacuzziDays(Math.max(1, jacuzziDays - 1))}
+                        disabled={jacuzziDays <= 1}
+                        className="w-8 h-8 rounded-md border border-gray-300 flex items-center justify-center hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        −
+                      </button>
+                      <span className="w-12 text-center font-semibold text-lg">
+                        {jacuzziDays}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setJacuzziDays(Math.min(priceData.nights, jacuzziDays + 1))}
+                        disabled={jacuzziDays >= priceData.nights}
+                        className="w-8 h-8 rounded-md border border-gray-300 flex items-center justify-center hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        +
+                      </button>
+                    </div>
+                    <span className="text-xs text-gray-500">
+                      (max: {priceData.nights} {priceData.nights === 1 ? 'night' : 'nights'})
+                    </span>
+                  </div>
+                )}
               </div>
             </label>
           </div>
@@ -994,11 +1044,11 @@ export default function CheckoutDetailsClient() {
                         ? formatCurrency(totalAfterDiscount)
                         : priceData
                           ? // fallback if for some reason we don't have totalAfterDiscount
-                            formatCurrency(
-                              withJacuzzi
-                                ? priceData.grandTotal
-                                : priceData.total
-                            )
+                          formatCurrency(
+                            withJacuzzi
+                              ? priceData.grandTotal
+                              : priceData.total
+                          )
                           : "—"}
                 </span>
               </div>
@@ -1028,9 +1078,8 @@ export default function CheckoutDetailsClient() {
                     <div className="mt-2 text-xs text-gray-600 leading-relaxed">
                       {discountData.kind === "percent"
                         ? `A ${discountData.percentDoc?.percent}% discount has been applied to the first night.`
-                        : `A coupon has been applied (${
-                            discountData.coupon?.code || ""
-                          }).`}{" "}
+                        : `A coupon has been applied (${discountData.coupon?.code || ""
+                        }).`}{" "}
                       You pay now {formatCurrency(payNowAfterDiscount ?? 0)}.
                     </div>
                   )}
@@ -1051,11 +1100,10 @@ export default function CheckoutDetailsClient() {
           <button
             disabled={!canSubmit}
             onClick={handleGoToCheckout}
-            className={`w-full py-4 rounded-xl font-bold uppercase tracking-wide text-sm shadow-lg transition-all duration-300 ${
-              canSubmit
-                ? "bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] hover:shadow-xl transform hover:-translate-y-0.5"
-                : "bg-gray-300 text-gray-500 cursor-not-allowed"
-            }`}
+            className={`w-full py-4 rounded-xl font-bold uppercase tracking-wide text-sm shadow-lg transition-all duration-300 ${canSubmit
+              ? "bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] hover:shadow-xl transform hover:-translate-y-0.5"
+              : "bg-gray-300 text-gray-500 cursor-not-allowed"
+              }`}
           >
             {canSubmit ? "Continue to payment" : "Fill your details"}
           </button>

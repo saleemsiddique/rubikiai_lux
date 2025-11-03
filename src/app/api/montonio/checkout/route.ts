@@ -35,6 +35,7 @@ type CheckoutBody = {
   extras?: {
     jacuzzi?: {
       enabled: boolean;
+      days?: number;
       price?: number;
     };
   };
@@ -172,16 +173,34 @@ export async function POST(req: Request) {
       extraGuests,
     } = await calculateNightsCore(houseIds, startIso, endIso, guestsNum);
 
-    // jacuzzi fee (flat per stay)
+    // jacuzzi fee (multi-day calculation)
     let jacuzziFee = 0;
     let jacuzziEnabled = false;
+    let jacuzziDays = 0;
+
     if (extras?.jacuzzi?.enabled) {
       jacuzziEnabled = true;
-      const jacuzziExtraGuests = Math.max(0, guestsNum - 2);
-      jacuzziFee =
-        JACUZZI_BASE_PRICE + jacuzziExtraGuests * JACUZZI_EXTRA_PRICE;
-    }
+      jacuzziDays = Number(extras?.jacuzzi?.days || 1);
 
+      // Validar que jacuzziDays no exceda nights
+      if (jacuzziDays > nights) {
+        jacuzziDays = nights;
+      }
+      if (jacuzziDays < 1) {
+        jacuzziDays = 1;
+      }
+
+      const jacuzziExtraGuests = Math.max(0, guestsNum - 2);
+
+      // Primer día: 65€ + 10€ por guest extra
+      const firstDayFee = 65 + (jacuzziExtraGuests * 10);
+
+      // Días adicionales: 45€ + 10€ por guest extra cada día
+      const additionalDays = Math.max(0, jacuzziDays - 1);
+      const additionalDaysFee = additionalDays * (45 + (jacuzziExtraGuests * 10));
+
+      jacuzziFee = firstDayFee + additionalDaysFee;
+    }
     // grandTotal = lodging + jacuzzi (full stay)
     const grandTotal = totalNightsOnly + jacuzziFee;
 
@@ -315,8 +334,8 @@ export async function POST(req: Request) {
       totalNightsOnly: String(totalNightsOnly),
       firstNightCharge: String(firstNightCharge),
       jacuzziFee: String(jacuzziFee),
-      grandTotal: String(grandTotal),
-
+      jacuzziEnabled: jacuzziEnabled ? "true" : "false",
+      jacuzziDays: String(jacuzziDays), // NUEVO CAMPO      grandTotal: String(grandTotal),
       currency: "EUR",
 
       // descuentos
@@ -520,8 +539,8 @@ export async function POST(req: Request) {
         firstNightCharge,
         discountedFirst,
         jacuzzi: jacuzziEnabled
-          ? { enabled: true, fee: jacuzziFee }
-          : { enabled: false, fee: 0 },
+          ? { enabled: true, fee: jacuzziFee, days: jacuzziDays }
+          : { enabled: false, fee: 0, days: 0 },
         jacuzziFee,
         grandTotal,
         discountedGrandTotal,

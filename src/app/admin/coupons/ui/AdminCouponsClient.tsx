@@ -3,7 +3,8 @@
 import React, { useCallback, useState } from "react";
 
 /** Tipos del lookup existente (/api/coupons/lookup) */
-type LookupResult = {
+type CouponLookup = {
+  kind: "coupon";
   coupon: {
     id: string;
     code: string;
@@ -18,6 +19,20 @@ type LookupResult = {
   };
   state: "active" | "expired" | "used" | "disabled";
 };
+
+type PercentLookup = {
+  kind: "percent";
+  percentDoc: {
+    id: string;
+    code: string;
+    percent: number;
+    expiresAt: string;
+    used: boolean;
+  };
+  state: "active" | "expired" | "used" | "disabled";
+};
+
+type LookupResult = CouponLookup | PercentLookup;
 
 async function readError(res: Response) {
   const text = await res.text();
@@ -92,7 +107,9 @@ export default function AdminCouponsClient() {
       }
       const data: LookupResult = await res.json();
       setLookup(data);
-      setEditRemaining(String(data.coupon.remaining));
+      if (data.kind === "coupon") {
+        setEditRemaining(String(data.coupon.remaining));
+      }
     } catch (e: any) {
       console.error("[admin/coupons] lookup error:", e);
       setLookupError(e?.message || "No se pudo consultar el cupón");
@@ -102,7 +119,7 @@ export default function AdminCouponsClient() {
   }, [codeInput]);
 
   const updateRemaining = useCallback(async () => {
-    if (!lookup) return;
+    if (!lookup || lookup.kind !== "coupon") return;
     const val = editRemaining.trim();
     if (!val) {
       setSaveMsg("Introduce un valor numérico.");
@@ -126,7 +143,7 @@ export default function AdminCouponsClient() {
         const detail = await readError(res);
         throw new Error(detail);
       }
-      const updated: LookupResult["coupon"] = await res.json();
+      const updated: CouponLookup["coupon"] = await res.json();
 
       // refrescamos estado local
       setLookup({
@@ -179,9 +196,14 @@ export default function AdminCouponsClient() {
 
       {lookupError && <div className="mt-3 text-sm text-red-600 whitespace-pre-wrap">{lookupError}</div>}
 
-      {/* Resultado */}
-      {lookup && (
+      {/* Resultado - Cupón de valor */}
+      {lookup && lookup.kind === "coupon" && (
         <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="p-4 rounded-xl border bg-white">
+            <div className="text-xs uppercase tracking-wider text-neutral-600">Tipo</div>
+            <div className="mt-1 text-lg font-semibold text-blue-600">Cupón de valor</div>
+          </div>
+
           <div className="p-4 rounded-xl border bg-white">
             <div className="text-xs uppercase tracking-wider text-neutral-600">Estado</div>
             <div className="mt-2">{statePill(lookup.state)}</div>
@@ -194,9 +216,6 @@ export default function AdminCouponsClient() {
             {lookup.coupon.orderId && (
               <div className="text-xs text-neutral-500 mt-1">Order: <span className="font-mono">{lookup.coupon.orderId}</span></div>
             )}
-            {lookup.coupon.buyerEmail && (
-              <div className="text-xs text-neutral-500 mt-1">Buyer: {lookup.coupon.buyerEmail}</div>
-            )}
           </div>
 
           <div className="p-4 rounded-xl border bg-white">
@@ -204,6 +223,16 @@ export default function AdminCouponsClient() {
             <div className="mt-1 text-sm">Original: <span className="font-semibold">{lookup.coupon.unitAmount.toFixed(2)} {lookup.coupon.currency}</span></div>
             <div className="mt-1">Caduca: <span className="font-semibold">{formatDate(lookup.coupon.expiresAtIso)}</span></div>
             <div className="mt-1 text-xs text-neutral-500">Comprado: {formatDate(lookup.coupon.purchasedAtIso)}</div>
+          </div>
+
+          <div className="p-4 rounded-xl border bg-white md:col-span-2">
+            <div className="text-xs uppercase tracking-wider text-neutral-600">Información adicional</div>
+            {lookup.coupon.buyerEmail && (
+              <div className="mt-1 text-sm">Comprador: <span className="font-mono">{lookup.coupon.buyerEmail}</span></div>
+            )}
+            {lookup.coupon.orderId && (
+              <div className="text-sm mt-1">ID de pedido: <span className="font-mono">{lookup.coupon.orderId}</span></div>
+            )}
           </div>
 
           {/* Editor de remaining */}
@@ -239,6 +268,48 @@ export default function AdminCouponsClient() {
               </div>
             </div>
             {saveMsg && <div className="mt-2 text-xs whitespace-pre-wrap">{saveMsg}</div>}
+          </div>
+        </div>
+      )}
+
+      {/* Resultado - Descuento porcentual */}
+      {lookup && lookup.kind === "percent" && (
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="p-4 rounded-xl border bg-white">
+            <div className="text-xs uppercase tracking-wider text-neutral-600">Tipo</div>
+            <div className="mt-1 text-lg font-semibold text-purple-600">Descuento porcentual</div>
+          </div>
+
+          <div className="p-4 rounded-xl border bg-white">
+            <div className="text-xs uppercase tracking-wider text-neutral-600">Estado</div>
+            <div className="mt-2">{statePill(lookup.state)}</div>
+          </div>
+
+          <div className="p-4 rounded-xl border bg-white">
+            <div className="text-xs uppercase tracking-wider text-neutral-600">Descuento</div>
+            <div className="mt-1 text-3xl font-bold text-[var(--color-primary-dark)]">{lookup.percentDoc.percent}%</div>
+            <div className="text-xs text-neutral-500">Sobre total reserva</div>
+          </div>
+
+          <div className="p-4 rounded-xl border bg-white">
+            <div className="text-xs uppercase tracking-wider text-neutral-600">Código</div>
+            <div className="mt-1 font-mono text-lg">{lookup.percentDoc.code}</div>
+          </div>
+
+          <div className="p-4 rounded-xl border bg-white">
+            <div className="text-xs uppercase tracking-wider text-neutral-600">Caducidad</div>
+            <div className="mt-1 text-lg font-semibold">{lookup.percentDoc.expiresAt || "Sin caducidad"}</div>
+          </div>
+
+          <div className="p-4 rounded-xl border bg-white">
+            <div className="text-xs uppercase tracking-wider text-neutral-600">Uso</div>
+            <div className="mt-1 text-lg font-semibold">{lookup.percentDoc.used ? "Ya usado" : "Disponible"}</div>
+          </div>
+
+          <div className="md:col-span-3 p-4 rounded-xl border bg-amber-50">
+            <div className="text-sm text-amber-800">
+              Los cupones de descuento porcentual no tienen saldo editable. Solo se pueden usar una vez.
+            </div>
           </div>
         </div>
       )}

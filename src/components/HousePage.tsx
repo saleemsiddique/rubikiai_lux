@@ -214,8 +214,8 @@ export default function HousePage(props: HousePageProps) {
   })();
 
   const checkoutTime = title?.includes("EŽERO NAMELIS")
-    ? "12:00 PM"
-    : "11:00 AM";
+    ? "12:00"
+    : "11:00";
 
   // go to checkout-details (no coupon logic anymore)
   const handleReserveNow = () => {
@@ -240,10 +240,62 @@ export default function HousePage(props: HousePageProps) {
     router.push(`/checkout-details?${q.toString()}`);
   };
 
+  /* --- MOBILE BOOKING BAR ---
+     Fixed bottom booking bar visible only on small screens (md:hidden).
+     Shows total/first and reserve CTA so user can act immediately.
+  */
+  const BookingBarMobile = () => {
+    const showPrice = totalFromServer !== null || firstFromServer !== null;
+    return (
+      <div className="md:hidden fixed left-4 right-4 bottom-4 z-50">
+        <div className="bg-white rounded-xl shadow-lg p-3 flex items-center justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            {loadingPrice ? (
+              <div className="text-sm text-gray-500">Calculating…</div>
+            ) : priceError ? (
+              <div className="text-sm text-red-600">Price unavailable</div>
+            ) : showPrice ? (
+              <>
+                <div className="text-xs text-gray-500">Total / Charge now</div>
+                <div className="flex items-baseline gap-3">
+                  <div className="text-lg font-semibold">
+                    {formatCurrency(totalFromServer ?? undefined)}
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    {firstFromServer !== null
+                      ? `Now ${formatCurrency(firstFromServer ?? undefined)}`
+                      : "First night shown at checkout"}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="text-sm text-gray-700">
+                Select dates to see price
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={handleReserveNow}
+            disabled={!startParam || !endParam}
+            className={`ml-2 whitespace-nowrap px-4 py-2 rounded-lg font-bold text-sm transition-colors ${
+              !startParam || !endParam
+                ? "bg-gray-300 text-gray-600 cursor-not-allowed"
+                : "bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)]"
+            }`}
+          >
+            {startParam && endParam ? "Reserve now" : "Select dates"}
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <main className="bg-gray-100 text-[var(--color-text)]">
+    // add a bottom padding on small screens to avoid the fixed bar overlapping content
+    <main className="bg-gray-100 text-[var(--color-text)] pb-24 md:pb-0">
       {/* Hero */}
-      <div className="relative h-screen">
+      <div className="relative h-[60vh] md:h-screen">
         <Image
           src={heroSrc}
           alt={heroAlt ?? title}
@@ -281,6 +333,9 @@ export default function HousePage(props: HousePageProps) {
           </div>
         </div>
       </div>
+
+      {/* Render mobile booking bar */}
+      <BookingBarMobile />
 
       {/* Info + reservation */}
       <section className="py-16 px-4">
@@ -320,10 +375,10 @@ export default function HousePage(props: HousePageProps) {
                     {startFriendly ? (
                       <p className="text-lg">
                         {startFriendly} —{" "}
-                        <span className="font-medium">04:00 PM</span>
+                        <span className="font-medium">16:00</span>
                       </p>
                     ) : (
-                      <p className="text-lg">04:00 PM</p>
+                      <p className="text-lg">16:00</p>
                     )}
                   </div>
 

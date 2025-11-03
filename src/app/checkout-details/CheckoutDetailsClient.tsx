@@ -1111,9 +1111,9 @@ export default function CheckoutDetailsClient() {
           <button
             onClick={handleMontonioCheckout}
             disabled={!canSubmit}
-            className={`w-full py-3 rounded-xl font-bold uppercase tracking-wide text-sm shadow-lg transition-all duration-300 mt-2 ${canSubmit ? "bg-white text-[var(--color-primary)] border border-[var(--color-primary)] hover:shadow-md" : "bg-gray-200 text-gray-400 cursor-not-allowed"}`}
+            className={`w-full py-4 rounded-xl font-bold uppercase tracking-wide text-sm shadow-lg transition-all duration-300 ${canSubmit ? "bg-white text-[var(--color-primary)] border border-[var(--color-primary)] hover:shadow-md" : "bg-gray-200 text-gray-400 cursor-not-allowed"}`}
           >
-            Pay with Bank Transfer (Montonio)
+            Pay with Bank Transfer
           </button>
 
           <button

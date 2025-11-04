@@ -978,11 +978,6 @@ export default function CheckoutDetailsClient() {
                         )}
                       </span>
                     </div>
-                    {discountData.coupon.expiresAtIso && (
-                      <div className="text-xs text-gray-500">
-                        Expires: {discountData.coupon.expiresAtIso}
-                      </div>
-                    )}
 
                     {/* If coupon but initialPayNow below threshold -> disable Apply */}
                     {!discountApplied ? (

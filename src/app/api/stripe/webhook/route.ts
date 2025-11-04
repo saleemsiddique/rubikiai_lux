@@ -537,14 +537,13 @@ export async function POST(req: Request) {
         const customerEmail =
           stripeCheckoutEmail || customerEmailFromMeta || null;
         if (customerEmail) {
-          const firstNightChargeSafe =
-            Number(firstNightCharge) > 0
-              ? Number(firstNightCharge)
-              : nights > 0
-                ? Math.round(
-                    (Number(totalStay || 0) / Math.max(1, nights)) * 100
-                  ) / 100
-                : Number(totalStay || 0);
+          // Calcular descuento aplicado (si hay cupón o porcentaje)
+          let discountApplied = 0;
+          if (discountKind === "coupon" && couponAmountApplied) {
+            discountApplied = Number(couponAmountApplied) || 0;
+          } else if (discountKind === "percent" && percentAmountApplied) {
+            discountApplied = Number(percentAmountApplied) || 0;
+          }
 
           await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
             method: "POST",
@@ -565,8 +564,11 @@ export async function POST(req: Request) {
                     ? houseIds[0]
                     : rawValue || houseIds.join(", ")) || "Accommodation",
                 guests: guestsNum,
-                unitAmount: firstNightChargeSafe,
-                totalAmount: Number(totalStay || 0),
+                // ✅ NUEVOS CAMPOS SIMPLIFICADOS:
+                paidNow: payNow,
+                payAtArrival: payAtArrival,
+                totalStay: totalStay,
+                discountApplied: discountApplied,
                 currency,
                 hotelName: "Rubikiai Lux",
                 hotelContactEmail: "info@rubikiailux.lt",

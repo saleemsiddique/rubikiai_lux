@@ -168,7 +168,9 @@ async function applyPercentDiscountInTx(
     checkoutSessionId: string;
   }
 ) {
-  const percentRef = db.collection("percentage_discounts").doc(String(percentId));
+  const percentRef = db
+    .collection("percentage_discounts")
+    .doc(String(percentId));
   const pSnap = await tx.get(percentRef);
 
   if (!pSnap.exists) {
@@ -183,15 +185,12 @@ async function applyPercentDiscountInTx(
   }
 
   const pData: any = pSnap.data();
-  const alreadyUsed = !!pData?.used;
 
-  if (!alreadyUsed) {
-    tx.update(percentRef, {
-      used: true,
-      usedAt: admin.firestore.Timestamp.now(),
-      lastSentAt: pData?.lastSentAt || admin.firestore.Timestamp.now(),
-    });
-  }
+  tx.update(percentRef, {
+    used: true,
+    usedAt: admin.firestore.Timestamp.now(),
+    lastSentAt: pData?.lastSentAt || admin.firestore.Timestamp.now(),
+  });
 
   const movRef = percentRef.collection("movements").doc();
   tx.set(movRef, {
@@ -252,17 +251,14 @@ export async function POST(req: Request) {
         const orderRef = db.collection("coupon_orders").doc(orderId);
         const paymentIntentId = getSessionPaymentIntentId(session);
         const buyerEmail =
-          session.customer_details?.email ||
-          session.customer_email ||
-          null;
+          session.customer_details?.email || session.customer_email || null;
 
         const result = await db.runTransaction(async (tx) => {
           const snap = await tx.get(orderRef);
           if (!snap.exists) {
             const quantity =
               parseInt(String(session.metadata?.quantity || "1"), 10) || 1;
-            const unitAmount =
-              Number(session.metadata?.unitAmount || 0) || 0;
+            const unitAmount = Number(session.metadata?.unitAmount || 0) || 0;
             tx.set(orderRef, {
               status: "processing",
               unitAmount,
@@ -286,10 +282,7 @@ export async function POST(req: Request) {
             }
             const quantity = Number.isFinite(Number(data.quantity))
               ? Number(data.quantity)
-              : parseInt(
-                String(session.metadata?.quantity || "1"),
-                10
-              ) || 1;
+              : parseInt(String(session.metadata?.quantity || "1"), 10) || 1;
             const unitAmount = Number.isFinite(Number(data.unitAmount))
               ? Number(data.unitAmount)
               : Number(session.metadata?.unitAmount || 0) || 0;
@@ -345,9 +338,7 @@ export async function POST(req: Request) {
             const cData: any = cSnap.data();
             createdCodes.push({
               code: String(cData.code),
-              remaining: Number(
-                cData.remaining ?? unitAmount
-              ),
+              remaining: Number(cData.remaining ?? unitAmount),
             });
           }
         }
@@ -365,35 +356,25 @@ export async function POST(req: Request) {
 
         if (buyerEmail) {
           try {
-            await fetch(
-              `${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`,
-              {
-                method: "POST",
-                headers: { "content-type": "application/json" },
-                body: JSON.stringify({
-                  type: "coupon_purchase",
-                  to: buyerEmail,
-                  data: {
-                    unitAmount,
-                    quantity,
-                    currency: "EUR",
-                    codes: createdCodes,
-                    expiresAt: expiresAt
-                      .toDate()
-                      .toISOString()
-                      .slice(0, 10),
-                  },
-                }),
-              }
-            );
+            await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                type: "coupon_purchase",
+                to: buyerEmail,
+                data: {
+                  unitAmount,
+                  quantity,
+                  currency: "EUR",
+                  codes: createdCodes,
+                  expiresAt: expiresAt.toDate().toISOString().slice(0, 10),
+                },
+              }),
+            });
           } catch (e: any) {
-            console.error(
-              "coupon email send failed:",
-              e?.message || e
-            );
+            console.error("coupon email send failed:", e?.message || e);
             await orderRef.update({
-              emailSendErrorAt:
-                admin.firestore.Timestamp.now(),
+              emailSendErrorAt: admin.firestore.Timestamp.now(),
               emailSendError: String(e?.message ?? e),
             });
           }
@@ -433,54 +414,38 @@ export async function POST(req: Request) {
       const totalStay = Number(session.metadata?.totalStay ?? 0);
 
       // campos legacy (para compatibilidad / fallback)
-      const totalNightsOnly = Number(
-        session.metadata?.totalNightsOnly || 0
-      );
-      const firstNightCharge = Number(
-        session.metadata?.firstNightCharge || 0
-      );
+      const totalNightsOnly = Number(session.metadata?.totalNightsOnly || 0);
+      const firstNightCharge = Number(session.metadata?.firstNightCharge || 0);
 
-      const jacuzziEnabled =
-        session.metadata?.jacuzziEnabled === "true";
+      const jacuzziEnabled = session.metadata?.jacuzziEnabled === "true";
       const jacuzziFee = Number(session.metadata?.jacuzziFee || 0);
       const jacuzziDays = Number(session.metadata?.jacuzziDays || 0); // ✅ NUEVO
-
 
       const currency = session.metadata?.currency || "EUR";
 
       const discountKind = session.metadata?.discountKind || "";
       const couponId = session.metadata?.couponId || "";
       const couponCode = session.metadata?.couponCode || "";
-      const couponAmountApplied =
-        session.metadata?.couponAmountApplied || "";
+      const couponAmountApplied = session.metadata?.couponAmountApplied || "";
 
       const percentId = session.metadata?.percentId || "";
       const percentCode = session.metadata?.percentCode || "";
       const percentValue = session.metadata?.percentValue || "";
-      const percentAmountApplied =
-        session.metadata?.percentAmountApplied || "";
+      const percentAmountApplied = session.metadata?.percentAmountApplied || "";
 
       const app_user_id = session.metadata?.app_user_id || "";
 
-      const customerEmailFromMeta =
-        session.metadata?.customerEmail || "";
-      const customerNameFromMeta =
-        session.metadata?.customerName || "";
-      const customerPhoneFromMeta =
-        session.metadata?.customerPhone || "";
+      const customerEmailFromMeta = session.metadata?.customerEmail || "";
+      const customerNameFromMeta = session.metadata?.customerName || "";
+      const customerPhoneFromMeta = session.metadata?.customerPhone || "";
       const arrivalTime = session.metadata?.arrivalTime || "";
       const comment = session.metadata?.comment || "";
 
-      const stripePaymentIntentId =
-        getSessionPaymentIntentId(session);
+      const stripePaymentIntentId = getSessionPaymentIntentId(session);
       const stripeCustomerId =
-        typeof session.customer === "string"
-          ? session.customer
-          : null;
+        typeof session.customer === "string" ? session.customer : null;
       const stripeCheckoutEmail =
-        session.customer_details?.email ||
-        session.customer_email ||
-        null;
+        session.customer_details?.email || session.customer_email || null;
 
       // ✅ Crear/mergear reserva con campos simplificados
       await db.runTransaction(async (tx) => {
@@ -489,10 +454,7 @@ export async function POST(req: Request) {
         const nowTs = admin.firestore.Timestamp.now();
 
         const baseReservationPayload: any = {
-          houseId:
-            houseIds.length === 1
-              ? houseIds[0]
-              : houseIds.join("__"),
+          houseId: houseIds.length === 1 ? houseIds[0] : houseIds.join("__"),
           houseIds,
           checkIn,
           checkOut,
@@ -518,25 +480,17 @@ export async function POST(req: Request) {
           currency,
 
           status: "reserved",
-          createdAt: existsAlready
-            ? snap.data()?.createdAt || nowTs
-            : nowTs,
+          createdAt: existsAlready ? snap.data()?.createdAt || nowTs : nowTs,
           paidAt: nowTs,
 
           stripeSessionId: session.id,
           stripePaymentIntentId: stripePaymentIntentId || null,
           stripeCustomerId: stripeCustomerId || null,
 
-          customerEmail:
-            stripeCheckoutEmail ||
-            customerEmailFromMeta ||
-            null,
+          customerEmail: stripeCheckoutEmail || customerEmailFromMeta || null,
 
           customer: {
-            email:
-              stripeCheckoutEmail ||
-              customerEmailFromMeta ||
-              null,
+            email: stripeCheckoutEmail || customerEmailFromMeta || null,
             name: customerNameFromMeta || null,
             phone: customerPhoneFromMeta || null,
             arrivalTime: arrivalTime || null,
@@ -559,10 +513,7 @@ export async function POST(req: Request) {
             checkoutSessionId: session.id,
           });
           baseReservationPayload.coupon = couponBlock;
-        } else if (
-          discountKind === "percent" &&
-          percentId
-        ) {
+        } else if (discountKind === "percent" && percentId) {
           const percentBlock = await applyPercentDiscountInTx(tx, {
             percentId,
             percentCode,
@@ -583,13 +534,16 @@ export async function POST(req: Request) {
 
       // ✅ Enviar email de confirmación
       try {
-        const customerEmail = stripeCheckoutEmail || customerEmailFromMeta || null;
+        const customerEmail =
+          stripeCheckoutEmail || customerEmailFromMeta || null;
         if (customerEmail) {
           const firstNightChargeSafe =
             Number(firstNightCharge) > 0
               ? Number(firstNightCharge)
               : nights > 0
-                ? Math.round((Number(totalStay || 0) / Math.max(1, nights)) * 100) / 100
+                ? Math.round(
+                    (Number(totalStay || 0) / Math.max(1, nights)) * 100
+                  ) / 100
                 : Number(totalStay || 0);
 
           await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
@@ -648,7 +602,10 @@ export async function POST(req: Request) {
             });
         }
       } catch (e) {
-        console.error("Unexpected error when sending reservation confirmation email:", e);
+        console.error(
+          "Unexpected error when sending reservation confirmation email:",
+          e
+        );
       }
 
       return NextResponse.json({ received: true });
@@ -664,16 +621,13 @@ export async function POST(req: Request) {
       if (type === "coupon") {
         const orderId = session.metadata?.orderId;
         if (orderId) {
-          await db
-            .collection("coupon_orders")
-            .doc(orderId)
-            .set(
-              {
-                status: "expired",
-                updatedAt: admin.firestore.Timestamp.now(),
-              },
-              { merge: true }
-            );
+          await db.collection("coupon_orders").doc(orderId).set(
+            {
+              status: "expired",
+              updatedAt: admin.firestore.Timestamp.now(),
+            },
+            { merge: true }
+          );
         }
         return NextResponse.json({ received: true });
       }

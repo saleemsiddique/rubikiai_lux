@@ -336,6 +336,17 @@ export default function CheckoutDetailsClient() {
   // Lookup discount code from backend
   const handleLookupDiscount = async () => {
     if (!discountCode.trim()) return;
+
+    // Bloquear lookup si los cupones no están permitidos por importe inicial demasiado bajo
+    if (!couponsAllowed) {
+      setDiscountError(
+        `Cupones no disponibles: el importe inicial a cobrar (first night) es de ${formatCurrency(
+          initialPayNow
+        )}. Se requiere al menos ${formatCurrency(COUPON_MIN_EUROS)} para usar cupones.`
+      );
+      return;
+    }
+
     setDiscountError(null);
     setDiscountLookupLoading(true);
     setDiscountApplied(false);
@@ -404,6 +415,15 @@ export default function CheckoutDetailsClient() {
     const totalBefore = withJacuzzi
       ? totalBeforeWithJacuzzi
       : totalBeforeNoJacuzzi;
+
+    if (!couponsAllowed) {
+      setDiscountError(
+        `No se puede aplicar este cupón: los cupones están disponibles sólo para pagos inmediatos de al menos ${formatCurrency(
+          COUPON_MIN_EUROS
+        )} (importe inicial: ${formatCurrency(initialPayNow)}).`
+      );
+      return;
+    }
 
     // ─────────────────────────────
     // 1) CUPÓN SALDO € (colección coupons)
@@ -674,6 +694,22 @@ export default function CheckoutDetailsClient() {
 
   const nights = priceData?.nights ?? 0;
 
+  // importe que se intentará cobrar ahora (según el cálculo de descuentos)
+  const payNowAmount: number = Number(
+    payNowAfterDiscount ?? priceData?.first ?? 0
+  );
+
+  // permitir pago por Montonio sólo si el formulario es válido y el importe a pagar ahora es > 0
+  const canPayWithMontonio = canSubmit && payNowAmount > 0;
+
+  // importe inicial mostrado por el backend para "charge now" ANTES de aplicar cupones/porcentajes
+  // --- los cupones se permiten o no en función de ESTE valor ---
+  const initialPayNow: number = Number(priceData?.first ?? 0);
+
+  // permitir cupones/lookup sólo si el importe inicial a cobrar (sin descuentos) es al menos 10€
+  const COUPON_MIN_EUROS = 10;
+  const couponsAllowed = initialPayNow >= COUPON_MIN_EUROS;
+
   return (
     <main className="max-w-5xl mx-auto px-4 py-8 mt-12 md:py-12">
       <h1 className="text-3xl font-extrabold text-[var(--color-primary-dark)] mb-6 leading-tight">
@@ -901,6 +937,25 @@ export default function CheckoutDetailsClient() {
               </div>
             </div>
 
+            {/* quick note when initial pay-now is below coupon threshold */}
+            {initialPayNow < COUPON_MIN_EUROS && (
+              <div className="mt-2 text-xs text-gray-500">
+                Note: Coupons (fixed-euro balance) require an initial charge now
+                (first night) of at least{" "}
+                <span className="font-medium">
+                  {formatCurrency(COUPON_MIN_EUROS)}
+                </span>
+                . Current initial charge:{" "}
+                <span className="font-medium">
+                  {formatCurrency(initialPayNow)}
+                </span>
+                .
+                <br />
+                Percentage discounts (if available) still apply to the first
+                night.
+              </div>
+            )}
+
             {discountError && (
               <div className="text-sm text-red-600 mt-2">{discountError}</div>
             )}
@@ -926,6 +981,59 @@ export default function CheckoutDetailsClient() {
                     {discountData.coupon.expiresAtIso && (
                       <div className="text-xs text-gray-500">
                         Expires: {discountData.coupon.expiresAtIso}
+                      </div>
+                    )}
+
+                    {/* If coupon but initialPayNow below threshold -> disable Apply */}
+                    {!discountApplied ? (
+                      <div>
+                        <button
+                          onClick={handleApplyDiscount}
+                          disabled={!couponsAllowed}
+                          className={`mt-3 inline-block px-4 py-2 rounded-lg text-sm font-semibold ${
+                            couponsAllowed
+                              ? "bg-[var(--color-primary)] text-white"
+                              : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                          }`}
+                        >
+                          Apply discount
+                        </button>
+
+                        {!couponsAllowed && (
+                          <div className="text-xs text-gray-500 mt-2">
+                            This coupon cannot be applied because the initial
+                            first-night charge is{" "}
+                            {formatCurrency(initialPayNow)} — coupons require at
+                            least{" "}
+                            <span className="font-semibold">
+                              {formatCurrency(COUPON_MIN_EUROS)}
+                            </span>
+                            .
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="mt-3 p-3 rounded-md bg-green-50 border border-green-200 text-sm">
+                        Discount applied.
+                        {appliedEuroDiscount > 0 && (
+                          <>
+                            {" "}
+                            Using{" "}
+                            <span className="font-semibold">
+                              {formatCurrency(appliedEuroDiscount)}
+                            </span>{" "}
+                            now.
+                          </>
+                        )}
+                        <button
+                          onClick={() => {
+                            setDiscountApplied(false);
+                            setAppliedEuroDiscount(0);
+                          }}
+                          className="ml-3 underline"
+                        >
+                          Undo
+                        </button>
                       </div>
                     )}
                   </>
@@ -954,39 +1062,40 @@ export default function CheckoutDetailsClient() {
                     {discountData.percentDoc.used && (
                       <div className="text-xs text-red-600">(Already used)</div>
                     )}
-                  </>
-                )}
 
-                {!discountApplied ? (
-                  <button
-                    onClick={handleApplyDiscount}
-                    className="mt-3 inline-block px-4 py-2 rounded-lg bg-[var(--color-primary)] text-white text-sm font-semibold"
-                  >
-                    Apply discount
-                  </button>
-                ) : (
-                  <div className="mt-3 p-3 rounded-md bg-green-50 border border-green-200 text-sm">
-                    Discount applied.
-                    {appliedEuroDiscount > 0 && (
-                      <>
-                        {" "}
-                        Using{" "}
-                        <span className="font-semibold">
-                          {formatCurrency(appliedEuroDiscount)}
-                        </span>{" "}
-                        now.
-                      </>
+                    {/* Percentage discounts can be applied regardless of initialPayNow */}
+                    {!discountApplied ? (
+                      <button
+                        onClick={handleApplyDiscount}
+                        className="mt-3 inline-block px-4 py-2 rounded-lg bg-[var(--color-primary)] text-white text-sm font-semibold"
+                      >
+                        Apply discount
+                      </button>
+                    ) : (
+                      <div className="mt-3 p-3 rounded-md bg-green-50 border border-green-200 text-sm">
+                        Discount applied.
+                        {appliedEuroDiscount > 0 && (
+                          <>
+                            {" "}
+                            Using{" "}
+                            <span className="font-semibold">
+                              {formatCurrency(appliedEuroDiscount)}
+                            </span>{" "}
+                            now.
+                          </>
+                        )}
+                        <button
+                          onClick={() => {
+                            setDiscountApplied(false);
+                            setAppliedEuroDiscount(0);
+                          }}
+                          className="ml-3 underline"
+                        >
+                          Undo
+                        </button>
+                      </div>
                     )}
-                    <button
-                      onClick={() => {
-                        setDiscountApplied(false);
-                        setAppliedEuroDiscount(0);
-                      }}
-                      className="ml-3 underline"
-                    >
-                      Undo
-                    </button>
-                  </div>
+                  </>
                 )}
               </div>
             )}
@@ -1128,8 +1237,13 @@ export default function CheckoutDetailsClient() {
           </button>
           <button
             onClick={handleMontonioCheckout}
-            disabled={!canSubmit}
-            className={`w-full py-4 rounded-xl font-bold uppercase tracking-wide text-sm shadow-lg transition-all duration-300 ${canSubmit ? "bg-white text-[var(--color-primary)] border border-[var(--color-primary)] hover:shadow-md" : "bg-gray-200 text-gray-400 cursor-not-allowed"}`}
+            disabled={!canPayWithMontonio}
+            aria-disabled={!canPayWithMontonio}
+            className={`w-full py-4 rounded-xl font-bold uppercase tracking-wide text-sm shadow-lg transition-all duration-300 ${
+              canPayWithMontonio
+                ? "bg-white text-[var(--color-primary)] border border-[var(--color-primary)] hover:shadow-md"
+                : "bg-gray-200 text-gray-400 cursor-not-allowed"
+            }`}
           >
             Pay with Bank Transfer
           </button>

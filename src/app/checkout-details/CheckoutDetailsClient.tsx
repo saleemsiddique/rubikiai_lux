@@ -82,6 +82,7 @@ export default function CheckoutDetailsClient() {
   // Params from HousePage
   const houseId = searchParams.get("houseId") || ""; // could be single or "a__b"
   const houseSlug = searchParams.get("houseSlug") || "";
+  const houseTitle = searchParams.get("houseTitle") || ""; // <-- NUEVO
   const startIso = searchParams.get("start") || "";
   const endIso = searchParams.get("end") || "";
   const guestsParam = searchParams.get("guests") || "2";
@@ -156,11 +157,12 @@ export default function CheckoutDetailsClient() {
     const extraGuestsForJacuzzi = Math.max(0, guests - 2);
 
     // Primer día: 65€ + 10€ por guest extra
-    const firstDayFee = 65 + (extraGuestsForJacuzzi * 10);
+    const firstDayFee = 65 + extraGuestsForJacuzzi * 10;
 
     // Días adicionales (si jacuzziDays > 1): 45€ + 10€ por guest extra cada día
     const additionalDays = Math.max(0, Math.min(jacuzziDays, nights) - 1);
-    const additionalDaysFee = additionalDays * (45 + (extraGuestsForJacuzzi * 10));
+    const additionalDaysFee =
+      additionalDays * (45 + extraGuestsForJacuzzi * 10);
 
     return firstDayFee + additionalDaysFee;
   }, [withJacuzzi, jacuzziDays, guests, priceData]);
@@ -547,10 +549,10 @@ export default function CheckoutDetailsClient() {
         extras: {
           jacuzzi: withJacuzzi
             ? {
-              enabled: true,
-              days: jacuzziDays,
-              price: jacuzziFeeShown,
-            }
+                enabled: true,
+                days: jacuzziDays,
+                price: jacuzziFeeShown,
+              }
             : { enabled: false },
         },
 
@@ -625,10 +627,10 @@ export default function CheckoutDetailsClient() {
         extras: {
           jacuzzi: withJacuzzi
             ? {
-              enabled: true,
-              days: jacuzziDays,
-              price: jacuzziFeeShown,
-            }
+                enabled: true,
+                days: jacuzziDays,
+                price: jacuzziFeeShown,
+              }
             : { enabled: false },
         },
         discount: discountPayload || undefined,
@@ -735,10 +737,11 @@ export default function CheckoutDetailsClient() {
                 </label>
                 <input
                   type="email"
-                  className={`border rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 ${email2 && !emailsMatch
-                    ? "border-red-500 focus:ring-red-400"
-                    : "border-gray-300 focus:ring-[var(--color-primary)] focus:border-[var(--color-primary)]"
-                    }`}
+                  className={`border rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 ${
+                    email2 && !emailsMatch
+                      ? "border-red-500 focus:ring-red-400"
+                      : "border-gray-300 focus:ring-[var(--color-primary)] focus:border-[var(--color-primary)]"
+                  }`}
                   value={email2}
                   onChange={(e) => setEmail2(e.target.value)}
                   placeholder="Repeat your email"
@@ -818,8 +821,8 @@ export default function CheckoutDetailsClient() {
                   )}
                 </div>
                 <div className="text-sm text-gray-600 leading-relaxed mb-3">
-                  First day: 65€ (up to 2 guests, +10€/extra guest).
-                  Additional days: 45€/day (+10€/extra guest).
+                  First day: 65€ (up to 2 guests, +10€/extra guest). Additional
+                  days: 45€/day (+10€/extra guest).
                 </div>
 
                 {withJacuzzi && priceData && priceData.nights > 0 && (
@@ -830,7 +833,9 @@ export default function CheckoutDetailsClient() {
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => setJacuzziDays(Math.max(1, jacuzziDays - 1))}
+                        onClick={() =>
+                          setJacuzziDays(Math.max(1, jacuzziDays - 1))
+                        }
                         disabled={jacuzziDays <= 1}
                         className="w-8 h-8 rounded-md border border-gray-300 flex items-center justify-center hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
@@ -841,7 +846,11 @@ export default function CheckoutDetailsClient() {
                       </span>
                       <button
                         type="button"
-                        onClick={() => setJacuzziDays(Math.min(priceData.nights, jacuzziDays + 1))}
+                        onClick={() =>
+                          setJacuzziDays(
+                            Math.min(priceData.nights, jacuzziDays + 1)
+                          )
+                        }
                         disabled={jacuzziDays >= priceData.nights}
                         className="w-8 h-8 rounded-md border border-gray-300 flex items-center justify-center hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
@@ -849,7 +858,8 @@ export default function CheckoutDetailsClient() {
                       </button>
                     </div>
                     <span className="text-xs text-gray-500">
-                      (max: {priceData.nights} {priceData.nights === 1 ? 'night' : 'nights'})
+                      (max: {priceData.nights}{" "}
+                      {priceData.nights === 1 ? "night" : "nights"})
                     </span>
                   </div>
                 )}
@@ -1003,6 +1013,12 @@ export default function CheckoutDetailsClient() {
               Your stay
             </h2>
 
+            {houseTitle && (
+              <div className="text-sm text-gray-600 mb-4">
+                <span className="font-medium text-gray-800">{houseTitle}</span>
+              </div>
+            )}
+
             <div className="text-sm text-gray-700 space-y-2">
               <div className="flex justify-between">
                 <span>Check-in:</span>
@@ -1045,11 +1061,11 @@ export default function CheckoutDetailsClient() {
                         ? formatCurrency(totalAfterDiscount)
                         : priceData
                           ? // fallback if for some reason we don't have totalAfterDiscount
-                          formatCurrency(
-                            withJacuzzi
-                              ? priceData.grandTotal
-                              : priceData.total
-                          )
+                            formatCurrency(
+                              withJacuzzi
+                                ? priceData.grandTotal
+                                : priceData.total
+                            )
                           : "—"}
                 </span>
               </div>
@@ -1079,8 +1095,9 @@ export default function CheckoutDetailsClient() {
                     <div className="mt-2 text-xs text-gray-600 leading-relaxed">
                       {discountData.kind === "percent"
                         ? `A ${discountData.percentDoc?.percent}% discount has been applied to the first night.`
-                        : `A coupon has been applied (${discountData.coupon?.code || ""
-                        }).`}{" "}
+                        : `A coupon has been applied (${
+                            discountData.coupon?.code || ""
+                          }).`}{" "}
                       You pay now {formatCurrency(payNowAfterDiscount ?? 0)}.
                     </div>
                   )}
@@ -1101,10 +1118,11 @@ export default function CheckoutDetailsClient() {
           <button
             disabled={!canSubmit}
             onClick={handleGoToCheckout}
-            className={`w-full py-4 rounded-xl font-bold uppercase tracking-wide text-sm shadow-lg transition-all duration-300 ${canSubmit
-              ? "bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] hover:shadow-xl transform hover:-translate-y-0.5"
-              : "bg-gray-300 text-gray-500 cursor-not-allowed"
-              }`}
+            className={`w-full py-4 rounded-xl font-bold uppercase tracking-wide text-sm shadow-lg transition-all duration-300 ${
+              canSubmit
+                ? "bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] hover:shadow-xl transform hover:-translate-y-0.5"
+                : "bg-gray-300 text-gray-500 cursor-not-allowed"
+            }`}
           >
             {canSubmit ? "Continue to payment" : "Fill your details"}
           </button>

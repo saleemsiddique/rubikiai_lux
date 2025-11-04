@@ -232,6 +232,7 @@ export default function HousePage(props: HousePageProps) {
     const q = new URLSearchParams({
       houseId: houseIdFromMapping,
       houseSlug: houseSlug || "",
+      houseTitle: title || "",           // <-- NUEVO: pasar el título/nombre de la casa
       start: startParam,
       end: endParam,
       guests: String(parseInt(guestsParam || defaultGuests, 10)),

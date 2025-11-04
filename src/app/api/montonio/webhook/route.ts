@@ -981,19 +981,22 @@ export async function POST(req: Request) {
       try {
         const customerEmail = customerEmailFromMeta || null;
         if (customerEmail) {
-          // Prefer firstNightCharge; fallback: evenly split grandTotal
-          const firstNightChargeSafe =
-            Number(firstNightCharge) > 0
-              ? Number(firstNightCharge)
-              : nights > 0
-                ? Math.round(
-                    (Number(grandTotal || 0) / Math.max(1, nights)) * 100
-                  ) / 100
-                : Number(grandTotal || 0);
-
-          const grandTotalToSend = Number(
-            discountedGrandTotal || grandTotal || 0
+          // Usar los campos simplificados que ya calculamos
+          const paidNow = Number(meta?.payNow ?? discountedFirst ?? 0);
+          const totalStayAmount = Number(
+            meta?.totalStay ?? discountedGrandTotal ?? 0
           );
+          const payAtArrivalAmount = Number(
+            meta?.payAtArrival ?? Math.max(0, totalStayAmount - paidNow)
+          );
+
+          // Descuento aplicado (si hay cupón o porcentaje)
+          let discountApplied = 0;
+          if (discountKind === "coupon" && couponAmountApplied) {
+            discountApplied = Number(couponAmountApplied) || 0;
+          } else if (discountKind === "percent" && meta?.percentAmountApplied) {
+            discountApplied = Number(meta.percentAmountApplied) || 0;
+          }
 
           await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
             method: "POST",
@@ -1014,10 +1017,11 @@ export async function POST(req: Request) {
                     ? houseIds[0]
                     : meta?.roomType || houseIds.join(", ")) || "Accommodation",
                 guests: guestsNum,
-                // unitAmount = amount charged now (first night)
-                unitAmount: firstNightChargeSafe,
-                // totalAmount = grand total for whole stay (to be paid at arrival)
-                totalAmount: grandTotalToSend,
+                // NUEVOS CAMPOS SIMPLIFICADOS:
+                paidNow,
+                payAtArrival: payAtArrivalAmount,
+                totalStay: totalStayAmount,
+                discountApplied, // lo que se descontó del cupón/porcentaje
                 currency,
                 hotelName: "Rubikiai Lux",
                 hotelContactEmail: "info@rubikiailux.lt",

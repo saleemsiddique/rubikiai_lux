@@ -53,8 +53,10 @@ export type SendEmailBody =
         nights: number;
         roomType: string;
         guests: number;
-        unitAmount: number; // amount charged now (first night)
-        totalAmount?: number; // grand total for whole stay (to be paid at arrival)
+        paidNow: number; // lo que se pagó ahora
+        payAtArrival: number; // lo que queda por pagar
+        totalStay: number; // total de la estancia
+        discountApplied?: number; // lo descontado del cupón/porcentaje
         currency?: string;
         hotelName?: string;
         hotelContactEmail?: string;
@@ -143,7 +145,6 @@ export async function POST(req: Request) {
       }
 
       case "reservation_confirmation": {
-        // This endpoint uses the English reservation confirmation template.
         const {
           reservationId,
           guestName,
@@ -153,8 +154,10 @@ export async function POST(req: Request) {
           nights,
           roomType,
           guests,
-          unitAmount,
-          totalAmount,
+          paidNow,
+          payAtArrival,
+          totalStay,
+          discountApplied = 0,
           currency = "EUR",
           hotelName,
           hotelContactEmail,
@@ -172,10 +175,10 @@ export async function POST(req: Request) {
           nights,
           roomType,
           guests,
-          // unitAmount = amount charged now (first night)
-          unitAmount,
-          // totalAmount = grand total for whole stay (to be paid at arrival)
-          totalAmount,
+          paidNow,
+          payAtArrival,
+          totalStay,
+          discountApplied,
           currency,
           hotelName,
           hotelContactEmail,

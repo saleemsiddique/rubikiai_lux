@@ -3,19 +3,22 @@ import { formatCurrency } from "@/lib/currency";
 type ReservationConfirmationEmailParams = {
   reservationId: string;
   guestName: string;
-  bookingDate: string; // ISO YYYY-MM-DD or full datetime string
-  checkIn: string; // ISO YYYY-MM-DD
-  checkOut: string; // ISO YYYY-MM-DD
+  bookingDate: string;
+  checkIn: string;
+  checkOut: string;
   nights: number;
   roomType: string;
   guests: number;
-  unitAmount: number; // amount charged now (first night)
-  totalAmount?: number; // grandTotal (total for whole stay, to be paid at arrival)
+  // NUEVOS CAMPOS SIMPLIFICADOS:
+  paidNow: number; // lo que se pagó ahora
+  payAtArrival: number; // lo que queda por pagar
+  totalStay: number; // total de la estancia
+  discountApplied?: number; // lo descontado del cupón/porcentaje
   currency?: string;
   hotelName?: string;
   hotelContactEmail?: string;
   hotelContactPhone?: string;
-  logoCid?: string; // default 'rubikiai-logo'
+  logoCid?: string;
 };
 
 export function ReservationConfirmationEmailHtmlEN(params: ReservationConfirmationEmailParams): string {
@@ -28,8 +31,10 @@ export function ReservationConfirmationEmailHtmlEN(params: ReservationConfirmati
     nights,
     roomType,
     guests,
-    unitAmount = 0, // treated as firstNightCharge / amount already charged
-    totalAmount,
+    paidNow = 0,
+    payAtArrival = 0,
+    totalStay = 0,
+    discountApplied = 0,
     currency = "EUR",
     hotelName = "Rubikiai Lux",
     hotelContactEmail = "info@rubikiailux.lt",
@@ -37,8 +42,7 @@ export function ReservationConfirmationEmailHtmlEN(params: ReservationConfirmati
     logoCid = "rubikiai-logo",
   } = params;
 
-  const paidNow = Number(unitAmount || 0);
-  const totalDueAtArrival = typeof totalAmount === "number" ? Number(totalAmount) : paidNow; // fallback if not provided
+  const hasDiscount = discountApplied > 0;
 
   return `
   <div style="margin:0;padding:0;background:#f4efe9;">
@@ -106,11 +110,22 @@ export function ReservationConfirmationEmailHtmlEN(params: ReservationConfirmati
 
                   <tr>
                     <td style="padding:14px 18px;">
-                      <div style="font:600 13px/1 Inter,Arial,sans-serif;color:#6b7280;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">Payment</div>
+                      <div style="font:600 13px/1 Inter,Arial,sans-serif;color:#6b7280;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">Payment Summary</div>
                       <div style="font:600 16px/1.5 Inter,Arial,sans-serif;color:#0f172a;">
-                        <div style="margin-top:6px;font-size:16px;color:#0f172a;">Amount charged now (first night): <strong>${formatCurrency(paidNow, currency)}</strong></div>
-
-                        <div style="margin-top:10px;font-size:18px;color:#214235;">Total to be paid at arrival: <strong>${formatCurrency(totalDueAtArrival, currency)}</strong></div>
+                        <div style="margin-top:6px;font-size:16px;color:#0f172a;">
+                          Amount paid now: <strong style="color:#059669;">${formatCurrency(paidNow, currency)}</strong>
+                        </div>
+                        <div style="margin-top:6px;font-size:16px;color:#0f172a;">
+                          To be paid at arrival: <strong style="color:#dc2626;">${formatCurrency(payAtArrival, currency)}</strong>
+                        </div>
+                        ${hasDiscount ? `
+                        <div style="margin-top:6px;font-size:15px;color:#16a34a;">
+                          Discount applied: <strong>-${formatCurrency(discountApplied, currency)}</strong>
+                        </div>
+                        ` : ''}
+                        <div style="margin-top:10px;padding-top:10px;border-top:1px solid #efe7dc;font-size:18px;color:#214235;">
+                          Total stay: <strong>${formatCurrency(totalStay, currency)}</strong>
+                        </div>
                       </div>
                     </td>
                   </tr>
@@ -135,7 +150,7 @@ export function ReservationConfirmationEmailHtmlEN(params: ReservationConfirmati
               </td>
             </tr>
 
-            <!-- Small receipt / breakdown table (optional) -->
+            <!-- Payment breakdown table -->
             <tr>
               <td style="padding:8px 24px 18px;">
                 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid #eee;border-radius:12px;overflow:hidden;">
@@ -147,12 +162,22 @@ export function ReservationConfirmationEmailHtmlEN(params: ReservationConfirmati
                   </thead>
                   <tbody>
                     <tr>
-                      <td align="left" style="padding:12px 14px;border-bottom:1px solid #eee;">Amount charged now (first night)</td>
-                      <td align="right" style="padding:12px 14px;border-bottom:1px solid #eee;">${formatCurrency(paidNow, currency)}</td>
+                      <td align="left" style="padding:12px 14px;border-bottom:1px solid #eee;">Amount paid now</td>
+                      <td align="right" style="padding:12px 14px;border-bottom:1px solid #eee;color:#059669;font-weight:600;">${formatCurrency(paidNow, currency)}</td>
                     </tr>
                     <tr>
-                      <td align="left" style="padding:12px 14px;font:700 14px/1 Inter,Arial,sans-serif;color:#0f172a;">Total to be paid at arrival</td>
-                      <td align="right" style="padding:12px 14px;font:700 14px/1 Inter,Arial,sans-serif;color:#214235;">${formatCurrency(totalDueAtArrival, currency)}</td>
+                      <td align="left" style="padding:12px 14px;border-bottom:1px solid #eee;">To be paid at arrival</td>
+                      <td align="right" style="padding:12px 14px;border-bottom:1px solid #eee;color:#dc2626;font-weight:600;">${formatCurrency(payAtArrival, currency)}</td>
+                    </tr>
+                    ${hasDiscount ? `
+                    <tr>
+                      <td align="left" style="padding:12px 14px;border-bottom:1px solid #eee;color:#16a34a;">Discount applied</td>
+                      <td align="right" style="padding:12px 14px;border-bottom:1px solid #eee;color:#16a34a;font-weight:600;">-${formatCurrency(discountApplied, currency)}</td>
+                    </tr>
+                    ` : ''}
+                    <tr>
+                      <td align="left" style="padding:12px 14px;font:700 14px/1 Inter,Arial,sans-serif;color:#0f172a;">Total stay</td>
+                      <td align="right" style="padding:12px 14px;font:700 14px/1 Inter,Arial,sans-serif;color:#214235;">${formatCurrency(totalStay, currency)}</td>
                     </tr>
                   </tbody>
                 </table>

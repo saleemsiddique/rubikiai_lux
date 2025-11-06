@@ -1,21 +1,16 @@
 // app/api/stripe/webhook/route.ts
 import Stripe from "stripe";
-import admin from "firebase-admin";
+import admin, { adminDb } from "@/lib/firebase-admin"; // <-- usa la ruta correcta según tu proyecto
 import { NextResponse } from "next/server";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY! as string);
 
-if (!admin.apps.length) {
-  const cred = process.env.FIREBASE_ADMIN_SDK
-    ? JSON.parse(process.env.FIREBASE_ADMIN_SDK)
-    : undefined;
-  admin.initializeApp({
-    credential: cred
-      ? admin.credential.cert(cred)
-      : admin.credential.applicationDefault(),
-  });
-}
-const db = admin.firestore();
+const OWNER_EMAIL = (
+  process.env.OWNER_EMAIL ?? ""
+).trim();
+
+// ya no hace falta volver a inicializar aquí, lo hace lib/firebase-admin.ts
+const db = adminDb;
 
 /* ---------- helpers ---------- */
 
@@ -380,6 +375,31 @@ export async function POST(req: Request) {
           }
         }
 
+        // Notify owner about coupon purchase
+        try {
+          await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              type: "owner_coupon_notification",
+              to: OWNER_EMAIL, // <- sustituir por email real
+              data: {
+                orderId,
+                buyerEmail: buyerEmail || null,
+                unitAmount,
+                quantity,
+                currency: "EUR",
+                totalAmount: unitAmount * quantity,
+                codes: createdCodes,
+                expiresAt: expiresAt.toDate().toISOString().slice(0, 10),
+                purchasedAt: purchasedAt.toDate().toISOString(),
+              },
+            }),
+          });
+        } catch (e) {
+          console.error("owner coupon email failed:", e);
+        }
+
         return NextResponse.json({ received: true });
       }
 
@@ -608,6 +628,50 @@ export async function POST(req: Request) {
           "Unexpected error when sending reservation confirmation email:",
           e
         );
+      }
+
+      // after sending customer confirmation...
+      try {
+        // Notify owner
+        await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            type: "owner_reservation_notification",
+            to: OWNER_EMAIL, // <- sustituye por owner/email dinámico si lo tienes
+            data: {
+              reservationId,
+              guestName: customerNameFromMeta || stripeCheckoutEmail || "Guest",
+              guestEmail: stripeCheckoutEmail || customerEmailFromMeta || null,
+              guestPhone: customerPhoneFromMeta || null,
+              bookingDate: new Date().toISOString().slice(0, 19),
+              checkIn,
+              checkOut,
+              nights,
+              roomType:
+                (houseIds.length === 1 ? houseIds[0] : rawValue) ||
+                "Accommodation",
+              guests: guestsNum,
+              paidNow: payNow,
+              payAtArrival: payAtArrival,
+              totalStay: totalStay,
+              discountApplied:
+                discountKind === "coupon"
+                  ? Number(couponAmountApplied || 0)
+                  : discountKind === "percent"
+                    ? Number(percentAmountApplied || 0)
+                    : 0,
+              currency,
+              propertyName: rawValue || houseIds.join(", "),
+              propertyId: houseIds.length === 1 ? houseIds[0] : undefined,
+              paymentMethod: stripePaymentIntentId ? "card" : "checkout", // mejora: mapea con session.payment_method_types
+              merchantReference: session.id || reservationId,
+              notes: comment || "",
+            },
+          }),
+        });
+      } catch (e) {
+        console.error("owner reservation email failed:", e);
       }
 
       return NextResponse.json({ received: true });

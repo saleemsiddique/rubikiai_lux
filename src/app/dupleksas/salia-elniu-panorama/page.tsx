@@ -167,9 +167,18 @@ export default function Page({
         </>
       }
       amenitiesSections={[
-        { title: "Amenities", items: ["A/C", "WiFi", "TV", "Shower", "Kitchen", "Towels", "Jacuzzi"] },
-        { title: "Addons", items: ["Water bike rental", "Boat rental", "Canoe rental"] },
-        { title: "Special features", items: ["Romantic fireplace for cozy evenings."] },
+        {
+          title: "Kitchen",
+          items: ["Refrigerator", "Microwave", "Electric stove", "Oven", "Coffee machine", "Electric kettle", "Dishes and cutlery"],
+        },
+        {
+          title: "Bathroom",
+          items: ["Bathtub", "Shower", "Toilet", "Electric towel dryer", "Towels", "Hair dryer", "Shampoo, shower gel, bathrobes"],
+        },
+        {
+          title: "Features",
+          items: ["Wi-Fi", "TV", "Heat pump", "Air conditioning", "Heated floors", "Terrace", "Luxury jacuzzi"],
+        },
       ]}
     />
   );

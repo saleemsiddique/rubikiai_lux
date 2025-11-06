@@ -479,7 +479,7 @@ export async function POST(req: Request) {
       cur = addDays(cur, 1);
     }
 
-    // ---- First night (sin jacuzzi; noches+extraGuests)
+    // ---- Reservation fee (sin jacuzzi; noches+extraGuests)
     let firstNight = 0;
     const firstDay = new Date(start);
     for (const h of housesData) {
@@ -495,7 +495,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       total: totalNightsOnly, // alojamiento + extraGuests (todas las noches, sin jacuzzi)
-      first: firstNight, // coste primera noche (sin jacuzzi)
+      first: firstNight, // coste Reservation fee (sin jacuzzi)
       nights,
       extraGuests,
       includedBase,

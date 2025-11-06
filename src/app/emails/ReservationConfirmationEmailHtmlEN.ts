@@ -21,7 +21,9 @@ type ReservationConfirmationEmailParams = {
   logoCid?: string;
 };
 
-export function ReservationConfirmationEmailHtmlEN(params: ReservationConfirmationEmailParams): string {
+export function ReservationConfirmationEmailHtmlEN(
+  params: ReservationConfirmationEmailParams
+): string {
   const {
     reservationId,
     guestName,
@@ -113,7 +115,9 @@ export function ReservationConfirmationEmailHtmlEN(params: ReservationConfirmati
                     <td style="padding:14px 18px;">
                       <div style="font:600 13px/1 Inter,Arial,sans-serif;color:#6b7280;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">Payment Summary</div>
                       <div style="font:600 16px/1.5 Inter,Arial,sans-serif;color:#0f172a;">
-                        ${hasDiscount ? `
+                        ${
+                          hasDiscount
+                            ? `
                         <div style="margin-top:6px;font-size:16px;color:#64748b;">
                           Total before discount: <strong>${formatCurrency(totalBeforeDiscount, currency)}</strong>
                         </div>
@@ -121,7 +125,9 @@ export function ReservationConfirmationEmailHtmlEN(params: ReservationConfirmati
                           Discount applied: <strong>-${formatCurrency(discountApplied, currency)}</strong>
                         </div>
                         <div style="margin-top:6px;padding-top:6px;border-top:1px solid #efe7dc;"></div>
-                        ` : ''}
+                        `
+                            : ""
+                        }
                         <div style="margin-top:6px;font-size:16px;color:#0f172a;">
                           Amount paid now: <strong style="color:#059669;">${formatCurrency(paidNow, currency)}</strong>
                         </div>
@@ -155,43 +161,27 @@ export function ReservationConfirmationEmailHtmlEN(params: ReservationConfirmati
               </td>
             </tr>
 
-            <!-- Payment breakdown table -->
+            <!-- Reminder notice (replaces payment breakdown) -->
             <tr>
-              <td style="padding:8px 24px 18px;">
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid #eee;border-radius:12px;overflow:hidden;">
-                  <thead>
-                    <tr>
-                      <th align="left" style="padding:12px 14px;background:#faf7f2;border-bottom:1px solid #eee;font:700 12px/1 Inter,Arial,sans-serif;color:#6b7280;letter-spacing:.5px;text-transform:uppercase;">Description</th>
-                      <th align="right" style="padding:12px 14px;background:#faf7f2;border-bottom:1px solid #eee;font:700 12px/1 Inter,Arial,sans-serif;color:#6b7280;letter-spacing:.5px;text-transform:uppercase;">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${hasDiscount ? `
-                    <tr>
-                      <td align="left" style="padding:12px 14px;border-bottom:1px solid #eee;">Total before discount</td>
-                      <td align="right" style="padding:12px 14px;border-bottom:1px solid #eee;color:#64748b;">${formatCurrency(totalBeforeDiscount, currency)}</td>
-                    </tr>
-                    <tr>
-                      <td align="left" style="padding:12px 14px;border-bottom:1px solid #eee;color:#16a34a;">Discount applied</td>
-                      <td align="right" style="padding:12px 14px;border-bottom:1px solid #eee;color:#16a34a;font-weight:600;">-${formatCurrency(discountApplied, currency)}</td>
-                    </tr>
-                    ` : ''}
-                    <tr>
-                      <td align="left" style="padding:12px 14px;border-bottom:1px solid #eee;">Amount paid now</td>
-                      <td align="right" style="padding:12px 14px;border-bottom:1px solid #eee;color:#059669;font-weight:600;">${formatCurrency(paidNow, currency)}</td>
-                    </tr>
-                    <tr>
-                      <td align="left" style="padding:12px 14px;border-bottom:1px solid #eee;">To be paid at arrival</td>
-                      <td align="right" style="padding:12px 14px;border-bottom:1px solid #eee;color:#dc2626;font-weight:600;">${formatCurrency(payAtArrival, currency)}</td>
-                    </tr>
-                    <tr>
-                      <td align="left" style="padding:12px 14px;font:700 14px/1 Inter,Arial,sans-serif;color:#0f172a;">Total stay</td>
-                      <td align="right" style="padding:12px 14px;font:700 14px/1 Inter,Arial,sans-serif;color:#214235;">${formatCurrency(totalStay, currency)}</td>
-                    </tr>
-                  </tbody>
+              <td style="padding:12px 24px 18px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid #eee;border-radius:12px;background:#fffcf8;overflow:hidden;">
+                  <tr>
+                    <td style="padding:14px 18px;">
+                      <div style="font:600 13px/1 Inter,Arial,sans-serif;color:#6b7280;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">Important</div>
+                      <div style="font:600 16px/1.5 Inter,Arial,sans-serif;color:#0f172a;">
+                        <div style="margin-bottom:8px;">
+                          We'll send you a reminder email closer to your arrival date with further details — check-in instructions, directions, and reservation tips.
+                        </div>
+                        <div style="margin-top:10px;font-size:14px;color:#6b7280;">
+                          If you need assistance before then, contact us at <a href="mailto:${hotelContactEmail}" style="color:#214235;text-decoration:none;">${hotelContactEmail}</a>${hotelContactPhone ? ` or call ${hotelContactPhone}` : ""}.
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
                 </table>
               </td>
             </tr>
+
 
             <!-- Footer note -->
             <tr>

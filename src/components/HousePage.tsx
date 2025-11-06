@@ -265,7 +265,7 @@ export default function HousePage(props: HousePageProps) {
                   <div className="text-sm text-gray-600">
                     {firstFromServer !== null
                       ? `Now ${formatCurrency(firstFromServer ?? undefined)}`
-                      : "First night shown at checkout"}
+                      : "Reservation fee shown at checkout"}
                   </div>
                 </div>
               </>
@@ -457,7 +457,7 @@ export default function HousePage(props: HousePageProps) {
                         </div>
                       ) : (
                         <div className="text-sm font-semibold text-gray-800">
-                          First night (price shown at checkout)
+                          Reservation fee (price shown at checkout)
                         </div>
                       )}
                       <div className="mt-2 text-xs text-gray-600">

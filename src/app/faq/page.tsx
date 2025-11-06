@@ -44,7 +44,7 @@ const FAQPage: React.FC = () => {
   const faqs = [
     {
       question: "What are the check-in and check-out times?",
-      answer: "Check-in time is from 16:00 PM. Check-out time is until 11:00 AM.",
+      answer: "Check-in time is from 16:00 PM. Check-out time is until 12:00 in Ezero Namelis and 11:00 in Duplexes.",
     },
     {
       question: "Can I bring my pets?",
@@ -64,7 +64,7 @@ const FAQPage: React.FC = () => {
     },
     {
       question: "Do you have gift vouchers?",
-      answer: "Yes, they are valid for 1 year from purchase. You can buy them at www.rubikiailux.lt or info@rubikiailux.lt",
+      answer: "Yes, they are valid for 1 year from purchase. You can buy them at www.rubikiailux.lt in coupons section or info@rubikiailux.lt",
     },
         {
       question: "Is the jacuzzi at an additional charge?",

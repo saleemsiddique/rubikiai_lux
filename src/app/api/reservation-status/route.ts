@@ -1,14 +1,9 @@
 // app/api/reservation-status/route.ts
-import admin from "firebase-admin";
+import { adminDb } from "@/lib/firebase-admin"; // <-- usa la ruta correcta según tu proyecto
 import { NextResponse } from "next/server";
 
-if (!admin.apps.length) {
-  const cred = process.env.FIREBASE_ADMIN_SDK ? JSON.parse(process.env.FIREBASE_ADMIN_SDK) : undefined;
-  admin.initializeApp({
-    credential: cred ? admin.credential.cert(cred) : admin.credential.applicationDefault(),
-  });
-}
-const db = admin.firestore();
+// ya no hace falta volver a inicializar aquí, lo hace lib/firebase-admin.ts
+const db = adminDb;
 
 export async function GET(req: Request) {
   try {

@@ -157,7 +157,7 @@ export default function EzeroNamelisPage() {
         },
         {
           title: "Bathroom",
-          items: ["Bathtub", "Shower", "Toilet", "Electric towel dryer", "Towels", "Hair dryer", "Shampoo, shower gel"],
+          items: ["Bathtub", "Shower", "Toilet", "Electric towel dryer", "Towels", "Hair dryer", "Shampoo, shower gel, bathrobes"],
         },
         {
           title: "Features",

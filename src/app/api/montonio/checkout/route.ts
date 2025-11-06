@@ -242,7 +242,7 @@ export async function POST(req: Request) {
           { status: 400 }
         );
 
-      // IMPORTANT: cap by remaining, firstNightCharge, grandTotal (but we only apply to first night)
+      // IMPORTANT: cap by remaining, firstNightCharge, grandTotal (but we only apply to Reservation fee)
       proposed = Math.min(proposed, remaining, firstNightCharge, grandTotal);
       proposed = adjustForStripeMin(firstNightCharge, proposed);
 
@@ -283,7 +283,7 @@ export async function POST(req: Request) {
           { status: 400 }
         );
 
-      // apply only to first night
+      // apply only to Reservation fee
       let proposed = firstNightCharge * pct;
       if (proposed > grandTotal) proposed = grandTotal;
       proposed = adjustForStripeMin(firstNightCharge, proposed);
@@ -297,7 +297,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // totals after discount (only affects first night now)
+    // totals after discount (only affects Reservation fee now)
     const discountedFirst = Math.max(
       0,
       firstNightCharge - effectiveDiscountAmount
@@ -377,16 +377,16 @@ export async function POST(req: Request) {
       comment: customerInput?.comment || "",
     };
 
-    // MONTONIO PAY ONLY FIRST NIGHT: set grandTotal/payment.amount to discountedFirst (lo que debe cobrarse ahora)
-    const amountToPayNow = parseFloat(discountedFirst.toFixed(2)); // importe que cobramos ahora (primera noche)
+    // MONTONIO PAY ONLY Reservation fee: set grandTotal/payment.amount to discountedFirst (lo que debe cobrarse ahora)
+    const amountToPayNow = parseFloat(discountedFirst.toFixed(2)); // importe que cobramos ahora (Reservation fee)
     const montonioPayload: any = {
       accessKey: process.env.MONTONIO_ACCESS_KEY || "",
       merchantReference: reservationId,
       returnUrl: `${process.env.NEXT_PUBLIC_APP_URL}/payment/success?ref=${reservationId}`,
       notificationUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/montonio/webhook`,
       currency: "EUR",
-      grandTotal: amountToPayNow, // IMPORTANT: only first night
-      locale: "en",
+      grandTotal: amountToPayNow, // IMPORTANT: only Reservation fee
+      locale: "lt",
       billingAddress: {
         firstName: (customerInput?.name || "Guest").split(" ")[0] || "Guest",
         lastName:
@@ -399,10 +399,10 @@ export async function POST(req: Request) {
         country: "EE",
         postalCode: "12345",
       },
-      // lineItems: represent first night only (price after discount)
+      // lineItems: represent Reservation fee only (price after discount)
       lineItems: [
         {
-          name: `First night - ${startIso}`,
+          name: `Reservation fee - ${startIso}`,
           quantity: 1,
           finalPrice: parseFloat(discountedFirst.toFixed(2)),
         },
@@ -411,8 +411,8 @@ export async function POST(req: Request) {
         method: "paymentInitiation",
         methodDisplay: "Pay with your bank",
         methodOptions: {
-          paymentDescription: `Payment for booking ${reservationId} (first night)`,
-          preferredCountry: "EE",
+          paymentDescription: `Payment for booking ${reservationId} (Reservation fee)`,
+          preferredCountry: "LT",
         },
         amount: parseFloat(amountToPayNow.toFixed(2)),
         currency: "EUR",
@@ -421,9 +421,9 @@ export async function POST(req: Request) {
     };
 
     // NOTE: NO añadimos linea separada para jacuzzi ni linea de descuento porque:
-    // - cobramos solo la primera noche (discountedFirst ya lo incorpora)
+    // - cobramos solo la Reservation fee (discountedFirst ya lo incorpora)
     // - jacuzziFee se factura/guarda en metadata y se cobrará a la llegada (o como tú gestiones)
-    // Esto deja la pasarela cobrando exactamente lo mismo que Stripe (primera noche).
+    // Esto deja la pasarela cobrando exactamente lo mismo que Stripe (Reservation fee).
 
     // --- CREATE A LIGHTWEIGHT checkout_intent BEFORE CALLING MONTONIO ---
     // This is NOT the final reservation. It is an intent living for a short TTL.
@@ -488,7 +488,7 @@ export async function POST(req: Request) {
     console.log("Montonio checkout - API URL:", apiUrl);
     console.log("Montonio checkout - Metadata:", metadata);
     console.log(
-      "Montonio checkout - amountToPayNow (first night):",
+      "Montonio checkout - amountToPayNow (Reservation fee):",
       amountToPayNow
     );
 
@@ -523,7 +523,7 @@ export async function POST(req: Request) {
     const paymentUrl =
       response.data?.paymentUrl || response.data?.payment_url || null;
 
-    // If first night is free (discountedFirst <= 0) -> create reservation now and return successUrl
+    // If Reservation fee is free (discountedFirst <= 0) -> create reservation now and return successUrl
     if (Number(amountToPayNow) <= 0) {
       const nowTs = admin.firestore.Timestamp.now();
       const baseReservationPayload: any = {
@@ -566,7 +566,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ successUrl: montonioPayload.returnUrl });
     }
 
-    // normal flow: return Montonio paymentUrl (to pay first night)
+    // normal flow: return Montonio paymentUrl (to pay Reservation fee)
     return NextResponse.json({
       url: paymentUrl,
       merchantReference: reservationId,

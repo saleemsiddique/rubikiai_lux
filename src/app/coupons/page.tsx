@@ -417,7 +417,7 @@ export default function CouponPage(): JSX.Element {
                 disabled={bankSubmitting}
                 style={{ background: 'var(--color-secondary)', color: 'white' }}
               >
-                {bankSubmitting ? "Processing…" : "Continue to payment"}
+                {bankSubmitting ? "Processing…" : "Pay by Card, AP, GP or Paypal"}
               </button>
             </div>
           </div>

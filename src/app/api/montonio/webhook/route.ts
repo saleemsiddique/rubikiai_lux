@@ -9,6 +9,10 @@ const MONTONIO_SECRET_KEY = (
   ""
 ).trim();
 
+const OWNER_EMAIL = (
+  process.env.OWNER_EMAIL ?? ""
+).trim();
+
 if (!MONTONIO_SECRET_KEY) {
   console.error("MONTONIO_SECRET_KEY is not set for webhook validation.");
 }
@@ -748,6 +752,57 @@ export async function POST(req: Request) {
           }
         }
 
+        // --- NOTIFY OWNER (USING OWNER_EMAIL ENV) ---
+try {
+  if (OWNER_EMAIL) {
+    await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        type: "owner_coupon_notification",
+        to: OWNER_EMAIL,
+        data: {
+          orderId: orderId,
+          buyerEmail: buyerEmailFinal,
+          unitAmount,
+          quantity,
+          currency: (
+            metadataCandidate?.currency ||
+            payload?.currency ||
+            "EUR"
+          ).toUpperCase(),
+          totalAmount: (unitAmount || 0) * (quantity || 0),
+          codes: createdCodes,
+          expiresAt: expiresAt.toDate().toISOString().slice(0, 10),
+          purchasedAt: purchasedAt.toDate().toISOString(),
+          paymentMethod: payload?.paymentMethod || payload?.payment_type || null,
+        },
+      }),
+    });
+
+    // marca ownerNotified en el order doc
+    try {
+      await db.collection("coupon_orders").doc(orderId).update({
+        ownerNotifiedAt: admin.firestore.Timestamp.now(),
+        ownerNotifiedEmail: OWNER_EMAIL,
+      });
+    } catch (e) {
+      console.warn("Could not mark coupon_orders ownerNotified:", e);
+    }
+  } else {
+    console.log("OWNER_EMAIL not set — skipping owner coupon notification.");
+  }
+} catch (e) {
+  console.error("owner coupon email failed:", e);
+  try {
+    await db.collection("coupon_orders").doc(orderId).update({
+      ownerEmailNotifyErrorAt: admin.firestore.Timestamp.now(),
+      ownerEmailNotifyError: String((e as any)?.message || e),
+    });
+  } catch {}
+}
+
+
         return NextResponse.json({ received: true });
       }
 
@@ -1073,6 +1128,79 @@ export async function POST(req: Request) {
         );
       }
       // --- FIN BLOQUE ---
+
+      // --- NOTIFY OWNER (USING OWNER_EMAIL ENV) ---
+try {
+  if (OWNER_EMAIL) {
+    const paidNow = Number(meta?.payNow ?? discountedFirst ?? 0);
+    const totalStayAmount = Number(meta?.totalStay ?? discountedGrandTotal ?? 0);
+    const payAtArrivalAmount = Number(
+      meta?.payAtArrival ?? Math.max(0, totalStayAmount - paidNow)
+    );
+
+    const discountAppliedValue =
+      discountKind === "coupon"
+        ? Number(couponAmountApplied || 0)
+        : discountKind === "percent"
+        ? Number(meta?.percentAmountApplied || 0)
+        : 0;
+
+    await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        type: "owner_reservation_notification",
+        to: OWNER_EMAIL,
+        data: {
+          reservationId,
+          guestName: customerNameFromMeta || customerEmailFromMeta || "Guest",
+          guestEmail: customerEmailFromMeta || null,
+          guestPhone: customerPhoneFromMeta || null,
+          bookingDate: new Date().toISOString().slice(0, 19),
+          checkIn,
+          checkOut,
+          nights,
+          roomType:
+            (houseIds.length === 1
+              ? houseIds[0]
+              : meta?.roomType || houseIds.join(", ")) || "Accommodation",
+          guests: guestsNum,
+          paidNow,
+          payAtArrival: payAtArrivalAmount,
+          totalStay: totalStayAmount,
+          discountApplied: discountAppliedValue,
+          currency,
+          propertyName: meta?.rawValue || (houseIds.length === 1 ? houseIds[0] : undefined),
+          propertyId: houseIds.length === 1 ? houseIds[0] : undefined,
+          paymentMethod: montonioOrderUuid ? "montonio" : null,
+          merchantReference: uuid || merchantReference || null,
+          notes: meta?.comment || "",
+        },
+      }),
+    });
+
+    // marca ownerNotified en la reserva
+    try {
+      await db.collection("reservations").doc(reservationId).update({
+        ownerNotifiedAt: admin.firestore.Timestamp.now(),
+        ownerNotifiedEmail: OWNER_EMAIL,
+      });
+    } catch (e) {
+      console.warn("Could not mark reservation ownerNotified:", e);
+    }
+  } else {
+    console.log("OWNER_EMAIL not set — skipping owner reservation notification.");
+  }
+} catch (e) {
+  console.error("owner reservation notification failed:", e);
+  try {
+    await db.collection("reservations").doc(reservationId).update({
+      ownerNotifyErrorAt: admin.firestore.Timestamp.now(),
+      ownerNotifyError: String((e as any)?.message || e),
+    });
+  } catch {}
+}
+
 
       console.log("✅ Reserva procesada exitosamente:", reservationId);
       return NextResponse.json({ received: true });

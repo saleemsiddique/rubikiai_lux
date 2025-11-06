@@ -102,7 +102,7 @@ export function DiscountCodeEmailHtml(params: DiscountEmailParams): string {
                   How to redeem
                 </div>
                 <div style="font:400 14px/1.6 Inter,Arial,sans-serif;color:#334155;">
-                  When you book on our site, simply mention this code in the notes / comments and we’ll apply the discount to your reservation (if still valid).
+                  When booking on our site, simply enter your code in the designated field and click ‘Apply discount’ on the page before confirming your reservation.
                 </div>
               </td>
             </tr>

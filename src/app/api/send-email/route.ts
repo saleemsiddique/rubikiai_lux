@@ -64,6 +64,56 @@ export type SendEmailBody =
       };
       lang?: "en" | "es";
       fromName?: string;
+    }
+  | {
+      type: "owner_reservation_notification";
+      to: string | string[];
+      data: {
+        reservationId: string;
+        guestName?: string;
+        guestEmail?: string | null;
+        guestPhone?: string | null;
+        bookingDate?: string;
+        checkIn: string;
+        checkOut: string;
+        nights: number;
+        roomType?: string;
+        guests: number;
+        paidNow: number;
+        payAtArrival: number;
+        totalStay: number;
+        discountApplied?: number;
+        currency?: string;
+        propertyName?: string;
+        propertyId?: string;
+        propertyAddress?: string;
+        ownerEmail?: string | null;
+        ownerPhone?: string | null;
+        paymentMethod?: string | null;
+        merchantReference?: string | null;
+        notes?: string | null;
+      };
+      lang?: "en" | "es";
+      fromName?: string;
+    }
+  | {
+      type: "owner_coupon_notification";
+      to: string | string[];
+      data: {
+        orderId?: string;
+        buyerEmail?: string | null;
+        unitAmount: number;
+        quantity: number;
+        currency?: string;
+        totalAmount?: number;
+        codes: { code: string; remaining: number }[];
+        expiresAt?: string;
+        purchasedAt?: string;
+        paymentMethod?: string | null;
+        ownerEmail?: string | null;
+      };
+      lang?: "en" | "es";
+      fromName?: string;
     };
 
 export async function POST(req: Request) {
@@ -185,6 +235,33 @@ export async function POST(req: Request) {
           hotelContactPhone,
           logoCid,
         });
+        break;
+      }
+
+      case "owner_reservation_notification": {
+        const d = body.data;
+        subject = `New reservation: ${d.reservationId}`;
+        // importa la plantilla:
+        const { OwnerReservationNotificationEmailHtmlEN } = await import(
+          "@/app/emails/OwnerReservationNotificationEmailHtmlEN"
+        );
+        html = OwnerReservationNotificationEmailHtmlEN({
+          ...d,
+          logoCid,
+        } as any);
+        break;
+      }
+
+      case "owner_coupon_notification": {
+        const d = body.data;
+        subject = `Coupon purchase: ${d.orderId || "order"}`;
+        const { OwnerCouponPurchaseEmailHtmlEN } = await import(
+          "@/app/emails/OwnerCouponPurchaseEmailHtmlEN"
+        );
+        html = OwnerCouponPurchaseEmailHtmlEN({
+          ...d,
+          logoCid,
+        } as any);
         break;
       }
 

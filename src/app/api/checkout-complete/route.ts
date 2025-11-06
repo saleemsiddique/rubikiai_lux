@@ -1,17 +1,12 @@
 // app/api/checkout-complete/route.ts
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
-import admin from "firebase-admin";
+import { adminDb } from "@/lib/firebase-admin"; // <-- usa la ruta correcta según tu proyecto
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY! as string);
 
-if (!admin.apps.length) {
-  const cred = process.env.FIREBASE_ADMIN_SDK ? JSON.parse(process.env.FIREBASE_ADMIN_SDK) : undefined;
-  admin.initializeApp({
-    credential: cred ? admin.credential.cert(cred) : admin.credential.applicationDefault(),
-  });
-}
-const db = admin.firestore();
+// ya no hace falta volver a inicializar aquí, lo hace lib/firebase-admin.ts
+const db = adminDb;
 
 export async function GET(req: Request) {
   try {

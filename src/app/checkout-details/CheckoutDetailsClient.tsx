@@ -40,7 +40,7 @@ function fromCents(c: number) {
 }
 
 /**
- * Use as much credit as possible on first night, but:
+ * Use as much credit as possible on Reservation fee, but:
  * - don't go below 0
  * - don't leave a remainder between 0.01€ and 0.49€
  */
@@ -118,7 +118,7 @@ export default function CheckoutDetailsClient() {
    *
    * We'll normalize name:
    *  kind: "coupon"  -> fixed euro balance
-   *  kind: "percent" -> percentage off (applies ONLY to first night)
+   *  kind: "percent" -> percentage off (applies ONLY to Reservation fee)
    */
   const [discountData, setDiscountData] = useState<any | null>(null);
 
@@ -170,7 +170,7 @@ export default function CheckoutDetailsClient() {
    * computedBreakdown:
    * - payNowAfterDiscount: what Stripe will try to charge now
    * - totalAfterDiscount: total cost of the stay after applying the discount
-   *   (for percent, ONLY first night is discounted, so total goes down by that amount,
+   *   (for percent, ONLY Reservation fee is discounted, so total goes down by that amount,
    *    NOT by the same % across all nights)
    * - effectiveDiscountUsedNow: how much discount is being applied to "now"
    */
@@ -183,7 +183,7 @@ export default function CheckoutDetailsClient() {
       };
     }
 
-    const firstNightBefore = priceData.first ?? 0; // first night (no jacuzzi)
+    const firstNightBefore = priceData.first ?? 0; // Reservation fee (no jacuzzi)
     const totalBeforeNoJacuzzi = priceData.total ?? 0;
     const fullStayBeforeWithJacuzzi = priceData.grandTotal ?? 0;
 
@@ -222,16 +222,16 @@ export default function CheckoutDetailsClient() {
       };
     }
 
-    // ---- percent: discount applies ONLY to first night ----
+    // ---- percent: discount applies ONLY to Reservation fee ----
     if (discountData.kind === "percent" && discountData.percentDoc) {
       const pct = Number(discountData.percentDoc.percent ?? 0) / 100;
       const pctClamped = Math.min(Math.max(pct, 0), 1); // [0,1]
 
-      // discount only on first night
+      // discount only on Reservation fee
       const discountOnFirstNight = firstNightBefore * pctClamped;
       const firstNightAfterPct = firstNightBefore - discountOnFirstNight;
 
-      // total after discount: subtract ONLY what we subtracted from first night
+      // total after discount: subtract ONLY what we subtracted from Reservation fee
       const totalAfterOnlyFirstNightDiscount = Math.max(
         0,
         fullStayBefore - discountOnFirstNight
@@ -340,7 +340,7 @@ export default function CheckoutDetailsClient() {
     // Bloquear lookup si los cupones no están permitidos por importe inicial demasiado bajo
     if (!couponsAllowed) {
       setDiscountError(
-        `Cupones no disponibles: el importe inicial a cobrar (first night) es de ${formatCurrency(
+        `Cupones no disponibles: el importe inicial a cobrar (Reservation fee) es de ${formatCurrency(
           initialPayNow
         )}. Se requiere al menos ${formatCurrency(COUPON_MIN_EUROS)} para usar cupones.`
       );
@@ -674,13 +674,13 @@ export default function CheckoutDetailsClient() {
       }
 
       if (data.url) {
-        // redirigir a Montonio (pago de la primera noche)
+        // redirigir a Montonio (pago de la Reservation fee)
         window.location.href = data.url;
         return;
       }
 
       if (data.successUrl) {
-        // caso free order (first night <= 0)
+        // caso free order (Reservation fee <= 0)
         window.location.href = data.successUrl;
         return;
       }
@@ -810,9 +810,16 @@ export default function CheckoutDetailsClient() {
                 </label>
                 <input
                   type="time"
+                  min="16:00"
+                  max="20:00"
                   className="border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-[var(--color-primary)]"
                   value={arrivalTime}
-                  onChange={(e) => setArrivalTime(e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value >= "16:00" && value <= "20:00") {
+                      setArrivalTime(value);
+                    }
+                  }}
                 />
               </div>
             </div>
@@ -941,7 +948,7 @@ export default function CheckoutDetailsClient() {
             {initialPayNow < COUPON_MIN_EUROS && (
               <div className="mt-2 text-xs text-gray-500">
                 Note: Coupons (fixed-euro balance) require an initial charge now
-                (first night) of at least{" "}
+                (Reservation fee) of at least{" "}
                 <span className="font-medium">
                   {formatCurrency(COUPON_MIN_EUROS)}
                 </span>
@@ -1045,7 +1052,7 @@ export default function CheckoutDetailsClient() {
                     <div>
                       Discount:{" "}
                       <span className="font-semibold">
-                        {discountData.percentDoc.percent}% off (first night
+                        {discountData.percentDoc.percent}% off (Reservation fee
                         only)
                       </span>
                     </div>
@@ -1198,7 +1205,7 @@ export default function CheckoutDetailsClient() {
                   effectiveDiscountUsedNow > 0 && (
                     <div className="mt-2 text-xs text-gray-600 leading-relaxed">
                       {discountData.kind === "percent"
-                        ? `A ${discountData.percentDoc?.percent}% discount has been applied to the first night.`
+                        ? `A ${discountData.percentDoc?.percent}% discount has been applied to the Reservation fee.`
                         : `A coupon has been applied (${
                             discountData.coupon?.code || ""
                           }).`}{" "}
@@ -1228,7 +1235,7 @@ export default function CheckoutDetailsClient() {
                 : "bg-gray-300 text-gray-500 cursor-not-allowed"
             }`}
           >
-            {canSubmit ? "Continue to payment" : "Fill your details"}
+            {canSubmit ? "Pay by Card, AP, GP or Paypal" : "Fill your details"}
           </button>
           <button
             onClick={handleMontonioCheckout}

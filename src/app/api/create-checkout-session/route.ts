@@ -462,8 +462,8 @@ export async function POST(req: Request) {
               name: `Reservation ${rawValue} ${startIso} → ${endIso}`,
               description:
                 effectiveDiscountAmount > 0
-                  ? `First night (${startIso}) — discount ${discountCodeForMeta || discountIdForMeta} applied`
-                  : `First night (${startIso})`,
+                  ? `Reservation fee (${startIso}) — discount ${discountCodeForMeta || discountIdForMeta} applied`
+                  : `Reservation fee (${startIso})`,
             },
             unit_amount: Math.max(0, discountedFirstCents),
           },

@@ -20,10 +20,22 @@ type HouseListItem = {
   maxGuests?: number | null;
 };
 
+type Season = {
+  id: string;
+  name?: string;
+  start?: string; // YYYY-MM-DD (optional; if missing => STANDARD / fallback)
+  end?: string; // YYYY-MM-DD (optional)
+  weekdayPrices?: Partial<Record<Weekday, number>>;
+  defaultPrice?: number | null;
+};
+
 type House = HouseListItem & {
   images?: string[] | null;
+  // legacy single map for backward compatibility
   pricePerNight: Partial<Record<Weekday, number>>;
   specialPrices?: Record<string, number>;
+  // new structure
+  seasons?: Record<string, Season>;
 };
 
 const WEEK_LABEL: Record<Weekday, string> = {
@@ -46,9 +58,12 @@ async function readError(res: Response) {
   }
 }
 
-// helper de fecha
 function isValidISODate(s: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(s);
+}
+
+function uidChunk() {
+  return Math.random().toString(36).slice(2, 8);
 }
 
 export default function AdminHousesClient() {
@@ -63,7 +78,7 @@ export default function AdminHousesClient() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // ===== FORM PRECIOS SEMANALES =====
+  // ===== legacy weekday form (kept for backwards editing) =====
   const [form, setForm] = useState<Record<Weekday, string>>({
     monday: "",
     tuesday: "",
@@ -76,20 +91,44 @@ export default function AdminHousesClient() {
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
 
-  // ===== PRECIOS ESPECIALES =====
-  // rango
-  const [rangeStart, setRangeStart] = useState<string>(""); // YYYY-MM-DD
-  const [rangeEnd, setRangeEnd] = useState<string>(""); // YYYY-MM-DD
-  const [rangePrice, setRangePrice] = useState<string>(""); // string del input
+  // ===== SEASONS UI =====
+  const [selectedSeasonId, setSelectedSeasonId] = useState<string | null>(null);
+  const [seasonForm, setSeasonForm] = useState<{
+    id?: string;
+    name: string;
+    start: string;
+    end: string;
+    defaultPrice: string;
+    weekdayPrices: Record<Weekday, string>;
+  }>({
+    id: undefined,
+    name: "",
+    start: "",
+    end: "",
+    defaultPrice: "",
+    weekdayPrices: {
+      monday: "",
+      tuesday: "",
+      wednesday: "",
+      thursday: "",
+      friday: "",
+      saturday: "",
+      sunday: "",
+    },
+  });
+  const [seasonLoading, setSeasonLoading] = useState(false);
+  const [seasonMsg, setSeasonMsg] = useState<string | null>(null);
 
-  // día individual
-  const [specialDate, setSpecialDate] = useState<string>(""); // YYYY-MM-DD
-  const [specialPrice, setSpecialPrice] = useState<string>(""); // string del input
-
+  // ===== PRECIOS ESPECIALES (mantener) =====
+  const [rangeStart, setRangeStart] = useState<string>("");
+  const [rangeEnd, setRangeEnd] = useState<string>("");
+  const [rangePrice, setRangePrice] = useState<string>("");
+  const [specialDate, setSpecialDate] = useState<string>("");
+  const [specialPrice, setSpecialPrice] = useState<string>("");
   const [specialSaving, setSpecialSaving] = useState(false);
   const [specialMsg, setSpecialMsg] = useState<string | null>(null);
 
-  // ===== CARGA LISTA DE CASAS =====
+  // ===== CARGA LISTA =====
   useEffect(() => {
     (async () => {
       try {
@@ -103,16 +142,13 @@ export default function AdminHousesClient() {
         setList(data.items || []);
       } catch (e: any) {
         console.error("[admin/houses] list error:", e);
-        setListError(
-          e?.message || "No se pudo cargar la lista de casas."
-        );
+        setListError(e?.message || "No se pudo cargar la lista de casas.");
       } finally {
         setListLoading(false);
       }
     })();
   }, []);
 
-  // ===== FILTRO LISTA =====
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
     if (!q) return list;
@@ -124,12 +160,13 @@ export default function AdminHousesClient() {
     );
   }, [filter, list]);
 
-  // ===== CARGA DETALLE DE UNA CASA =====
+  // ===== CARGA CASA =====
   const loadHouseById = useCallback(async (id: string) => {
     try {
       setLoading(true);
       setLoadError(null);
       setSaveMsg(null);
+      setSeasonMsg(null);
       setHouse(null);
 
       const res = await fetch(
@@ -140,38 +177,111 @@ export default function AdminHousesClient() {
       const data: House = await res.json();
       setHouse(data);
 
+      // legacy weekday form
       setForm({
         monday:
-          data.pricePerNight.monday !== undefined
+          data.pricePerNight?.monday !== undefined
             ? String(data.pricePerNight.monday)
             : "",
         tuesday:
-          data.pricePerNight.tuesday !== undefined
+          data.pricePerNight?.tuesday !== undefined
             ? String(data.pricePerNight.tuesday)
             : "",
         wednesday:
-          data.pricePerNight.wednesday !== undefined
+          data.pricePerNight?.wednesday !== undefined
             ? String(data.pricePerNight.wednesday)
             : "",
         thursday:
-          data.pricePerNight.thursday !== undefined
+          data.pricePerNight?.thursday !== undefined
             ? String(data.pricePerNight.thursday)
             : "",
         friday:
-          data.pricePerNight.friday !== undefined
+          data.pricePerNight?.friday !== undefined
             ? String(data.pricePerNight.friday)
             : "",
         saturday:
-          data.pricePerNight.saturday !== undefined
+          data.pricePerNight?.saturday !== undefined
             ? String(data.pricePerNight.saturday)
             : "",
         sunday:
-          data.pricePerNight.sunday !== undefined
+          data.pricePerNight?.sunday !== undefined
             ? String(data.pricePerNight.sunday)
             : "",
       });
 
-      // limpiar mensajes especiales al cambiar de casa
+      // init seasons form: pick the "standard" season (no start/end) if exists, else first
+      const seasons = data.seasons || {};
+      const standardEntry = Object.entries(seasons).find(
+        ([, s]) => !s.start && !s.end
+      );
+      const firstEntry = Object.entries(seasons)[0];
+      const pick = standardEntry
+        ? standardEntry[0]
+        : firstEntry
+          ? firstEntry[0]
+          : null;
+      if (pick) {
+        setSelectedSeasonId(pick);
+        const s = seasons[pick];
+        setSeasonForm({
+          id: s.id,
+          name: s.name || s.id,
+          start: s.start || "",
+          end: s.end || "",
+          defaultPrice:
+            typeof s.defaultPrice === "number" ? String(s.defaultPrice) : "",
+          weekdayPrices: {
+            monday:
+              s.weekdayPrices?.monday !== undefined
+                ? String(s.weekdayPrices.monday)
+                : "",
+            tuesday:
+              s.weekdayPrices?.tuesday !== undefined
+                ? String(s.weekdayPrices.tuesday)
+                : "",
+            wednesday:
+              s.weekdayPrices?.wednesday !== undefined
+                ? String(s.weekdayPrices.wednesday)
+                : "",
+            thursday:
+              s.weekdayPrices?.thursday !== undefined
+                ? String(s.weekdayPrices.thursday)
+                : "",
+            friday:
+              s.weekdayPrices?.friday !== undefined
+                ? String(s.weekdayPrices.friday)
+                : "",
+            saturday:
+              s.weekdayPrices?.saturday !== undefined
+                ? String(s.weekdayPrices.saturday)
+                : "",
+            sunday:
+              s.weekdayPrices?.sunday !== undefined
+                ? String(s.weekdayPrices.sunday)
+                : "",
+          },
+        });
+      } else {
+        setSelectedSeasonId(null);
+        setSeasonForm({
+          id: undefined,
+          name: "",
+          start: "",
+          end: "",
+          defaultPrice: "",
+          weekdayPrices: {
+            monday: "",
+            tuesday: "",
+            wednesday: "",
+            thursday: "",
+            friday: "",
+            saturday: "",
+            sunday: "",
+          },
+        });
+      }
+
+      // clear specials UI
       setRangeStart("");
       setRangeEnd("");
       setRangePrice("");
@@ -186,7 +296,7 @@ export default function AdminHousesClient() {
     }
   }, []);
 
-  // ===== GUARDAR PRECIOS SEMANALES =====
+  // ===== GUARDAR PRECIOS SEMANALES (legacy) =====
   const savePrices = useCallback(async () => {
     if (!house) return;
 
@@ -196,9 +306,7 @@ export default function AdminHousesClient() {
       if (raw === "") continue;
       const num = Number(raw.replace(",", "."));
       if (!Number.isFinite(num) || num < 0) {
-        setSaveMsg(
-          `El valor de "${WEEK_LABEL[k]}" debe ser un número ≥ 0.`
-        );
+        setSaveMsg(`El valor de "${WEEK_LABEL[k]}" debe ser un número ≥ 0.`);
         return;
       }
       payload[k] = num;
@@ -218,48 +326,196 @@ export default function AdminHousesClient() {
       if (!res.ok) throw new Error(await readError(res));
       const updated: House = await res.json();
       setHouse(updated);
-      setForm({
-        monday:
-          updated.pricePerNight.monday !== undefined
-            ? String(updated.pricePerNight.monday)
-            : "",
-        tuesday:
-          updated.pricePerNight.tuesday !== undefined
-            ? String(updated.pricePerNight.tuesday)
-            : "",
-        wednesday:
-          updated.pricePerNight.wednesday !== undefined
-            ? String(updated.pricePerNight.wednesday)
-            : "",
-        thursday:
-          updated.pricePerNight.thursday !== undefined
-            ? String(updated.pricePerNight.thursday)
-            : "",
-        friday:
-          updated.pricePerNight.friday !== undefined
-            ? String(updated.pricePerNight.friday)
-            : "",
-        saturday:
-          updated.pricePerNight.saturday !== undefined
-            ? String(updated.pricePerNight.saturday)
-            : "",
-        sunday:
-          updated.pricePerNight.sunday !== undefined
-            ? String(updated.pricePerNight.sunday)
-            : "",
-      });
       setSaveMsg("Precios actualizados correctamente.");
     } catch (e: any) {
       console.error("[admin/houses] save error:", e);
-      setSaveMsg(
-        `Error: ${e?.message || "No se pudo guardar"}`
-      );
+      setSaveMsg(`Error: ${e?.message || "No se pudo guardar"}`);
     } finally {
       setSaving(false);
     }
   }, [house, form]);
 
-  // ===== API helper para precios especiales =====
+  // ===== SEASONS API (create/update/delete) =====
+  const saveSeason = useCallback(async () => {
+    if (!house) return;
+    const bodyWeekday: Record<string, number> = {};
+    for (const k of Object.keys(WEEK_LABEL) as Weekday[]) {
+      const raw = (seasonForm.weekdayPrices?.[k] ?? "").trim();
+      if (raw === "") continue;
+      const n = Number(raw.replace(",", "."));
+      if (!Number.isFinite(n) || n < 0) {
+        setSeasonMsg(`Precio inválido para ${WEEK_LABEL[k]}`);
+        return;
+      }
+      bodyWeekday[k] = n;
+    }
+
+    // validate start/end if provided
+    if (seasonForm.start && !isValidISODate(seasonForm.start)) {
+      setSeasonMsg("Fecha 'Desde' inválida (usa YYYY-MM-DD).");
+      return;
+    }
+    if (seasonForm.end && !isValidISODate(seasonForm.end)) {
+      setSeasonMsg("Fecha 'Hasta' inválida (usa YYYY-MM-DD).");
+      return;
+    }
+    if (seasonForm.start && seasonForm.end) {
+      const s = new Date(seasonForm.start);
+      const e = new Date(seasonForm.end);
+      if (e.getTime() < s.getTime()) {
+        setSeasonMsg("La fecha 'Hasta' debe ser posterior o igual a 'Desde'.");
+        return;
+      }
+    }
+
+    const defaultPrice =
+      seasonForm.defaultPrice?.trim() === ""
+        ? undefined
+        : Number(seasonForm.defaultPrice.replace(",", "."));
+    if (
+      seasonForm.defaultPrice?.trim() !== "" &&
+      (!Number.isFinite(defaultPrice as number) || (defaultPrice as number) < 0)
+    ) {
+      setSeasonMsg("Default price debe ser número ≥ 0.");
+      return;
+    }
+
+    try {
+      setSeasonLoading(true);
+      setSeasonMsg(null);
+      const payload: any = {
+        id: seasonForm.id || `season-${uidChunk()}`,
+        name: seasonForm.name || seasonForm.id || `season-${uidChunk()}`,
+        weekdayPrices: Object.keys(bodyWeekday).length
+          ? bodyWeekday
+          : undefined,
+        defaultPrice:
+          typeof defaultPrice === "number" ? defaultPrice : undefined,
+      };
+      // include start/end if present (if both blank => this is STANDARD/fallback)
+      if (seasonForm.start) payload.start = seasonForm.start;
+      if (seasonForm.end) payload.end = seasonForm.end;
+
+      const res = await fetch(
+        `/api/admin/houses/${encodeURIComponent(house.id)}/seasons`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      );
+      if (!res.ok) throw new Error(await readError(res));
+      const updated: House = await res.json();
+      setHouse(updated);
+      setSeasonMsg("Season guardada.");
+      setSelectedSeasonId(payload.id);
+      // refresh form with saved values (normalize)
+      const saved = (updated.seasons || {})[payload.id];
+      if (saved) {
+        setSeasonForm({
+          id: saved.id,
+          name: saved.name || saved.id,
+          start: saved.start || "",
+          end: saved.end || "",
+          defaultPrice:
+            typeof saved.defaultPrice === "number"
+              ? String(saved.defaultPrice)
+              : "",
+          weekdayPrices: {
+            monday:
+              saved.weekdayPrices?.monday !== undefined
+                ? String(saved.weekdayPrices.monday)
+                : "",
+            tuesday:
+              saved.weekdayPrices?.tuesday !== undefined
+                ? String(saved.weekdayPrices.tuesday)
+                : "",
+            wednesday:
+              saved.weekdayPrices?.wednesday !== undefined
+                ? String(saved.weekdayPrices.wednesday)
+                : "",
+            thursday:
+              saved.weekdayPrices?.thursday !== undefined
+                ? String(saved.weekdayPrices.thursday)
+                : "",
+            friday:
+              saved.weekdayPrices?.friday !== undefined
+                ? String(saved.weekdayPrices.friday)
+                : "",
+            saturday:
+              saved.weekdayPrices?.saturday !== undefined
+                ? String(saved.weekdayPrices.saturday)
+                : "",
+            sunday:
+              saved.weekdayPrices?.sunday !== undefined
+                ? String(saved.weekdayPrices.sunday)
+                : "",
+          },
+        });
+      }
+    } catch (e: any) {
+      console.error("saveSeason error:", e);
+      setSeasonMsg(e?.message || "Error guardando season");
+    } finally {
+      setSeasonLoading(false);
+    }
+  }, [house, seasonForm]);
+
+  const deleteSeason = useCallback(
+    async (seasonId?: string) => {
+      if (!house) return;
+      const idToDelete = seasonId || seasonForm.id;
+      if (!idToDelete) {
+        setSeasonMsg("No hay season seleccionada para eliminar.");
+        return;
+      }
+      if (!confirm("¿Eliminar season? Esta acción es irreversible.")) return;
+      try {
+        setSeasonLoading(true);
+        setSeasonMsg(null);
+        const res = await fetch(
+          `/api/admin/houses/${encodeURIComponent(house.id)}/seasons`,
+          {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: idToDelete }),
+          }
+        );
+        if (!res.ok) throw new Error(await readError(res));
+        const updated: House = await res.json();
+        setHouse(updated);
+        setSeasonMsg("Season eliminada.");
+        // clear selection if deleted
+        if (selectedSeasonId === idToDelete) {
+          setSelectedSeasonId(null);
+          setSeasonForm({
+            id: undefined,
+            name: "",
+            start: "",
+            end: "",
+            defaultPrice: "",
+            weekdayPrices: {
+              monday: "",
+              tuesday: "",
+              wednesday: "",
+              thursday: "",
+              friday: "",
+              saturday: "",
+              sunday: "",
+            },
+          });
+        }
+      } catch (e: any) {
+        console.error("deleteSeason error:", e);
+        setSeasonMsg(e?.message || "Error eliminando season");
+      } finally {
+        setSeasonLoading(false);
+      }
+    },
+    [house, seasonForm, selectedSeasonId]
+  );
+
+  // ===== PRECIOS ESPECIALES (mantener) =====
   const postSpecialPrices = useCallback(
     async (payload: any, successMsg: string, errorMsg: string) => {
       if (!house) return;
@@ -290,13 +546,10 @@ export default function AdminHousesClient() {
     [house]
   );
 
-  // ===== APLICAR RANGO =====
   const handleApplyRange = useCallback(() => {
     if (!house) return;
     if (!isValidISODate(rangeStart) || !isValidISODate(rangeEnd)) {
-      setSpecialMsg(
-        "Las fechas del rango deben tener formato YYYY-MM-DD."
-      );
+      setSpecialMsg("Las fechas del rango deben tener formato YYYY-MM-DD.");
       return;
     }
     const num = Number(rangePrice.trim().replace(",", "."));
@@ -305,7 +558,6 @@ export default function AdminHousesClient() {
       return;
     }
 
-    // La API va a expandir todas las fechas start..end inclusive
     postSpecialPrices(
       {
         rangeUpsert: {
@@ -317,17 +569,12 @@ export default function AdminHousesClient() {
       "Precio especial guardado.",
       "No se pudo guardar el rango"
     );
-
-    // no vaciamos aún las fechas para que el admin pueda repetir si quiere
   }, [house, rangeStart, rangeEnd, rangePrice, postSpecialPrices]);
 
-  // ===== ELIMINAR RANGO =====
   const handleDeleteRange = useCallback(() => {
     if (!house) return;
     if (!isValidISODate(rangeStart) || !isValidISODate(rangeEnd)) {
-      setSpecialMsg(
-        "Las fechas del rango deben tener formato YYYY-MM-DD."
-      );
+      setSpecialMsg("Las fechas del rango deben tener formato YYYY-MM-DD.");
       return;
     }
 
@@ -343,7 +590,6 @@ export default function AdminHousesClient() {
     );
   }, [house, rangeStart, rangeEnd, postSpecialPrices]);
 
-  // ===== GUARDAR DÍA INDIVIDUAL =====
   const handleSaveSingleDay = useCallback(() => {
     if (!house) return;
     const d = specialDate.trim();
@@ -367,11 +613,9 @@ export default function AdminHousesClient() {
       "No se pudo guardar el día"
     );
 
-    // limpiamos solo el precio, dejamos la fecha seleccionada por comodidad
     setSpecialPrice("");
   }, [house, specialDate, specialPrice, postSpecialPrices]);
 
-  // ===== ELIMINAR DÍA INDIVIDUAL =====
   const handleDeleteSingleDay = useCallback(() => {
     if (!house) return;
     const d = specialDate.trim();
@@ -389,6 +633,7 @@ export default function AdminHousesClient() {
     );
   }, [house, specialDate, postSpecialPrices]);
 
+  // ===== RENDER =====
   return (
     <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-4">
       {/* === Columna izquierda: selector de casas === */}
@@ -413,9 +658,7 @@ export default function AdminHousesClient() {
 
         <div className="mt-3 max-h-[28rem] overflow-auto divide-y">
           {listLoading && (
-            <div className="text-sm text-neutral-500">
-              Cargando casas…
-            </div>
+            <div className="text-sm text-neutral-500">Cargando casas…</div>
           )}
           {!listLoading && filtered.length === 0 && (
             <div className="text-sm text-neutral-500">
@@ -428,11 +671,7 @@ export default function AdminHousesClient() {
               <button
                 key={h.id}
                 onClick={() => loadHouseById(h.id)}
-                className={`w-full text-left px-3 py-2 hover:bg-neutral-50 ${
-                  selected
-                    ? "bg-neutral-50 border-l-4 border-[var(--color-primary)]"
-                    : ""
-                }`}
+                className={`w-full text-left px-3 py-2 hover:bg-neutral-50 ${selected ? "bg-neutral-50 border-l-4 border-[var(--color-primary)]" : ""}`}
                 title={h.alias}
               >
                 <div className="flex items-center justify-between">
@@ -447,7 +686,6 @@ export default function AdminHousesClient() {
                 </div>
                 <div className="text-xs text-neutral-500">
                   <span className="font-mono">{h.alias}</span>
-                  {h.type ? <> · {h.type}</> : null}
                 </div>
               </button>
             );
@@ -464,9 +702,7 @@ export default function AdminHousesClient() {
             </div>
           )}
           {loading && (
-            <div className="text-neutral-600 text-sm">
-              Cargando casa…
-            </div>
+            <div className="text-neutral-600 text-sm">Cargando casa…</div>
           )}
           {loadError && (
             <div className="text-sm text-red-600 whitespace-pre-wrap mt-1">
@@ -476,7 +712,7 @@ export default function AdminHousesClient() {
 
           {house && (
             <div className="grid grid-cols-1 gap-4">
-              {/* === Info básica === */}
+              {/* Basic info */}
               <div className="p-4 rounded-xl border bg-white grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <div className="text-xs uppercase tracking-wider text-neutral-600">
@@ -510,13 +746,191 @@ export default function AdminHousesClient() {
                 </div>
               </div>
 
-              {/* === Editor de precios semanales === */}
+              {/* Seasons manager */}
               <div className="p-4 rounded-xl border bg-white">
-                <div className="text-sm font-semibold">
-                  Editar precios por día de la semana
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm font-semibold">
+                      Seasons (modelo por temporada)
+                    </div>
+                    <div className="text-xs text-neutral-500">
+                      Crea temporadas con rango de fechas y precios por día. Si
+                      un season no tiene start/end será tratado como{" "}
+                      <strong>standard (fallback)</strong>.
+                    </div>
+                  </div>
                 </div>
 
-                <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {/* seasons list */}
+                <div className="mt-4">
+                  <div className="text-xs uppercase tracking-wider text-neutral-600 mb-2">
+                    Temporadas existentes
+                  </div>
+
+                  {!house.seasons || Object.keys(house.seasons).length === 0 ? (
+                    <div className="text-sm text-neutral-500">
+                      No hay seasons. Crea el Standard o una temporada con
+                      rango.
+                    </div>
+                  ) : (
+                    <div className="border rounded-md divide-y max-h-48 overflow-auto">
+                      {Object.entries(house.seasons)
+                        .sort(([a, sa], [b, sb]) => {
+                          // order: standard (no dates) first, then by start date
+                          const aIsStd = !sa.start && !sa.end;
+                          const bIsStd = !sb.start && !sb.end;
+                          if (aIsStd && !bIsStd) return -1;
+                          if (bIsStd && !aIsStd) return 1;
+                          const aStart = sa.start || "";
+                          const bStart = sb.start || "";
+                          return aStart < bStart ? -1 : aStart > bStart ? 1 : 0;
+                        })
+                        .map(([id, s]) => (
+                          <div
+                            key={id}
+                            className={`p-2 flex items-center justify-between gap-2 ${selectedSeasonId === id ? "bg-neutral-50" : ""}`}
+                          >
+                            <div>
+                              <div className="font-mono text-sm">{s.id}</div>
+                              <div className="text-sm">
+                                {s.name || s.id}{" "}
+                                {s.start
+                                  ? `— ${s.start} → ${s.end || "?"}`
+                                  : "— Standard / fallback"}{" "}
+                                {s.defaultPrice ? ` — ${s.defaultPrice}€` : ""}
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                className="text-xs rounded-md border px-3 py-1 hover:bg-neutral-50"
+                                onClick={() => {
+                                  // load into form for editing
+                                  setSelectedSeasonId(id);
+                                  setSeasonForm({
+                                    id: s.id,
+                                    name: s.name || s.id,
+                                    start: s.start || "",
+                                    end: s.end || "",
+                                    defaultPrice:
+                                      typeof s.defaultPrice === "number"
+                                        ? String(s.defaultPrice)
+                                        : "",
+                                    weekdayPrices: {
+                                      monday:
+                                        s.weekdayPrices?.monday !== undefined
+                                          ? String(s.weekdayPrices.monday)
+                                          : "",
+                                      tuesday:
+                                        s.weekdayPrices?.tuesday !== undefined
+                                          ? String(s.weekdayPrices.tuesday)
+                                          : "",
+                                      wednesday:
+                                        s.weekdayPrices?.wednesday !== undefined
+                                          ? String(s.weekdayPrices.wednesday)
+                                          : "",
+                                      thursday:
+                                        s.weekdayPrices?.thursday !== undefined
+                                          ? String(s.weekdayPrices.thursday)
+                                          : "",
+                                      friday:
+                                        s.weekdayPrices?.friday !== undefined
+                                          ? String(s.weekdayPrices.friday)
+                                          : "",
+                                      saturday:
+                                        s.weekdayPrices?.saturday !== undefined
+                                          ? String(s.weekdayPrices.saturday)
+                                          : "",
+                                      sunday:
+                                        s.weekdayPrices?.sunday !== undefined
+                                          ? String(s.weekdayPrices.sunday)
+                                          : "",
+                                    },
+                                  });
+                                  setSeasonMsg(null);
+                                }}
+                              >
+                                Editar
+                              </button>
+                              <button
+                                className="text-xs rounded-md border px-3 py-1 hover:bg-red-50 text-red-700"
+                                onClick={() => {
+                                  deleteSeason(id);
+                                }}
+                              >
+                                Eliminar
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
+
+                {seasonMsg && (
+                  <div className="mt-2 text-xs whitespace-pre-wrap">
+                    {seasonMsg}
+                  </div>
+                )}
+              </div>
+
+              {/* Season editor */}
+              <div className="p-4 rounded-xl border bg-white">
+                <div className="text-sm font-semibold">
+                  Crear / editar temporada
+                </div>
+
+                <div>
+                  <label className="block text-xs text-neutral-600">
+                    Nombre de la temporada
+                  </label>
+                  <input
+                    value={seasonForm.name ?? ""}
+                    onChange={(e) =>
+                      setSeasonForm((s) => ({ ...s, name: e.target.value }))
+                    }
+                    className="mt-1 w-full rounded-md border p-2"
+                    placeholder="Summer 2025"
+                    required
+                  />
+                  <p className="text-xs text-neutral-500 mt-1">
+                    Nombre descriptivo (ej.{" "}
+                    <span className="font-mono">Summer 2025</span>).
+                  </p>
+                </div>
+
+                {/* Fecha inicio (obligatorio) */}
+                <div>
+                  <label className="block text-xs text-neutral-600">
+                    Fecha inicio
+                  </label>
+                  <input
+                    type="date"
+                    value={seasonForm.start ?? ""}
+                    onChange={(e) =>
+                      setSeasonForm((s) => ({ ...s, start: e.target.value }))
+                    }
+                    className="mt-1 w-full rounded-md border p-2"
+                    required
+                  />
+                </div>
+
+                {/* Fecha fin (obligatorio) */}
+                <div>
+                  <label className="block text-xs text-neutral-600">
+                    Fecha fin
+                  </label>
+                  <input
+                    type="date"
+                    value={seasonForm.end ?? ""}
+                    onChange={(e) =>
+                      setSeasonForm((s) => ({ ...s, end: e.target.value }))
+                    }
+                    className="mt-1 w-full rounded-md border p-2"
+                    required
+                  />
+                </div>
+
+                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {(Object.keys(WEEK_LABEL) as Weekday[]).map((key) => (
                     <div key={key}>
                       <label className="block text-xs text-neutral-600">
@@ -527,11 +941,14 @@ export default function AdminHousesClient() {
                         min={0}
                         step="0.01"
                         inputMode="decimal"
-                        value={form[key]}
+                        value={seasonForm.weekdayPrices?.[key] ?? ""}
                         onChange={(e) =>
-                          setForm((s) => ({
+                          setSeasonForm((s) => ({
                             ...s,
-                            [key]: e.target.value,
+                            weekdayPrices: {
+                              ...(s.weekdayPrices || {}),
+                              [key]: e.target.value,
+                            },
                           }))
                         }
                         className="mt-1 w-full rounded-md border p-2"
@@ -542,67 +959,67 @@ export default function AdminHousesClient() {
 
                 <div className="mt-3 flex gap-2">
                   <button
-                    onClick={savePrices}
-                    disabled={saving}
+                    onClick={saveSeason}
+                    disabled={seasonLoading}
                     className="rounded-md bg-[var(--color-primary)] text-white px-4 py-2 text-sm font-semibold hover:opacity-95 disabled:opacity-60"
                   >
-                    {saving ? "Guardando…" : "Guardar cambios"}
+                    {seasonLoading ? "Guardando…" : "Guardar temporada"}
                   </button>
 
                   <button
                     type="button"
                     onClick={() => {
-                      if (!house) return;
-                      setForm({
-                        monday:
-                          house.pricePerNight.monday !== undefined
-                            ? String(house.pricePerNight.monday)
-                            : "",
-                        tuesday:
-                          house.pricePerNight.tuesday !== undefined
-                            ? String(house.pricePerNight.tuesday)
-                            : "",
-                        wednesday:
-                          house.pricePerNight.wednesday !== undefined
-                            ? String(house.pricePerNight.wednesday)
-                            : "",
-                        thursday:
-                          house.pricePerNight.thursday !== undefined
-                            ? String(house.pricePerNight.thursday)
-                            : "",
-                        friday:
-                          house.pricePerNight.friday !== undefined
-                            ? String(house.pricePerNight.friday)
-                            : "",
-                        saturday:
-                          house.pricePerNight.saturday !== undefined
-                            ? String(house.pricePerNight.saturday)
-                            : "",
-                        sunday:
-                          house.pricePerNight.sunday !== undefined
-                            ? String(house.pricePerNight.sunday)
-                            : "",
+                      setSeasonForm({
+                        id: undefined,
+                        name: "",
+                        start: "",
+                        end: "",
+                        defaultPrice: "",
+                        weekdayPrices: {
+                          monday: "",
+                          tuesday: "",
+                          wednesday: "",
+                          thursday: "",
+                          friday: "",
+                          saturday: "",
+                          sunday: "",
+                        },
                       });
-                      setSaveMsg(null);
+                      setSelectedSeasonId(null);
+                      setSeasonMsg(null);
                     }}
                     className="rounded-md border px-4 py-2 text-sm hover:bg-neutral-50"
                   >
-                    Deshacer cambios
+                    Limpiar
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!seasonForm.id) {
+                        setSeasonMsg(
+                          "Introduce un ID para actualizar o crea primero."
+                        );
+                        return;
+                      }
+                      deleteSeason(seasonForm.id);
+                    }}
+                    className="rounded-md border px-4 py-2 text-sm hover:bg-red-50 text-red-700"
+                  >
+                    Eliminar temporada
                   </button>
                 </div>
 
-                {saveMsg && (
+                {seasonMsg && (
                   <div className="mt-2 text-xs whitespace-pre-wrap">
-                    {saveMsg}
+                    {seasonMsg}
                   </div>
                 )}
               </div>
 
               {/* === Precios especiales (rango + día) === */}
               <div className="p-4 rounded-xl border bg-white">
-                <div className="text-sm font-semibold">
-                  Precios especiales
-                </div>
+                <div className="text-sm font-semibold">Precios especiales</div>
 
                 {/* ---- RANGO ---- */}
                 <div className="mt-4 border rounded-md p-3">

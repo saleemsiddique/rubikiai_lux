@@ -1,10 +1,24 @@
-// app/api/admin/houses/[id]/prices/route.ts
 import { NextResponse, NextRequest } from "next/server";
 import admin from "@/lib/firebase-admin";
 import { cookies } from "next/headers";
 
-type Weekday = "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
-const WEEKDAYS: Weekday[] = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+type Weekday =
+  | "monday"
+  | "tuesday"
+  | "wednesday"
+  | "thursday"
+  | "friday"
+  | "saturday"
+  | "sunday";
+const WEEKDAYS: Weekday[] = [
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+];
 
 async function requireAdmin() {
   const session = (await cookies()).get("session")?.value;
@@ -18,7 +32,10 @@ async function requireAdmin() {
   }
 }
 
-export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+export async function POST(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
   try {
     const user = await requireAdmin();
     if (!user) {
@@ -64,7 +81,10 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       type: data.type ?? null,
       maxGuests: data.maxGuests ?? null,
       images: Array.isArray(data.images) ? data.images : [],
-      pricePerNight: typeof data.pricePerNight === "object" && data.pricePerNight ? data.pricePerNight : {},
+      pricePerNight:
+        typeof data.pricePerNight === "object" && data.pricePerNight
+          ? data.pricePerNight
+          : {},
     };
 
     return NextResponse.json(payload, { status: 200 });

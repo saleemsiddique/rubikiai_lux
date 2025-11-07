@@ -61,24 +61,11 @@ function weekdayKey(date: Date) {
   return map[date.getDay()];
 }
 
-/* ---------- specialPrices normalizer ----------
-   En Firestore ahora guardaremos algo así:
-   {
-     pricePerNight: { monday: 120, ... },
-     specialPrices: {
-        singleDays: { "2025-01-10": 200, "2025-01-11": 210 },
-        ranges: [
-          { start: "2025-02-01", end: "2025-02-05", price: 180 }, // inclusive
-          { start: "2025-03-15", end: "2025-03-20", price: 230 }
-        ]
-     }
-   }
-
-   Para no romper frontend viejo, algunas casas antiguas pueden seguir teniendo:
-   specialPrices: { "2025-01-10": 200, "2025-01-11": 210 }
-
-   Queremos una función que dado ese objeto devuelva:
-   - getOverride(isoDate: "YYYY-MM-DD") -> number | null
+/* ---------- specialPrices normalizer ---------- */
+/*
+  Soporta:
+  - legacy: specialPrices: { "2025-12-24": 220, ... }
+  - nuevo: specialPrices: { singleDays: {...}, ranges: [{start,end,price}, ...] }
 */
 type LegacySpecialMap = Record<string, number>;
 type RangeEntry = { start: string; end: string; price: number };
@@ -147,6 +134,7 @@ function getSpecialOverride(
   specials: UnifiedSpecialPrices,
   iso: string
 ): number | null {
+  if (!specials) return null;
   // día exacto
   if (typeof specials.singleDays[iso] === "number") {
     return specials.singleDays[iso];
@@ -165,21 +153,96 @@ function getSpecialOverride(
   return null;
 }
 
-/** Precio para una fecha:
+/* ---------------- Seasons support ---------------- */
+/*
+  Esperamos en Firestore:
+  seasons: {
+    "season-xxx": {
+      id: "season-xxx",
+      name: "Winter 2025",
+      start: "2025-12-01",
+      end: "2026-02-28",
+      weekdayPrices: { monday: 100, friday: 150, ... }
+    },
+    ...
+  }
+
+  Regla de prioridad para cada fecha:
+  1) specialPrices (singleDays / ranges)
+  2) season that matches date (start<=iso<=end) => use season.weekdayPrices[weekday] if number
+  3) fallback house.pricePerNight[weekday]
+*/
+type SeasonEntry = {
+  id: string;
+  name?: string;
+  start: string;
+  end: string;
+  weekdayPrices?: Record<string, number>;
+};
+
+function normalizeSeasons(rawSeasons: any): SeasonEntry[] {
+  if (!rawSeasons || typeof rawSeasons !== "object") return [];
+  const out: SeasonEntry[] = [];
+  for (const [k, v] of Object.entries(rawSeasons)) {
+    if (!v || typeof v !== "object") continue;
+    const id = String((v as any).id || k);
+    const name = (v as any).name ? String((v as any).name) : id;
+    const start = typeof (v as any).start === "string" ? (v as any).start : null;
+    const end = typeof (v as any).end === "string" ? (v as any).end : null;
+    const wp =
+      (v as any).weekdayPrices && typeof (v as any).weekdayPrices === "object"
+        ? (v as any).weekdayPrices
+        : undefined;
+    if (!start || !end) {
+      // skip invalid season entries (must have start & end)
+      continue;
+    }
+    out.push({ id, name, start, end, weekdayPrices: wp });
+  }
+  return out;
+}
+
+/** Busca una season que cubra la ISO dada (retorna la primera que coincida) */
+function findSeasonForIso(seasons: SeasonEntry[], iso: string): SeasonEntry | null {
+  if (!seasons || seasons.length === 0) return null;
+  for (const s of seasons) {
+    if (isIsoDateStr(s.start) && isIsoDateStr(s.end) && isoInRange(iso, s.start, s.end)) {
+      return s;
+    }
+  }
+  return null;
+}
+
+/** Precio para una fecha con seasons:
  * PRIORIDAD specialPrices (día exacto o dentro de rango)
+ * → season.weekdayPrices[weekday] (si season encontrada y price definido)
  * → fallback pricePerNight[weekday]
  */
 function getPriceForDate(
   house: any,
   specials: UnifiedSpecialPrices,
+  seasons: SeasonEntry[] | undefined,
   d: Date
 ): number | null {
   if (!house) return null;
 
   const iso = dateIsoLocal(d);
+
+  // 1) override puntual
   const override = getSpecialOverride(specials, iso);
   if (typeof override === "number") return override;
 
+  // 2) season match
+  if (Array.isArray(seasons) && seasons.length > 0) {
+    const s = findSeasonForIso(seasons, iso);
+    if (s && s.weekdayPrices && typeof s.weekdayPrices === "object") {
+      const key = weekdayKey(d);
+      const price = s.weekdayPrices[key];
+      if (typeof price === "number") return price;
+    }
+  }
+
+  // 3) fallback weekly base
   const key = weekdayKey(d);
   const val = house?.pricePerNight?.[key];
   return typeof val === "number" ? val : null;
@@ -243,10 +306,11 @@ async function fetchHouseDoc(id: string) {
       ? data.pricePerNight
       : {};
 
-  // puede ser legacy map o { singleDays, ranges }
-  const specialsUnified = normalizeSpecialPrices(
-    data.specialPrices ?? {}
-  );
+  // specialPrices unified
+  const specialsUnified = normalizeSpecialPrices(data.specialPrices ?? {});
+
+  // seasons normalizados (array)
+  const seasons = normalizeSeasons(data.seasons ?? {});
 
   return {
     id: docSnap.id,
@@ -260,6 +324,7 @@ async function fetchHouseDoc(id: string) {
         : 2, // default: 2 por unidad
     pricePerNight,
     specialsUnified,
+    seasons,
     images: Array.isArray(data.images) ? data.images : [],
   };
 }
@@ -329,12 +394,13 @@ export async function POST(req: Request) {
       );
     }
 
-    // ---- Fetch houses (+ unify specials)
+    // ---- Fetch houses (+ unify specials + seasons)
     const housesData: Array<{
       id: string;
       includedGuests: number;
       pricePerNight: any;
       specialsUnified: UnifiedSpecialPrices;
+      seasons: SeasonEntry[];
     }> = [];
 
     for (const id of ids) {
@@ -349,6 +415,7 @@ export async function POST(req: Request) {
         includedGuests: h.includedGuests,
         pricePerNight: h.pricePerNight,
         specialsUnified: h.specialsUnified,
+        seasons: h.seasons,
       });
     }
 
@@ -403,24 +470,15 @@ export async function POST(req: Request) {
     let jacuzziDays = Number(rawJacuzziDays || 0);
     if (!Number.isFinite(jacuzziDays) || jacuzziDays < 0) jacuzziDays = 0;
     jacuzziDays = Math.floor(jacuzziDays);
-    // si jacuzzi está activado, forzamos al menos 1 día como mínimo si jacuzziDays era 0 en el request?
-    // Aquí respetamos lo enviado: si jacuzzi === true pero jacuzziDays === 0 lo limitamos a 1
     if (jacuzzi && jacuzziDays === 0) jacuzziDays = 1;
-    // cap al número de noches
     jacuzziDays = Math.min(jacuzziDays, nights);
 
     let jacuzziFee = 0;
     if (jacuzzi && jacuzziDays > 0) {
-      // El frontend espera que el extra por jacuzzi se base en guests - 2 (no en includedBase)
       const jacuzziExtraGuests = Math.max(0, guestsNum - 2);
-
-      // primer día
       const firstDayFee = JACUZZI_BASE_PRICE + jacuzziExtraGuests * JACUZZI_EXTRA_PRICE;
-
-      // días adicionales
       const additionalDays = Math.max(0, jacuzziDays - 1);
       const additionalDaysFee = additionalDays * (45 + jacuzziExtraGuests * JACUZZI_EXTRA_PRICE);
-
       jacuzziFee = firstDayFee + additionalDaysFee;
     } else {
       jacuzziFee = 0;
@@ -440,7 +498,12 @@ export async function POST(req: Request) {
       const perUnit: Array<{ id: string; price: number | null }> = [];
 
       for (const h of housesData) {
-        const p = getPriceForDate(h, h.specialsUnified, cur);
+        const p = getPriceForDate(
+          { pricePerNight: h.pricePerNight },
+          h.specialsUnified,
+          h.seasons,
+          cur
+        );
         perUnit.push({ id: h.id, price: p });
 
         if (p === null) {
@@ -462,7 +525,7 @@ export async function POST(req: Request) {
           perNightBreakdown,
           debug: {
             reason:
-              "missing price for some night (base or special or range)",
+              "missing price for some night (special / season / fallback)",
           },
         });
       }
@@ -484,7 +547,7 @@ export async function POST(req: Request) {
     const firstDay = new Date(start);
     for (const h of housesData) {
       const baseP =
-        getPriceForDate(h, h.specialsUnified, firstDay) ?? 0;
+        getPriceForDate({ pricePerNight: h.pricePerNight }, h.specialsUnified, h.seasons, firstDay) ?? 0;
       firstNight += baseP;
     }
     firstNight += perNightSurcharge;

@@ -119,7 +119,7 @@ function weekdayKey(date: Date) {
 /* ---------------- Season & Price Logic ---------------- */
 function findSeasonForDate(seasons: Season[], iso: string): Season | null {
   if (!Array.isArray(seasons)) return null;
-  
+
   for (const season of seasons) {
     if (!season.start || !season.end) continue;
     if (season.start <= iso && iso <= season.end) {
@@ -133,7 +133,7 @@ function getPriceForDate(house: any, d: Date): number | null {
   if (!house) return null;
 
   const iso = dateIso(d);
-  
+
   // 1) specialPrices global (máxima prioridad)
   if (house.specialPrices && typeof house.specialPrices[iso] === "number") {
     return house.specialPrices[iso];
@@ -141,13 +141,13 @@ function getPriceForDate(house: any, d: Date): number | null {
 
   // 2) Buscar season activa
   const activeSeason = findSeasonForDate(house.seasons || [], iso);
-  
+
   if (activeSeason) {
     // 3) specialPrices dentro de la season
     if (activeSeason.specialPrices && typeof activeSeason.specialPrices[iso] === "number") {
       return activeSeason.specialPrices[iso];
     }
-    
+
     // 4) weekdayPrices de la season
     const weekday = weekdayKey(d);
     if (activeSeason.weekdayPrices && typeof activeSeason.weekdayPrices[weekday] === "number") {
@@ -223,6 +223,8 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
 
   const [occupiedDatesByHouse, setOccupiedDatesByHouse] = useState<Record<string, Set<string>>>({});
   const [carouselOffsetByHouse, setCarouselOffsetByHouse] = useState<Record<string, { arrival: number; departure: number }>>({});
+
+  const [calendarModeByHouse, setCalendarModeByHouse] = useState<Record<string, "arrival" | "departure">>({});
 
   const resultsIndex: Record<string, HouseLight> = React.useMemo(() => {
     const idx: Record<string, HouseLight> = {};
@@ -846,32 +848,170 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     const occupiedSet = occupiedDatesByHouse[houseId] ?? new Set<string>();
 
     return (
-      <div className="w-full mt-3">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex gap-2 items-center text-sm text-gray-700">
-            <button
-              onClick={goPrev}
-              disabled={!canPrev}
-              className={`px-2 py-1 border rounded ${!canPrev ? "opacity-40 cursor-not-allowed" : "hover:bg-neutral-100"}`}
-              aria-label="Anterior"
-            >
-              ◀
-            </button>
-            <div className="font-medium">{mode === "arrival" ? "Select arrival" : "Select departure"}</div>
+      <div className="w-full">
+        {/* Header con navegación mejorada */}
+        <div className="flex items-center justify-between mb-4 pb-3 border-b-2 border-gray-200">
+          <button
+            onClick={goPrev}
+            disabled={!canPrev}
+            className={`group flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${!canPrev
+              ? "opacity-30 cursor-not-allowed text-gray-400"
+              : "hover:bg-[var(--color-primary)] hover:text-white text-[var(--color-primary)] border-2 border-[var(--color-primary)]"
+              }`}
+            aria-label="Ver fechas anteriores"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            <span className="hidden sm:inline">Anterior</span>
+          </button>
+
+          <div className="flex flex-col items-center">
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              {mode === "arrival" ? "Mostrando fechas desde" : "Mostrando fechas desde"}
+            </span>
+            <span className="text-sm font-bold text-gray-700 mt-1">
+              {formatDateDDMMYYYY(finalBase)}
+            </span>
           </div>
-          <div>
-            <button
-              onClick={goNext}
-              disabled={!canNext}
-              className={`px-2 py-1 border rounded ${!canNext ? "opacity-40 cursor-not-allowed" : "hover:bg-neutral-100"}`}
-              aria-label="Siguiente"
-            >
-              ▶
-            </button>
-          </div>
+
+          <button
+            onClick={goNext}
+            disabled={!canNext}
+            className={`group flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${!canNext
+              ? "opacity-30 cursor-not-allowed text-gray-400"
+              : "hover:bg-[var(--color-primary)] hover:text-white text-[var(--color-primary)] border-2 border-[var(--color-primary)]"
+              }`}
+            aria-label="Ver fechas siguientes"
+          >
+            <span className="hidden sm:inline">Siguiente</span>
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
         </div>
 
-        <div className="overflow-x-auto no-scrollbar">
+        {/* Grid de días - Desktop */}
+        <div className="hidden md:grid md:grid-cols-7 gap-3">
+          {days.map((d) => {
+            const ds = dateIso(d);
+            const isOccupied = occupiedSet.has(ds);
+            const isPrevOccupied = occupiedSet.has(dateIso(addDays(d, -1)));
+            const isCheckinStart = isOccupied && !isPrevOccupied;
+            const isCheckoutEnd = !isOccupied && isPrevOccupied;
+
+            let disabled = false;
+            let availabilityStatus = "";
+
+            if (stripTime(d).getTime() < today.getTime()) {
+              disabled = true;
+              availabilityStatus = "Pasado";
+            } else if (mode === "arrival" && isOccupied) {
+              disabled = true;
+              availabilityStatus = "Ocupado";
+            } if (mode === "departure") {
+              if (startDate) {
+                const startDay = stripTime(new Date(startDate));
+                if (stripTime(d).getTime() <= startDay.getTime()) {
+                  disabled = true;
+                  availabilityStatus = "No válido";
+                }
+              }
+              // Solo deshabilitar si está ocupado Y NO es un día de check-in
+              // (los días de check-in pueden ser días de check-out)
+              if (isOccupied && !isCheckinStart) {
+                disabled = true;
+                availabilityStatus = "Ocupado";
+              }
+              // No hacer nada especial con isCheckinStart - debe quedar habilitado
+            }
+
+            if (!disabled) {
+              if (mode === "arrival") {
+                availabilityStatus = "✓ Check-in";
+              } else if (isCheckinStart) {
+                availabilityStatus = "✓ Check-out";
+              } else {
+                availabilityStatus = "✓ Check-out";
+              }
+            }
+
+            const selectedArrival = startDate && dateIso(startDate) === ds;
+            const selectedDeparture = endDate && dateIso(endDate) === ds;
+            const inRange = startDate && endDate && dateIso(startDate) <= ds && ds <= dateIso(endDate);
+
+            const paintAsOccupied =
+              (mode === "arrival" && isOccupied) ||
+              (mode === "departure" && ((isOccupied && !isCheckinStart) || isCheckoutEnd));
+
+            let bgClass = "bg-white border-2 border-gray-200";
+            let textClass = "text-gray-700";
+            let statusClass = "text-gray-500";
+
+            if (paintAsOccupied || (disabled && stripTime(d).getTime() >= today.getTime())) {
+              bgClass = "bg-red-50 border-2 border-red-300";
+              textClass = "text-red-600";
+              statusClass = "text-red-500";
+            } else if (selectedArrival || selectedDeparture) {
+              bgClass = "bg-[var(--color-primary)] border-2 border-[var(--color-primary)]";
+              textClass = "text-white";
+              statusClass = "text-white";
+            } else if (inRange) {
+              bgClass = "bg-[var(--color-primary)]/10 border-2 border-[var(--color-primary)]/30";
+              textClass = "text-[var(--color-primary-dark)]";
+            } else if (!disabled) {
+              bgClass = "bg-white border-2 border-gray-200 hover:border-[var(--color-primary)] hover:shadow-lg";
+            }
+
+            if (disabled && stripTime(d).getTime() < today.getTime()) {
+              bgClass = "bg-gray-100 border-2 border-gray-200";
+              textClass = "text-gray-400";
+              statusClass = "text-gray-400";
+            }
+
+            return (
+              <button
+                key={ds}
+                disabled={disabled}
+                onClick={() => {
+                  if (disabled) return;
+                  if (mode === "arrival") handleSelectArrival(houseId, d);
+                  else handleSelectDeparture(houseId, d);
+                }}
+                className={`${bgClass} ${textClass} p-4 rounded-xl transition-all duration-200 ${!disabled ? "transform hover:scale-105 cursor-pointer" : "cursor-not-allowed opacity-60"
+                  } flex flex-col items-center justify-between min-h-[140px]`}
+              >
+                {/* Día de la semana */}
+                <div className="text-xs font-bold uppercase tracking-wider opacity-75">
+                  {d.toLocaleString('es-ES', { weekday: 'short' })}
+                </div>
+
+                {/* Fecha */}
+                <div className="text-2xl font-bold my-2">
+                  {d.getDate()}
+                </div>
+
+                {/* Mes */}
+                <div className="text-xs font-medium opacity-75 mb-2">
+                  {d.toLocaleString('es-ES', { month: 'short' })}
+                </div>
+
+                {/* Precio */}
+                <div className="mb-2">
+                  <PriceBadgeLocal houseId={house.id} date={d} />
+                </div>
+
+                {/* Estado de disponibilidad */}
+                <div className={`text-xs font-bold ${statusClass} text-center leading-tight`}>
+                  {availabilityStatus}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Carrusel horizontal - Mobile */}
+        <div className="md:hidden overflow-x-auto no-scrollbar -mx-6 px-6">
           <div className="inline-flex gap-3 py-2">
             {days.map((d) => {
               const ds = dateIso(d);
@@ -881,63 +1021,125 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
               const isCheckoutEnd = !isOccupied && isPrevOccupied;
 
               let disabled = false;
+              let availabilityStatus = "";
+              let statusIcon = "";
 
-              if (stripTime(d).getTime() < today.getTime()) disabled = true;
-
-              if (mode === "arrival" && isOccupied) disabled = true;
-
-              if (mode === "departure") {
+              if (stripTime(d).getTime() < today.getTime()) {
+                disabled = true;
+                availabilityStatus = "Pasado";
+                statusIcon = "🚫";
+              } else if (mode === "arrival" && isOccupied) {
+                disabled = true;
+                availabilityStatus = "Ocupado";
+                statusIcon = "❌";
+                // CÓDIGO EN DESKTOP - verificar alrededor línea 750
+              } else if (mode === "departure") {
                 if (startDate) {
                   const startDay = stripTime(new Date(startDate));
-                  if (stripTime(d).getTime() <= startDay.getTime()) disabled = true;
+                  if (stripTime(d).getTime() <= startDay.getTime()) {
+                    disabled = true;
+                    availabilityStatus = "No válido";
+                  }
                 }
-                if (isOccupied && !isCheckinStart) disabled = true;
+                if (isOccupied && !isCheckinStart) {
+                  disabled = true;
+                  availabilityStatus = "Ocupado";
+                }
+              }
+
+              if (!disabled) {
+                if (mode === "arrival") {
+                  availabilityStatus = "Check-in";
+                  statusIcon = "✓";
+                } else if (isCheckinStart) {
+                  availabilityStatus = "Check-out";
+                  statusIcon = "✓";
+                } else {
+                  availabilityStatus = "Check-out";
+                  statusIcon = "✓";
+                }
               }
 
               const selectedArrival = startDate && dateIso(startDate) === ds;
               const selectedDeparture = endDate && dateIso(endDate) === ds;
-              const inRange = startDate && endDate && dateIso(startDate) <= ds && ds <= dateIso(endDate);
 
               const paintAsOccupied =
                 (mode === "arrival" && isOccupied) ||
-                (mode === "departure" && ((isOccupied && !isCheckinStart) || isCheckoutEnd));
+                (mode === "departure" && (isOccupied && !isCheckinStart));
 
-              const classes = [
-                "min-w-[96px] p-3 rounded-lg text-center border transition-transform transform hover:scale-105 flex flex-col items-center justify-between",
-              ];
+              let bgClass = "bg-white border-2 border-gray-300";
+              let textClass = "text-gray-700";
 
-              if (paintAsOccupied) {
-                classes.push("bg-red-600 text-white");
-                if (disabled) classes.push("cursor-not-allowed");
+              if (paintAsOccupied || (disabled && stripTime(d).getTime() >= today.getTime())) {
+                bgClass = "bg-red-50 border-2 border-red-400";
+                textClass = "text-red-600";
               } else if (selectedArrival || selectedDeparture) {
-                classes.push("bg-[var(--color-primary)] text-white");
-              } else if (inRange) {
-                classes.push("bg-[var(--color-primary)]/10");
-              } else {
-                classes.push("bg-white text-[var(--color-text)]");
+                bgClass = "bg-[var(--color-primary)] border-2 border-[var(--color-primary)]";
+                textClass = "text-white";
+              } else if (!disabled) {
+                bgClass = "bg-white border-2 border-gray-300 active:border-[var(--color-primary)] active:shadow-lg";
               }
 
-              if (disabled && !paintAsOccupied) classes.push("opacity-60 cursor-not-allowed");
+              if (disabled && stripTime(d).getTime() < today.getTime()) {
+                bgClass = "bg-gray-100 border-2 border-gray-200";
+                textClass = "text-gray-400";
+              }
 
               return (
                 <button
                   key={ds}
-                  className={classes.join(" ")}
+                  disabled={disabled}
                   onClick={() => {
                     if (disabled) return;
                     if (mode === "arrival") handleSelectArrival(houseId, d);
                     else handleSelectDeparture(houseId, d);
                   }}
+                  className={`${bgClass} ${textClass} min-w-[110px] p-4 rounded-xl transition-all duration-200 ${!disabled ? "active:scale-95" : "opacity-60"
+                    } flex flex-col items-center justify-between shadow-sm`}
                 >
-                  <div className="text-sm font-semibold">{formatDateDDMMYYYY(d)}</div>
-                  <div className="text-xs text-gray-500">{d.toLocaleString(undefined, { weekday: "short" })}</div>
-                  <div className="mt-2"><PriceBadgeLocal houseId={house.id} date={d} /></div>
-                  <div className="text-xs mt-2">
-                    {mode === "arrival" && isOccupied ? "Booked" : mode === "arrival" ? "Arrive" : "Depart"}
+                  {/* Día de la semana */}
+                  <div className="text-xs font-bold uppercase tracking-wide opacity-75 mb-1">
+                    {d.toLocaleString('es-ES', { weekday: 'short' })}
+                  </div>
+
+                  {/* Fecha completa */}
+                  <div className="text-sm font-semibold mb-2">
+                    {formatDateDDMMYYYY(d)}
+                  </div>
+
+                  {/* Precio */}
+                  <div className="mb-3">
+                    <PriceBadgeLocal houseId={house.id} date={d} />
+                  </div>
+
+                  {/* Estado con icono */}
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-base">{statusIcon}</span>
+                    <span className="text-xs font-bold">
+                      {availabilityStatus}
+                    </span>
                   </div>
                 </button>
               );
             })}
+          </div>
+        </div>
+
+        {/* Leyenda */}
+        <div className="mt-6 pt-4 border-t border-gray-200">
+          <div className="flex flex-wrap gap-4 justify-center text-xs">
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-[var(--color-primary)] rounded"></div>
+              <span className="text-gray-600">Seleccionado</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-white border-2 border-gray-300 rounded"></div>
+              <span className="text-gray-600">Disponible</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-red-50 border-2 border-red-300 rounded"></div>
+              <span className="text-gray-600">No disponible</span>
+            </div>
           </div>
         </div>
       </div>
@@ -1191,19 +1393,72 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
               </div>
 
               {openHouseId === house.id && (
-                <div className="p-6 md:p-8 bg-gray-50 border-t border-gray-200">
-                  <div className="text-xl font-bold text-gray-800 mb-4">Calendario de Disponibilidad</div>
-                  <div className="space-y-6">
-                    <div className="p-4 bg-white rounded-lg shadow-md">
-                      <span className="text-sm font-semibold text-gray-600 block mb-2">Fecha de Llegada</span>
-                      {renderCarouselForHouse(house, "arrival")}
+                <div className="p-6 md:p-8 bg-gradient-to-br from-gray-50 to-white border-t-4 border-[var(--color-primary)]">
+                  <div className="max-w-5xl mx-auto">
+                    {/* Tabs mejorados */}
+                    <div className="flex gap-2 mb-6 bg-white p-2 rounded-xl shadow-sm border border-gray-200">
+                      <button
+                        onClick={() => {
+                          setCalendarModeByHouse((prev) => ({
+                            ...prev,
+                            [house.id]: "arrival"
+                          }));
+                        }}
+                        className={`flex-1 py-3 px-3 sm:py-4 sm:px-6 rounded-lg font-bold text-xs sm:text-sm uppercase tracking-wide transition-all duration-200 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 ${(calendarModeByHouse[house.id] || "arrival") === "arrival"
+                            ? "bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-dark)] text-white shadow-lg transform scale-105"
+                            : "text-gray-600 hover:bg-gray-100"
+                          }`}
+                      >
+                        <svg className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                        </svg>
+                        <div className="text-center sm:text-left">
+                          <div className="leading-tight">Llegada</div>
+                          {startDate && (
+                            <div className="text-[10px] sm:text-xs font-normal mt-0.5 sm:mt-1 opacity-90 whitespace-nowrap">
+                              {formatDateDDMMYYYY(startDate)}
+                            </div>
+                          )}
+                        </div>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setCalendarModeByHouse((prev) => ({
+                            ...prev,
+                            [house.id]: "departure"
+                          }));
+                        }}
+                        className={`flex-1 py-3 px-3 sm:py-4 sm:px-6 rounded-lg font-bold text-xs sm:text-sm uppercase tracking-wide transition-all duration-200 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 ${calendarModeByHouse[house.id] === "departure"
+                            ? "bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-dark)] text-white shadow-lg transform scale-105"
+                            : "text-gray-600 hover:bg-gray-100"
+                          }`}
+                      >
+                        <svg className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                        <div className="text-center sm:text-left">
+                          <div className="leading-tight">Salida</div>
+                          {endDate && (
+                            <div className="text-[10px] sm:text-xs font-normal mt-0.5 sm:mt-1 opacity-90 whitespace-nowrap">
+                              {formatDateDDMMYYYY(endDate)}
+                            </div>
+                          )}
+                        </div>
+                      </button>
                     </div>
-                    <div className="p-4 bg-white rounded-lg shadow-md">
-                      <span className="text-sm font-semibold text-gray-600 block mb-2">Fecha de Salida</span>
-                      {renderCarouselForHouse(house, "departure")}
+
+                    {/* Contenido del calendario */}
+                    <div className="bg-white rounded-2xl shadow-lg p-6 md:p-8 border border-gray-100">
+                      {renderCarouselForHouse(house, calendarModeByHouse[house.id] || "arrival")}
                     </div>
-                    <div className="mt-3 text-xs text-gray-500">
-                      El calendario muestra las próximas fechas disponibles en bloques de {DATE_WINDOW_DAYS} días.
+
+                    {/* Información adicional */}
+                    <div className="mt-4 text-center text-sm text-gray-600 bg-blue-50 rounded-lg p-4 border border-blue-100">
+                      <svg className="w-5 h-5 inline-block mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <strong>Consejo:</strong> Navega entre las fechas usando los botones "Anterior" y "Siguiente". Los días marcados con ✓ están disponibles para reservar.
                     </div>
                   </div>
                 </div>

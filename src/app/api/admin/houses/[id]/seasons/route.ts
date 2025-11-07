@@ -1,5 +1,5 @@
 // app/api/admin/houses/[id]/seasons/route.ts
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import admin from "@/lib/firebase-admin";
 
 type Weekday =
@@ -56,15 +56,15 @@ function cleanSpecialPrices(raw: unknown): Record<string, number> {
 
 function cleanSeasons(raw: unknown): Season[] {
   if (!Array.isArray(raw)) return [];
-  
+
   const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
   const out: Season[] = [];
-  
+
   for (const item of raw) {
     if (!item || typeof item !== "object") continue;
-    
+
     const season = item as any;
-    
+
     if (
       typeof season.name !== "string" ||
       typeof season.start !== "string" ||
@@ -82,19 +82,39 @@ function cleanSeasons(raw: unknown): Season[] {
       weekdayPrices: cleanPricePerNight(season.weekdayPrices),
     });
   }
-  
+
   return out;
+}
+
+/**
+ * Helper para aceptar context.params como objeto o Promise.
+ */
+async function resolveParams(paramsMaybePromise: any) {
+  if (!paramsMaybePromise) return {};
+  // Si es una Promise (algunas firmas lo ponen así), awaits
+  if (typeof paramsMaybePromise.then === "function") {
+    try {
+      return await paramsMaybePromise;
+    } catch {
+      return {};
+    }
+  }
+  return paramsMaybePromise;
 }
 
 // POST: Crear o actualizar una temporada
 export async function POST(
-  req: Request,
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  context: { params: any } // dejamos broad y resolvemos en runtime
 ) {
   try {
-    const houseId = params.id;
-    const body = await req.json();
+    const params = await resolveParams(context.params);
+    const houseId: string | undefined = params?.id;
+    if (!houseId) {
+      return NextResponse.json({ error: "Parámetro id de casa no proporcionado." }, { status: 400 });
+    }
 
+    const body = await req.json();
     const { seasonIndex, season } = body;
 
     // Validaciones
@@ -191,13 +211,17 @@ export async function POST(
 
 // DELETE: Eliminar una temporada
 export async function DELETE(
-  req: Request,
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  context: { params: any } // igual que en POST
 ) {
   try {
-    const houseId = params.id;
-    const body = await req.json();
+    const params = await resolveParams(context.params);
+    const houseId: string | undefined = params?.id;
+    if (!houseId) {
+      return NextResponse.json({ error: "Parámetro id de casa no proporcionado." }, { status: 400 });
+    }
 
+    const body = await req.json();
     const { seasonIndex } = body;
 
     if (typeof seasonIndex !== "number" || seasonIndex < 0) {

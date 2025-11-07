@@ -9,16 +9,7 @@ import { useHouse } from "@/context/HouseContext";
 import { es } from 'date-fns/locale/es';
 
 registerLocale('es', es);
-setDefaultLocale('es'); // todas las instancias empiezan en lunes
-
-/**
- * Nota: mappings de rutas / slugs y la lógica de cálculo seguro de precio
- * deben estar centralizados. Has dicho que ya creaste:
- *  - lib/houseRoutes.ts
- *  - app/api/reservations/price/route.ts
- *
- * No re-definimos esos aquí.
- */
+setDefaultLocale('es');
 
 /* ---------------- Types ---------------- */
 interface HouseLight {
@@ -29,29 +20,36 @@ interface HouseLight {
   type?: string;
   occupiedDates?: Record<string, boolean>;
   description?: string;
+  pricePerNight?: Record<string, number>;
   specialPrices?: Record<string, number>;
+  seasons?: Season[];
 }
 
-/* Props */
+type Season = {
+  name: string;
+  start: string; // YYYY-MM-DD
+  end: string;   // YYYY-MM-DD
+  weekdayPrices: Record<string, number>;
+  specialPrices?: Record<string, number>;
+};
+
 interface ReservationFormProps {
   onReserve?: (houseId: string, startDate: Date, endDate: Date, guests: number) => void;
   showResults?: boolean;
 }
 
-/* ---------------- Config / constants (local) ---------------- */
+/* ---------------- Config / constants ---------------- */
 const DATE_WINDOW_DAYS = 14;
-const MAX_AHEAD_DAYS = 365; // <-- nuevo: límite máximo hacia adelante (1 año)
+const MAX_AHEAD_DAYS = 365;
 const getGlobalMaxDate = () => addDays(new Date(), MAX_AHEAD_DAYS);
-export const EXTRA_GUEST_PRICE = 40; // € per extra person per night
+export const EXTRA_GUEST_PRICE = 40;
 const MAX_GUESTS_GLOBAL = 8;
 
 /* ---------------- Helpers ---------------- */
-/** Safe: id may be undefined */
 function isDuoId(id?: string) {
   return !!id && id.includes("__");
 }
 
-/** Safe split, accepts undefined; returns tuple [idA?, idB?] */
 function splitDuoId(id?: string): (string | undefined)[] {
   if (!id) return [undefined, undefined];
   if (!isDuoId(id)) return [id, undefined];
@@ -59,7 +57,6 @@ function splitDuoId(id?: string): (string | undefined)[] {
   return [a || undefined, b || undefined];
 }
 
-/** Return Date at 00:00 or null if value can't be parsed */
 function toDateOnly(value: any): Date | null {
   if (!value) return null;
   let d: Date;
@@ -74,14 +71,11 @@ function toDateOnly(value: any): Date | null {
   }
 }
 
-/** Convert Date -> YYYY-MM-DD */
-// Reemplaza la función actual:
 function dateIso(d: Date) {
-  // NO usar toISOString() (UTC) porque desplaza día según timezone
   const y = d.getFullYear();
   const m = (d.getMonth() + 1).toString().padStart(2, "0");
   const day = d.getDate().toString().padStart(2, "0");
-  return `${y}-${m}-${day}`; // YYYY-MM-DD en LOCAL
+  return `${y}-${m}-${day}`;
 }
 
 function addDays(d: Date, days: number) {
@@ -89,15 +83,16 @@ function addDays(d: Date, days: number) {
   r.setDate(r.getDate() + days);
   return r;
 }
+
 function pad2(n: number) {
   return n < 10 ? `0${n}` : `${n}`;
 }
+
 function formatDateDDMMYYYY(d?: Date | null) {
   if (!d) return "";
   return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
 }
 
-/** Check range overlaps occupied set (occupiedSet contains ISO 'YYYY-MM-DD') */
 function rangeOverlapsOccupied(start: Date, end: Date, occupiedSet: Set<string>) {
   if (!start || !end) return false;
   let cur = new Date(start);
@@ -108,7 +103,6 @@ function rangeOverlapsOccupied(start: Date, end: Date, occupiedSet: Set<string>)
   return false;
 }
 
-/* weekday key helper */
 function weekdayKey(date: Date) {
   const map = [
     "sunday",
@@ -122,36 +116,60 @@ function weekdayKey(date: Date) {
   return map[date.getDay()];
 }
 
-/* Price lookup helper (prioriza specialPrices -> fallback pricePerNight[weekday]) */
+/* ---------------- Season & Price Logic ---------------- */
+function findSeasonForDate(seasons: Season[], iso: string): Season | null {
+  if (!Array.isArray(seasons)) return null;
+  
+  for (const season of seasons) {
+    if (!season.start || !season.end) continue;
+    if (season.start <= iso && iso <= season.end) {
+      return season;
+    }
+  }
+  return null;
+}
+
 function getPriceForDate(house: any, d: Date): number | null {
   if (!house) return null;
 
-  // 1) override puntual por ISO (YYYY-MM-DD)
   const iso = dateIso(d);
-  const sp = house?.specialPrices?.[iso];
-  if (typeof sp === "number") return sp;
+  
+  // 1) specialPrices global (máxima prioridad)
+  if (house.specialPrices && typeof house.specialPrices[iso] === "number") {
+    return house.specialPrices[iso];
+  }
 
-  // 2) base semanal
+  // 2) Buscar season activa
+  const activeSeason = findSeasonForDate(house.seasons || [], iso);
+  
+  if (activeSeason) {
+    // 3) specialPrices dentro de la season
+    if (activeSeason.specialPrices && typeof activeSeason.specialPrices[iso] === "number") {
+      return activeSeason.specialPrices[iso];
+    }
+    
+    // 4) weekdayPrices de la season
+    const weekday = weekdayKey(d);
+    if (activeSeason.weekdayPrices && typeof activeSeason.weekdayPrices[weekday] === "number") {
+      return activeSeason.weekdayPrices[weekday];
+    }
+  }
+
+  // 5) Fallback: pricePerNight global
   if (!house.pricePerNight) return null;
   const key = weekdayKey(d);
   const val = house.pricePerNight[key];
   return typeof val === "number" ? val : null;
 }
 
-
 /* ---------------- Firestore helpers ---------------- */
 async function fetchReservations(houseId: string) {
   const reservationsRef = collection(db, "reservations");
-
-  // 1) q1: reservas con campo houseId === houseId (incluye documentos que guardaron el id combinado "a__b")
   const q1 = query(reservationsRef, where("houseId", "==", houseId));
   const snap1 = await getDocs(q1);
-
-  // 2) q2: reservas cuyo array houseIds contiene el id (incluye reservas duales que listan componentes)
   const q2 = query(reservationsRef, where("houseIds", "array-contains", houseId));
   const snap2 = await getDocs(q2);
 
-  // combinar resultados (por id de documento) para evitar duplicados
   const mapByDocId = new Map<string, any>();
   for (const doc of snap1.docs) {
     mapByDocId.set(doc.id, doc.data());
@@ -165,21 +183,17 @@ async function fetchReservations(houseId: string) {
 
 function shouldIncludeReservation(res: any) {
   const status = String(res?.status ?? "").toLowerCase();
-  // Solo cuentan las que bloquean de verdad
   return status === "admin" || status === "reserved" || status === "complete";
 }
 
-
 type HouseImage = { key: string; url: string; alt?: string };
 
-// Mapea IDs de casa a clave+url de imagen
 const HOUSE_IMAGES: Record<string | number, HouseImage> = {
   "L0TeFf2LmrWGAaAyS8NY": { key: "L0TeFf2LmrWGAaAyS8NY", url: "./ezero-namelis/lake-house1.png", alt: "Alojamiento 1" },
   "PZwbfMYlSXj61uYYJutg": { key: "PZwbfMYlSXj61uYYJutg", url: "/dupleksas/1-dupleksas-n1.jpeg", alt: "Alojamiento 2" },
   "oDzv9346CdaAsok162sX": { key: "oDzv9346CdaAsok162sX", url: "/dupleksas/2-dupleksas-n1.jpeg", alt: "Alojamiento 3" },
 };
 
-// Devuelve la imagen para un houseId o un placeholder
 function getHouseImage(houseId: string | number): HouseImage {
   return (
     HOUSE_IMAGES[houseId] ?? {
@@ -207,40 +221,35 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
   const [openHouseId, setOpenHouseId] = useState<string | null>(null);
   const [lastApiResults, setLastApiResults] = useState<HouseLight[]>([]);
 
-  // occupiedDatesByHouse: houseId -> Set<ISO date>
   const [occupiedDatesByHouse, setOccupiedDatesByHouse] = useState<Record<string, Set<string>>>({});
   const [carouselOffsetByHouse, setCarouselOffsetByHouse] = useState<Record<string, { arrival: number; departure: number }>>({});
 
-  // debajo de los useState de houses / lastApiResults
   const resultsIndex: Record<string, HouseLight> = React.useMemo(() => {
     const idx: Record<string, HouseLight> = {};
-    // prioriza los últimos resultados (los que se renderizan)
     for (const h of houses) idx[h.id] = h;
-    // completa con el snapshot de la última búsqueda
     for (const h of lastApiResults) if (!idx[h.id]) idx[h.id] = h;
     return idx;
   }, [houses, lastApiResults]);
 
-  // ✅ SIEMPRE llama a useHouse, incluso si id es undefined, para cumplir Rules of Hooks
   function useHouseMerged(id?: string) {
-    const ctx = useHouse(id as any); // llamada incondicional
+    const ctx = useHouse(id as any);
 
-    if (!id) return null;            // early-return permitido (después del hook)
+    if (!id) return null;
 
     const fromResults = resultsIndex[id];
 
-    // estados intermedios coherentes
-    if (ctx === undefined && !fromResults) return undefined as any; // "loading"
-    if (ctx === null && !fromResults) return null;                  // "no existe"
+    if (ctx === undefined && !fromResults) return undefined as any;
+    if (ctx === null && !fromResults) return null;
 
-    // fusión de datos (prioriza contexto, rellena con resultados)
     const merged: any = { ...(fromResults || {}), ...(ctx || {}) };
     if (!merged.specialPrices && fromResults?.specialPrices) {
       merged.specialPrices = fromResults.specialPrices;
     }
+    if (!merged.seasons && fromResults?.seasons) {
+      merged.seasons = fromResults.seasons;
+    }
     return merged;
   }
-
 
   const setOffset = (houseId: string, mode: "arrival" | "departure", newOffset: number) => {
     setCarouselOffsetByHouse((prev) => ({
@@ -252,12 +261,13 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       },
     }));
   };
+
   const [checkoutLoadingByHouse, setCheckoutLoadingByHouse] = useState<Record<string, boolean>>({});
 
-  /* Quick helpers (mobile) para saltar ventanas completas de 14 días */
   const bumpOffset = (houseId: string, mode: "arrival" | "departure", deltaDays: number = DATE_WINDOW_DAYS) => {
     setOffset(houseId, mode, getOffset(houseId, mode) + deltaDays);
   };
+
   const resetOffset = (houseId: string) => {
     setCarouselOffsetByHouse((prev) => ({
       ...prev,
@@ -267,7 +277,6 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
 
   const didAutoSearchRef = useRef(false);
 
-  // Read query params once to pre-populate
   useEffect(() => {
     const s = searchParams?.get("start");
     const e = searchParams?.get("end");
@@ -281,13 +290,10 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       if (g) setGuests(parseInt(g, 10) || 2);
       if (t === "dupleksas" || t === "ezero namelis" || t === "todos") setPropertyType(t as any);
       didAutoSearchRef.current = true;
-      // trigger search asynchronously (same tick)
       setTimeout(() => searchHouses(sDate, eDate, g ? parseInt(g, 10) : undefined, t ? t : undefined), 0);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  /* Datepicker range handler */
   const onChange = (dates: [Date | null, Date | null]) => {
     const [start, end] = dates;
     setStartDate(start);
@@ -301,25 +307,18 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     setGuests((prev) => {
       const next = Math.max(1, Math.min(MAX_GUESTS_GLOBAL, prev + inc));
 
-      // Si estamos en la home ('/'): solo actualizar el número y salir,
-      // sin buscar ni regenerar nada.
       if (pathname === "/") {
         return next;
       }
 
-      // --- TU LÓGICA ORIGINAL SE MANTIENE PARA OTRAS RUTAS ---
       if (startDate && endDate) {
         if (lastApiResults && lastApiResults.length > 0) {
-          // regenerar localmente (rápido, sin depender de la API)
           void regenerateResultsForGuests(next, startDate, endDate, propertyType);
         } else {
-          // si no hay lastApiResults (primera búsqueda) -> llamar a la API
           void searchHouses(startDate, endDate, next, propertyType);
         }
       } else {
-        // Sin fechas: filtrar localmente la lista actual por capacidad
         setHouses((prevHouses) => prevHouses.filter((h) => (h.maxGuests ?? 0) >= next));
-        // y recalcular flags de disponibilidad localmente
         setTimeout(() => {
           recomputeHousesAvailability(startDate, endDate, undefined, undefined, next);
         }, 0);
@@ -329,18 +328,9 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     });
   };
 
-
-  // helper para indicar loading por houseId
   const setCheckoutLoading = (houseId: string, v: boolean) =>
     setCheckoutLoadingByHouse((p) => ({ ...p, [houseId]: v }));
 
-  /**
-   * Ahora NO llamamos Stripe. Simplemente navegamos a la página intermedia
-   * /checkout-details con todos los datos como query.
-   *
-   * Esa página pedirá los datos del huésped, jacuzzi, etc,
-   * y desde allí sí se creará la sesión de checkout.
-   */
   const createCheckoutAndRedirect = (
     houseIdOrSlug: string,
     s: Date,
@@ -348,7 +338,6 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     guestsNum: number,
     houseSlug?: string
   ) => {
-    // Marcamos loading sólo visualmente en el botón de esa house
     setCheckoutLoading(houseIdOrSlug, true);
 
     const q = new URLSearchParams({
@@ -360,32 +349,23 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     });
 
     router.push(`/checkout-details?${q.toString()}`);
-
-    // importante: paramos el spinner localmente una vez navegamos
-    // (Next.js va a montar otra página inmediatamente)
     setCheckoutLoading(houseIdOrSlug, false);
   };
 
-
-
-  /** Handler unificado para Reserve now (desktop + mobile) */
   const handleReserveClick = async (house: HouseLight) => {
     if (!isHouseAvailableNow(house)) return;
 
     const slug = slugify(house.name);
-    // si no hay fechas, comportarse como antes (ir a la página de la casa)
     if (!startDate || !endDate) {
       router.push(house.type === "dupleksas" ? `/dupleksas/${slug}` : `/${slug}`);
       return;
     }
 
-    // Si es duo (id con "__") y hay más de 4 guests -> crear sesión de checkout
     if (isDuoId(house.id) && guests > 4) {
       await createCheckoutAndRedirect(house.id, startDate, endDate, guests, slug);
       return;
     }
 
-    // comportamiento anterior: onReserve callback o push con query
     const q = `start=${encodeURIComponent(startDate.toISOString())}&end=${encodeURIComponent(endDate.toISOString())}&guests=${encodeURIComponent(String(guests))}&type=${encodeURIComponent(house.type ?? '')}&house=${encodeURIComponent(slug)}`;
     if (onReserve) {
       onReserve(house.id, startDate, endDate, guests);
@@ -394,8 +374,6 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     router.push(`${house.type === "dupleksas" ? `/dupleksas/${slug}` : `/${slug}`}?${q}`);
   };
 
-
-  /* ---------------- Search / availability (calls backend) ---------------- */
   const searchHouses = async (sDateParam?: Date, eDateParam?: Date, guestsParam?: number, propertyTypeParam?: string) => {
     const sDate = sDateParam ?? startDate;
     const eDate = eDateParam ?? endDate;
@@ -414,7 +392,6 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       const apiResults = (data.results || []) as HouseLight[];
       setLastApiResults(apiResults);
 
-      // keep results, possibly generate duo combos locally for UX
       let results = apiResults.slice();
 
       if (effectiveGuests > 4 && effectiveType !== "ezero namelis") {
@@ -438,24 +415,18 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
         results = [...results, ...combos];
       }
 
-      // filter by capacity
       results = results.filter((h) => (h.maxGuests ?? 0) >= effectiveGuests);
 
-      // set preliminary results so UI doesn't flicker too much
       setHouses(results);
 
-      // --- PREFETCH OCCUPIED DATES AND USE THEM IMMEDIATELY ---
-      // fetchOccupiedDatesForHouse devuelve un Set<string>
       const occupiedSetsArray = await Promise.all(results.map((h) => fetchOccupiedDatesForHouse(h.id)));
       const occupiedMap: Record<string, Set<string>> = {};
       results.forEach((h, idx) => {
         occupiedMap[h.id] = occupiedSetsArray[idx] ?? new Set<string>();
       });
 
-      // Merge into state (so futuras operaciones lo tengan)
       setOccupiedDatesByHouse((prev) => ({ ...prev, ...occupiedMap }));
 
-      // Recompute availability usando el mapa recién obtenido (override)
       recomputeHousesAvailability(sDate, eDate, results, { ...occupiedDatesByHouse, ...occupiedMap });
     } catch (err) {
       console.error("searchHouses error:", err);
@@ -465,31 +436,25 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     }
   };
 
-  /* ---------------- Occupied dates (per house) ---------------- */
   const fetchOccupiedDatesForHouse = async (houseId?: string, force = false): Promise<Set<string>> => {
     if (!houseId) return new Set<string>();
     if (occupiedDatesByHouse[houseId] && !force) return occupiedDatesByHouse[houseId];
 
     try {
-      // 1) IDs “componentes” si es dúo, o el propio si es single
       const idsToQuery = isDuoId(houseId) ? houseId.split("__").filter(Boolean) : [houseId];
 
-      // 2) Traer reservas relevantes (tu helper actual ya sirve)
       const reservations: any[] = [];
       for (const id of idsToQuery) {
         if (!id) continue;
-        const part = await fetchReservations(id); // usa q1 (houseId==id) + q2 (houseIds array-contains id)
+        const part = await fetchReservations(id);
         reservations.push(...part);
       }
 
-      // 3) Construir un mapa id->Set<YYYY-MM-DD>, propagando días a todos los IDs vinculados
       const perId: Record<string, Set<string>> = {};
       const addForId = (id: string, iso: string) => {
         if (!perId[id]) perId[id] = new Set<string>();
         perId[id].add(iso);
       };
-
-      const nowMs = Date.now();
 
       for (const res of reservations) {
         if (!shouldIncludeReservation(res)) continue;
@@ -498,18 +463,14 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
         const checkOut = toDateOnly(res.checkOut);
         if (!checkIn || !checkOut) continue;
 
-        // IDs implicados por esta reserva:
-        // - los individuales en houseIds[]
-        // - y, si el doc es dúo, el id combinado (res.houseId) para que el combo también quede bloqueado
         const involvedIds = new Set<string>();
         if (Array.isArray(res.houseIds)) {
           res.houseIds.filter(Boolean).forEach((id: string) => involvedIds.add(id));
         }
         if (typeof res.houseId === "string" && res.houseId.includes("__")) {
-          involvedIds.add(res.houseId); // el combinado
+          involvedIds.add(res.houseId);
         }
 
-        // Marcar todos los días (checkout exclusivo)
         let cur = new Date(checkIn);
         while (cur < checkOut) {
           const iso = dateIso(cur);
@@ -518,25 +479,19 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
         }
       }
 
-      // 4) Un “union” para el ID solicitado (por si venía combinado y/o single)
       const unionForRequested = new Set<string>();
-      // lo que ya tuviéramos en memoria para ese id
       if (occupiedDatesByHouse[houseId]) {
         occupiedDatesByHouse[houseId].forEach((d) => unionForRequested.add(d));
       }
-      // si es dúo, unimos los componentes
       if (isDuoId(houseId)) {
         for (const id of houseId.split("__").filter(Boolean)) {
           perId[id]?.forEach((d) => unionForRequested.add(d));
         }
       }
-      // y el propio (por si perId ya tiene entradas para el combinado)
       perId[houseId]?.forEach((d) => unionForRequested.add(d));
 
-      // 5) Guardar TODO en estado: cada id implicado + el solicitado
       setOccupiedDatesByHouse((prev) => {
         const next = { ...prev };
-        // merge helper
         const merge = (id: string, set: Set<string>) => {
           const base = new Set<string>(next[id] ?? []);
           set.forEach((d) => base.add(d));
@@ -558,19 +513,10 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     }
   };
 
-
-  /**
- * Regenera _localmente_ los resultados a partir del último apiResults
- * - genera combos duplex (pares)
- * - filtra por capacidad
- * - prefetch de occupiedDates para esos resultados
- * - actualiza houses y occupiedDatesByHouse y recomputa disponibilidad
- */
   const regenerateResultsForGuests = async (guestsCount: number, sDate?: Date | null, eDate?: Date | null, type?: string) => {
     const effectiveType = type ?? propertyType;
     const apiResults = lastApiResults ?? [];
 
-    // generar combos (igual que searchHouses)
     let results = apiResults.slice();
 
     if (guestsCount > 4 && effectiveType !== "ezero namelis") {
@@ -594,13 +540,10 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       results = [...results, ...combos];
     }
 
-    // filtrar por capacidad
     results = results.filter((h) => (h.maxGuests ?? 0) >= guestsCount);
 
-    // actualizar resultados (preliminar)
     setHouses(results);
 
-    // PREFETCH occupied dates para estos resultados
     try {
       const occupiedSetsArray = await Promise.all(results.map((h) => fetchOccupiedDatesForHouse(h.id)));
       const occupiedMap: Record<string, Set<string>> = {};
@@ -608,16 +551,13 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
         occupiedMap[h.id] = occupiedSetsArray[idx] ?? new Set<string>();
       });
 
-      // merge to state
       setOccupiedDatesByHouse((prev) => ({ ...prev, ...occupiedMap }));
 
-      // recompute availability using the newly fetched occupied map
       recomputeHousesAvailability(sDate ?? startDate, eDate ?? endDate, results, { ...occupiedDatesByHouse, ...occupiedMap }, guestsCount);
     } catch (err) {
       console.error("regenerateResultsForGuests error:", err);
     }
   };
-
 
   const toggleOpenHouse = async (houseId: string) => {
     if (openHouseId === houseId) {
@@ -633,13 +573,11 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     recomputeHousesAvailability(startDate, endDate, houses, { ...occupiedDatesByHouse, [houseId]: setFetched });
   };
 
-  /* Carousel helpers */
   const getOffset = (houseId: string, mode: "arrival" | "departure") => {
     const o = carouselOffsetByHouse[houseId];
     return o ? (o[mode] ?? 0) : 0;
   };
 
-  /* Availability computation */
   function computeAvailabilityForHouse(
     house: HouseLight,
     sDate: Date | null,
@@ -654,7 +592,6 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     const overlaps = rangeOverlapsOccupied(sDate, eDate, occupiedSet);
     return { ...house, isCapacityOk, isAvailable: !overlaps } as any;
   }
-
 
   function recomputeHousesAvailability(
     sDate: Date | null,
@@ -671,7 +608,6 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     setHouses(newHouses);
   }
 
-
   function isHouseAvailableNow(house: HouseLight) {
     if ((house as any).isAvailable !== undefined) return (house as any).isAvailable;
     if (!startDate || !endDate) return false;
@@ -679,11 +615,9 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     return !rangeOverlapsOccupied(startDate, endDate, occupiedSet);
   }
 
-  /* Small helpers comparing ISO strings */
   const isBefore = (aIso: string, bIso: string) => new Date(aIso) < new Date(bIso);
   const isAfter = (aIso: string, bIso: string) => new Date(aIso) > new Date(bIso);
 
-  /* Select handlers used in the calendar */
   const isOccupied = (houseId: string, iso: string) => {
     const s = occupiedDatesByHouse[houseId];
     return !!s && s.has(iso);
@@ -767,10 +701,8 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     );
   }
 
-
   function getTotalPriceForRangeLocal(house: any, start: Date, end: Date, guestsCount: number) {
     if (!house) return null;
-    if (!house.pricePerNight) return null;
     let total = 0;
     let cur = new Date(start);
     cur.setHours(0, 0, 0, 0);
@@ -829,9 +761,6 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
         );
       }
 
-      const firstNightBase = (getPriceForDate(houseA, sd) ?? 0) + (getPriceForDate(houseB, sd) ?? 0);
-      const firstNight = firstNightBase + perNightSurcharge;
-
       return (
         <div className="mt-3">
           <div className="text-sm font-medium">
@@ -841,9 +770,8 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       );
     }
 
-    // single
     const house = houseA;
-    if (!house || !house.pricePerNight) return <div className="text-sm opacity-60">Price not available</div>;
+    if (!house) return <div className="text-sm opacity-60">Price not available</div>;
     const totalSingle = getTotalPriceForRangeLocal(house, sd, ed, guests);
     if (totalSingle === null) {
       return (
@@ -853,10 +781,6 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
         </div>
       );
     }
-    const extraGuestsSingle = Math.max(0, guests - 2);
-    const perNightSurchargeSingle = extraGuestsSingle * EXTRA_GUEST_PRICE;
-    const firstNightBaseSingle = getPriceForDate(house, sd) ?? 0;
-    const firstNightSingle = firstNightBaseSingle + perNightSurchargeSingle;
 
     return (
       <div className="mt-3">
@@ -865,18 +789,15 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     );
   }
 
-
-  /* ---------------- Carousel rendering (trimmed) ---------------- */
+  /* ---------------- Carousel rendering ---------------- */
   const renderCarouselForHouse = (house: HouseLight, mode: "arrival" | "departure") => {
     const houseId = house.id;
     const offset = getOffset(houseId, mode);
     const STEP = 7;
 
-    // base para el carrusel según modo
     const baseCandidate =
       mode === "departure" && endDate ? new Date(endDate) : (startDate ? new Date(startDate) : new Date());
 
-    // helpers locales
     const stripTime = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
     const msPerDay = 24 * 60 * 60 * 1000;
     const diffDays = (a: Date, b: Date) => Math.round((stripTime(a).getTime() - stripTime(b).getTime()) / msPerDay);
@@ -884,26 +805,20 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     const today = stripTime(new Date());
     const globalMax = stripTime(getGlobalMaxDate());
 
-    // límites globales de ventana [hoy, hoy+1año]
     const minAllowed = today;
     const maxAllowed = globalMax;
 
-    // en departure no mostrar antes de la llegada (si existe)
     const minForMode = mode === "departure" && startDate ? stripTime(new Date(startDate)) : minAllowed;
 
-    // rango válido para el primer día de la ventana
     const maxStartBaseCandidate = stripTime(addDays(maxAllowed, -(DATE_WINDOW_DAYS - 1)));
     const maxStartBase = maxStartBaseCandidate < minForMode ? minForMode : maxStartBaseCandidate;
     const minStartBase = minForMode;
 
-    // offsets permitidos
     const allowedOffsetMin = diffDays(minStartBase, baseCandidate);
     const allowedOffsetMax = diffDays(maxStartBase, baseCandidate);
 
-    // clamp del offset
     const effectiveOffset = Math.min(Math.max(offset, allowedOffsetMin), allowedOffsetMax);
 
-    // navegación
     const canPrev = effectiveOffset > allowedOffsetMin;
     const canNext = effectiveOffset < allowedOffsetMax;
 
@@ -919,7 +834,6 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       setOffset(houseId, mode, target);
     };
 
-    // base final + días de la ventana
     const base = addDays(baseCandidate, effectiveOffset);
     const finalBase = new Date(base);
 
@@ -963,17 +877,13 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
               const ds = dateIso(d);
               const isOccupied = occupiedSet.has(ds);
               const isPrevOccupied = occupiedSet.has(dateIso(addDays(d, -1)));
-              const isCheckinStart = isOccupied && !isPrevOccupied; // ya lo tienes
-              const isCheckoutEnd = !isOccupied && isPrevOccupied;  // 👈 NUEVO: fin de ocupación (checkout)
+              const isCheckinStart = isOccupied && !isPrevOccupied;
+              const isCheckoutEnd = !isOccupied && isPrevOccupied;
 
-              // reglas de deshabilitado
               let disabled = false;
 
-              // 1) pasadas
               if (stripTime(d).getTime() < today.getTime()) disabled = true;
 
-              // 2) arrival: bloquear si el día está ocupado (check-in no posible ese día)
-              //    (un día de checkout NO suele estar en occupiedSet; por eso se permite)
               if (mode === "arrival" && isOccupied) disabled = true;
 
               if (mode === "departure") {
@@ -981,13 +891,8 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                   const startDay = stripTime(new Date(startDate));
                   if (stripTime(d).getTime() <= startDay.getTime()) disabled = true;
                 }
-                // bloquear si es un día ocupado "real" (no inicio de ocupación)
                 if (isOccupied && !isCheckinStart) disabled = true;
-
-                // NO bloquear si es el día de checkout (isCheckoutEnd)
-                // (no añadas nada aquí: al ser false, queda clicable)
               }
-
 
               const selectedArrival = startDate && dateIso(startDate) === ds;
               const selectedDeparture = endDate && dateIso(endDate) === ds;
@@ -995,7 +900,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
 
               const paintAsOccupied =
                 (mode === "arrival" && isOccupied) ||
-                (mode === "departure" && ((isOccupied && !isCheckinStart) || isCheckoutEnd)); // 👈 incluye checkout
+                (mode === "departure" && ((isOccupied && !isCheckinStart) || isCheckoutEnd));
 
               const classes = [
                 "min-w-[96px] p-3 rounded-lg text-center border transition-transform transform hover:scale-105 flex flex-col items-center justify-between",
@@ -1003,7 +908,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
 
               if (paintAsOccupied) {
                 classes.push("bg-red-600 text-white");
-                if (disabled) classes.push("cursor-not-allowed"); // solo si realmente está bloqueado
+                if (disabled) classes.push("cursor-not-allowed");
               } else if (selectedArrival || selectedDeparture) {
                 classes.push("bg-[var(--color-primary)] text-white");
               } else if (inRange) {
@@ -1013,8 +918,6 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
               }
 
               if (disabled && !paintAsOccupied) classes.push("opacity-60 cursor-not-allowed");
-
-
 
               return (
                 <button
@@ -1041,21 +944,13 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     );
   };
 
-
-
   /* ---------------- Render ---------------- */
   return (
     <div className="max-w-6xl w-full mx-auto">
-      {/* Header area: compact search controls */}
       <div className="card-soft mt-6 sm:mt-16 p-6 md:p-8 flex flex-col items-center relative z-10">
-        {/* Property Type Toggle */}
-        {/* - En móvil: mostramos un select (sm:hidden)
-   - En pantallas >= sm: mostramos los botones (hidden sm:flex) */}
         <div className="mb-4 z-10 relative w-full">
-          {/* Mobile: select (estético, consistente con los botones) */}
           <div className="sm:hidden flex justify-center">
             <label htmlFor="propertyTypeMobile" className="sr-only">Property type</label>
-
             <div className="relative w-40">
               <select
                 id="propertyTypeMobile"
@@ -1067,8 +962,6 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                 <option value="dupleksas">Duplex</option>
                 <option value="ezero namelis">Lake House</option>
               </select>
-
-              {/* Chevron SVG (posicionado a la derecha, no interfiere con clicks) */}
               <svg
                 className="pointer-events-none absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4"
                 viewBox="0 0 20 20"
@@ -1081,8 +974,6 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
             </div>
           </div>
 
-
-          {/* Desktop / Tablet: buttons */}
           <div className="hidden sm:flex justify-center space-x-4">
             <button
               onClick={() => setPropertyType('todos')}
@@ -1093,7 +984,6 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
             >
               Todos
             </button>
-
             <button
               onClick={() => setPropertyType('dupleksas')}
               className={`px-6 py-2 rounded-full font-sans uppercase text-sm font-bold tracking-wide transition-colors ${propertyType === 'dupleksas'
@@ -1103,7 +993,6 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
             >
               Duplex
             </button>
-
             <button
               onClick={() => setPropertyType('ezero namelis')}
               className={`px-6 py-2 rounded-full font-sans uppercase text-sm font-bold tracking-wide transition-colors ${propertyType === 'ezero namelis'
@@ -1116,10 +1005,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
           </div>
         </div>
 
-
-        {/* Dates & Guests */}
         <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 w-full justify-center items-center">
-          {/* Arrival Date */}
           <div className="flex flex-col text-left flex-1 border-r border-[var(--color-primary)] pr-4 w-full">
             <label className="text-[var(--color-primary-dark)] text-sm mb-1 font-sans uppercase">Arrival</label>
             <DatePicker
@@ -1129,7 +1015,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
               endDate={endDate}
               selectsRange
               minDate={new Date()}
-              maxDate={getGlobalMaxDate()}                // límite: hoy + 1 año
+              maxDate={getGlobalMaxDate()}
               open={openPicker === "arrival"}
               onInputClick={() => setOpenPicker("arrival")}
               onClickOutside={() => setOpenPicker(null)}
@@ -1141,7 +1027,6 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
             />
           </div>
 
-          {/* Departure Date */}
           <div className="flex flex-col text-left flex-1 border-r border-[var(--color-primary)] pr-4 w-full">
             <label className="text-[var(--color-primary-dark)] text-sm mb-1 font-sans uppercase">Departure</label>
             <DatePicker
@@ -1151,7 +1036,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
               endDate={endDate}
               selectsRange
               minDate={startDate || new Date()}
-              maxDate={getGlobalMaxDate()}                // límite: hoy + 1 año
+              maxDate={getGlobalMaxDate()}
               openToDate={startDate ?? new Date()}
               open={openPicker === "departure"}
               onInputClick={() => setOpenPicker("departure")}
@@ -1164,7 +1049,6 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
             />
           </div>
 
-          {/* Guests */}
           <div className="flex flex-col text-left flex-1 w-full">
             <label className="text-[var(--color-primary-dark)] text-sm mb-1 font-sans uppercase">Guests</label>
             <div className="flex items-center justify-center p-2 bg-transparent text-[var(--color-text)] font-sans text-xl">
@@ -1175,7 +1059,6 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
           </div>
         </div>
 
-        {/* Reserve Button */}
         <button
           onClick={() => {
             if (!startDate || !endDate) { setOpenPicker('arrival'); return; }
@@ -1192,16 +1075,13 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
         </button>
       </div>
 
-      {/* Results list */}
-      <div className=" mt-3 space-y-5">
+      <div className="mt-3 space-y-5">
         {showResults && houses.length === 0 && (
           <div className="text-center text-gray-600">No results. Select dates and click &quot;Check availability&quot;.</div>
         )}
 
         {houses.map((house) => {
           const img = getHouseImage(house.id);
-
-          // Determine button state for cleaner logic
           const isAvailable = isHouseAvailableNow(house);
           const isLoading = !!checkoutLoadingByHouse[house.id];
           const reserveButtonClass = isAvailable
@@ -1209,12 +1089,8 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
             : "bg-gray-200 text-gray-500 cursor-not-allowed";
 
           return (
-            // Tarjeta con esquinas sutilmente redondeadas y un borde limpio
             <div key={house.id} className="bg-white rounded-2xl border border-gray-100 shadow-xl overflow-hidden transition-all duration-300 hover:shadow-2xl">
-
               <div className="flex flex-col md:flex-row">
-
-                {/* Sección de Imagen (Mucho más grande en desktop) */}
                 <div className="shrink-0 w-full md:w-80 lg:w-96">
                   <div className="w-full aspect-[4/3] md:h-full overflow-hidden">
                     <img
@@ -1222,16 +1098,12 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                       src={img.url}
                       alt={img.alt ?? house.name}
                       loading="lazy"
-                      // Efecto visual más impactante
                       className="w-full h-full object-cover transition-transform duration-700 hover:scale-110"
                     />
                   </div>
                 </div>
 
-                {/* Contenido Principal y Acciones */}
                 <div className="flex-1 p-6 md:p-8 flex flex-col justify-between">
-
-                  {/* Detalles de la Casa */}
                   <div>
                     <h3 className="text-3xl font-extrabold text-[var(--color-primary-dark)] leading-tight mb-2">
                       {house.name}
@@ -1244,13 +1116,9 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                     </p>
                   </div>
 
-                  {/* Área de Precios y Botones con diseño moderno */}
                   <div className="space-y-4">
-
-                    {/* Card de Precios con diseño premium */}
                     {startDate ? (
                       <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-4 space-y-3">
-                        {/* Precio por noche */}
                         <div>
                           <div className="flex items-center gap-2 mb-1">
                             <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1261,7 +1129,6 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                           <PriceBadgeLocal houseId={house.id} date={startDate} />
                         </div>
 
-                        {/* Precio Total - Solo si hay rango completo */}
                         {endDate && (
                           <>
                             <div className="border-t border-gray-300"></div>
@@ -1288,9 +1155,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                       </div>
                     )}
 
-                    {/* Botones de Acción con diseño mejorado */}
                     <div className="flex flex-col sm:flex-row gap-3">
-                      {/* Botón de Reserva Principal */}
                       <button
                         disabled={!isAvailable || isLoading}
                         onClick={() => void handleReserveClick(house)}
@@ -1311,7 +1176,6 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                         )}
                       </button>
 
-                      {/* Botón Secundario para Ver Calendario */}
                       <button
                         onClick={() => toggleOpenHouse(house.id)}
                         className="w-full sm:flex-1 py-3.5 px-6 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-all duration-300 text-sm flex items-center justify-center gap-2"
@@ -1326,24 +1190,18 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                 </div>
               </div>
 
-              {/* Sección de Disponibilidad (Expandida) */}
               {openHouseId === house.id && (
                 <div className="p-6 md:p-8 bg-gray-50 border-t border-gray-200">
                   <div className="text-xl font-bold text-gray-800 mb-4">Calendario de Disponibilidad</div>
-
                   <div className="space-y-6">
-                    {/* Carousels para la selección de fechas */}
                     <div className="p-4 bg-white rounded-lg shadow-md">
                       <span className="text-sm font-semibold text-gray-600 block mb-2">Fecha de Llegada</span>
                       {renderCarouselForHouse(house, "arrival")}
                     </div>
-
                     <div className="p-4 bg-white rounded-lg shadow-md">
                       <span className="text-sm font-semibold text-gray-600 block mb-2">Fecha de Salida</span>
                       {renderCarouselForHouse(house, "departure")}
                     </div>
-
-                    {/* Hint para móviles/info */}
                     <div className="mt-3 text-xs text-gray-500">
                       El calendario muestra las próximas fechas disponibles en bloques de {DATE_WINDOW_DAYS} días.
                     </div>
@@ -1353,7 +1211,6 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
             </div>
           );
         })}
-
       </div>
     </div>
   );

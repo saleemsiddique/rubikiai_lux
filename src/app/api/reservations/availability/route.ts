@@ -2,7 +2,13 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 
-function dateOnlyIso(d: Date) { return d.toISOString().split("T")[0]; }
+function dateOnlyIso(d: Date) { 
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`; 
+}
+
 function toDateOnly(value: any): Date {
   if (!value) return new Date(0);
   if (typeof value?.toDate === "function") {
@@ -38,6 +44,8 @@ export async function POST(req: NextRequest) {
         type: data.type,
         description: data.description || "",
         pricePerNight: data.pricePerNight || {},
+        specialPrices: data.specialPrices || {},
+        seasons: data.seasons || [],
       };
     });
 

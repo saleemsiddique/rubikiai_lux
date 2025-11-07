@@ -20,9 +20,17 @@ type HouseListItem = {
   maxGuests?: number | null;
 };
 
+type Season = {
+  name: string;
+  start: string; // YYYY-MM-DD
+  end: string; // YYYY-MM-DD
+  weekdayPrices: Partial<Record<Weekday, number>>;
+};
+
 type House = HouseListItem & {
   images?: string[] | null;
   pricePerNight: Partial<Record<Weekday, number>>;
+  seasons?: Season[];
   specialPrices?: Record<string, number>;
 };
 
@@ -51,6 +59,12 @@ function isValidISODate(s: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(s);
 }
 
+function formatDateToDisplay(isoDate: string): string {
+  if (!isoDate) return "";
+  const [year, month, day] = isoDate.split("-");
+  return `${day}/${month}/${year}`;
+}
+
 export default function AdminHousesClient() {
   // ===== LISTA Y FILTRO =====
   const [list, setList] = useState<HouseListItem[]>([]);
@@ -63,7 +77,7 @@ export default function AdminHousesClient() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // ===== FORM PRECIOS SEMANALES =====
+  // ===== FORM PRECIOS SEMANALES BASE =====
   const [form, setForm] = useState<Record<Weekday, string>>({
     monday: "",
     tuesday: "",
@@ -75,6 +89,23 @@ export default function AdminHousesClient() {
   });
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
+
+  // ===== TEMPORADAS =====
+  const [seasonName, setSeasonName] = useState<string>("");
+  const [seasonStart, setSeasonStart] = useState<string>(""); // YYYY-MM-DD
+  const [seasonEnd, setSeasonEnd] = useState<string>(""); // YYYY-MM-DD
+  const [seasonPrices, setSeasonPrices] = useState<Record<Weekday, string>>({
+    monday: "",
+    tuesday: "",
+    wednesday: "",
+    thursday: "",
+    friday: "",
+    saturday: "",
+    sunday: "",
+  });
+  const [seasonSaving, setSeasonSaving] = useState(false);
+  const [seasonMsg, setSeasonMsg] = useState<string | null>(null);
+  const [editingSeasonIndex, setEditingSeasonIndex] = useState<number | null>(null);
 
   // ===== PRECIOS ESPECIALES =====
   // rango
@@ -178,6 +209,22 @@ export default function AdminHousesClient() {
       setSpecialDate("");
       setSpecialPrice("");
       setSpecialMsg(null);
+      
+      // limpiar temporadas
+      setSeasonName("");
+      setSeasonStart("");
+      setSeasonEnd("");
+      setSeasonPrices({
+        monday: "",
+        tuesday: "",
+        wednesday: "",
+        thursday: "",
+        friday: "",
+        saturday: "",
+        sunday: "",
+      });
+      setSeasonMsg(null);
+      setEditingSeasonIndex(null);
     } catch (e: any) {
       console.error("[admin/houses] lookup error:", e);
       setLoadError(e?.message || "No se pudo cargar la casa.");
@@ -186,7 +233,7 @@ export default function AdminHousesClient() {
     }
   }, []);
 
-  // ===== GUARDAR PRECIOS SEMANALES =====
+  // ===== GUARDAR PRECIOS SEMANALES BASE =====
   const savePrices = useCallback(async () => {
     if (!house) return;
 
@@ -248,7 +295,7 @@ export default function AdminHousesClient() {
             ? String(updated.pricePerNight.sunday)
             : "",
       });
-      setSaveMsg("Precios actualizados correctamente.");
+      setSaveMsg("Precios base actualizados correctamente.");
     } catch (e: any) {
       console.error("[admin/houses] save error:", e);
       setSaveMsg(
@@ -258,6 +305,154 @@ export default function AdminHousesClient() {
       setSaving(false);
     }
   }, [house, form]);
+
+  // ===== GUARDAR/ACTUALIZAR TEMPORADA =====
+  const handleSaveSeason = useCallback(async () => {
+    if (!house) return;
+
+    const name = seasonName.trim();
+    const start = seasonStart.trim();
+    const end = seasonEnd.trim();
+
+    if (!name) {
+      setSeasonMsg("Debes proporcionar un nombre para la temporada.");
+      return;
+    }
+    if (!isValidISODate(start) || !isValidISODate(end)) {
+      setSeasonMsg("Las fechas deben ser válidas.");
+      return;
+    }
+
+    const weekdayPrices: Partial<Record<Weekday, number>> = {};
+    for (const k of Object.keys(WEEK_LABEL) as Weekday[]) {
+      const raw = (seasonPrices[k] ?? "").trim();
+      if (raw === "") continue;
+      const num = Number(raw.replace(",", "."));
+      if (!Number.isFinite(num) || num < 0) {
+        setSeasonMsg(
+          `El precio de "${WEEK_LABEL[k]}" debe ser un número ≥ 0.`
+        );
+        return;
+      }
+      weekdayPrices[k] = num;
+    }
+
+    try {
+      setSeasonSaving(true);
+      setSeasonMsg(null);
+      const res = await fetch(
+        `/api/admin/houses/${encodeURIComponent(house.id)}/seasons`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            seasonIndex: editingSeasonIndex,
+            season: {
+              name,
+              start,
+              end,
+              weekdayPrices,
+            },
+          }),
+        }
+      );
+      if (!res.ok) throw new Error(await readError(res));
+      const updated: House = await res.json();
+      setHouse(updated);
+      setSeasonMsg(
+        editingSeasonIndex !== null
+          ? "Temporada actualizada correctamente."
+          : "Temporada creada correctamente."
+      );
+      
+      // Limpiar el formulario
+      setSeasonName("");
+      setSeasonStart("");
+      setSeasonEnd("");
+      setSeasonPrices({
+        monday: "",
+        tuesday: "",
+        wednesday: "",
+        thursday: "",
+        friday: "",
+        saturday: "",
+        sunday: "",
+      });
+      setEditingSeasonIndex(null);
+    } catch (e: any) {
+      console.error("[admin/houses] season save error:", e);
+      setSeasonMsg(`Error: ${e?.message || "No se pudo guardar la temporada"}`);
+    } finally {
+      setSeasonSaving(false);
+    }
+  }, [house, seasonName, seasonStart, seasonEnd, seasonPrices, editingSeasonIndex]);
+
+  // ===== ELIMINAR TEMPORADA =====
+  const handleDeleteSeason = useCallback(async (index: number) => {
+    if (!house) return;
+    if (!confirm(`¿Eliminar esta temporada?`)) return;
+
+    try {
+      setSeasonSaving(true);
+      setSeasonMsg(null);
+      const res = await fetch(
+        `/api/admin/houses/${encodeURIComponent(house.id)}/seasons`,
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ seasonIndex: index }),
+        }
+      );
+      if (!res.ok) throw new Error(await readError(res));
+      const updated: House = await res.json();
+      setHouse(updated);
+      setSeasonMsg("Temporada eliminada correctamente.");
+    } catch (e: any) {
+      console.error("[admin/houses] season delete error:", e);
+      setSeasonMsg(`Error: ${e?.message || "No se pudo eliminar la temporada"}`);
+    } finally {
+      setSeasonSaving(false);
+    }
+  }, [house]);
+
+  // ===== EDITAR TEMPORADA =====
+  const handleEditSeason = useCallback((index: number, season: Season) => {
+    setSeasonName(season.name);
+    setSeasonStart(season.start);
+    setSeasonEnd(season.end);
+    setSeasonPrices({
+      monday:
+        season.weekdayPrices.monday !== undefined
+          ? String(season.weekdayPrices.monday)
+          : "",
+      tuesday:
+        season.weekdayPrices.tuesday !== undefined
+          ? String(season.weekdayPrices.tuesday)
+          : "",
+      wednesday:
+        season.weekdayPrices.wednesday !== undefined
+          ? String(season.weekdayPrices.wednesday)
+          : "",
+      thursday:
+        season.weekdayPrices.thursday !== undefined
+          ? String(season.weekdayPrices.thursday)
+          : "",
+      friday:
+        season.weekdayPrices.friday !== undefined
+          ? String(season.weekdayPrices.friday)
+          : "",
+      saturday:
+        season.weekdayPrices.saturday !== undefined
+          ? String(season.weekdayPrices.saturday)
+          : "",
+      sunday:
+        season.weekdayPrices.sunday !== undefined
+          ? String(season.weekdayPrices.sunday)
+          : "",
+    });
+    setEditingSeasonIndex(index);
+    setSeasonMsg(null);
+  }, []);
 
   // ===== API helper para precios especiales =====
   const postSpecialPrices = useCallback(
@@ -305,7 +500,6 @@ export default function AdminHousesClient() {
       return;
     }
 
-    // La API va a expandir todas las fechas start..end inclusive
     postSpecialPrices(
       {
         rangeUpsert: {
@@ -317,8 +511,6 @@ export default function AdminHousesClient() {
       "Precio especial guardado.",
       "No se pudo guardar el rango"
     );
-
-    // no vaciamos aún las fechas para que el admin pueda repetir si quiere
   }, [house, rangeStart, rangeEnd, rangePrice, postSpecialPrices]);
 
   // ===== ELIMINAR RANGO =====
@@ -367,7 +559,6 @@ export default function AdminHousesClient() {
       "No se pudo guardar el día"
     );
 
-    // limpiamos solo el precio, dejamos la fecha seleccionada por comodidad
     setSpecialPrice("");
   }, [house, specialDate, specialPrice, postSpecialPrices]);
 
@@ -510,13 +701,16 @@ export default function AdminHousesClient() {
                 </div>
               </div>
 
-              {/* === Editor de precios semanales === */}
+              {/* === Editor de precios semanales BASE === */}
               <div className="p-4 rounded-xl border bg-white">
                 <div className="text-sm font-semibold">
-                  Editar precios por día de la semana
+                  Precios base por día de la semana
+                </div>
+                <div className="text-xs text-neutral-500 mt-1">
+                  Estos precios se usan cuando no hay temporada activa
                 </div>
 
-                <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {(Object.keys(WEEK_LABEL) as Weekday[]).map((key) => (
                     <div key={key}>
                       <label className="block text-xs text-neutral-600">
@@ -598,10 +792,211 @@ export default function AdminHousesClient() {
                 )}
               </div>
 
+              {/* === TEMPORADAS === */}
+              <div className="p-4 rounded-xl border bg-white">
+                <div className="text-sm font-semibold">
+                  Temporadas (Seasons)
+                </div>
+                <div className="text-xs text-neutral-500 mt-1">
+                  Define periodos con precios específicos. Las fechas que no caigan en ninguna temporada usarán los precios base.
+                </div>
+
+                {/* Lista de temporadas existentes */}
+                {house.seasons && house.seasons.length > 0 && (
+                  <div className="mt-4 border rounded-md divide-y max-h-64 overflow-auto">
+                    {house.seasons.map((season, index) => (
+                      <div
+                        key={index}
+                        className="p-3 flex items-start justify-between gap-3"
+                      >
+                        <div className="flex-1">
+                          <div className="font-medium text-sm">{season.name}</div>
+                          <div className="text-xs text-neutral-600 mt-1">
+                            {formatDateToDisplay(season.start)} → {formatDateToDisplay(season.end)}
+                          </div>
+                          <div className="text-xs text-neutral-500 mt-1">
+                            Precios:{" "}
+                            {Object.entries(season.weekdayPrices)
+                              .filter(([_, v]) => v !== undefined)
+                              .map(([k, v]) => `${WEEK_LABEL[k as Weekday]}: ${v}€`)
+                              .join(", ") || "No definidos"}
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            className="text-xs rounded-md border px-3 py-1 hover:bg-neutral-50"
+                            onClick={() => handleEditSeason(index, season)}
+                          >
+                            Editar
+                          </button>
+                          <button
+                            type="button"
+                            className="text-xs rounded-md border px-3 py-1 hover:bg-red-50 text-red-700"
+                            onClick={() => handleDeleteSeason(index)}
+                            disabled={seasonSaving}
+                          >
+                            Eliminar
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Formulario para crear/editar temporada */}
+                <div className="mt-4 border rounded-md p-3 bg-neutral-50">
+                  <div className="text-xs uppercase tracking-wider text-neutral-600 mb-3">
+                    {editingSeasonIndex !== null ? `Editando temporada` : "Nueva temporada"}
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-3">
+                    <div>
+                      <label className="block text-xs text-neutral-600">
+                        Nombre *
+                      </label>
+                      <input
+                        type="text"
+                        value={seasonName}
+                        onChange={(e) => setSeasonName(e.target.value)}
+                        placeholder="ej: Temporada Alta"
+                        className="mt-1 w-full rounded-md border p-2"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs text-neutral-600">
+                          Fecha inicio *
+                        </label>
+                        <input
+                          type="date"
+                          value={seasonStart}
+                          onChange={(e) => setSeasonStart(e.target.value)}
+                          className="mt-1 w-full rounded-md border p-2"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs text-neutral-600">
+                          Fecha fin *
+                        </label>
+                        <input
+                          type="date"
+                          value={seasonEnd}
+                          onChange={(e) => setSeasonEnd(e.target.value)}
+                          className="mt-1 w-full rounded-md border p-2"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3">
+                    <div className="text-xs text-neutral-600 mb-2">
+                      Precios por día de la semana
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                      {(Object.keys(WEEK_LABEL) as Weekday[]).map((key) => (
+                        <div key={key}>
+                          <label className="block text-xs text-neutral-600">
+                            {WEEK_LABEL[key]}
+                          </label>
+                          <input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            inputMode="decimal"
+                            value={seasonPrices[key]}
+                            onChange={(e) =>
+                              setSeasonPrices((s) => ({
+                                ...s,
+                                [key]: e.target.value,
+                              }))
+                            }
+                            className="mt-1 w-full rounded-md border p-1.5 text-sm"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      onClick={handleSaveSeason}
+                      disabled={seasonSaving}
+                      className="rounded-md bg-[var(--color-primary)] text-white px-4 py-2 text-sm font-semibold hover:opacity-95 disabled:opacity-60"
+                    >
+                      {seasonSaving
+                        ? "Guardando…"
+                        : editingSeasonIndex !== null
+                        ? "Actualizar temporada"
+                        : "Crear temporada"}
+                    </button>
+
+                    {editingSeasonIndex !== null && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSeasonName("");
+                          setSeasonStart("");
+                          setSeasonEnd("");
+                          setSeasonPrices({
+                            monday: "",
+                            tuesday: "",
+                            wednesday: "",
+                            thursday: "",
+                            friday: "",
+                            saturday: "",
+                            sunday: "",
+                          });
+                          setEditingSeasonIndex(null);
+                          setSeasonMsg(null);
+                        }}
+                        className="rounded-md border px-4 py-2 text-sm hover:bg-neutral-50"
+                      >
+                        Cancelar edición
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSeasonName("");
+                        setSeasonStart("");
+                        setSeasonEnd("");
+                        setSeasonPrices({
+                          monday: "",
+                          tuesday: "",
+                          wednesday: "",
+                          thursday: "",
+                          friday: "",
+                          saturday: "",
+                          sunday: "",
+                        });
+                        setEditingSeasonIndex(null);
+                        setSeasonMsg(null);
+                      }}
+                      className="rounded-md border px-4 py-2 text-sm hover:bg-neutral-50"
+                    >
+                      Limpiar
+                    </button>
+                  </div>
+
+                  {seasonMsg && (
+                    <div className="mt-2 text-xs whitespace-pre-wrap">
+                      {seasonMsg}
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* === Precios especiales (rango + día) === */}
               <div className="p-4 rounded-xl border bg-white">
                 <div className="text-sm font-semibold">
                   Precios especiales
+                </div>
+                <div className="text-xs text-neutral-500 mt-1">
+                  Sobrescriben los precios de temporadas y base para días específicos
                 </div>
 
                 {/* ---- RANGO ---- */}
@@ -663,15 +1058,6 @@ export default function AdminHousesClient() {
 
                     <button
                       type="button"
-                      onClick={handleDeleteRange}
-                      disabled={specialSaving}
-                      className="rounded-md border px-4 py-2 text-sm hover:bg-red-50 text-red-700 disabled:opacity-60"
-                    >
-                      {specialSaving ? "Eliminando…" : "Eliminar rango"}
-                    </button>
-
-                    <button
-                      type="button"
                       onClick={() => {
                         setRangeStart("");
                         setRangeEnd("");
@@ -728,15 +1114,6 @@ export default function AdminHousesClient() {
                       className="rounded-md bg-[var(--color-primary)] text-white px-4 py-2 text-sm font-semibold hover:opacity-95 disabled:opacity-60"
                     >
                       {specialSaving ? "Guardando…" : "Guardar día"}
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={handleDeleteSingleDay}
-                      disabled={specialSaving}
-                      className="rounded-md border px-4 py-2 text-sm hover:bg-red-50 text-red-700 disabled:opacity-60"
-                    >
-                      {specialSaving ? "Eliminando…" : "Eliminar día"}
                     </button>
 
                     <button

@@ -1405,8 +1405,8 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                           }));
                         }}
                         className={`flex-1 py-3 px-3 sm:py-4 sm:px-6 rounded-lg font-bold text-xs sm:text-sm uppercase tracking-wide transition-all duration-200 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 ${(calendarModeByHouse[house.id] || "arrival") === "arrival"
-                            ? "bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-dark)] text-white shadow-lg transform scale-105"
-                            : "text-gray-600 hover:bg-gray-100"
+                          ? "bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-dark)] text-white shadow-lg transform scale-105"
+                          : "text-gray-600 hover:bg-gray-100"
                           }`}
                       >
                         <svg className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1430,8 +1430,8 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                           }));
                         }}
                         className={`flex-1 py-3 px-3 sm:py-4 sm:px-6 rounded-lg font-bold text-xs sm:text-sm uppercase tracking-wide transition-all duration-200 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 ${calendarModeByHouse[house.id] === "departure"
-                            ? "bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-dark)] text-white shadow-lg transform scale-105"
-                            : "text-gray-600 hover:bg-gray-100"
+                          ? "bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-dark)] text-white shadow-lg transform scale-105"
+                          : "text-gray-600 hover:bg-gray-100"
                           }`}
                       >
                         <svg className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1458,7 +1458,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                       <svg className="w-5 h-5 inline-block mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
-                      <strong>Consejo:</strong> Navega entre las fechas usando los botones "Anterior" y "Siguiente". Los días marcados con ✓ están disponibles para reservar.
+                      <strong>Consejo:</strong> Navega entre las fechas usando los botones &quot;Anterior&quot; y &quot;Siguiente&quot;. Los días marcados con ✓ están disponibles para reservar.
                     </div>
                   </div>
                 </div>

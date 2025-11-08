@@ -56,6 +56,26 @@ export function OwnerReservationNotificationEmailHtmlEN(
   const hasDiscount = Number(discountApplied) > 0;
   const totalBeforeDiscount = totalStay + (Number(discountApplied) || 0);
 
+  // Mapping de IDs a nombres legibles
+  const PROPERTY_NAME_MAP: Record<string, string> = {
+    "L0TeFf2LmrWGAaAyS8NY": "Ezero Namelis",
+    "PZwbfMYlSXj61uYYJutg": "Salia-Elniu-Aptvaro",
+    "oDzv9346CdaAsok162sX": "Salia-Elniu-Panorama",
+  };
+
+  // Resolver nombre mostrado, priorizando propertyId, luego roomType
+  const resolvedRoomType = (() => {
+    if (propertyId && PROPERTY_NAME_MAP[propertyId]) return PROPERTY_NAME_MAP[propertyId];
+    if (roomType && PROPERTY_NAME_MAP[roomType]) return PROPERTY_NAME_MAP[roomType];
+    return roomType || "Accommodation";
+  })();
+
+  // Si existe un nombre legible para el propertyId, lo usamos para mostrar en la línea del property;
+  // si no, mostramos el ID original (como antes).
+  const resolvedPropertyLabel = propertyId && PROPERTY_NAME_MAP[propertyId]
+    ? PROPERTY_NAME_MAP[propertyId]
+    : propertyId;
+
   return `
   <div style="margin:0;padding:0;background:#f4efe9;">
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f4efe9;">
@@ -84,8 +104,8 @@ export function OwnerReservationNotificationEmailHtmlEN(
                 <div style="font-size:15px;color:#0f172a;">
                   <div>Check-in: <strong>${checkIn}</strong> — Check-out: <strong>${checkOut}</strong></div>
                   <div>Nights: <strong>${nights}</strong> | Guests: <strong>${guests}</strong></div>
-                  <div>Room type: <strong>${roomType}</strong></div>
-                  ${propertyId ? `<div>Property ID: <strong>${propertyId}</strong></div>` : ""}
+                  <div>Room type: <strong>${resolvedRoomType}</strong></div>
+                  ${resolvedPropertyLabel ? `<div>Property: <strong>${resolvedPropertyLabel}</strong></div>` : ""}
                 </div>
               </td></tr>
 
@@ -97,8 +117,6 @@ export function OwnerReservationNotificationEmailHtmlEN(
                   <div>Amount paid now: <strong>${formatCurrency(paidNow, currency)}</strong></div>
                   <div>To be paid at arrival: <strong>${formatCurrency(payAtArrival, currency)}</strong></div>
                   <div style="margin-top:8px;font-weight:700;color:#214235;">Total stay: ${formatCurrency(totalStay, currency)}</div>
-                  ${paymentMethod ? `<div style="margin-top:8px;">Payment method: <strong>${paymentMethod}</strong></div>` : ""}
-                  ${merchantReference ? `<div>Merchant ref: <strong>${merchantReference}</strong></div>` : ""}
                 </div>
               </td></tr>
             </table>

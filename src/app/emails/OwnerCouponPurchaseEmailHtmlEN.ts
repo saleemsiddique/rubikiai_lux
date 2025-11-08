@@ -49,7 +49,6 @@ export function OwnerCouponPurchaseEmailHtmlEN(
           <div>Unit price: <strong>${formatCurrency(unitAmount, currency)}</strong></div>
           <div>Quantity: <strong>${quantity}</strong></div>
           <div style="margin-top:8px;font-weight:700;color:#214235;">Total: <strong>${formatCurrency(totalAmount, currency)}</strong></div>
-          ${paymentMethod ? `<div>Payment method: <strong>${paymentMethod}</strong></div>` : ""}
           ${expiresAt ? `<div>Coupons expire: <strong>${expiresAt}</strong></div>` : ""}
         </div>
       </td></tr>

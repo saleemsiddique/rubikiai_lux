@@ -43,7 +43,7 @@ export async function POST(req: Request) {
       notificationUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/montonio/webhook`,
       currency: "EUR",
       grandTotal: parseFloat(grandTotal.toFixed(2)),
-      locale: "en",
+      locale: "lt",
       billingAddress: {
         firstName: buyerEmail.split("@")[0] || "Coupon",
         lastName: "Buyer",
@@ -66,7 +66,7 @@ export async function POST(req: Request) {
         methodDisplay: "Pay with your bank",
         methodOptions: {
           paymentDescription: `Coupon purchase ${orderId}`,
-          preferredCountry: "EE",
+          preferredCountry: "LT",
         },
         amount: parseFloat(grandTotal.toFixed(2)),
         currency: "EUR",

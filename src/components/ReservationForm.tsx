@@ -134,28 +134,28 @@ function getPriceForDate(house: any, d: Date): number | null {
 
   const iso = dateIso(d);
 
-  // 1) specialPrices global (máxima prioridad)
+  // 1) specialPrices global (highest priority)
   if (house.specialPrices && typeof house.specialPrices[iso] === "number") {
     return house.specialPrices[iso];
   }
 
-  // 2) Buscar season activa
+  // 2) Find active season
   const activeSeason = findSeasonForDate(house.seasons || [], iso);
 
   if (activeSeason) {
-    // 3) specialPrices dentro de la season
+    // 3) specialPrices within the season
     if (activeSeason.specialPrices && typeof activeSeason.specialPrices[iso] === "number") {
       return activeSeason.specialPrices[iso];
     }
 
-    // 4) weekdayPrices de la season
+    // 4) weekdayPrices from the season
     const weekday = weekdayKey(d);
     if (activeSeason.weekdayPrices && typeof activeSeason.weekdayPrices[weekday] === "number") {
       return activeSeason.weekdayPrices[weekday];
     }
   }
 
-  // 5) Fallback: pricePerNight global
+  // 5) Fallback: global pricePerNight
   if (!house.pricePerNight) return null;
   const key = weekdayKey(d);
   const val = house.pricePerNight[key];
@@ -189,9 +189,9 @@ function shouldIncludeReservation(res: any) {
 type HouseImage = { key: string; url: string; alt?: string };
 
 const HOUSE_IMAGES: Record<string | number, HouseImage> = {
-  "L0TeFf2LmrWGAaAyS8NY": { key: "L0TeFf2LmrWGAaAyS8NY", url: "./ezero-namelis/lake-house1.png", alt: "Alojamiento 1" },
-  "PZwbfMYlSXj61uYYJutg": { key: "PZwbfMYlSXj61uYYJutg", url: "/dupleksas/1-dupleksas-n1.jpeg", alt: "Alojamiento 2" },
-  "oDzv9346CdaAsok162sX": { key: "oDzv9346CdaAsok162sX", url: "/dupleksas/2-dupleksas-n1.jpeg", alt: "Alojamiento 3" },
+  "L0TeFf2LmrWGAaAyS8NY": { key: "L0TeFf2LmrWGAaAyS8NY", url: "./ezero-namelis/lake-house1.png", alt: "Accommodation 1" },
+  "PZwbfMYlSXj61uYYJutg": { key: "PZwbfMYlSXj61uYYJutg", url: "/dupleksas/1-dupleksas-n1.jpeg", alt: "Accommodation 2" },
+  "oDzv9346CdaAsok162sX": { key: "oDzv9346CdaAsok162sX", url: "/dupleksas/2-dupleksas-n1.jpeg", alt: "Accommodation 3" },
 };
 
 function getHouseImage(houseId: string | number): HouseImage {
@@ -199,7 +199,7 @@ function getHouseImage(houseId: string | number): HouseImage {
     HOUSE_IMAGES[houseId] ?? {
       key: `house-${houseId}`,
       url: "/images/houses/placeholder.jpg",
-      alt: "Alojamiento",
+      alt: "Accommodation",
     }
   );
 }
@@ -648,23 +648,23 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
   const handleSelectDeparture = (houseId: string, d: Date) => {
     const iso = dateIso(d);
 
-    // obtener el conjunto de fechas ocupadas (incluye combinaciones duo)
+    // get occupied dates set (includes duo combinations)
     const occupiedSet = occupiedDatesByHouse[houseId] ?? new Set<string>();
     const isOcc = occupiedSet.has(iso);
     const isPrevOcc = occupiedSet.has(dateIso(addDays(d, -1)));
     const isCheckinStart = isOcc && !isPrevOcc;
 
-    // Si el día está ocupado y NO es inicio de check-in, no permitir selección
+    // If the day is occupied and NOT a check-in start, don't allow selection
     if (isOcc && !isCheckinStart) return;
 
-    // Si ya hay fecha de llegada, asegurarnos de que la salida sea posterior
+    // If there's already an arrival date, ensure departure is after
     if (startDate) {
       const startIso = dateIso(startDate);
       if (!isAfter(iso, startIso)) return;
     }
 
     setEndDate(d);
-    // Si no había fecha de llegada, fijamos la llegada al día anterior
+    // If there was no arrival date, set arrival to the previous day
     if (!startDate) setStartDate(addDays(d, -1));
     setTimeout(() => recomputeHousesAvailability(startDate, addDays(d, 0)), 0);
   };
@@ -862,7 +862,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
 
     return (
       <div className="w-full">
-        {/* Header con navegación mejorada */}
+        {/* Enhanced header with navigation */}
         <div className="flex items-center justify-between mb-4 pb-3 border-b-2 border-gray-200">
           <button
             onClick={goPrev}
@@ -871,17 +871,17 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
               ? "opacity-30 cursor-not-allowed text-gray-400"
               : "hover:bg-[var(--color-primary)] hover:text-white text-[var(--color-primary)] border-2 border-[var(--color-primary)]"
               }`}
-            aria-label="Ver fechas anteriores"
+            aria-label="View previous dates"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            <span className="hidden sm:inline">Anterior</span>
+            <span className="hidden sm:inline">Previous</span>
           </button>
 
           <div className="flex flex-col items-center">
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              {mode === "arrival" ? "Mostrando fechas desde" : "Mostrando fechas desde"}
+              {mode === "arrival" ? "Showing dates from" : "Showing dates from"}
             </span>
             <span className="text-sm font-bold text-gray-700 mt-1">
               {formatDateDDMMYYYY(finalBase)}
@@ -895,16 +895,16 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
               ? "opacity-30 cursor-not-allowed text-gray-400"
               : "hover:bg-[var(--color-primary)] hover:text-white text-[var(--color-primary)] border-2 border-[var(--color-primary)]"
               }`}
-            aria-label="Ver fechas siguientes"
+            aria-label="View next dates"
           >
-            <span className="hidden sm:inline">Siguiente</span>
+            <span className="hidden sm:inline">Next</span>
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </button>
         </div>
 
-        {/* Grid de días - Desktop */}
+        {/* Day grid - Desktop */}
         <div className="hidden md:grid md:grid-cols-7 gap-3">
           {days.map((d) => {
             const ds = dateIso(d);
@@ -918,25 +918,24 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
 
             if (stripTime(d).getTime() < today.getTime()) {
               disabled = true;
-              availabilityStatus = "Pasado";
+              availabilityStatus = "Past";
             } else if (mode === "arrival" && isOccupied) {
               disabled = true;
-              availabilityStatus = "Ocupado";
+              availabilityStatus = "Occupied";
             } if (mode === "departure") {
               if (startDate) {
                 const startDay = stripTime(new Date(startDate));
                 if (stripTime(d).getTime() <= startDay.getTime()) {
                   disabled = true;
-                  availabilityStatus = "No válido";
+                  availabilityStatus = "Invalid";
                 }
               }
-              // Solo deshabilitar si está ocupado Y NO es un día de check-in
-              // (los días de check-in pueden ser días de check-out)
+              // Only disable if occupied AND NOT a check-in day
+              // (check-in days can be check-out days)
               if (isOccupied && !isCheckinStart) {
                 disabled = true;
-                availabilityStatus = "Ocupado";
+                availabilityStatus = "Occupied";
               }
-              // No hacer nada especial con isCheckinStart - debe quedar habilitado
             }
 
             if (!disabled) {
@@ -994,27 +993,27 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                 className={`${bgClass} ${textClass} p-4 rounded-xl transition-all duration-200 ${!disabled ? "transform hover:scale-105 cursor-pointer" : "cursor-not-allowed opacity-60"
                   } flex flex-col items-center justify-between min-h-[140px]`}
               >
-                {/* Día de la semana */}
+                {/* Day of the week */}
                 <div className="text-xs font-bold uppercase tracking-wider opacity-75">
-                  {d.toLocaleString('es-ES', { weekday: 'short' })}
+                  {d.toLocaleString('en-US', { weekday: 'short' })}
                 </div>
 
-                {/* Fecha */}
+                {/* Date */}
                 <div className="text-2xl font-bold my-2">
                   {d.getDate()}
                 </div>
 
-                {/* Mes */}
+                {/* Month */}
                 <div className="text-xs font-medium opacity-75 mb-2">
-                  {d.toLocaleString('es-ES', { month: 'short' })}
+                  {d.toLocaleString('en-US', { month: 'short' })}
                 </div>
 
-                {/* Precio */}
+                {/* Price */}
                 <div className="mb-2">
                   <PriceBadgeLocal houseId={house.id} date={d} />
                 </div>
 
-                {/* Estado de disponibilidad */}
+                {/* Availability status */}
                 <div className={`text-xs font-bold ${statusClass} text-center leading-tight`}>
                   {availabilityStatus}
                 </div>
@@ -1023,7 +1022,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
           })}
         </div>
 
-        {/* Carrusel horizontal - Mobile */}
+        {/* Horizontal carousel - Mobile */}
         <div className="md:hidden overflow-x-auto no-scrollbar -mx-6 px-6">
           <div className="inline-flex gap-3 py-2">
             {days.map((d) => {
@@ -1039,24 +1038,23 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
 
               if (stripTime(d).getTime() < today.getTime()) {
                 disabled = true;
-                availabilityStatus = "Pasado";
+                availabilityStatus = "Past";
                 statusIcon = "🚫";
               } else if (mode === "arrival" && isOccupied) {
                 disabled = true;
-                availabilityStatus = "Ocupado";
+                availabilityStatus = "Occupied";
                 statusIcon = "❌";
-                // CÓDIGO EN DESKTOP - verificar alrededor línea 750
               } else if (mode === "departure") {
                 if (startDate) {
                   const startDay = stripTime(new Date(startDate));
                   if (stripTime(d).getTime() <= startDay.getTime()) {
                     disabled = true;
-                    availabilityStatus = "No válido";
+                    availabilityStatus = "Invalid";
                   }
                 }
                 if (isOccupied && !isCheckinStart) {
                   disabled = true;
-                  availabilityStatus = "Ocupado";
+                  availabilityStatus = "Occupied";
                 }
               }
 
@@ -1110,22 +1108,22 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                   className={`${bgClass} ${textClass} min-w-[110px] p-4 rounded-xl transition-all duration-200 ${!disabled ? "active:scale-95" : "opacity-60"
                     } flex flex-col items-center justify-between shadow-sm`}
                 >
-                  {/* Día de la semana */}
+                  {/* Day of the week */}
                   <div className="text-xs font-bold uppercase tracking-wide opacity-75 mb-1">
-                    {d.toLocaleString('es-ES', { weekday: 'short' })}
+                    {d.toLocaleString('en-US', { weekday: 'short' })}
                   </div>
 
-                  {/* Fecha completa */}
+                  {/* Full date */}
                   <div className="text-sm font-semibold mb-2">
                     {formatDateDDMMYYYY(d)}
                   </div>
 
-                  {/* Precio */}
+                  {/* Price */}
                   <div className="mb-3">
                     <PriceBadgeLocal houseId={house.id} date={d} />
                   </div>
 
-                  {/* Estado con icono */}
+                  {/* Status with icon */}
                   <div className="flex items-center gap-1.5">
                     <span className="text-base">{statusIcon}</span>
                     <span className="text-xs font-bold">
@@ -1138,20 +1136,20 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
           </div>
         </div>
 
-        {/* Leyenda */}
+        {/* Legend */}
         <div className="mt-6 pt-4 border-t border-gray-200">
           <div className="flex flex-wrap gap-4 justify-center text-xs">
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-[var(--color-primary)] rounded"></div>
-              <span className="text-gray-600">Seleccionado</span>
+              <span className="text-gray-600">Selected</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-white border-2 border-gray-300 rounded"></div>
-              <span className="text-gray-600">Disponible</span>
+              <span className="text-gray-600">Available</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-red-50 border-2 border-red-300 rounded"></div>
-              <span className="text-gray-600">No disponible</span>
+              <span className="text-gray-600">Unavailable</span>
             </div>
           </div>
         </div>

@@ -647,15 +647,28 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
 
   const handleSelectDeparture = (houseId: string, d: Date) => {
     const iso = dateIso(d);
-    if (isOccupied(houseId, iso)) return;
+
+    // obtener el conjunto de fechas ocupadas (incluye combinaciones duo)
+    const occupiedSet = occupiedDatesByHouse[houseId] ?? new Set<string>();
+    const isOcc = occupiedSet.has(iso);
+    const isPrevOcc = occupiedSet.has(dateIso(addDays(d, -1)));
+    const isCheckinStart = isOcc && !isPrevOcc;
+
+    // Si el día está ocupado y NO es inicio de check-in, no permitir selección
+    if (isOcc && !isCheckinStart) return;
+
+    // Si ya hay fecha de llegada, asegurarnos de que la salida sea posterior
     if (startDate) {
       const startIso = dateIso(startDate);
       if (!isAfter(iso, startIso)) return;
     }
+
     setEndDate(d);
+    // Si no había fecha de llegada, fijamos la llegada al día anterior
     if (!startDate) setStartDate(addDays(d, -1));
     setTimeout(() => recomputeHousesAvailability(startDate, addDays(d, 0)), 0);
   };
+
 
   function slugify(name?: string) {
     if (!name) return "";

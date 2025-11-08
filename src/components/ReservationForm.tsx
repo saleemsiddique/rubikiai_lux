@@ -653,9 +653,13 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     const isOcc = occupiedSet.has(iso);
     const isPrevOcc = occupiedSet.has(dateIso(addDays(d, -1)));
     const isCheckinStart = isOcc && !isPrevOcc;
+    const isCheckoutEnd = !isOcc && isPrevOcc; // <-- día que es checkout (salida) — antes permitías seleccionarlo
 
     // If the day is occupied and NOT a check-in start, don't allow selection
     if (isOcc && !isCheckinStart) return;
+
+    // NEW: don't allow selecting a day that is a checkout end (day after an occupied day)
+    if (isCheckoutEnd) return;
 
     // If there's already an arrival date, ensure departure is after
     if (startDate) {
@@ -664,11 +668,10 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     }
 
     setEndDate(d);
-    // If there was no arrival date, set arrival to the previous day
-    if (!startDate) setStartDate(addDays(d, -1));
+    // NOTE: Removed the automatic setStartDate(addDays(d, -1)) when there was no arrival.
+    // The UI will keep startDate unset if user hasn't chosen it.
     setTimeout(() => recomputeHousesAvailability(startDate, addDays(d, 0)), 0);
   };
-
 
   function slugify(name?: string) {
     if (!name) return "";
@@ -912,6 +915,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
             const isPrevOccupied = occupiedSet.has(dateIso(addDays(d, -1)));
             const isCheckinStart = isOccupied && !isPrevOccupied;
             const isCheckoutEnd = !isOccupied && isPrevOccupied;
+            const isCheckoutStart = false; // no se usa pero mantiene simetría
 
             let disabled = false;
             let availabilityStatus = "";
@@ -922,7 +926,9 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
             } else if (mode === "arrival" && isOccupied) {
               disabled = true;
               availabilityStatus = "Occupied";
-            } if (mode === "departure") {
+            }
+
+            if (mode === "departure") {
               if (startDate) {
                 const startDay = stripTime(new Date(startDate));
                 if (stripTime(d).getTime() <= startDay.getTime()) {
@@ -930,9 +936,10 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                   availabilityStatus = "Invalid";
                 }
               }
-              // Only disable if occupied AND NOT a check-in day
-              // (check-in days can be check-out days)
-              if (isOccupied && !isCheckinStart) {
+
+              // Antes solo bloqueabas si isOccupied && !isCheckinStart.
+              // Ahora además bloqueamos si el día es checkout (día después de una noche ocupada).
+              if ((isOccupied && !isCheckinStart) || isCheckoutEnd) {
                 disabled = true;
                 availabilityStatus = "Occupied";
               }
@@ -1026,6 +1033,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
         <div className="md:hidden overflow-x-auto no-scrollbar -mx-6 px-6">
           <div className="inline-flex gap-3 py-2">
             {days.map((d) => {
+              // ... dentro de mobile days.map((d) => { ... })
               const ds = dateIso(d);
               const isOccupied = occupiedSet.has(ds);
               const isPrevOccupied = occupiedSet.has(dateIso(addDays(d, -1)));
@@ -1044,7 +1052,9 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                 disabled = true;
                 availabilityStatus = "Occupied";
                 statusIcon = "❌";
-              } else if (mode === "departure") {
+              }
+
+              if (mode === "departure") {
                 if (startDate) {
                   const startDay = stripTime(new Date(startDate));
                   if (stripTime(d).getTime() <= startDay.getTime()) {
@@ -1052,9 +1062,11 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                     availabilityStatus = "Invalid";
                   }
                 }
-                if (isOccupied && !isCheckinStart) {
+                // Bloqueamos si es checkoutEnd también
+                if ((isOccupied && !isCheckinStart) || isCheckoutEnd) {
                   disabled = true;
                   availabilityStatus = "Occupied";
+                  statusIcon = "❌";
                 }
               }
 
@@ -1171,7 +1183,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setPropertyType(e.target.value as "todos" | "dupleksas" | "ezero namelis")}
                 className="appearance-none w-full px-5 py-2 pr-10 rounded-full font-sans uppercase text-sm font-bold tracking-wide transition-colors border border-[var(--color-primary)] bg-[var(--color-background-card)] text-[var(--color-primary)] shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-opacity-25"
               >
-                <option value="todos">Todos</option>
+                <option value="todos">All</option>
                 <option value="dupleksas">Duplex</option>
                 <option value="ezero namelis">Lake House</option>
               </select>
@@ -1195,7 +1207,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                 : 'border border-[var(--color-primary)] text-[var(--color-primary)] hover:bg-[var(--color-primary-dark)] hover:text-white'
                 }`}
             >
-              Todos
+              All
             </button>
             <button
               onClick={() => setPropertyType('dupleksas')}
@@ -1322,7 +1334,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                       {house.name}
                     </h3>
                     <p className="text-base font-medium text-gray-500 mb-4">
-                      Máximo de Huéspedes: {house.maxGuests}
+                      Maximum Guests: {house.maxGuests}
                     </p>
                     <p className="text-gray-700 leading-relaxed text-lg mb-6 border-l-4 border-[var(--color-primary)] pl-4 italic">
                       {house.description}
@@ -1350,7 +1362,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                                 <svg className="w-4 h-4 text-[var(--color-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                                 </svg>
-                                <span className="text-xs font-bold text-[var(--color-primary)] uppercase tracking-wide">Total estancia</span>
+                                <span className="text-xs font-bold text-[var(--color-primary)] uppercase tracking-wide">Total stay</span>
                               </div>
                               <div className="text-2xl font-bold text-[var(--color-primary-dark)]">
                                 <RangePriceLocal houseId={house.id} startDate={startDate} endDate={endDate} />
@@ -1364,7 +1376,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                         <svg className="w-8 h-8 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
-                        <span className="text-sm text-gray-500">Selecciona fechas para ver precios</span>
+                        <span className="text-sm text-gray-500">Select dates to see prices</span>
                       </div>
                     )}
 
@@ -1380,12 +1392,12 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
-                            Procesando
+                            Processing
                           </span>
                         ) : isAvailable ? (
-                          "Reservar Ahora"
+                          "Reserve Now"
                         ) : (
-                          "No Disponible"
+                          "Not Available"
                         )}
                       </button>
 
@@ -1396,7 +1408,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
-                        {openHouseId === house.id ? "Cerrar" : "Ver Calendario"}
+                        {openHouseId === house.id ? "Close" : "View Calendar"}
                       </button>
                     </div>
                   </div>
@@ -1406,7 +1418,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
               {openHouseId === house.id && (
                 <div className="p-6 md:p-8 bg-gradient-to-br from-gray-50 to-white border-t-4 border-[var(--color-primary)]">
                   <div className="max-w-5xl mx-auto">
-                    {/* Tabs mejorados */}
+
                     <div className="flex gap-2 mb-6 bg-white p-2 rounded-xl shadow-sm border border-gray-200">
                       <button
                         onClick={() => {
@@ -1424,7 +1436,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
                         </svg>
                         <div className="text-center sm:text-left">
-                          <div className="leading-tight">Llegada</div>
+                          <div className="leading-tight">Arrival</div>
                           {startDate && (
                             <div className="text-[10px] sm:text-xs font-normal mt-0.5 sm:mt-1 opacity-90 whitespace-nowrap">
                               {formatDateDDMMYYYY(startDate)}
@@ -1449,7 +1461,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                         </svg>
                         <div className="text-center sm:text-left">
-                          <div className="leading-tight">Salida</div>
+                          <div className="leading-tight">Departure</div>
                           {endDate && (
                             <div className="text-[10px] sm:text-xs font-normal mt-0.5 sm:mt-1 opacity-90 whitespace-nowrap">
                               {formatDateDDMMYYYY(endDate)}
@@ -1459,17 +1471,15 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                       </button>
                     </div>
 
-                    {/* Contenido del calendario */}
                     <div className="bg-white rounded-2xl shadow-lg p-6 md:p-8 border border-gray-100">
                       {renderCarouselForHouse(house, calendarModeByHouse[house.id] || "arrival")}
                     </div>
 
-                    {/* Información adicional */}
                     <div className="mt-4 text-center text-sm text-gray-600 bg-blue-50 rounded-lg p-4 border border-blue-100">
                       <svg className="w-5 h-5 inline-block mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
-                      <strong>Consejo:</strong> Navega entre las fechas usando los botones &quot;Anterior&quot; y &quot;Siguiente&quot;. Los días marcados con ✓ están disponibles para reservar.
+                      <strong>Tip:</strong> Navigate dates using &quot;Previous&quot; and &quot;Next&quot; buttons. Days marked with ✓ are available to book.
                     </div>
                   </div>
                 </div>
@@ -1480,4 +1490,5 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       </div>
     </div>
   );
+
 }

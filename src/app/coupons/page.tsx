@@ -243,7 +243,14 @@ export default function CouponPage(): JSX.Element {
                   className="px-6 py-3 rounded-xl font-bold text-lg shadow-lg hover:scale-[1.03] disabled:opacity-50 disabled:cursor-not-allowed transition-transform duration-200"
                   style={{ background: 'var(--color-secondary)', color: 'white' }}
                 >
-                  {loading ? 'Redirecting…' : `Pay now (€${selected})`}
+                  {loading ? (
+                    "Redirecting…"
+                  ) : (
+                    <>
+                      Pay by Card,<br />
+                      AP, GP or Paypal
+                    </>
+                  )}
                 </button>
 
                 <button
@@ -417,7 +424,7 @@ export default function CouponPage(): JSX.Element {
                 disabled={bankSubmitting}
                 style={{ background: 'var(--color-secondary)', color: 'white' }}
               >
-                {bankSubmitting ? "Processing…" : "Pay by Card, AP, GP or Paypal"}
+                {bankSubmitting ? "Processing…" : "Pay with Bank Transfer"}
               </button>
             </div>
           </div>

@@ -692,6 +692,24 @@ export default function CheckoutDetailsClient() {
     }
   };
 
+  // fuera del return (en el mismo archivo, por ejemplo arriba del componente o en un util):
+  function generateTimeOptions(startIso: string, endIso: string, stepMinutes = 15) {
+    const times: string[] = [];
+    const [sh, sm] = startIso.split(":").map(Number);
+    const [eh, em] = endIso.split(":").map(Number);
+    const start = new Date();
+    start.setHours(sh, sm, 0, 0);
+    const end = new Date();
+    end.setHours(eh, em, 0, 0);
+
+    for (let t = new Date(start); t <= end; t = new Date(t.getTime() + stepMinutes * 60_000)) {
+      const hh = String(t.getHours()).padStart(2, "0");
+      const mm = String(t.getMinutes()).padStart(2, "0");
+      times.push(`${hh}:${mm}`);
+    }
+    return times;
+  }
+
   const nights = priceData?.nights ?? 0;
 
   // importe que se intentará cobrar ahora (según el cálculo de descuentos)
@@ -774,8 +792,8 @@ export default function CheckoutDetailsClient() {
                 <input
                   type="email"
                   className={`border rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 ${email2 && !emailsMatch
-                      ? "border-red-500 focus:ring-red-400"
-                      : "border-gray-300 focus:ring-[var(--color-primary)] focus:border-[var(--color-primary)]"
+                    ? "border-red-500 focus:ring-red-400"
+                    : "border-gray-300 focus:ring-[var(--color-primary)] focus:border-[var(--color-primary)]"
                     }`}
                   value={email2}
                   onChange={(e) => setEmail2(e.target.value)}
@@ -802,24 +820,30 @@ export default function CheckoutDetailsClient() {
                 />
               </div>
 
-              {/* Arrival time */}
+              {/* Arrival time (select) */}
               <div className="flex flex-col">
-                <label className="text-sm font-semibold text-gray-700 mb-1">
+                <label className="text-sm font-semibold text-gray-700 mb-1" htmlFor="arrivalTimeSelect">
                   Estimated arrival time
                 </label>
-                <input
-                  type="time"
-                  min="16:00"
-                  max="20:00"
+
+                <select
+                  id="arrivalTimeSelect"
                   className="border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-[var(--color-primary)]"
                   value={arrivalTime}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (value >= "16:00" && value <= "20:00") {
-                      setArrivalTime(value);
-                    }
-                  }}
-                />
+                  onChange={(e) => setArrivalTime(e.target.value)}
+                  aria-describedby="arrivalTimeHelp"
+                >
+                  <option value="">Select time</option>
+                  {generateTimeOptions("16:00", "20:00", 15).map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+
+                <div id="arrivalTimeHelp" className="text-xs text-gray-500 mt-1">
+                  Choose a time between 16:00 and 20:00.
+                </div>
               </div>
             </div>
 
@@ -992,8 +1016,8 @@ export default function CheckoutDetailsClient() {
                           onClick={handleApplyDiscount}
                           disabled={!couponsAllowed}
                           className={`mt-3 inline-block px-4 py-2 rounded-lg text-sm font-semibold ${couponsAllowed
-                              ? "bg-[var(--color-primary)] text-white"
-                              : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                            ? "bg-[var(--color-primary)] text-white"
+                            : "bg-gray-200 text-gray-400 cursor-not-allowed"
                             }`}
                         >
                           Apply discount
@@ -1227,8 +1251,8 @@ export default function CheckoutDetailsClient() {
             disabled={!canSubmit}
             onClick={handleGoToCheckout}
             className={`w-full py-4 rounded-xl font-bold uppercase tracking-wide text-xl shadow-lg transition-all duration-300 ${canSubmit
-                ? "bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] hover:shadow-xl transform hover:-translate-y-0.5"
-                : "bg-gray-300 text-gray-500 cursor-not-allowed"
+              ? "bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] hover:shadow-xl transform hover:-translate-y-0.5"
+              : "bg-gray-300 text-gray-500 cursor-not-allowed"
               }`}
           >
             {canSubmit ? (
@@ -1245,8 +1269,8 @@ export default function CheckoutDetailsClient() {
             disabled={!canPayWithMontonio}
             aria-disabled={!canPayWithMontonio}
             className={`w-full py-4 rounded-xl font-bold uppercase tracking-wide text-sm shadow-lg transition-all duration-300 ${canPayWithMontonio
-                ? "bg-white text-[var(--color-primary)] border border-[var(--color-primary)] hover:shadow-md"
-                : "bg-gray-200 text-gray-400 cursor-not-allowed"
+              ? "bg-white text-[var(--color-primary)] border border-[var(--color-primary)] hover:shadow-md"
+              : "bg-gray-200 text-gray-400 cursor-not-allowed"
               }`}
           >
             Pay with Bank Transfer

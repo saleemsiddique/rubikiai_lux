@@ -569,10 +569,10 @@ export default function CheckoutDetailsClient() {
         extras: {
           jacuzzi: withJacuzzi
             ? {
-                enabled: true,
-                days: jacuzziDays,
-                price: jacuzziFeeShown,
-              }
+              enabled: true,
+              days: jacuzziDays,
+              price: jacuzziFeeShown,
+            }
             : { enabled: false },
         },
 
@@ -647,10 +647,10 @@ export default function CheckoutDetailsClient() {
         extras: {
           jacuzzi: withJacuzzi
             ? {
-                enabled: true,
-                days: jacuzziDays,
-                price: jacuzziFeeShown,
-              }
+              enabled: true,
+              days: jacuzziDays,
+              price: jacuzziFeeShown,
+            }
             : { enabled: false },
         },
         discount: discountPayload || undefined,
@@ -773,11 +773,10 @@ export default function CheckoutDetailsClient() {
                 </label>
                 <input
                   type="email"
-                  className={`border rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 ${
-                    email2 && !emailsMatch
+                  className={`border rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 ${email2 && !emailsMatch
                       ? "border-red-500 focus:ring-red-400"
                       : "border-gray-300 focus:ring-[var(--color-primary)] focus:border-[var(--color-primary)]"
-                  }`}
+                    }`}
                   value={email2}
                   onChange={(e) => setEmail2(e.target.value)}
                   placeholder="Repeat your email"
@@ -992,11 +991,10 @@ export default function CheckoutDetailsClient() {
                         <button
                           onClick={handleApplyDiscount}
                           disabled={!couponsAllowed}
-                          className={`mt-3 inline-block px-4 py-2 rounded-lg text-sm font-semibold ${
-                            couponsAllowed
+                          className={`mt-3 inline-block px-4 py-2 rounded-lg text-sm font-semibold ${couponsAllowed
                               ? "bg-[var(--color-primary)] text-white"
                               : "bg-gray-200 text-gray-400 cursor-not-allowed"
-                          }`}
+                            }`}
                         >
                           Apply discount
                         </button>
@@ -1172,11 +1170,11 @@ export default function CheckoutDetailsClient() {
                         ? formatCurrency(totalAfterDiscount)
                         : priceData
                           ? // fallback if for some reason we don't have totalAfterDiscount
-                            formatCurrency(
-                              withJacuzzi
-                                ? priceData.grandTotal
-                                : priceData.total
-                            )
+                          formatCurrency(
+                            withJacuzzi
+                              ? priceData.grandTotal
+                              : priceData.total
+                          )
                           : "—"}
                 </span>
               </div>
@@ -1206,9 +1204,8 @@ export default function CheckoutDetailsClient() {
                     <div className="mt-2 text-xs text-gray-600 leading-relaxed">
                       {discountData.kind === "percent"
                         ? `A ${discountData.percentDoc?.percent}% discount has been applied to the Reservation fee.`
-                        : `A coupon has been applied (${
-                            discountData.coupon?.code || ""
-                          }).`}{" "}
+                        : `A coupon has been applied (${discountData.coupon?.code || ""
+                        }).`}{" "}
                       You pay now {formatCurrency(payNowAfterDiscount ?? 0)}.
                     </div>
                   )}
@@ -1229,23 +1226,28 @@ export default function CheckoutDetailsClient() {
           <button
             disabled={!canSubmit}
             onClick={handleGoToCheckout}
-            className={`w-full py-4 rounded-xl font-bold uppercase tracking-wide text-sm shadow-lg transition-all duration-300 ${
-              canSubmit
+            className={`w-full py-4 rounded-xl font-bold uppercase tracking-wide text-xl shadow-lg transition-all duration-300 ${canSubmit
                 ? "bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] hover:shadow-xl transform hover:-translate-y-0.5"
                 : "bg-gray-300 text-gray-500 cursor-not-allowed"
-            }`}
+              }`}
           >
-            {canSubmit ? "Pay by Card, AP, GP or Paypal" : "Fill your details"}
+            {canSubmit ? (
+              <>
+                Pay by Card,<br />
+                AP, GP or Paypal
+              </>
+            ) : (
+              "Fill your details"
+            )}
           </button>
           <button
             onClick={handleMontonioCheckout}
             disabled={!canPayWithMontonio}
             aria-disabled={!canPayWithMontonio}
-            className={`w-full py-4 rounded-xl font-bold uppercase tracking-wide text-sm shadow-lg transition-all duration-300 ${
-              canPayWithMontonio
+            className={`w-full py-4 rounded-xl font-bold uppercase tracking-wide text-sm shadow-lg transition-all duration-300 ${canPayWithMontonio
                 ? "bg-white text-[var(--color-primary)] border border-[var(--color-primary)] hover:shadow-md"
                 : "bg-gray-200 text-gray-400 cursor-not-allowed"
-            }`}
+              }`}
           >
             Pay with Bank Transfer
           </button>

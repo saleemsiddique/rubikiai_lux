@@ -730,8 +730,9 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
   }
 
   function MobileCalendarMonthModal({ house }: { house: HouseLight }) {
-    if (!house) return null;
-    const houseId = house.id;
+    // Si house no está definido, crea un valor por defecto vacío
+    const safeHouse = house ?? { id: "unknown" } as HouseLight;
+    const houseId = safeHouse.id;
 
     // Modo Arrival / Departure por casa
     const mode = calendarModeByHouse[houseId] || 'arrival';
@@ -746,6 +747,8 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       if (mode === 'arrival') return localStartDate ? stripTime(new Date(localStartDate)) : today;
       else return localEndDate ? stripTime(new Date(localEndDate)) : localStartDate ? stripTime(new Date(localStartDate)) : today;
     });
+
+    if (!house) return null;
 
     const today = stripTime(new Date());
     const firstDayOfMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1);

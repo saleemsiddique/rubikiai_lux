@@ -751,6 +751,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     if (!house) return null;
 
     const today = stripTime(new Date());
+    const maxMonth = new Date(today.getFullYear() + 1, today.getMonth(), 1); // 1 año por delante
     const firstDayOfMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1);
     const lastDayOfMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 0);
 
@@ -773,7 +774,10 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
 
     // Handlers de mes
     const goPrevMonth = () => setVisibleMonth(addMonths(visibleMonth, -1));
-    const goNextMonth = () => setVisibleMonth(addMonths(visibleMonth, 1));
+    const goNextMonth = () => setVisibleMonth(prev => {
+      const next = addMonths(prev, 1);
+      return next > maxMonth ? prev : next; // No avanzar más de maxMonth
+    });
     const goToday = () => setVisibleMonth(today);
 
     // Cambiar modo entre arrival/departure
@@ -841,7 +845,13 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
             <div className="text-lg font-semibold">
               {visibleMonth.toLocaleString("en-US", { month: "long", year: "numeric" })}
             </div>
-            <button onClick={goNextMonth} className="px-3 py-1 border rounded-full hover:bg-gray-100">›</button>
+            <button
+              onClick={goNextMonth}
+              disabled={addMonths(visibleMonth, 1) > maxMonth}
+              className={`px-3 py-1 border rounded-full hover:bg-gray-100 ${addMonths(visibleMonth, 1) > maxMonth ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              ›
+            </button>
           </div>
 
           {/* Selector Arrival / Departure */}
@@ -867,66 +877,66 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
             ))}
           </div>
 
-          {/* Grid de días */}
-          <div className="grid grid-cols-7 gap-1 flex-1">
-            {days.map((d, idx) => {
-              if (!d) return <div key={idx} className="w-full h-20"></div>;
+          {/* Grid de días con scroll */}
+          <div className="flex-1 overflow-auto max-h-[60vh]"> {/* Ajusta el max-h según necesites */}
+            <div className="grid grid-cols-7 gap-1">
+              {days.map((d, idx) => {
+                if (!d) return <div key={idx} className="w-full h-20"></div>;
 
-              const ds = dateIso(d);
-              const occupiedSetFull = occupiedDatesByHouse[houseId] ?? new Set<string>();
-              const isOccupied = occupiedSetFull.has(ds);
-              const isPrevOccupied = occupiedSetFull.has(dateIso(addDays(d, -1)));
-              const isCheckinStart = isOccupied && !isPrevOccupied;
-              const isCheckoutEnd = !isOccupied && isPrevOccupied;
+                const ds = dateIso(d);
+                const occupiedSetFull = occupiedDatesByHouse[houseId] ?? new Set<string>();
+                const isOccupied = occupiedSetFull.has(ds);
+                const isPrevOccupied = occupiedSetFull.has(dateIso(addDays(d, -1)));
+                const isCheckinStart = isOccupied && !isPrevOccupied;
+                const isCheckoutEnd = !isOccupied && isPrevOccupied;
 
-              // Determinar si está seleccionado
-              const isSelectedArrival = localStartDate && dateIso(localStartDate) === ds;
-              const isSelectedDeparture = localEndDate && dateIso(localEndDate) === ds;
-              const inRange = localStartDate && localEndDate && dateIso(localStartDate) < ds && ds < dateIso(localEndDate);
+                const isSelectedArrival = localStartDate && dateIso(localStartDate) === ds;
+                const isSelectedDeparture = localEndDate && dateIso(localEndDate) === ds;
+                const inRange = localStartDate && localEndDate && dateIso(localStartDate) < ds && ds < dateIso(localEndDate);
 
-              // Determinar si está deshabilitado
-              let disabled = stripTime(d).getTime() < today.getTime();
+                let disabled = stripTime(d).getTime() < today.getTime();
 
-              if (mode === 'arrival') {
-                disabled = disabled || isOccupied;
-              } else { // departure
-                if (localStartDate) {
-                  disabled = disabled || stripTime(d).getTime() <= stripTime(localStartDate).getTime();
+                if (mode === 'arrival') {
+                  disabled = disabled || isOccupied;
+                } else {
+                  if (localStartDate) {
+                    disabled = disabled || stripTime(d).getTime() <= stripTime(localStartDate).getTime();
+                  }
+                  disabled = disabled || (isOccupied && !isCheckinStart) || isCheckoutEnd;
                 }
-                disabled = disabled || (isOccupied && !isCheckinStart) || isCheckoutEnd;
-              }
 
-              // Clases para colores
-              let dayClass = "bg-white";
-              if (isSelectedArrival) dayClass = "bg-[var(--color-primary)] text-white font-bold";
-              else if (isSelectedDeparture) dayClass = "bg-[var(--color-primary)] text-white font-bold";
-              else if (inRange) dayClass = "bg-[var(--color-primary)]/20";
-              else if (isOccupied) dayClass = "bg-gray-200 text-gray-500";
+                let dayClass = "bg-white";
+                if (isSelectedArrival) dayClass = "bg-[var(--color-primary)] text-white font-bold";
+                else if (isSelectedDeparture) dayClass = "bg-[var(--color-primary)] text-white font-bold";
+                else if (inRange) dayClass = "bg-[var(--color-primary)]/20";
+                else if (isOccupied) dayClass = "bg-gray-200 text-gray-500";
 
-              return (
-                <button
-                  key={ds}
-                  disabled={disabled}
-                  onClick={() => {
-                    if (disabled) return;
-                    if (mode === 'arrival') handleSelectArrival(d);
-                    else handleSelectDeparture(d);
-                  }}
-                  className={`w-full h-20 p-1 rounded-lg flex flex-col items-center justify-between border transition-all
-                  ${dayClass} ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:shadow-md'}`}
-                >
-                  <div className="text-sm font-semibold">{d.getDate()}</div>
-                  <div className="text-xs mt-1">
-                    <PriceBadgeLocal houseId={house.id} date={d} />
-                  </div>
-                </button>
-              );
-            })}
+                return (
+                  <button
+                    key={ds}
+                    disabled={disabled}
+                    onClick={() => {
+                      if (disabled) return;
+                      if (mode === 'arrival') handleSelectArrival(d);
+                      else handleSelectDeparture(d);
+                    }}
+                    className={`w-full h-20 p-1 rounded-lg flex flex-col items-center justify-between border transition-all
+          ${dayClass} ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:shadow-md'}`}
+                  >
+                    <div className="text-sm font-semibold">{d.getDate()}</div>
+                    <div className="text-xs mt-1">
+                      <PriceBadgeLocal houseId={house.id} date={d} />
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
+
 
           {/* Footer */}
           <div className="flex justify-between items-center mt-4">
-            <button onClick={goToday} className="px-3 py-1 border rounded-full hover:bg-gray-100">Today</button>
+            <button onClick={goToday} className="px-3 py-1 border rounded-full hover:bg-gray-100">Go to Current Month</button>
             <button onClick={close} className="px-4 py-2 bg-[var(--color-primary)] text-white rounded-full hover:bg-[var(--color-primary-dark)]">
               Done
             </button>
@@ -961,6 +971,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
 
     setStartDate(newStart);
     if (newEnd) setEndDate(newEnd);
+    setOffset(houseId, "arrival", 0);
     // Removed automatic recompute to prevent unwanted movements
     // setTimeout(() => recomputeHousesAvailability(newStart, newEnd ?? endDate), 0);
   };
@@ -1132,12 +1143,11 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     const offset = getOffset(houseId, mode);
     const STEP = 7;
 
-    // Prevent repositioning of the departure calendar after selecting a day
+    // ✅ Control base: evitar recolocaciones erróneas, y mantener referencia estable
     const baseCandidate =
       mode === "departure"
         ? (startDate ? new Date(startDate) : new Date())
         : (startDate ? new Date(startDate) : new Date());
-
 
     const stripTime = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
     const msPerDay = 24 * 60 * 60 * 1000;
@@ -1188,7 +1198,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
 
     return (
       <div className="w-full">
-        {/* Enhanced header with navigation */}
+        {/* Header con navegación */}
         <div className="flex items-center justify-between mb-4 pb-3 border-b-2 border-gray-200">
           <button
             onClick={goPrev}
@@ -1207,11 +1217,9 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
 
           <div className="flex flex-col items-center">
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              {mode === "arrival" ? "Showing dates from" : "Showing dates from"}
+              {mode === "arrival" ? "Arrival dates from" : "Departure dates from"}
             </span>
-            <span className="text-sm font-bold text-gray-700 mt-1">
-              {formatDateDDMMYYYY(finalBase)}
-            </span>
+            <span className="text-sm font-bold text-gray-700 mt-1">{formatDateDDMMYYYY(finalBase)}</span>
           </div>
 
           <button
@@ -1230,7 +1238,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
           </button>
         </div>
 
-        {/* Day grid - Desktop */}
+        {/* Grid de días */}
         <div className="hidden md:grid md:grid-cols-7 gap-3">
           {days.map((d) => {
             const ds = dateIso(d);
@@ -1238,7 +1246,12 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
             const isPrevOccupied = occupiedSet.has(dateIso(addDays(d, -1)));
             const isCheckinStart = isOccupied && !isPrevOccupied;
             const isCheckoutEnd = !isOccupied && isPrevOccupied;
-            const isCheckoutStart = false; // no se usa pero mantiene simetría
+
+            // 🔹 Marcadores claros
+            const isArrivalMarker =
+              mode === "departure" && startDate && stripTime(d).getTime() === stripTime(startDate).getTime();
+            const isDepartureMarker =
+              mode === "arrival" && endDate && stripTime(d).getTime() === stripTime(endDate).getTime();
 
             let disabled = false;
             let availabilityStatus = "";
@@ -1259,9 +1272,6 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                   availabilityStatus = "Invalid";
                 }
               }
-
-              // Antes solo bloqueabas si isOccupied && !isCheckinStart.
-              // Ahora además bloqueamos si el día es checkout (día después de una noche ocupada).
               if ((isOccupied && !isCheckinStart) || isCheckoutEnd) {
                 disabled = true;
                 availabilityStatus = "Occupied";
@@ -1269,13 +1279,8 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
             }
 
             if (!disabled) {
-              if (mode === "arrival") {
-                availabilityStatus = "✓ Check-in";
-              } else if (isCheckinStart) {
-                availabilityStatus = "✓ Check-out";
-              } else {
-                availabilityStatus = "✓ Check-out";
-              }
+              if (mode === "arrival") availabilityStatus = "✓ Check-in";
+              else availabilityStatus = "✓ Check-out";
             }
 
             const selectedArrival = startDate && dateIso(startDate) === ds;
@@ -1286,11 +1291,21 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
               (mode === "arrival" && isOccupied) ||
               (mode === "departure" && ((isOccupied && !isCheckinStart) || isCheckoutEnd));
 
+            // 🎨 Colores base
             let bgClass = "bg-white border-2 border-gray-200";
             let textClass = "text-gray-700";
             let statusClass = "text-gray-500";
 
-            if (paintAsOccupied || (disabled && stripTime(d).getTime() >= today.getTime())) {
+            // 🔺 PRIORIDAD VISUAL: ArrivalMarker y DepartureMarker antes de cualquier otra cosa
+            if (isArrivalMarker) {
+              bgClass = "bg-yellow-400 border-2 border-yellow-500";
+              textClass = "text-white font-extrabold";
+              statusClass = "text-white";
+            } else if (isDepartureMarker) {
+              bgClass = "bg-yellow-400 border-2 border-yellow-500";
+              textClass = "text-white font-extrabold";
+              statusClass = "text-white";
+            } else if (paintAsOccupied || (disabled && stripTime(d).getTime() >= today.getTime())) {
               bgClass = "bg-red-50 border-2 border-red-300";
               textClass = "text-red-600";
               statusClass = "text-red-500";
@@ -1320,39 +1335,49 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                   if (mode === "arrival") handleSelectArrival(houseId, d);
                   else handleSelectDeparture(houseId, d);
                 }}
-                className={`${bgClass} ${textClass} p-4 rounded-xl transition-all duration-200 ${!disabled ? "transform hover:scale-105 cursor-pointer" : "cursor-not-allowed opacity-60"
+                className={`${bgClass} ${textClass} p-4 rounded-xl relative transition-all duration-200 ${!disabled ? "transform hover:scale-105 cursor-pointer" : "cursor-not-allowed opacity-60"
                   } flex flex-col items-center justify-between min-h-[140px]`}
               >
-                {/* Day of the week */}
+                {/* Día de la semana */}
                 <div className="text-xs font-bold uppercase tracking-wider opacity-75">
-                  {d.toLocaleString('en-US', { weekday: 'short' })}
+                  {d.toLocaleString("en-US", { weekday: "short" })}
                 </div>
 
-                {/* Date */}
-                <div className="text-2xl font-bold my-2">
-                  {d.getDate()}
-                </div>
+                {/* Día */}
+                <div className="text-2xl font-bold my-2">{d.getDate()}</div>
 
-                {/* Month */}
+                {/* Mes */}
                 <div className="text-xs font-medium opacity-75 mb-2">
-                  {d.toLocaleString('en-US', { month: 'short' })}
+                  {d.toLocaleString("en-US", { month: "short" })}
                 </div>
 
-                {/* Price */}
+                {/* Precio */}
                 <div className="mb-2">
                   <PriceBadgeLocal houseId={house.id} date={d} />
                 </div>
 
-                {/* Availability status */}
+                {/* Estado */}
                 <div className={`text-xs font-bold ${statusClass} text-center leading-tight`}>
                   {availabilityStatus}
                 </div>
+
+                {/* 🔹 Etiquetas */}
+                {isArrivalMarker && (
+                  <span className="absolute bottom-1 text-[8px] font-bold text-white bg-yellow-600 px-1 rounded">
+                    Arrival
+                  </span>
+                )}
+                {isDepartureMarker && (
+                  <span className="absolute bottom-1 text-[8px] font-bold text-white bg-yellow-600 px-1 rounded">
+                    Departure
+                  </span>
+                )}
               </button>
             );
           })}
         </div>
 
-        {/* Legend */}
+        {/* Leyenda */}
         <div className="mt-6 pt-4 border-t border-gray-200">
           <div className="flex flex-wrap gap-4 justify-center text-xs">
             <div className="flex items-center gap-2">
@@ -1360,8 +1385,12 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
               <span className="text-gray-600">Selected</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-white border-2 border-gray-300 rounded"></div>
-              <span className="text-gray-600">Available</span>
+              <div className="w-4 h-4 bg-blue-100 border-2 border-blue-400 rounded"></div>
+              <span className="text-gray-600">Departure marker</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-yellow-100 border-2 border-yellow-400 rounded"></div>
+              <span className="text-gray-600">Arrival marker</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-red-50 border-2 border-red-300 rounded"></div>
@@ -1372,6 +1401,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       </div>
     );
   };
+
 
   /* ---------------- Render ---------------- */
   return (

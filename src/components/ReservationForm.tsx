@@ -449,7 +449,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
 
       let results = apiResults.slice();
 
-      if (effectiveGuests > 4 && effectiveType !== "ezero namelis") {
+      /*if (effectiveGuests > 4 && effectiveType !== "ezero namelis") {
         const duplexes = apiResults.filter((r) => r.type === "dupleksas");
         const combos: HouseLight[] = [];
         for (let i = 0; i < duplexes.length; i++) {
@@ -469,6 +469,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
         }
         results = [...results, ...combos];
       }
+      */
 
       results = results.filter((h) => (h.maxGuests ?? 0) >= effectiveGuests);
 
@@ -574,7 +575,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
 
     let results = apiResults.slice();
 
-    if (guestsCount > 4 && effectiveType !== "ezero namelis") {
+    /*if (guestsCount > 4 && effectiveType !== "ezero namelis") {
       const duplexes = apiResults.filter((r) => r.type === "dupleksas");
       const combos: HouseLight[] = [];
       for (let i = 0; i < duplexes.length; i++) {
@@ -594,6 +595,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       }
       results = [...results, ...combos];
     }
+    */
 
     results = results.filter((h) => (h.maxGuests ?? 0) >= guestsCount);
 
@@ -1501,7 +1503,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
 
       <div className="mt-3 space-y-5">
         {showResults && houses.length === 0 && (
-          <div className="text-center text-gray-600">No results. Select dates and click &quot;Check availability&quot;.</div>
+          <div className="text-center text-gray-600">No results. Select dates or change amount of guests and click &quot;Check availability&quot;.</div>
         )}
 
         {houses.map((house) => {

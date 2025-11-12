@@ -676,7 +676,7 @@ export async function POST(req: Request) {
 
       // ✅ Enviar email recordatorio si check-in <= 7 días
       try {
-        const customerEmail = stripeCheckoutEmail || customerEmailFromMeta || null;
+        const customerEmail = customerEmailFromMeta || stripeCheckoutEmail || null; // <- añadir stripeCheckoutEmail en Stripe
         if (customerEmail && checkIn) {
           const now = new Date();
           const checkInDate = new Date(checkIn);
@@ -684,37 +684,59 @@ export async function POST(req: Request) {
             (checkInDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
           );
 
+          console.log(`📅 Check-in: ${checkIn}, Días hasta check-in: ${daysUntilCheckIn}`);
+
           if (daysUntilCheckIn <= 7 && daysUntilCheckIn >= 0) {
+            console.log(`📧 Enviando recordatorio (${daysUntilCheckIn} días)`);
+
             // Determinar qué versión del email usar según houseId
             const firstHouseId = houseIds.length > 0 ? houseIds[0] : "";
-            const reminderVariant =
-              firstHouseId === "L0TeFf2LmrWGAaAyS8NY" ? "A" : "B";
+            const reminderVariant = firstHouseId === "L0TeFf2LmrWGAaAyS8NY" ? "A" : "B";
 
-            await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
+            const reminderPayload = {
+              type: "booking_reminder",
+              to: customerEmail,
+              lang: "en",
+              data: {
+                guestName: customerNameFromMeta || customerEmail.split("@")[0],
+                houseName: houseIds.length === 1 ? houseIds[0] : (houseIds.join(", ") || "Rubikiai Lux"),
+                checkIn,
+                checkOut: checkOut || undefined,
+                nGuests: guestsNum || 2,
+                variant: reminderVariant,
+                notes: comment || undefined,
+              },
+            };
+
+            console.log("📤 Payload del reminder:", JSON.stringify(reminderPayload, null, 2));
+
+            const reminderRes = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
               method: "POST",
               headers: { "content-type": "application/json" },
-              body: JSON.stringify({
-                type: "booking_reminder",
-                to: customerEmail,
-                lang: "en",
-                data: {
-                  guestName: customerNameFromMeta || customerEmail.split("@")[0],
-                  houseName:
-                    rawValue || houseIds.join(", ") || "Rubikiai Lux",
-                  checkIn,
-                  checkOut,
-                  nGuests: guestsNum,
-                  variant: reminderVariant,
-                  notes: comment || undefined,
-                },
-              }),
-            }).catch((e) => {
-              console.error("Booking reminder email error:", e);
+              body: JSON.stringify(reminderPayload),
             });
+
+            if (reminderRes.ok) {
+              console.log("✅ Email recordatorio enviado");
+              await resRef.update({
+                reminderEmailSentAt: admin.firestore.Timestamp.now(),
+              });
+            } else {
+              const errorText = await reminderRes.text().catch(() => "");
+              console.error("❌ Error enviando recordatorio:", reminderRes.status, errorText);
+              await resRef.update({
+                reminderEmailErrorAt: admin.firestore.Timestamp.now(),
+                reminderEmailError: `status_${reminderRes.status}: ${errorText}`,
+              });
+            }
+          } else {
+            console.log(`ℹ️ Check-in en ${daysUntilCheckIn} días - no enviar recordatorio`);
           }
+        } else {
+          console.log("⚠️ No hay email o checkIn para enviar recordatorio");
         }
       } catch (e) {
-        console.error("Error checking/sending booking reminder:", e);
+        console.error("❌ Error en booking reminder:", e);
       }
 
       return NextResponse.json({ received: true });

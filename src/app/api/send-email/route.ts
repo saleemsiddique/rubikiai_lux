@@ -279,10 +279,19 @@ export async function POST(req: Request) {
         break;
       }
       case "booking_reminder": {
-        const { guestName, houseName, checkIn, checkOut, nGuests, variant, notes } =
-          body.data;
+        const {
+          guestName,
+          houseName,
+          checkIn,
+          checkOut,
+          nGuests = 2,
+          variant,
+          notes
+        } = body.data;
 
         subject = `Important information for your stay at ${houseName}`;
+
+        console.log("📧 Generando email reminder variant:", variant);
 
         // Importar las funciones de BookingReminderEmails
         const {
@@ -300,10 +309,9 @@ export async function POST(req: Request) {
           logoCid,
         };
 
-        html =
-          variant === "A"
-            ? BookingReminderEmailHtml_A(emailParams)
-            : BookingReminderEmailHtml_B(emailParams);
+        html = variant === "A"
+          ? BookingReminderEmailHtml_A(emailParams)
+          : BookingReminderEmailHtml_B(emailParams);
 
         break;
       }

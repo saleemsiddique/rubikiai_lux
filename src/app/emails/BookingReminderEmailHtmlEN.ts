@@ -7,6 +7,12 @@ export type Activity = {
   description?: string;
 };
 
+const PROPERTY_NAME_MAP: Record<string, string> = {
+  "L0TeFf2LmrWGAaAyS8NY": "Ezero Namelis",
+  "PZwbfMYlSXj61uYYJutg": "Salia-Elniu-Aptvaro",
+  "oDzv9346CdaAsok162sX": "Salia-Elniu-Panorama",
+};
+
 export type BookingReminderEmailParams = {
   guestName: string;
   houseName: string;
@@ -18,6 +24,7 @@ export type BookingReminderEmailParams = {
   logoCid?: string; // default 'rubikiai-logo'
   houseImageCid?: string; // optional inline image for the house
 };
+
 
 function baseHeader(
   {
@@ -34,6 +41,7 @@ function baseHeader(
   const checkInFmt = dayjs(checkIn).format("dddd, MMMM D, YYYY");
   const checkOutFmt = checkOut ? dayjs(checkOut).format("dddd, MMMM D, YYYY") : "";
   const shortDate = dayjs(checkIn).format("DD/MM/YYYY");
+  const displayName = PROPERTY_NAME_MAP[houseName] || houseName;
 
   return `
   <div style="margin:0;padding:0;background:#f6f3ef;">
@@ -73,7 +81,7 @@ function baseHeader(
             <tr>
               <td style="padding:14px 22px 6px;">
                 <div style="font:500 15px Inter,Arial,sans-serif;color:#334155;line-height:1.6;">
-                  We're excited to host you at <strong>${houseName}</strong> on <strong>${checkInFmt}</strong>${checkOut ? ` until ${checkOutFmt}` : ""}. Please review the house information and rules below.
+                  We're excited to host you at <strong>${displayName}</strong> on <strong>${checkInFmt}</strong>${checkOut ? ` until ${checkOutFmt}` : ""}. Please review the house information and rules below.
                 </div>
               </td>
             </tr>

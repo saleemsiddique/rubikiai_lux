@@ -627,7 +627,7 @@ export async function POST(req: Request) {
             const unitAmount = Number.isFinite(Number(data.unitAmount))
               ? Number(data.unitAmount)
               : Number(metadataCandidate?.unitAmount || payload?.amount || 0) ||
-                0;
+              0;
             // Preferir el buyerEmail ya almacenado en el doc si existe, si no usar el que venía en payload/metadata
             const effectiveBuyerEmail = data.buyerEmail || buyerEmail || null;
             tx.update(orderRef, {
@@ -753,54 +753,54 @@ export async function POST(req: Request) {
         }
 
         // --- NOTIFY OWNER (USING OWNER_EMAIL ENV) ---
-try {
-  if (OWNER_EMAIL) {
-    await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        type: "owner_coupon_notification",
-        to: OWNER_EMAIL,
-        data: {
-          orderId: orderId,
-          buyerEmail: buyerEmailFinal,
-          unitAmount,
-          quantity,
-          currency: (
-            metadataCandidate?.currency ||
-            payload?.currency ||
-            "EUR"
-          ).toUpperCase(),
-          totalAmount: (unitAmount || 0) * (quantity || 0),
-          codes: createdCodes,
-          expiresAt: expiresAt.toDate().toISOString().slice(0, 10),
-          purchasedAt: purchasedAt.toDate().toISOString(),
-          paymentMethod: payload?.paymentMethod || payload?.payment_type || null,
-        },
-      }),
-    });
+        try {
+          if (OWNER_EMAIL) {
+            await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                type: "owner_coupon_notification",
+                to: OWNER_EMAIL,
+                data: {
+                  orderId: orderId,
+                  buyerEmail: buyerEmailFinal,
+                  unitAmount,
+                  quantity,
+                  currency: (
+                    metadataCandidate?.currency ||
+                    payload?.currency ||
+                    "EUR"
+                  ).toUpperCase(),
+                  totalAmount: (unitAmount || 0) * (quantity || 0),
+                  codes: createdCodes,
+                  expiresAt: expiresAt.toDate().toISOString().slice(0, 10),
+                  purchasedAt: purchasedAt.toDate().toISOString(),
+                  paymentMethod: payload?.paymentMethod || payload?.payment_type || null,
+                },
+              }),
+            });
 
-    // marca ownerNotified en el order doc
-    try {
-      await db.collection("coupon_orders").doc(orderId).update({
-        ownerNotifiedAt: admin.firestore.Timestamp.now(),
-        ownerNotifiedEmail: OWNER_EMAIL,
-      });
-    } catch (e) {
-      console.warn("Could not mark coupon_orders ownerNotified:", e);
-    }
-  } else {
-    console.log("OWNER_EMAIL not set — skipping owner coupon notification.");
-  }
-} catch (e) {
-  console.error("owner coupon email failed:", e);
-  try {
-    await db.collection("coupon_orders").doc(orderId).update({
-      ownerEmailNotifyErrorAt: admin.firestore.Timestamp.now(),
-      ownerEmailNotifyError: String((e as any)?.message || e),
-    });
-  } catch {}
-}
+            // marca ownerNotified en el order doc
+            try {
+              await db.collection("coupon_orders").doc(orderId).update({
+                ownerNotifiedAt: admin.firestore.Timestamp.now(),
+                ownerNotifiedEmail: OWNER_EMAIL,
+              });
+            } catch (e) {
+              console.warn("Could not mark coupon_orders ownerNotified:", e);
+            }
+          } else {
+            console.log("OWNER_EMAIL not set — skipping owner coupon notification.");
+          }
+        } catch (e) {
+          console.error("owner coupon email failed:", e);
+          try {
+            await db.collection("coupon_orders").doc(orderId).update({
+              ownerEmailNotifyErrorAt: admin.firestore.Timestamp.now(),
+              ownerEmailNotifyError: String((e as any)?.message || e),
+            });
+          } catch { }
+        }
 
 
         return NextResponse.json({ received: true });
@@ -960,7 +960,7 @@ try {
             baseReservationPayload.discountedFirst = Math.max(
               0,
               (baseReservationPayload.discountedFirst || discountedFirst) -
-                applied
+              applied
             );
             baseReservationPayload.discountedGrandTotal = Math.max(
               0,
@@ -996,7 +996,7 @@ try {
             baseReservationPayload.discountedFirst = Math.max(
               0,
               (baseReservationPayload.discountedFirst || discountedFirst) -
-                applied
+              applied
             );
             baseReservationPayload.discountedGrandTotal = Math.max(
               0,
@@ -1130,77 +1130,136 @@ try {
       // --- FIN BLOQUE ---
 
       // --- NOTIFY OWNER (USING OWNER_EMAIL ENV) ---
-try {
-  if (OWNER_EMAIL) {
-    const paidNow = Number(meta?.payNow ?? discountedFirst ?? 0);
-    const totalStayAmount = Number(meta?.totalStay ?? discountedGrandTotal ?? 0);
-    const payAtArrivalAmount = Number(
-      meta?.payAtArrival ?? Math.max(0, totalStayAmount - paidNow)
-    );
+      try {
+        if (OWNER_EMAIL) {
+          const paidNow = Number(meta?.payNow ?? discountedFirst ?? 0);
+          const totalStayAmount = Number(meta?.totalStay ?? discountedGrandTotal ?? 0);
+          const payAtArrivalAmount = Number(
+            meta?.payAtArrival ?? Math.max(0, totalStayAmount - paidNow)
+          );
 
-    const discountAppliedValue =
-      discountKind === "coupon"
-        ? Number(couponAmountApplied || 0)
-        : discountKind === "percent"
-        ? Number(meta?.percentAmountApplied || 0)
-        : 0;
+          const discountAppliedValue =
+            discountKind === "coupon"
+              ? Number(couponAmountApplied || 0)
+              : discountKind === "percent"
+                ? Number(meta?.percentAmountApplied || 0)
+                : 0;
 
-    await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        type: "owner_reservation_notification",
-        to: OWNER_EMAIL,
-        data: {
-          reservationId,
-          guestName: customerNameFromMeta || customerEmailFromMeta || "Guest",
-          guestEmail: customerEmailFromMeta || null,
-          guestPhone: customerPhoneFromMeta || null,
-          bookingDate: new Date().toISOString().slice(0, 19),
-          checkIn,
-          checkOut,
-          nights,
-          roomType:
-            (houseIds.length === 1
-              ? houseIds[0]
-              : meta?.roomType || houseIds.join(", ")) || "Accommodation",
-          guests: guestsNum,
-          paidNow,
-          payAtArrival: payAtArrivalAmount,
-          totalStay: totalStayAmount,
-          discountApplied: discountAppliedValue,
-          currency,
-          propertyName: meta?.rawValue || (houseIds.length === 1 ? houseIds[0] : undefined),
-          propertyId: houseIds.length === 1 ? houseIds[0] : undefined,
-          paymentMethod: montonioOrderUuid ? "montonio" : null,
-          merchantReference: uuid || merchantReference || null,
-          notes: meta?.comment || "",
-        },
-      }),
-    });
+          await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              type: "owner_reservation_notification",
+              to: OWNER_EMAIL,
+              data: {
+                reservationId,
+                guestName: customerNameFromMeta || customerEmailFromMeta || "Guest",
+                guestEmail: customerEmailFromMeta || null,
+                guestPhone: customerPhoneFromMeta || null,
+                bookingDate: new Date().toISOString().slice(0, 19),
+                checkIn,
+                checkOut,
+                nights,
+                roomType:
+                  (houseIds.length === 1
+                    ? houseIds[0]
+                    : meta?.roomType || houseIds.join(", ")) || "Accommodation",
+                guests: guestsNum,
+                paidNow,
+                payAtArrival: payAtArrivalAmount,
+                totalStay: totalStayAmount,
+                discountApplied: discountAppliedValue,
+                currency,
+                propertyName: meta?.rawValue || (houseIds.length === 1 ? houseIds[0] : undefined),
+                propertyId: houseIds.length === 1 ? houseIds[0] : undefined,
+                paymentMethod: montonioOrderUuid ? "montonio" : null,
+                merchantReference: uuid || merchantReference || null,
+                notes: meta?.comment || "",
+              },
+            }),
+          });
 
-    // marca ownerNotified en la reserva
-    try {
-      await db.collection("reservations").doc(reservationId).update({
-        ownerNotifiedAt: admin.firestore.Timestamp.now(),
-        ownerNotifiedEmail: OWNER_EMAIL,
-      });
-    } catch (e) {
-      console.warn("Could not mark reservation ownerNotified:", e);
-    }
-  } else {
-    console.log("OWNER_EMAIL not set — skipping owner reservation notification.");
-  }
-} catch (e) {
-  console.error("owner reservation notification failed:", e);
-  try {
-    await db.collection("reservations").doc(reservationId).update({
-      ownerNotifyErrorAt: admin.firestore.Timestamp.now(),
-      ownerNotifyError: String((e as any)?.message || e),
-    });
-  } catch {}
-}
+          // marca ownerNotified en la reserva
+          try {
+            await db.collection("reservations").doc(reservationId).update({
+              ownerNotifiedAt: admin.firestore.Timestamp.now(),
+              ownerNotifiedEmail: OWNER_EMAIL,
+            });
+          } catch (e) {
+            console.warn("Could not mark reservation ownerNotified:", e);
+          }
+        } else {
+          console.log("OWNER_EMAIL not set — skipping owner reservation notification.");
+        }
+      } catch (e) {
+        console.error("owner reservation notification failed:", e);
+        try {
+          await db.collection("reservations").doc(reservationId).update({
+            ownerNotifyErrorAt: admin.firestore.Timestamp.now(),
+            ownerNotifyError: String((e as any)?.message || e),
+          });
+        } catch { }
+      }
 
+      // --- FIN BLOQUE ---
+
+      // ✅ Enviar email recordatorio si check-in <= 7 días (Montonio)
+      try {
+        const customerEmail = customerEmailFromMeta || null;
+        if (customerEmail && checkIn) {
+          const now = new Date();
+          const checkInDate = new Date(checkIn);
+          const daysUntilCheckIn = Math.ceil(
+            (checkInDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+          );
+
+          if (daysUntilCheckIn <= 7 && daysUntilCheckIn >= 0) {
+            console.log(`📧 Check-in en ${daysUntilCheckIn} días - enviando recordatorio`);
+
+            // Determinar qué versión del email usar según houseId
+            const firstHouseId = houseIds.length > 0 ? houseIds[0] : "";
+            const reminderVariant =
+              firstHouseId === "L0TeFf2LmrWGAaAyS8NY" ? "A" : "B";
+
+            await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                type: "booking_reminder",
+                to: customerEmail,
+                lang: "en",
+                data: {
+                  guestName: customerNameFromMeta || customerEmail.split("@")[0],
+                  houseName:
+                    meta?.rawValue || houseIds.join(", ") || "Rubikiai Lux",
+                  checkIn,
+                  checkOut,
+                  nGuests: guestsNum,
+                  variant: reminderVariant,
+                  notes: comment || undefined,
+                },
+              }),
+            })
+              .then(async (res) => {
+                if (res.ok) {
+                  console.log("✅ Email recordatorio enviado");
+                  await db.collection("reservations").doc(reservationId).update({
+                    reminderEmailSentAt: admin.firestore.Timestamp.now(),
+                  });
+                } else {
+                  console.error("❌ Error enviando recordatorio:", res.status);
+                }
+              })
+              .catch((e) => {
+                console.error("❌ Booking reminder email error:", e);
+              });
+          } else {
+            console.log(`ℹ️ Check-in en ${daysUntilCheckIn} días - no enviar recordatorio aún`);
+          }
+        }
+      } catch (e) {
+        console.error("Error checking/sending booking reminder (Montonio):", e);
+      }
 
       console.log("✅ Reserva procesada exitosamente:", reservationId);
       return NextResponse.json({ received: true });

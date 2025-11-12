@@ -622,6 +622,9 @@ export async function POST(req: Request) {
                 emailSendError: String(e?.message ?? e),
               });
             });
+
+          // ⏱️ ESPERAR 600ms antes del siguiente email
+          await new Promise(resolve => setTimeout(resolve, 600));
         }
       } catch (e) {
         console.error(
@@ -670,6 +673,8 @@ export async function POST(req: Request) {
             },
           }),
         });
+        // ⏱️ ESPERAR 600ms antes del siguiente email
+        await new Promise(resolve => setTimeout(resolve, 600));
       } catch (e) {
         console.error("owner reservation email failed:", e);
       }

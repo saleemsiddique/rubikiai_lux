@@ -1116,6 +1116,8 @@ export async function POST(req: Request) {
                   emailSendError: String(e?.message ?? e),
                 });
             });
+          // ⏱️ ESPERAR 600ms antes del siguiente email
+          await new Promise(resolve => setTimeout(resolve, 600));
         } else {
           console.log(
             "No customer email available — skipping reservation confirmation email."
@@ -1188,6 +1190,8 @@ export async function POST(req: Request) {
           } catch (e) {
             console.warn("Could not mark reservation ownerNotified:", e);
           }
+          // ⏱️ ESPERAR 600ms antes del siguiente email
+          await new Promise(resolve => setTimeout(resolve, 600));
         } else {
           console.log("OWNER_EMAIL not set — skipping owner reservation notification.");
         }

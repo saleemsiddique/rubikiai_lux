@@ -674,6 +674,49 @@ export async function POST(req: Request) {
         console.error("owner reservation email failed:", e);
       }
 
+      // ✅ Enviar email recordatorio si check-in <= 7 días
+      try {
+        const customerEmail = stripeCheckoutEmail || customerEmailFromMeta || null;
+        if (customerEmail && checkIn) {
+          const now = new Date();
+          const checkInDate = new Date(checkIn);
+          const daysUntilCheckIn = Math.ceil(
+            (checkInDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+          );
+
+          if (daysUntilCheckIn <= 7 && daysUntilCheckIn >= 0) {
+            // Determinar qué versión del email usar según houseId
+            const firstHouseId = houseIds.length > 0 ? houseIds[0] : "";
+            const reminderVariant =
+              firstHouseId === "L0TeFf2LmrWGAaAyS8NY" ? "A" : "B";
+
+            await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                type: "booking_reminder",
+                to: customerEmail,
+                lang: "en",
+                data: {
+                  guestName: customerNameFromMeta || customerEmail.split("@")[0],
+                  houseName:
+                    rawValue || houseIds.join(", ") || "Rubikiai Lux",
+                  checkIn,
+                  checkOut,
+                  nGuests: guestsNum,
+                  variant: reminderVariant,
+                  notes: comment || undefined,
+                },
+              }),
+            }).catch((e) => {
+              console.error("Booking reminder email error:", e);
+            });
+          }
+        }
+      } catch (e) {
+        console.error("Error checking/sending booking reminder:", e);
+      }
+
       return NextResponse.json({ received: true });
     }
 

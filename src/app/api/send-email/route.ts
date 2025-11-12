@@ -17,104 +17,118 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 // Tipos soportados:
 export type SendEmailBody =
   | {
-      type: "coupon_purchase";
-      to: string | string[];
-      data: {
-        unitAmount: number;
-        quantity: number;
-        currency?: string;
-        codes: { code: string; remaining: number }[];
-        expiresAt: string; // ISO YYYY-MM-DD
-        buyerEmail?: string | null;
-      };
-      lang?: "en" | "es";
-      fromName?: string;
-    }
-  | {
-      type: "discount_code";
-      to: string | string[];
-      data: {
-        code: string;
-        percent: number;
-        expiresAt: string; // YYYY-MM-DD
-      };
-      lang?: "en" | "es";
-      fromName?: string;
-    }
-  | {
-      type: "reservation_confirmation";
-      to: string | string[];
-      data: {
-        reservationId: string;
-        guestName: string;
-        bookingDate: string;
-        checkIn: string;
-        checkOut: string;
-        nights: number;
-        roomType: string;
-        guests: number;
-        paidNow: number; // lo que se pagó ahora
-        payAtArrival: number; // lo que queda por pagar
-        totalStay: number; // total de la estancia
-        discountApplied?: number; // lo descontado del cupón/porcentaje
-        currency?: string;
-        hotelName?: string;
-        hotelContactEmail?: string;
-        hotelContactPhone?: string;
-      };
-      lang?: "en" | "es";
-      fromName?: string;
-    }
-  | {
-      type: "owner_reservation_notification";
-      to: string | string[];
-      data: {
-        reservationId: string;
-        guestName?: string;
-        guestEmail?: string | null;
-        guestPhone?: string | null;
-        bookingDate?: string;
-        checkIn: string;
-        checkOut: string;
-        nights: number;
-        roomType?: string;
-        guests: number;
-        paidNow: number;
-        payAtArrival: number;
-        totalStay: number;
-        discountApplied?: number;
-        currency?: string;
-        propertyName?: string;
-        propertyId?: string;
-        propertyAddress?: string;
-        ownerEmail?: string | null;
-        ownerPhone?: string | null;
-        paymentMethod?: string | null;
-        merchantReference?: string | null;
-        notes?: string | null;
-      };
-      lang?: "en" | "es";
-      fromName?: string;
-    }
-  | {
-      type: "owner_coupon_notification";
-      to: string | string[];
-      data: {
-        orderId?: string;
-        buyerEmail?: string | null;
-        unitAmount: number;
-        quantity: number;
-        currency?: string;
-        totalAmount?: number;
-        codes: { code: string; remaining: number }[];
-        expiresAt?: string;
-        purchasedAt?: string;
-        paymentMethod?: string | null;
-        ownerEmail?: string | null;
-      };
-      lang?: "en" | "es";
-      fromName?: string;
+    type: "coupon_purchase";
+    to: string | string[];
+    data: {
+      unitAmount: number;
+      quantity: number;
+      currency?: string;
+      codes: { code: string; remaining: number }[];
+      expiresAt: string; // ISO YYYY-MM-DD
+      buyerEmail?: string | null;
     };
+    lang?: "en" | "es";
+    fromName?: string;
+  }
+  | {
+    type: "discount_code";
+    to: string | string[];
+    data: {
+      code: string;
+      percent: number;
+      expiresAt: string; // YYYY-MM-DD
+    };
+    lang?: "en" | "es";
+    fromName?: string;
+  }
+  | {
+    type: "reservation_confirmation";
+    to: string | string[];
+    data: {
+      reservationId: string;
+      guestName: string;
+      bookingDate: string;
+      checkIn: string;
+      checkOut: string;
+      nights: number;
+      roomType: string;
+      guests: number;
+      paidNow: number; // lo que se pagó ahora
+      payAtArrival: number; // lo que queda por pagar
+      totalStay: number; // total de la estancia
+      discountApplied?: number; // lo descontado del cupón/porcentaje
+      currency?: string;
+      hotelName?: string;
+      hotelContactEmail?: string;
+      hotelContactPhone?: string;
+    };
+    lang?: "en" | "es";
+    fromName?: string;
+  }
+  | {
+    type: "owner_reservation_notification";
+    to: string | string[];
+    data: {
+      reservationId: string;
+      guestName?: string;
+      guestEmail?: string | null;
+      guestPhone?: string | null;
+      bookingDate?: string;
+      checkIn: string;
+      checkOut: string;
+      nights: number;
+      roomType?: string;
+      guests: number;
+      paidNow: number;
+      payAtArrival: number;
+      totalStay: number;
+      discountApplied?: number;
+      currency?: string;
+      propertyName?: string;
+      propertyId?: string;
+      propertyAddress?: string;
+      ownerEmail?: string | null;
+      ownerPhone?: string | null;
+      paymentMethod?: string | null;
+      merchantReference?: string | null;
+      notes?: string | null;
+    };
+    lang?: "en" | "es";
+    fromName?: string;
+  }
+  | {
+    type: "owner_coupon_notification";
+    to: string | string[];
+    data: {
+      orderId?: string;
+      buyerEmail?: string | null;
+      unitAmount: number;
+      quantity: number;
+      currency?: string;
+      totalAmount?: number;
+      codes: { code: string; remaining: number }[];
+      expiresAt?: string;
+      purchasedAt?: string;
+      paymentMethod?: string | null;
+      ownerEmail?: string | null;
+    };
+    lang?: "en" | "es";
+    fromName?: string;
+  } | {
+    type: "booking_reminder";
+    to: string | string[];
+    data: {
+      guestName: string;
+      houseName: string;
+      checkIn: string;
+      checkOut?: string;
+      nGuests?: number;
+      variant: "A" | "B"; // A = house L0TeFf2LmrWGAaAyS8NY, B = otros
+      notes?: string;
+    };
+    lang?: "en" | "es";
+    fromName?: string;
+  }
 
 export async function POST(req: Request) {
   try {
@@ -134,11 +148,11 @@ export async function POST(req: Request) {
 
     let logoAttachment:
       | {
-          filename: string;
-          content: string;
-          contentType?: string;
-          contentId?: string;
-        }
+        filename: string;
+        content: string;
+        contentType?: string;
+        contentId?: string;
+      }
       | undefined;
 
     try {
@@ -262,6 +276,35 @@ export async function POST(req: Request) {
           ...d,
           logoCid,
         } as any);
+        break;
+      }
+      case "booking_reminder": {
+        const { guestName, houseName, checkIn, checkOut, nGuests, variant, notes } =
+          body.data;
+
+        subject = `Important information for your stay at ${houseName}`;
+
+        // Importar las funciones de BookingReminderEmails
+        const {
+          BookingReminderEmailHtml_A,
+          BookingReminderEmailHtml_B,
+        } = await import("@/app/emails/BookingReminderEmailHtmlEN");
+
+        const emailParams = {
+          guestName,
+          houseName,
+          checkIn,
+          checkOut,
+          nGuests,
+          notes,
+          logoCid,
+        };
+
+        html =
+          variant === "A"
+            ? BookingReminderEmailHtml_A(emailParams)
+            : BookingReminderEmailHtml_B(emailParams);
+
         break;
       }
 

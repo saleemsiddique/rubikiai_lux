@@ -972,8 +972,15 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     setStartDate(newStart);
     if (newEnd) setEndDate(newEnd);
     setOffset(houseId, "arrival", 0);
-    // Removed automatic recompute to prevent unwanted movements
-    // setTimeout(() => recomputeHousesAvailability(newStart, newEnd ?? endDate), 0);
+
+    // 🔹 Cambio automático al modo "departure"
+    setCalendarModeByHouse((prev) => ({
+      ...prev,
+      [houseId]: "departure",
+    }));
+
+    // 🔹 Opcional: refresca la disponibilidad visualmente
+    setTimeout(() => recomputeHousesAvailability(newStart, newEnd ?? endDate), 0);
   };
 
   const handleSelectDeparture = (houseId: string, d: Date) => {

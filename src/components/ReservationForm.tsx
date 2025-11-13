@@ -936,7 +936,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
 
           {/* Footer */}
           <div className="flex justify-between items-center mt-4">
-            <button onClick={goToday} className="px-3 py-1 border rounded-full hover:bg-gray-100">Go to Current Month</button>
+            <button onClick={close} className="px-3 py-1 border rounded-full hover:bg-gray-100">Close</button>
             <button onClick={close} className="px-4 py-2 bg-[var(--color-primary)] text-white rounded-full hover:bg-[var(--color-primary-dark)]">
               Done
             </button>
@@ -1040,7 +1040,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     return (
       <div className="text-sm font-semibold">
         {totalPrice}€
-        {surcharge > 0 && (
+        {surcharge > 0 && !isMobile && (
           <div className="text-xs text-gray-500">
             {basePrice}€ + {surcharge}€ ({extraGuests} extra)
           </div>
@@ -1574,11 +1574,24 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                   <div className="space-y-4">
                     {startDate ? (
                       <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-4 space-y-3">
+                        {startDate && endDate && (
+                          <div className="mb-2">
+                            <div className="flex items-center gap-2 mb-1">
+                              <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                              <span className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">
+                                Selected dates
+                              </span>
+                            </div>
+                            <div className="text-sm text-gray-700 font-medium">
+                              {formatDateDDMMYYYY(startDate)} → {formatDateDDMMYYYY(endDate)}
+                            </div>
+                          </div>
+                        )}
                         <div>
                           <div className="flex items-center gap-2 mb-1">
-                            <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
+                            <span className="text-gray-500 font-semibold text-base">€</span>
                             <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Reservation fee</span>
                           </div>
                           <PriceBadgeLocal houseId={house.id} date={startDate} />

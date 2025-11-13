@@ -730,18 +730,13 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
   }
 
   function MobileCalendarMonthModal({ house }: { house: HouseLight }) {
-    // Si house no está definido, crea un valor por defecto vacío
     const safeHouse = house ?? { id: "unknown" } as HouseLight;
     const houseId = safeHouse.id;
 
-    // Modo Arrival / Departure por casa
     const mode = calendarModeByHouse[houseId] || 'arrival';
-
-    // Fechas seleccionadas para esta casa específica
     const localStartDate = selectedArrivalDates[houseId] ?? null;
     const localEndDate = selectedDepartureDates[houseId] ?? null;
 
-    // State para el mes que se está mostrando
     const [visibleMonth, setVisibleMonth] = useState<Date>(() => {
       const today = stripTime(new Date());
       if (mode === 'arrival') return localStartDate ? stripTime(new Date(localStartDate)) : today;
@@ -751,20 +746,18 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     if (!house) return null;
 
     const today = stripTime(new Date());
-    const maxMonth = new Date(today.getFullYear() + 1, today.getMonth(), 1); // 1 año por delante
+    const maxMonth = new Date(today.getFullYear() + 1, today.getMonth(), 1);
     const firstDayOfMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1);
     const lastDayOfMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 0);
 
-    // Generar todos los días del mes, incluyendo espacios en blanco
     const days: (Date | null)[] = [];
-    let firstWeekday = firstDayOfMonth.getDay(); // 0 = Sunday
-    if (firstWeekday === 0) firstWeekday = 7; // que domingo sea 7
-    for (let i = 1; i < firstWeekday; i++) days.push(null); // ahora lunes = 1
+    let firstWeekday = firstDayOfMonth.getDay();
+    if (firstWeekday === 0) firstWeekday = 7;
+    for (let i = 1; i < firstWeekday; i++) days.push(null);
     for (let d = 1; d <= lastDayOfMonth.getDate(); d++) {
       days.push(new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), d));
     }
 
-    // Días ocupados según modo
     const occupiedArray = mode === 'arrival'
       ? (occupiedArrivalByHouse[houseId] ?? [])
       : (occupiedDepartureByHouse[houseId] ?? []);
@@ -772,19 +765,16 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
 
     const close = () => setMobileCalendarHouseId(null);
 
-    // Handlers de mes
     const goPrevMonth = () => setVisibleMonth(addMonths(visibleMonth, -1));
     const goNextMonth = () => setVisibleMonth(prev => {
       const next = addMonths(prev, 1);
-      return next > maxMonth ? prev : next; // No avanzar más de maxMonth
+      return next > maxMonth ? prev : next;
     });
     const goToday = () => setVisibleMonth(today);
 
-    // Cambiar modo entre arrival/departure
     const switchMode = (newMode: 'arrival' | 'departure') => {
       setCalendarModeByHouse(prev => ({ ...prev, [houseId]: newMode }));
 
-      // Actualizar mes visible según el nuevo modo
       if (newMode === 'arrival' && localStartDate) {
         setVisibleMonth(stripTime(new Date(localStartDate)));
       } else if (newMode === 'departure' && localEndDate) {
@@ -792,28 +782,60 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       }
     };
 
-    // Handlers de selección
     const handleSelectArrival = (date: Date) => {
       const iso = dateIso(date);
       if (occupiedSet.has(iso)) return;
 
-      setSelectedArrivalDates(prev => ({ ...prev, [houseId]: date }));
-      setStartDate(date); // Actualizar fecha global
+      const occupiedSetFull = occupiedDatesByHouse[houseId] ?? new Set<string>();
+      let newStart = date;
+      let newEnd = localEndDate ? new Date(localEndDate) : null;
 
-      // Si la fecha de salida es anterior o igual, resetearla
-      if (localEndDate && dateIso(date) >= dateIso(localEndDate)) {
+      // Si arrival coincide con departure → mover departure un día más
+      if (newEnd && dateIso(newEnd) === iso) {
+        const candidate = addDays(newEnd, 1);
+        if (occupiedSetFull.has(dateIso(candidate))) {
+          newEnd = null;
+          setSelectedDepartureDates(prev => ({ ...prev, [houseId]: null }));
+          setEndDate(null);
+        } else {
+          newEnd = candidate;
+          setSelectedDepartureDates(prev => ({ ...prev, [houseId]: candidate }));
+          setEndDate(candidate);
+        }
+      }
+
+      // Validar rango arrival → departure
+      if (newEnd) {
+        let cur = stripTime(newStart);
+        const end = stripTime(newEnd);
+        while (cur < end) {
+          if (occupiedSetFull.has(dateIso(cur))) {
+            newEnd = null;
+            setSelectedDepartureDates(prev => ({ ...prev, [houseId]: null }));
+            setEndDate(null);
+            break;
+          }
+          cur = addDays(cur, 1);
+        }
+      }
+
+      // Si arrival > departure actual → deseleccionar departure
+      if (newEnd && localEndDate && dateIso(newStart) > dateIso(localEndDate)) {
+        newEnd = null;
         setSelectedDepartureDates(prev => ({ ...prev, [houseId]: null }));
         setEndDate(null);
       }
 
-      // Cambiar automáticamente a modo departure después de seleccionar arrival
-      setTimeout(() => switchMode('departure'), 300);
+      setSelectedArrivalDates(prev => ({ ...prev, [houseId]: newStart }));
+      setStartDate(newStart);
+
+      recomputeHousesAvailability(newStart, newEnd);
+
+      setTimeout(() => switchMode('departure'), 200);
     };
 
     const handleSelectDeparture = (date: Date) => {
       const iso = dateIso(date);
-
-      // Verificar si está ocupado (lógica similar al desktop)
       const occupiedSetFull = occupiedDatesByHouse[houseId] ?? new Set<string>();
       const isOcc = occupiedSetFull.has(iso);
       const isPrevOcc = occupiedSetFull.has(dateIso(addDays(date, -1)));
@@ -821,17 +843,14 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       const isCheckoutEnd = !isOcc && isPrevOcc;
 
       if ((isOcc && !isCheckinStart) || isCheckoutEnd) return;
-
-      // Verificar que sea después de arrival
       if (localStartDate && dateIso(date) <= dateIso(localStartDate)) return;
 
       setSelectedDepartureDates(prev => ({ ...prev, [houseId]: date }));
-      setEndDate(date); // Actualizar fecha global
+      setEndDate(date);
 
-      // Recomputar disponibilidad
       setTimeout(() => {
         recomputeHousesAvailability(localStartDate, date);
-        close(); // Cerrar el modal después de seleccionar departure
+        close();
       }, 0);
     };
 
@@ -839,7 +858,6 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       <div className="fixed inset-0 z-[2000] bg-black bg-opacity-60 flex items-end md:items-center justify-center">
         <div className="w-full h-[90vh] md:h-[80vh] bg-white rounded-t-2xl md:rounded-2xl overflow-hidden shadow-2xl flex flex-col p-4">
 
-          {/* Header Mes + botones Prev/Next */}
           <div className="flex items-center justify-between mb-2">
             <button onClick={goPrevMonth} className="px-3 py-1 border rounded-full hover:bg-gray-100">‹</button>
             <div className="text-lg font-semibold">
@@ -854,7 +872,6 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
             </button>
           </div>
 
-          {/* Selector Arrival / Departure */}
           <div className="flex justify-center mb-2 space-x-2">
             <button
               className={`px-3 py-1 rounded-full transition-all ${mode === 'arrival' ? 'bg-[var(--color-primary)] text-white' : 'bg-gray-200'}`}
@@ -870,15 +887,13 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
             </button>
           </div>
 
-          {/* Días de la semana */}
           <div className="flex justify-between mb-2 text-xs font-semibold text-gray-500">
             {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(d => (
               <div key={d} className="w-[14.28%] text-center">{d}</div>
             ))}
           </div>
 
-          {/* Grid de días con scroll */}
-          <div className="flex-1 overflow-auto max-h-[60vh]"> {/* Ajusta el max-h según necesites */}
+          <div className="flex-1 overflow-auto max-h-[60vh]">
             <div className="grid grid-cols-7 gap-1">
               {days.map((d, idx) => {
                 if (!d) return <div key={idx} className="w-full h-20"></div>;
@@ -897,7 +912,8 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                 let disabled = stripTime(d).getTime() < today.getTime();
 
                 if (mode === 'arrival') {
-                  disabled = disabled || isOccupied;
+                  const sameAsDeparture = localEndDate && dateIso(localEndDate) === ds;
+                  disabled = disabled || (isOccupied && !sameAsDeparture);
                 } else {
                   if (localStartDate) {
                     disabled = disabled || stripTime(d).getTime() <= stripTime(localStartDate).getTime();
@@ -909,7 +925,9 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                 if (isSelectedArrival) dayClass = "bg-[var(--color-primary)] text-white font-bold";
                 else if (isSelectedDeparture) dayClass = "bg-[var(--color-primary)] text-white font-bold";
                 else if (inRange) dayClass = "bg-[var(--color-primary)]/20";
-                else if (isOccupied) dayClass = "bg-gray-200 text-gray-500";
+                else if (isOccupied && !(mode === 'departure' && isCheckinStart)) {
+                  dayClass = "bg-gray-200 text-gray-500";
+                }
 
                 return (
                   <button
@@ -921,7 +939,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                       else handleSelectDeparture(d);
                     }}
                     className={`w-full h-20 p-1 rounded-lg flex flex-col items-center justify-between border transition-all
-          ${dayClass} ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:shadow-md'}`}
+        ${dayClass} ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:shadow-md'}`}
                   >
                     <div className="text-sm font-semibold">{d.getDate()}</div>
                     <div className="text-xs mt-1">
@@ -933,8 +951,6 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
             </div>
           </div>
 
-
-          {/* Footer */}
           <div className="flex justify-between items-center mt-4">
             <button onClick={close} className="px-3 py-1 border rounded-full hover:bg-gray-100">Close</button>
             <button onClick={close} className="px-4 py-2 bg-[var(--color-primary)] text-white rounded-full hover:bg-[var(--color-primary-dark)]">
@@ -945,6 +961,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       </div>
     );
   }
+
 
   const isBefore = (aIso: string, bIso: string) => new Date(aIso) < new Date(bIso);
   const isAfter = (aIso: string, bIso: string) => new Date(aIso) > new Date(bIso);
@@ -1286,8 +1303,8 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
             }
 
             if (!disabled) {
-              if (mode === "arrival") availabilityStatus = "✓ Check-in";
-              else availabilityStatus = "✓ Check-out";
+              if (mode === "arrival") availabilityStatus = "✓ Avalailable";
+              else availabilityStatus = "✓ Available";
             }
 
             const selectedArrival = startDate && dateIso(startDate) === ds;

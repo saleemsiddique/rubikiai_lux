@@ -787,7 +787,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       if (occupiedSet.has(iso)) return;
 
       const occupiedSetFull = occupiedDatesByHouse[houseId] ?? new Set<string>();
-      let newStart = date;
+      const newStart = date;
       let newEnd = localEndDate ? new Date(localEndDate) : null;
 
       // Si arrival coincide con departure → mover departure un día más

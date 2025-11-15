@@ -729,288 +729,291 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     return newDate;
   }
 
-function MobileCalendarMonthModal({ house }: { house: HouseLight }) {
-  const safeHouse = house ?? { id: "unknown" } as HouseLight;
-  const houseId = safeHouse.id;
+  function MobileCalendarMonthModal({ house }: { house: HouseLight }) {
+    const safeHouse = house ?? { id: "unknown" } as HouseLight;
+    const houseId = safeHouse.id;
 
-  const mode = calendarModeByHouse[houseId] || 'arrival';
-  const localStartDate = selectedArrivalDates[houseId] ?? null;
-  const localEndDate = selectedDepartureDates[houseId] ?? null;
+    const mode = calendarModeByHouse[houseId] || 'arrival';
+    const localStartDate = selectedArrivalDates[houseId] ?? null;
+    const localEndDate = selectedDepartureDates[houseId] ?? null;
 
-  const [visibleMonth, setVisibleMonth] = useState<Date>(() => {
+    const [visibleMonth, setVisibleMonth] = useState<Date>(() => {
+      const today = stripTime(new Date());
+      if (mode === 'arrival') return localStartDate ? stripTime(new Date(localStartDate)) : today;
+      else return localEndDate ? stripTime(new Date(localEndDate)) : localStartDate ? stripTime(new Date(localStartDate)) : today;
+    });
+
+    if (!house) return null;
+
     const today = stripTime(new Date());
-    if (mode === 'arrival') return localStartDate ? stripTime(new Date(localStartDate)) : today;
-    else return localEndDate ? stripTime(new Date(localEndDate)) : localStartDate ? stripTime(new Date(localStartDate)) : today;
-  });
+    const maxMonth = new Date(today.getFullYear() + 1, today.getMonth(), 1);
+    const firstDayOfMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1);
+    const lastDayOfMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 0);
 
-  if (!house) return null;
-
-  const today = stripTime(new Date());
-  const maxMonth = new Date(today.getFullYear() + 1, today.getMonth(), 1);
-  const firstDayOfMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1);
-  const lastDayOfMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 0);
-
-  const days: (Date | null)[] = [];
-  let firstWeekday = firstDayOfMonth.getDay();
-  if (firstWeekday === 0) firstWeekday = 7;
-  for (let i = 1; i < firstWeekday; i++) days.push(null);
-  for (let d = 1; d <= lastDayOfMonth.getDate(); d++) {
-    days.push(new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), d));
-  }
-
-  const occupiedArray = mode === 'arrival'
-    ? (occupiedArrivalByHouse[houseId] ?? [])
-    : (occupiedDepartureByHouse[houseId] ?? []);
-  const occupiedSet = new Set(occupiedArray);
-
-  const close = () => setMobileCalendarHouseId(null);
-
-  const goPrevMonth = () => setVisibleMonth(addMonths(visibleMonth, -1));
-  const goNextMonth = () => setVisibleMonth(prev => {
-    const next = addMonths(prev, 1);
-    return next > maxMonth ? prev : next;
-  });
-  const goToday = () => setVisibleMonth(today);
-
-  const switchMode = (newMode: 'arrival' | 'departure') => {
-    setCalendarModeByHouse(prev => ({ ...prev, [houseId]: newMode }));
-
-    if (newMode === 'arrival' && localStartDate) {
-      setVisibleMonth(stripTime(new Date(localStartDate)));
-    } else if (newMode === 'departure' && localEndDate) {
-      setVisibleMonth(stripTime(new Date(localEndDate)));
+    const days: (Date | null)[] = [];
+    let firstWeekday = firstDayOfMonth.getDay();
+    if (firstWeekday === 0) firstWeekday = 7;
+    for (let i = 1; i < firstWeekday; i++) days.push(null);
+    for (let d = 1; d <= lastDayOfMonth.getDate(); d++) {
+      days.push(new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), d));
     }
-  };
 
-  const handleSelectArrival = (date: Date) => {
-    const iso = dateIso(date);
-    if (occupiedSet.has(iso)) return;
+    const occupiedArray = mode === 'arrival'
+      ? (occupiedArrivalByHouse[houseId] ?? [])
+      : (occupiedDepartureByHouse[houseId] ?? []);
+    const occupiedSet = new Set(occupiedArray);
 
-    const occupiedSetFull = occupiedDatesByHouse[houseId] ?? new Set<string>();
-    const newStart = date;
-    let newEnd = localEndDate ? new Date(localEndDate) : null;
+    const close = () => setMobileCalendarHouseId(null);
 
-    // Si arrival coincide con departure → mover departure un día más
-    if (newEnd && dateIso(newEnd) === iso) {
-      const candidate = addDays(newEnd, 1);
-      if (occupiedSetFull.has(dateIso(candidate))) {
-        newEnd = null;
-        setSelectedDepartureDates(prev => ({ ...prev, [houseId]: null }));
-        setEndDate(null);
-      } else {
-        newEnd = candidate;
-        setSelectedDepartureDates(prev => ({ ...prev, [houseId]: candidate }));
-        setEndDate(candidate);
+    const goPrevMonth = () => setVisibleMonth(addMonths(visibleMonth, -1));
+    const goNextMonth = () => setVisibleMonth(prev => {
+      const next = addMonths(prev, 1);
+      return next > maxMonth ? prev : next;
+    });
+    const goToday = () => setVisibleMonth(today);
+
+    const switchMode = (newMode: 'arrival' | 'departure') => {
+      setCalendarModeByHouse(prev => ({ ...prev, [houseId]: newMode }));
+
+      if (newMode === 'arrival' && localStartDate) {
+        setVisibleMonth(stripTime(new Date(localStartDate)));
+      } else if (newMode === 'departure' && localEndDate) {
+        setVisibleMonth(stripTime(new Date(localEndDate)));
       }
-    }
+    };
 
-    // Validar rango arrival → departure
-    if (newEnd) {
-      let cur = stripTime(newStart);
-      const end = stripTime(newEnd);
-      while (cur < end) {
-        if (occupiedSetFull.has(dateIso(cur))) {
+    const handleSelectArrival = (date: Date) => {
+      const iso = dateIso(date);
+      if (occupiedSet.has(iso)) return;
+
+      const occupiedSetFull = occupiedDatesByHouse[houseId] ?? new Set<string>();
+      const newStart = date;
+      let newEnd = localEndDate ? new Date(localEndDate) : null;
+
+      // Si arrival coincide con departure → mover departure un día más
+      if (newEnd && dateIso(newEnd) === iso) {
+        const candidate = addDays(newEnd, 1);
+        if (occupiedSetFull.has(dateIso(candidate))) {
           newEnd = null;
           setSelectedDepartureDates(prev => ({ ...prev, [houseId]: null }));
           setEndDate(null);
-          break;
+        } else {
+          newEnd = candidate;
+          setSelectedDepartureDates(prev => ({ ...prev, [houseId]: candidate }));
+          setEndDate(candidate);
         }
-        cur = addDays(cur, 1);
       }
-    }
 
-    // Si arrival > departure actual → deseleccionar departure
-    if (newEnd && localEndDate && dateIso(newStart) > dateIso(localEndDate)) {
-      newEnd = null;
-      setSelectedDepartureDates(prev => ({ ...prev, [houseId]: null }));
-      setEndDate(null);
-    }
+      // Validar rango arrival → departure
+      if (newEnd) {
+        let cur = stripTime(newStart);
+        const end = stripTime(newEnd);
+        while (cur < end) {
+          if (occupiedSetFull.has(dateIso(cur))) {
+            newEnd = null;
+            setSelectedDepartureDates(prev => ({ ...prev, [houseId]: null }));
+            setEndDate(null);
+            break;
+          }
+          cur = addDays(cur, 1);
+        }
+      }
 
-    setSelectedArrivalDates(prev => ({ ...prev, [houseId]: newStart }));
-    setStartDate(newStart);
+      // Si arrival > departure actual → deseleccionar departure
+      if (newEnd && localEndDate && dateIso(newStart) > dateIso(localEndDate)) {
+        newEnd = null;
+        setSelectedDepartureDates(prev => ({ ...prev, [houseId]: null }));
+        setEndDate(null);
+      }
 
-    recomputeHousesAvailability(newStart, newEnd);
+      setSelectedArrivalDates(prev => ({ ...prev, [houseId]: newStart }));
+      setStartDate(newStart);
 
-    setTimeout(() => switchMode('departure'), 200);
-  };
+      recomputeHousesAvailability(newStart, newEnd);
 
-  const handleSelectDeparture = (date: Date) => {
-    const iso = dateIso(date);
-    const occupiedSetFull = occupiedDatesByHouse[houseId] ?? new Set<string>();
-    const isOcc = occupiedSetFull.has(iso);
-    const isPrevOcc = occupiedSetFull.has(dateIso(addDays(date, -1)));
-    const isCheckinStart = isOcc && !isPrevOcc;
-    const isCheckoutEnd = !isOcc && isPrevOcc;
+      setTimeout(() => switchMode('departure'), 200);
+    };
 
-    if ((isOcc && !isCheckinStart) || isCheckoutEnd) return;
-    if (localStartDate && dateIso(date) <= dateIso(localStartDate)) return;
+    const handleSelectDeparture = (date: Date) => {
+      const iso = dateIso(date);
+      const occupiedSetFull = occupiedDatesByHouse[houseId] ?? new Set<string>();
+      const isOcc = occupiedSetFull.has(iso);
+      const isPrevOcc = occupiedSetFull.has(dateIso(addDays(date, -1)));
+      const isCheckinStart = isOcc && !isPrevOcc;
+      const isCheckoutEnd = !isOcc && isPrevOcc;
 
-    setSelectedDepartureDates(prev => ({ ...prev, [houseId]: date }));
-    setEndDate(date);
+      if ((isOcc && !isCheckinStart) || isCheckoutEnd) return;
+      if (localStartDate && dateIso(date) <= dateIso(localStartDate)) return;
 
-    setTimeout(() => {
-      recomputeHousesAvailability(localStartDate, date);
-      close();
-    }, 0);
-  };
+      setSelectedDepartureDates(prev => ({ ...prev, [houseId]: date }));
+      setEndDate(date);
 
-  return (
-    <div className="fixed inset-0 z-[2000] bg-black bg-opacity-60 flex items-end md:items-center justify-center">
-      <div className="w-full h-[90vh] md:h-[80vh] bg-white rounded-t-2xl md:rounded-2xl overflow-hidden shadow-2xl flex flex-col p-4">
+      setTimeout(() => {
+        recomputeHousesAvailability(localStartDate, date);
+        close();
+      }, 0);
+    };
 
-        <div className="flex items-center justify-between mb-2">
-          <button onClick={goPrevMonth} className="px-3 py-1 border rounded-full hover:bg-gray-100">‹</button>
-          <div className="text-lg font-semibold">
-            {visibleMonth.toLocaleString("en-US", { month: "long", year: "numeric" })}
+    return (
+      <div className="fixed inset-0 z-[2000] bg-black bg-opacity-60 flex items-end md:items-center justify-center">
+        <div className="w-full h-[90vh] md:h-[80vh] bg-white rounded-t-2xl md:rounded-2xl overflow-hidden shadow-2xl flex flex-col p-4">
+
+          <div className="flex items-center justify-between mb-2">
+            <button onClick={goPrevMonth} className="px-3 py-1 border rounded-full hover:bg-gray-100">‹</button>
+            <div className="text-lg font-semibold">
+              {visibleMonth.toLocaleString("en-US", { month: "long", year: "numeric" })}
+            </div>
+            <button
+              onClick={goNextMonth}
+              disabled={addMonths(visibleMonth, 1) > maxMonth}
+              className={`px-3 py-1 border rounded-full hover:bg-gray-100 ${addMonths(visibleMonth, 1) > maxMonth ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              ›
+            </button>
           </div>
-          <button
-            onClick={goNextMonth}
-            disabled={addMonths(visibleMonth, 1) > maxMonth}
-            className={`px-3 py-1 border rounded-full hover:bg-gray-100 ${addMonths(visibleMonth, 1) > maxMonth ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            ›
-          </button>
-        </div>
 
-        <div className="flex justify-center mb-2 space-x-2">
-          <button
-            className={`px-3 py-1 rounded-full transition-all ${mode === 'arrival' ? 'bg-[var(--color-primary)] text-white' : 'bg-gray-200'}`}
-            onClick={() => switchMode('arrival')}
-          >
-            Check-in {localStartDate && `(${formatDateDDMMYYYY(localStartDate)})`}
-          </button>
-          <button
-            className={`px-3 py-1 rounded-full transition-all ${mode === 'departure' ? 'bg-[var(--color-primary)] text-white' : 'bg-gray-200'}`}
-            onClick={() => switchMode('departure')}
-          >
-            Check-out {localEndDate && `(${formatDateDDMMYYYY(localEndDate)})`}
-          </button>
-        </div>
+          <div className="flex justify-center mb-2 space-x-2">
+            <button
+              className={`px-3 py-1 rounded-full transition-all ${mode === 'arrival' ? 'bg-[var(--color-primary)] text-white' : 'bg-gray-200'}`}
+              onClick={() => switchMode('arrival')}
+            >
+              Check-in {localStartDate && `(${formatDateDDMMYYYY(localStartDate)})`}
+            </button>
+            <button
+              className={`px-3 py-1 rounded-full transition-all ${mode === 'departure' ? 'bg-[var(--color-primary)] text-white' : 'bg-gray-200'}`}
+              onClick={() => switchMode('departure')}
+            >
+              Check-out {localEndDate && `(${formatDateDDMMYYYY(localEndDate)})`}
+            </button>
+          </div>
 
-        <div className="flex justify-between mb-2 text-xs font-semibold text-gray-500">
-          {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(d => (
-            <div key={d} className="w-[14.28%] text-center">{d}</div>
-          ))}
-        </div>
+          <div className="flex justify-between mb-2 text-xs font-semibold text-gray-500">
+            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(d => (
+              <div key={d} className="w-[14.28%] text-center">{d}</div>
+            ))}
+          </div>
 
-        <div className="flex-1 overflow-auto max-h-[60vh]">
-          <div className="grid grid-cols-7 gap-1">
-            {days.map((d, idx) => {
-              if (!d) return <div key={idx} className="w-full h-20"></div>;
+          <div className="flex-1 overflow-auto max-h-[60vh]">
+            <div className="grid grid-cols-7 gap-1">
+              {days.map((d, idx) => {
+                if (!d) return <div key={idx} className="w-full h-20"></div>;
 
-              const ds = dateIso(d);
-              const occupiedSetFull = occupiedDatesByHouse[houseId] ?? new Set<string>();
-              const isOccupied = occupiedSetFull.has(ds);
-              const isPrevOccupied = occupiedSetFull.has(dateIso(addDays(d, -1)));
-              const isCheckinStart = isOccupied && !isPrevOccupied;
-              const isCheckoutEnd = !isOccupied && isPrevOccupied;
+                const ds = dateIso(d);
+                const occupiedSetFull = occupiedDatesByHouse[houseId] ?? new Set<string>();
+                const isOccupied = occupiedSetFull.has(ds);
+                const isPrevOccupied = occupiedSetFull.has(dateIso(addDays(d, -1)));
+                const isCheckinStart = isOccupied && !isPrevOccupied;
+                const isCheckoutEnd = !isOccupied && isPrevOccupied;
 
-              const isSelectedArrival = localStartDate && dateIso(localStartDate) === ds;
-              const isSelectedDeparture = localEndDate && dateIso(localEndDate) === ds;
-              const inRange = localStartDate && localEndDate && dateIso(localStartDate) < ds && ds < dateIso(localEndDate);
+                const isSelectedArrival = localStartDate && dateIso(localStartDate) === ds;
+                const isSelectedDeparture = localEndDate && dateIso(localEndDate) === ds;
+                const inRange = localStartDate && localEndDate && dateIso(localStartDate) < ds && ds < dateIso(localEndDate);
 
-              // 🔹 Marcadores claros
-              const isArrivalMarker = mode === 'departure' && localStartDate && dateIso(localStartDate) === ds;
-              const isDepartureMarker = mode === 'arrival' && localEndDate && dateIso(localEndDate) === ds;
+                // 🔹 Marcadores claros
+                const isArrivalMarker = mode === 'departure' && localStartDate && dateIso(localStartDate) === ds;
+                const isDepartureMarker = mode === 'arrival' && localEndDate && dateIso(localEndDate) === ds;
 
-              const isPast = stripTime(d).getTime() < today.getTime();
-              let disabled = false;
+                const isPast = stripTime(d).getTime() < today.getTime();
+                let disabled = false;
 
-              // Días pasados siempre bloqueados
-              if (isPast) {
-                disabled = true;
-              }
-
-              if (mode === 'arrival') {
-                // En arrival mode, bloquear departure date
-                if (isDepartureMarker) {
+                // Días pasados siempre bloqueados
+                if (isPast) {
                   disabled = true;
-                } else if (!isPast) {
-                  disabled = disabled || isOccupied;
                 }
-              } else {
-                // En departure mode
-                if (localStartDate) {
-                  disabled = disabled || stripTime(d).getTime() <= stripTime(localStartDate).getTime();
+
+                if (mode === 'arrival') {
+                  // En arrival mode, bloquear departure date
+                  if (isDepartureMarker) {
+                    disabled = true;
+                  } else if (!isPast) {
+                    disabled = disabled || isOccupied;
+                  }
+                } else {
+                  // En departure mode
+                  if (localStartDate) {
+                    disabled = disabled || stripTime(d).getTime() <= stripTime(localStartDate).getTime();
+                  }
+                  if (!isPast && !isArrivalMarker) {
+                    disabled = disabled || (isOccupied && !isCheckinStart) || isCheckoutEnd;
+                  }
                 }
-                if (!isPast && !isArrivalMarker) {
-                  disabled = disabled || (isOccupied && !isCheckinStart) || isCheckoutEnd;
+
+                let dayClass = "bg-white";
+                let textClass = "text-gray-700";
+
+                // 🔺 PRIORIDAD VISUAL: Markers primero
+                if (isArrivalMarker) {
+                  dayClass = "bg-[var(--color-primary)]/20 border-2 border-[var(--color-primary)]/40";
+                  textClass = "text-[var(--color-primary-dark)] font-bold";
+                } else if (isDepartureMarker) {
+                  dayClass = "bg-[var(--color-primary)]/20 border-2 border-[var(--color-primary)]/40";
+                  textClass = "text-[var(--color-primary-dark)] font-bold";
+                } else if (isPast) {
+                  // Días pasados en gris
+                  dayClass = "bg-gray-100 border-2 border-gray-200";
+                  textClass = "text-gray-400";
+                } else if (isSelectedArrival || isSelectedDeparture) {
+                  dayClass = "bg-[var(--color-primary)] border-2 border-[var(--color-primary)]";
+                  textClass = "text-white font-bold";
+                } else if (inRange) {
+                  dayClass = "bg-[var(--color-primary)]/10 border-2 border-[var(--color-primary)]/30";
+                  textClass = "text-[var(--color-primary-dark)]";
+                } else if (isOccupied && !(mode === 'departure' && isCheckinStart)) {
+                  // Días ocupados en rojo
+                  dayClass = "bg-red-50 border-2 border-red-300";
+                  textClass = "text-red-600";
+                } else if (mode == 'departure' && isCheckoutEnd) {
+                  dayClass = "bg-red-50 border-2 border-red-300";
+                  textClass = "text-red-600";
+                } else if (!disabled) {
+                  // Días disponibles con borde
+                  dayClass = "bg-white border-2 border-gray-200";
                 }
-              }
 
-              let dayClass = "bg-white";
-              let textClass = "text-gray-700";
-
-              // 🔺 PRIORIDAD VISUAL: Markers primero
-              if (isArrivalMarker) {
-                dayClass = "bg-[var(--color-primary)]/20 border-2 border-[var(--color-primary)]/40";
-                textClass = "text-[var(--color-primary-dark)] font-bold";
-              } else if (isDepartureMarker) {
-                dayClass = "bg-[var(--color-primary)]/20 border-2 border-[var(--color-primary)]/40";
-                textClass = "text-[var(--color-primary-dark)] font-bold";
-              } else if (isPast) {
-                // Días pasados en gris
-                dayClass = "bg-gray-100 border-2 border-gray-200";
-                textClass = "text-gray-400";
-              } else if (isSelectedArrival || isSelectedDeparture) {
-                dayClass = "bg-[var(--color-primary)] border-2 border-[var(--color-primary)]";
-                textClass = "text-white font-bold";
-              } else if (inRange) {
-                dayClass = "bg-[var(--color-primary)]/10 border-2 border-[var(--color-primary)]/30";
-                textClass = "text-[var(--color-primary-dark)]";
-              } else if (isOccupied && !(mode === 'departure' && isCheckinStart)) {
-                // Días ocupados en rojo
-                dayClass = "bg-red-50 border-2 border-red-300";
-                textClass = "text-red-600";
-              } else if (!disabled) {
-                // Días disponibles con borde
-                dayClass = "bg-white border-2 border-gray-200";
-              }
-
-              return (
-                <button
-                  key={ds}
-                  disabled={disabled}
-                  onClick={() => {
-                    if (disabled) return;
-                    if (mode === 'arrival') handleSelectArrival(d);
-                    else handleSelectDeparture(d);
-                  }}
-                  className={`w-full h-20 p-1 rounded-lg flex flex-col items-center justify-between transition-all relative
+                return (
+                  <button
+                    key={ds}
+                    disabled={disabled}
+                    onClick={() => {
+                      if (disabled) return;
+                      if (mode === 'arrival') handleSelectArrival(d);
+                      else handleSelectDeparture(d);
+                    }}
+                    className={`w-full h-20 p-1 rounded-lg flex flex-col items-center justify-between transition-all relative
       ${dayClass} ${textClass} ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:shadow-md'}`}
-                >
-                  <div className="text-sm font-semibold">{d.getDate()}</div>
-                  <div className="text-xs mt-1">
-                    <PriceBadgeLocal houseId={house.id} date={d} />
-                  </div>
+                  >
+                    <div className="text-sm font-semibold">{d.getDate()}</div>
+                    <div className="text-xs mt-1">
+                      <PriceBadgeLocal houseId={house.id} date={d} />
+                    </div>
 
-                  {/* 🔹 Labels */}
-                  {isArrivalMarker && (
-                    <span className="absolute bottom-0.5 text-[12px] font-bold text-white bg-[var(--color-primary)] px-1 rounded">
-                      Check-in
-                    </span>
-                  )}
-                  {isDepartureMarker && (
-                    <span className="absolute bottom-0.5 text-[12px] font-bold text-white bg-[var(--color-primary)] px-1 rounded">
-                      Check-out
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+                    {/* 🔹 Labels */}
+                    {isArrivalMarker && (
+                      <span className="absolute bottom-0.5 text-[12px] font-bold text-white bg-[var(--color-primary)] px-1 rounded">
+                        Check-in
+                      </span>
+                    )}
+                    {isDepartureMarker && (
+                      <span className="absolute bottom-0.5 text-[12px] font-bold text-white bg-[var(--color-primary)] px-1 rounded">
+                        Check-out
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
 
-        <div className="flex justify-between items-center mt-4">
-          <button onClick={close} className="px-3 py-1 border rounded-full hover:bg-gray-100">Close</button>
-          <button onClick={close} className="px-4 py-2 bg-[var(--color-primary)] text-white rounded-full hover:bg-[var(--color-primary-dark)]">
-            Done
-          </button>
+          <div className="flex justify-between items-center mt-4">
+            <button onClick={close} className="px-3 py-1 border rounded-full hover:bg-gray-100">Close</button>
+            <button onClick={close} className="px-4 py-2 bg-[var(--color-primary)] text-white rounded-full hover:bg-[var(--color-primary-dark)]">
+              Done
+            </button>
+          </div>
         </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
   const isBefore = (aIso: string, bIso: string) => new Date(aIso) < new Date(bIso);
   const isAfter = (aIso: string, bIso: string) => new Date(aIso) > new Date(bIso);
@@ -1206,271 +1209,271 @@ function MobileCalendarMonthModal({ house }: { house: HouseLight }) {
   }
 
   /* ---------------- Carousel rendering ---------------- */
-const renderCarouselForHouse = (house: HouseLight, mode: "arrival" | "departure") => {
-  const houseId = house.id;
-  const offset = getOffset(houseId, mode);
-  const STEP = 7;
+  const renderCarouselForHouse = (house: HouseLight, mode: "arrival" | "departure") => {
+    const houseId = house.id;
+    const offset = getOffset(houseId, mode);
+    const STEP = 7;
 
-  // ✅ Control base: evitar recolocaciones erróneas, y mantener referencia estable
-  const baseCandidate =
-    mode === "departure"
-      ? (startDate ? new Date(startDate) : new Date())
-      : (startDate ? new Date(startDate) : new Date());
+    // ✅ Control base: evitar recolocaciones erróneas, y mantener referencia estable
+    const baseCandidate =
+      mode === "departure"
+        ? (startDate ? new Date(startDate) : new Date())
+        : (startDate ? new Date(startDate) : new Date());
 
-  const stripTime = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const msPerDay = 24 * 60 * 60 * 1000;
-  const diffDays = (a: Date, b: Date) => Math.round((stripTime(a).getTime() - stripTime(b).getTime()) / msPerDay);
+    const stripTime = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const msPerDay = 24 * 60 * 60 * 1000;
+    const diffDays = (a: Date, b: Date) => Math.round((stripTime(a).getTime() - stripTime(b).getTime()) / msPerDay);
 
-  const today = stripTime(new Date());
-  const globalMax = stripTime(getGlobalMaxDate());
+    const today = stripTime(new Date());
+    const globalMax = stripTime(getGlobalMaxDate());
 
-  const minAllowed = today;
-  const maxAllowed = globalMax;
+    const minAllowed = today;
+    const maxAllowed = globalMax;
 
-  const minForMode = mode === "departure" && startDate ? stripTime(new Date(startDate)) : minAllowed;
+    const minForMode = mode === "departure" && startDate ? stripTime(new Date(startDate)) : minAllowed;
 
-  const maxStartBaseCandidate = stripTime(addDays(maxAllowed, -(DATE_WINDOW_DAYS - 1)));
-  const maxStartBase = maxStartBaseCandidate < minForMode ? minForMode : maxStartBaseCandidate;
-  const minStartBase = minForMode;
+    const maxStartBaseCandidate = stripTime(addDays(maxAllowed, -(DATE_WINDOW_DAYS - 1)));
+    const maxStartBase = maxStartBaseCandidate < minForMode ? minForMode : maxStartBaseCandidate;
+    const minStartBase = minForMode;
 
-  const allowedOffsetMin = diffDays(minStartBase, baseCandidate);
-  const allowedOffsetMax = diffDays(maxStartBase, baseCandidate);
+    const allowedOffsetMin = diffDays(minStartBase, baseCandidate);
+    const allowedOffsetMax = diffDays(maxStartBase, baseCandidate);
 
-  const effectiveOffset = Math.min(Math.max(offset, allowedOffsetMin), allowedOffsetMax);
+    const effectiveOffset = Math.min(Math.max(offset, allowedOffsetMin), allowedOffsetMax);
 
-  const canPrev = effectiveOffset > allowedOffsetMin;
-  const canNext = effectiveOffset < allowedOffsetMax;
+    const canPrev = effectiveOffset > allowedOffsetMin;
+    const canNext = effectiveOffset < allowedOffsetMax;
 
-  const goPrev = () => {
-    if (!canPrev) return;
-    const target = Math.max(effectiveOffset - STEP, allowedOffsetMin);
-    setOffset(houseId, mode, target);
-  };
+    const goPrev = () => {
+      if (!canPrev) return;
+      const target = Math.max(effectiveOffset - STEP, allowedOffsetMin);
+      setOffset(houseId, mode, target);
+    };
 
-  const goNext = () => {
-    if (!canNext) return;
-    const target = Math.min(effectiveOffset + STEP, allowedOffsetMax);
-    setOffset(houseId, mode, target);
-  };
+    const goNext = () => {
+      if (!canNext) return;
+      const target = Math.min(effectiveOffset + STEP, allowedOffsetMax);
+      setOffset(houseId, mode, target);
+    };
 
-  const base = addDays(baseCandidate, effectiveOffset);
-  const finalBase = new Date(base);
+    const base = addDays(baseCandidate, effectiveOffset);
+    const finalBase = new Date(base);
 
-  let days: Date[] = Array.from({ length: DATE_WINDOW_DAYS }).map((_, i) => addDays(finalBase, i));
-  days = days.filter((d) => {
-    const sd = stripTime(d);
-    return sd.getTime() >= stripTime(minForMode).getTime() && sd.getTime() <= stripTime(maxAllowed).getTime();
-  });
+    let days: Date[] = Array.from({ length: DATE_WINDOW_DAYS }).map((_, i) => addDays(finalBase, i));
+    days = days.filter((d) => {
+      const sd = stripTime(d);
+      return sd.getTime() >= stripTime(minForMode).getTime() && sd.getTime() <= stripTime(maxAllowed).getTime();
+    });
 
-  const occupiedSet = occupiedDatesByHouse[houseId] ?? new Set<string>();
+    const occupiedSet = occupiedDatesByHouse[houseId] ?? new Set<string>();
 
-  return (
-    <div className="w-full">
-      {/* Header con navegación */}
-      <div className="flex items-center justify-between mb-4 pb-3 border-b-2 border-gray-200">
-        <button
-          onClick={goPrev}
-          disabled={!canPrev}
-          className={`group flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${!canPrev
-            ? "opacity-30 cursor-not-allowed text-gray-400"
-            : "hover:bg-[var(--color-primary)] hover:text-white text-[var(--color-primary)] border-2 border-[var(--color-primary)]"
-            }`}
-          aria-label="View previous dates"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-          <span className="hidden sm:inline">Previous</span>
-        </button>
+    return (
+      <div className="w-full">
+        {/* Header con navegación */}
+        <div className="flex items-center justify-between mb-4 pb-3 border-b-2 border-gray-200">
+          <button
+            onClick={goPrev}
+            disabled={!canPrev}
+            className={`group flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${!canPrev
+              ? "opacity-30 cursor-not-allowed text-gray-400"
+              : "hover:bg-[var(--color-primary)] hover:text-white text-[var(--color-primary)] border-2 border-[var(--color-primary)]"
+              }`}
+            aria-label="View previous dates"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            <span className="hidden sm:inline">Previous</span>
+          </button>
 
-        <div className="flex flex-col items-center">
-          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-            {mode === "arrival" ? "Check-in dates from" : "Check-out dates from"}
-          </span>
-          <span className="text-sm font-bold text-gray-700 mt-1">{formatDateDDMMYYYY(finalBase)}</span>
+          <div className="flex flex-col items-center">
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              {mode === "arrival" ? "Check-in dates from" : "Check-out dates from"}
+            </span>
+            <span className="text-sm font-bold text-gray-700 mt-1">{formatDateDDMMYYYY(finalBase)}</span>
+          </div>
+
+          <button
+            onClick={goNext}
+            disabled={!canNext}
+            className={`group flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${!canNext
+              ? "opacity-30 cursor-not-allowed text-gray-400"
+              : "hover:bg-[var(--color-primary)] hover:text-white text-[var(--color-primary)] border-2 border-[var(--color-primary)]"
+              }`}
+            aria-label="View next dates"
+          >
+            <span className="hidden sm:inline">Next</span>
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
         </div>
 
-        <button
-          onClick={goNext}
-          disabled={!canNext}
-          className={`group flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${!canNext
-            ? "opacity-30 cursor-not-allowed text-gray-400"
-            : "hover:bg-[var(--color-primary)] hover:text-white text-[var(--color-primary)] border-2 border-[var(--color-primary)]"
-            }`}
-          aria-label="View next dates"
-        >
-          <span className="hidden sm:inline">Next</span>
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
-      </div>
+        {/* Grid de días */}
+        <div className="hidden md:grid md:grid-cols-7 gap-3">
+          {days.map((d) => {
+            const ds = dateIso(d);
+            const isOccupied = occupiedSet.has(ds);
+            const isPrevOccupied = occupiedSet.has(dateIso(addDays(d, -1)));
+            const isCheckinStart = isOccupied && !isPrevOccupied;
+            const isCheckoutEnd = !isOccupied && isPrevOccupied;
 
-      {/* Grid de días */}
-      <div className="hidden md:grid md:grid-cols-7 gap-3">
-        {days.map((d) => {
-          const ds = dateIso(d);
-          const isOccupied = occupiedSet.has(ds);
-          const isPrevOccupied = occupiedSet.has(dateIso(addDays(d, -1)));
-          const isCheckinStart = isOccupied && !isPrevOccupied;
-          const isCheckoutEnd = !isOccupied && isPrevOccupied;
+            // 🔹 Marcadores claros
+            const isArrivalMarker =
+              mode === "departure" && startDate && stripTime(d).getTime() === stripTime(startDate).getTime();
+            const isDepartureMarker =
+              mode === "arrival" && endDate && stripTime(d).getTime() === stripTime(endDate).getTime();
 
-          // 🔹 Marcadores claros
-          const isArrivalMarker =
-            mode === "departure" && startDate && stripTime(d).getTime() === stripTime(startDate).getTime();
-          const isDepartureMarker =
-            mode === "arrival" && endDate && stripTime(d).getTime() === stripTime(endDate).getTime();
+            let disabled = false;
+            let availabilityStatus = "";
 
-          let disabled = false;
-          let availabilityStatus = "";
-
-          if (stripTime(d).getTime() < today.getTime()) {
-            disabled = true;
-            availabilityStatus = "Past";
-          } else if (mode === "arrival" && isOccupied) {
-            disabled = true;
-            availabilityStatus = "Occupied";
-          }
-
-          // 🔹 Bloquear departure date en arrival mode
-          if (mode === "arrival" && isDepartureMarker) {
-            disabled = true;
-            availabilityStatus = "";
-          }
-
-          if (mode === "departure") {
-            if (startDate) {
-              const startDay = stripTime(new Date(startDate));
-              if (stripTime(d).getTime() <= startDay.getTime()) {
-                disabled = true;
-                availabilityStatus = "";
-              }
-            }
-            if ((isOccupied && !isCheckinStart) || isCheckoutEnd) {
+            if (stripTime(d).getTime() < today.getTime()) {
+              disabled = true;
+              availabilityStatus = "Past";
+            } else if (mode === "arrival" && isOccupied) {
               disabled = true;
               availabilityStatus = "Occupied";
             }
-          }
 
-          if (!disabled) {
-            if (mode === "arrival") availabilityStatus = "✓ Avalailable";
-            else availabilityStatus = "✓ Available";
-          }
+            // 🔹 Bloquear departure date en arrival mode
+            if (mode === "arrival" && isDepartureMarker) {
+              disabled = true;
+              availabilityStatus = "";
+            }
 
-          const selectedArrival = startDate && dateIso(startDate) === ds;
-          const selectedDeparture = endDate && dateIso(endDate) === ds;
-          const inRange = startDate && endDate && dateIso(startDate) <= ds && ds <= dateIso(endDate);
+            if (mode === "departure") {
+              if (startDate) {
+                const startDay = stripTime(new Date(startDate));
+                if (stripTime(d).getTime() <= startDay.getTime()) {
+                  disabled = true;
+                  availabilityStatus = "";
+                }
+              }
+              if ((isOccupied && !isCheckinStart) || isCheckoutEnd) {
+                disabled = true;
+                availabilityStatus = "Occupied";
+              }
+            }
 
-          const paintAsOccupied =
-            (mode === "arrival" && isOccupied) ||
-            (mode === "departure" && ((isOccupied && !isCheckinStart) || isCheckoutEnd));
+            if (!disabled) {
+              if (mode === "arrival") availabilityStatus = "✓ Avalailable";
+              else availabilityStatus = "✓ Available";
+            }
 
-          // 🎨 Colores base
-          let bgClass = "bg-white border-2 border-gray-200";
-          let textClass = "text-gray-700";
-          let statusClass = "text-gray-500";
+            const selectedArrival = startDate && dateIso(startDate) === ds;
+            const selectedDeparture = endDate && dateIso(endDate) === ds;
+            const inRange = startDate && endDate && dateIso(startDate) <= ds && ds <= dateIso(endDate);
 
-          // 🔺 PRIORIDAD VISUAL: ArrivalMarker y DepartureMarker antes de cualquier otra cosa
-          if (isArrivalMarker) {
-            bgClass = "bg-[var(--color-primary)]/20 border-2 border-[var(--color-primary)]/40";
-            textClass = "text-[var(--color-primary-dark)] font-bold";
-            statusClass = "text-[var(--color-primary)]";
-          } else if (isDepartureMarker) {
-            bgClass = "bg-[var(--color-primary)]/20 border-2 border-[var(--color-primary)]/40";
-            textClass = "text-[var(--color-primary-dark)] font-bold";
-            statusClass = "text-[var(--color-primary)]";
-          } else if (paintAsOccupied || (disabled && stripTime(d).getTime() >= today.getTime())) {
-            bgClass = "bg-red-50 border-2 border-red-300";
-            textClass = "text-red-600";
-            statusClass = "text-red-500";
-          } else if (selectedArrival || selectedDeparture) {
-            bgClass = "bg-[var(--color-primary)] border-2 border-[var(--color-primary)]";
-            textClass = "text-white";
-            statusClass = "text-white";
-          } else if (inRange) {
-            bgClass = "bg-[var(--color-primary)]/10 border-2 border-[var(--color-primary)]/30";
-            textClass = "text-[var(--color-primary-dark)]";
-          } else if (!disabled) {
-            bgClass = "bg-white border-2 border-gray-200 hover:border-[var(--color-primary)] hover:shadow-lg";
-          }
+            const paintAsOccupied =
+              (mode === "arrival" && isOccupied) ||
+              (mode === "departure" && ((isOccupied && !isCheckinStart) || isCheckoutEnd));
 
-          if (disabled && stripTime(d).getTime() < today.getTime()) {
-            bgClass = "bg-gray-100 border-2 border-gray-200";
-            textClass = "text-gray-400";
-            statusClass = "text-gray-400";
-          }
+            // 🎨 Colores base
+            let bgClass = "bg-white border-2 border-gray-200";
+            let textClass = "text-gray-700";
+            let statusClass = "text-gray-500";
 
-          return (
-            <button
-              key={ds}
-              disabled={disabled}
-              onClick={() => {
-                if (disabled) return;
-                if (mode === "arrival") handleSelectArrival(houseId, d);
-                else handleSelectDeparture(houseId, d);
-              }}
-              className={`${bgClass} ${textClass} p-4 rounded-xl relative transition-all duration-200 ${!disabled ? "transform hover:scale-105 cursor-pointer" : "cursor-not-allowed opacity-60"
-                } flex flex-col items-center justify-between min-h-[140px]`}
-            >
-              {/* Día de la semana */}
-              <div className="text-xs font-bold uppercase tracking-wider opacity-75">
-                {d.toLocaleString("en-US", { weekday: "short" })}
-              </div>
+            // 🔺 PRIORIDAD VISUAL: ArrivalMarker y DepartureMarker antes de cualquier otra cosa
+            if (isArrivalMarker) {
+              bgClass = "bg-[var(--color-primary)]/20 border-2 border-[var(--color-primary)]/40";
+              textClass = "text-[var(--color-primary-dark)] font-bold";
+              statusClass = "text-[var(--color-primary)]";
+            } else if (isDepartureMarker) {
+              bgClass = "bg-[var(--color-primary)]/20 border-2 border-[var(--color-primary)]/40";
+              textClass = "text-[var(--color-primary-dark)] font-bold";
+              statusClass = "text-[var(--color-primary)]";
+            } else if (paintAsOccupied || (disabled && stripTime(d).getTime() >= today.getTime())) {
+              bgClass = "bg-red-50 border-2 border-red-300";
+              textClass = "text-red-600";
+              statusClass = "text-red-500";
+            } else if (selectedArrival || selectedDeparture) {
+              bgClass = "bg-[var(--color-primary)] border-2 border-[var(--color-primary)]";
+              textClass = "text-white";
+              statusClass = "text-white";
+            } else if (inRange) {
+              bgClass = "bg-[var(--color-primary)]/10 border-2 border-[var(--color-primary)]/30";
+              textClass = "text-[var(--color-primary-dark)]";
+            } else if (!disabled) {
+              bgClass = "bg-white border-2 border-gray-200 hover:border-[var(--color-primary)] hover:shadow-lg";
+            }
 
-              {/* Día */}
-              <div className="text-2xl font-bold my-2">{d.getDate()}</div>
+            if (disabled && stripTime(d).getTime() < today.getTime()) {
+              bgClass = "bg-gray-100 border-2 border-gray-200";
+              textClass = "text-gray-400";
+              statusClass = "text-gray-400";
+            }
 
-              {/* Mes */}
-              <div className="text-xs font-medium opacity-75 mb-2">
-                {d.toLocaleString("en-US", { month: "short" })}
-              </div>
+            return (
+              <button
+                key={ds}
+                disabled={disabled}
+                onClick={() => {
+                  if (disabled) return;
+                  if (mode === "arrival") handleSelectArrival(houseId, d);
+                  else handleSelectDeparture(houseId, d);
+                }}
+                className={`${bgClass} ${textClass} p-4 rounded-xl relative transition-all duration-200 ${!disabled ? "transform hover:scale-105 cursor-pointer" : "cursor-not-allowed opacity-60"
+                  } flex flex-col items-center justify-between min-h-[140px]`}
+              >
+                {/* Día de la semana */}
+                <div className="text-xs font-bold uppercase tracking-wider opacity-75">
+                  {d.toLocaleString("en-US", { weekday: "short" })}
+                </div>
 
-              {/* Precio */}
-              <div className="mb-2">
-                <PriceBadgeLocal houseId={house.id} date={d} />
-              </div>
+                {/* Día */}
+                <div className="text-2xl font-bold my-2">{d.getDate()}</div>
 
-              {/* Estado */}
-              <div className={`text-xs font-bold ${statusClass} text-center leading-tight`}>
-                {availabilityStatus}
-              </div>
+                {/* Mes */}
+                <div className="text-xs font-medium opacity-75 mb-2">
+                  {d.toLocaleString("en-US", { month: "short" })}
+                </div>
 
-              {/* 🔹 Etiquetas */}
-              {isArrivalMarker && (
-                <span className="absolute bottom-2 text-[12px] font-bold text-white bg-[var(--color-primary)] px-1 rounded">
-                  Check-in
-                </span>
-              )}
-              {isDepartureMarker && (
-                <span className="absolute bottom-2 text-[12px] font-bold text-white bg-[var(--color-primary)] px-1 rounded">
-                  Check-out
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+                {/* Precio */}
+                <div className="mb-2">
+                  <PriceBadgeLocal houseId={house.id} date={d} />
+                </div>
 
-      {/* Leyenda */}
-      <div className="mt-6 pt-4 border-t border-gray-200">
-        <div className="flex flex-wrap gap-4 justify-center text-xs">
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-[var(--color-primary)] rounded"></div>
-            <span className="text-gray-600">Selected</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-[var(--color-primary)]/20 border-2 border-[var(--color-primary)]/40 rounded"></div>
-            <span className="text-gray-600">Check-in/Check-out</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-red-50 border-2 border-red-300 rounded"></div>
-            <span className="text-gray-600">Occupied</span>
+                {/* Estado */}
+                <div className={`text-xs font-bold ${statusClass} text-center leading-tight`}>
+                  {availabilityStatus}
+                </div>
+
+                {/* 🔹 Etiquetas */}
+                {isArrivalMarker && (
+                  <span className="absolute bottom-2 text-[12px] font-bold text-white bg-[var(--color-primary)] px-1 rounded">
+                    Check-in
+                  </span>
+                )}
+                {isDepartureMarker && (
+                  <span className="absolute bottom-2 text-[12px] font-bold text-white bg-[var(--color-primary)] px-1 rounded">
+                    Check-out
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Leyenda */}
+        <div className="mt-6 pt-4 border-t border-gray-200">
+          <div className="flex flex-wrap gap-4 justify-center text-xs">
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-[var(--color-primary)] rounded"></div>
+              <span className="text-gray-600">Selected</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-[var(--color-primary)]/20 border-2 border-[var(--color-primary)]/40 rounded"></div>
+              <span className="text-gray-600">Check-in/Check-out</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-red-50 border-2 border-red-300 rounded"></div>
+              <span className="text-gray-600">Occupied</span>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  );
-};
+    );
+  };
 
 
   /* ---------------- Render ---------------- */

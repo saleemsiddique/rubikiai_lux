@@ -44,6 +44,16 @@ export function ReservationConfirmationEmailHtmlEN(
     logoCid = "rubikiai-logo",
   } = params;
 
+    // ✔️ Mapping de IDs a nombres legibles
+  const PROPERTY_NAME_MAP: Record<string, string> = {
+    "L0TeFf2LmrWGAaAyS8NY": "Ezero Namelis",
+    "PZwbfMYlSXj61uYYJutg": "Salia Elnių Aptvaro",
+    "oDzv9346CdaAsok162sX": "Salia Elnių Panorama",
+  };
+
+  // ✔️ Obtener nombre legible o fallback al original
+  const readableRoomType = PROPERTY_NAME_MAP[roomType] || roomType;
+
   const hasDiscount = discountApplied > 0;
   const totalBeforeDiscount = totalStay + discountApplied;
 
@@ -106,7 +116,7 @@ export function ReservationConfirmationEmailHtmlEN(
                       <div style="font:600 16px/1.5 Inter,Arial,sans-serif;color:#0f172a;">
                         <div>Check-in: <strong>${checkIn}</strong> &nbsp; | &nbsp; Check-out: <strong>${checkOut}</strong></div>
                         <div>Nights: <strong>${nights}</strong> &nbsp; | &nbsp; Guests: <strong>${guests}</strong></div>
-                        <div>Room type: <strong>${roomType}</strong></div>
+                        <div>Name of the stay: <strong>${readableRoomType}</strong></div>
                       </div>
                     </td>
                   </tr>

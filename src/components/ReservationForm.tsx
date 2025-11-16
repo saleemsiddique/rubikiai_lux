@@ -757,16 +757,6 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       else return localEndDate ? stripTime(new Date(localEndDate)) : localStartDate ? stripTime(new Date(localStartDate)) : today;
     });
 
-    // 🔹 Estado para mostrar tooltips temporales en móvil
-    const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
-
-    useEffect(() => {
-      if (activeTooltip) {
-        const timer = setTimeout(() => setActiveTooltip(null), 2000);
-        return () => clearTimeout(timer);
-      }
-    }, [activeTooltip]);
-
     if (!house) return null;
 
     const today = stripTime(new Date());
@@ -794,7 +784,6 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       const next = addMonths(prev, 1);
       return next > maxMonth ? prev : next;
     });
-    const goToday = () => setVisibleMonth(today);
 
     const switchMode = (newMode: 'arrival' | 'departure') => {
       setCalendarModeByHouse(prev => ({ ...prev, [houseId]: newMode }));
@@ -933,19 +922,12 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                 const isCheckinStart = isOccupied && !isPrevOccupied;
                 const isCheckoutEnd = !isOccupied && isPrevOccupied;
 
-                const isSelectedArrival = localStartDate && dateIso(localStartDate) === ds;
-                const isSelectedDeparture = localEndDate && dateIso(localEndDate) === ds;
-                const inRange = localStartDate && localEndDate && dateIso(localStartDate) < ds && ds < dateIso(localEndDate);
-
-                // 🔹 Marcadores SIEMPRE visibles (independientemente del modo)
-                const isArrivalMarker = localStartDate && stripTime(d).getTime() === stripTime(localStartDate).getTime();
-                const isDepartureMarker = localEndDate && stripTime(d).getTime() === stripTime(localEndDate).getTime();
+                // Verificar si es nuestra fecha seleccionada
+                const isOurCheckin = localStartDate && dateIso(localStartDate) === ds;
+                const isOurCheckout = localEndDate && dateIso(localEndDate) === ds;
 
                 const isPast = stripTime(d).getTime() < today.getTime();
                 let disabled = false;
-                let fakeDisabled = false;
-                let showNotAvailableTooltip = false;
-                let tooltipMessage = "";
 
                 // Días pasados siempre bloqueados
                 if (isPast) {
@@ -953,26 +935,9 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                 }
 
                 if (mode === 'arrival') {
-                  if (!isPast && isOccupied) {
+                  // Deshabilitar días ocupados excepto nuestras fechas
+                  if (!isPast && isOccupied && !isOurCheckin && !isOurCheckout) {
                     disabled = true;
-                  }
-
-                  // 🔹 Bloquear departure date en arrival mode
-                  if (isDepartureMarker) {
-                    if (isOccupied) {
-                      disabled = true;
-                      showNotAvailableTooltip = true;
-                      tooltipMessage = "Not available for check-in";
-                    } else {
-                      disabled = false;
-                      fakeDisabled = true;
-                    }
-                  }
-
-                  // 🔹 Tooltip para arrival marker en rojo
-                  if (isArrivalMarker && isOccupied) {
-                    showNotAvailableTooltip = true;
-                    tooltipMessage = "This date is occupied";
                   }
                 } else {
                   // En departure mode
@@ -980,114 +945,64 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                     disabled = disabled || stripTime(d).getTime() <= stripTime(localStartDate).getTime();
                   }
                   if (!isPast) {
-                    if ((isOccupied && !isCheckinStart) || isCheckoutEnd) {
+                    // Deshabilitar ocupados excepto si es inicio de check-in o nuestra checkout
+                    if (((isOccupied && !isCheckinStart) || isCheckoutEnd) && !isOurCheckout) {
                       disabled = true;
                     }
-                  }
-
-                  // 🔹 Tooltip para departure marker en rojo
-                  if (isDepartureMarker && ((isOccupied && !isCheckinStart) || isCheckoutEnd)) {
-                    showNotAvailableTooltip = true;
-                    tooltipMessage = "This date is occupied";
                   }
                 }
 
                 const paintAsOccupied =
-                  (mode === "arrival" && isOccupied) ||
-                  (mode === "departure" && ((isOccupied && !isCheckinStart) || isCheckoutEnd));
+                  (mode === "arrival" && isOccupied && !isOurCheckin && !isOurCheckout) ||
+                  (mode === "departure" && ((isOccupied && !isCheckinStart) || isCheckoutEnd) && !isOurCheckout);
 
                 let dayClass = "bg-white border-2 border-gray-200";
                 let textClass = "text-gray-700";
 
-                // 🔺 PRIORIDAD VISUAL: ArrivalMarker y DepartureMarker antes de cualquier otra cosa
-                if (isArrivalMarker) {
-                  dayClass = "bg-[var(--color-primary)]/20 border-2 border-[var(--color-primary)]/40";
-                  textClass = "text-[var(--color-primary-dark)] font-bold";
-                } else if (isDepartureMarker) {
-                  dayClass = "bg-[var(--color-primary)]/20 border-2 border-[var(--color-primary)]/40";
-                  textClass = "text-[var(--color-primary-dark)] font-bold";
-                } else if (paintAsOccupied || (disabled && !isPast)) {
-                  dayClass = "bg-red-50 border-2 border-red-300";
-                  textClass = "text-red-600";
-                } else if (isSelectedArrival || isSelectedDeparture) {
-                  dayClass = "bg-[var(--color-primary)] border-2 border-[var(--color-primary)]";
-                  textClass = "text-white font-bold";
-                } else if (inRange) {
-                  dayClass = "bg-[var(--color-primary)]/10 border-2 border-[var(--color-primary)]/30";
-                  textClass = "text-[var(--color-primary-dark)]";
-                } else if (!disabled) {
-                  dayClass = "bg-white border-2 border-gray-200";
-                }
-
                 if (isPast) {
                   dayClass = "bg-gray-100 border-2 border-gray-200";
                   textClass = "text-gray-400";
+                } else if (paintAsOccupied || (disabled && !isPast)) {
+                  dayClass = "bg-red-50 border-2 border-red-300";
+                  textClass = "text-red-600";
+                } else if (!disabled) {
+                  dayClass = "bg-white border-2 border-gray-200";
                 }
 
                 return (
                   <button
                     key={ds}
-                    disabled={disabled && !showNotAvailableTooltip}
+                    disabled={disabled}
                     onClick={() => {
-                      // 🔹 Si tiene tooltip, mostrar mensaje temporal en móvil
-                      if (showNotAvailableTooltip) {
-                        setActiveTooltip(ds);
-                        return;
-                      }
-
                       if (disabled) return;
-                      if (mode === 'arrival') handleSelectArrival(d);
-                      else handleSelectDeparture(d);
+
+                      // Si en modo arrival seleccionamos el día de checkout actual, mover checkout un día
+                      if (mode === 'arrival' && localEndDate && dateIso(d) === dateIso(localEndDate)) {
+                        const newCheckout = addDays(d, 1);
+                        handleSelectArrival(d);
+                        // Actualizar checkout si el siguiente día está disponible
+                        if (!occupiedSetFull.has(dateIso(newCheckout))) {
+                          setSelectedDepartureDates(prev => ({ ...prev, [houseId]: newCheckout }));
+                          setEndDate(newCheckout);
+                        } else {
+                          // Si el siguiente día está ocupado, eliminar checkout
+                          setSelectedDepartureDates(prev => ({ ...prev, [houseId]: null }));
+                          setEndDate(null);
+                        }
+                      } else {
+                        if (mode === 'arrival') handleSelectArrival(d);
+                        else handleSelectDeparture(d);
+                      }
                     }}
                     className={`w-full h-20 p-1 rounded-lg flex flex-col items-center justify-between transition-all relative
-      ${dayClass} ${textClass} 
-      ${disabled && !showNotAvailableTooltip
-                        ? "cursor-not-allowed opacity-60"
-                        : fakeDisabled
-                          ? "opacity-60 cursor-pointer active:opacity-50"
-                          : "cursor-pointer active:scale-95"
-                      }`}
+                      ${dayClass} ${textClass} 
+                      ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer active:scale-95"}
+                    `}
                   >
-                    {/* 🔹 Tooltip temporal para móvil (2 segundos) */}
-                    {showNotAvailableTooltip && activeTooltip === ds && (
-                      <div className={`absolute -top-12 z-20 animate-fade-in ${idx % 7 === 0 ? 'left-0' :
-                          idx % 7 === 6 ? 'right-0' :
-                            'left-1/2 -translate-x-1/2'
-                        }`}>
-                        <div className="bg-gray-900 text-white text-xs px-3 py-2 rounded-lg shadow-xl whitespace-nowrap">
-                          {tooltipMessage}
-                          <div className={`absolute top-full -mt-1 ${idx % 7 === 0 ? 'left-4' :
-                              idx % 7 === 6 ? 'right-4' :
-                                'left-1/2 -translate-x-1/2'
-                            }`}>
-                            <div className="border-4 border-transparent border-t-gray-900"></div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
                     <div className="text-sm font-semibold">{d.getDate()}</div>
                     <div className="text-xs mt-1">
                       <PriceBadgeLocal houseId={house.id} date={d} />
                     </div>
-
-                    {/* 🔹 Labels con colores condicionales según ocupación */}
-                    {isArrivalMarker && (
-                      <span
-                        className={`absolute bottom-0.5 text-[10px] font-bold px-1 rounded
-                          ${isOccupied ? "bg-red-600 text-white" : "bg-[var(--color-primary)] text-white"}`}
-                      >
-                        Check-in
-                      </span>
-                    )}
-                    {isDepartureMarker && (
-                      <span
-                        className={`absolute bottom-0.5 text-[10px] font-bold px-1 rounded
-                          ${(isOccupied && !isCheckinStart) || isCheckoutEnd ? "bg-red-600 text-white" : "bg-[var(--color-primary)] text-white"}`}
-                      >
-                        Check-out
-                      </span>
-                    )}
                   </button>
                 );
               })}
@@ -1098,12 +1013,8 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
           <div className="mt-4 pt-3 border-t border-gray-200">
             <div className="flex flex-wrap gap-3 justify-center text-xs">
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-[var(--color-primary)] rounded"></div>
-                <span className="text-gray-600">Selected</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-[var(--color-primary)]/20 border-2 border-[var(--color-primary)]/40 rounded"></div>
-                <span className="text-gray-600">Check-in/Check-out</span>
+                <div className="w-4 h-4 bg-white border-2 border-gray-200 rounded"></div>
+                <span className="text-gray-600">Available</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-red-50 border-2 border-red-300 rounded"></div>
@@ -1120,17 +1031,6 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
             </button>
           </div>
         </div>
-
-        {/* Estilos para animación de tooltip */}
-        <style>{`
-          @keyframes fade-in {
-            from { opacity: 0; transform: translate(-50%, -5px); }
-            to { opacity: 1; transform: translate(-50%, 0); }
-          }
-          .animate-fade-in {
-            animation: fade-in 0.2s ease-out;
-          }
-        `}</style>
       </div>
     );
   }
@@ -1335,7 +1235,6 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     const offset = getOffset(houseId, mode);
     const STEP = 7;
 
-    // ✅ Control base: evitar recolocaciones erróneas, y mantener referencia estable
     const baseCandidate =
       mode === "departure"
         ? (startDate ? new Date(startDate) : new Date())
@@ -1439,123 +1338,72 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
             const isCheckinStart = isOccupied && !isPrevOccupied;
             const isCheckoutEnd = !isOccupied && isPrevOccupied;
 
-            // 🔹 Marcadores SIEMPRE visibles (independientemente del modo)
-            const isArrivalMarker =
-              startDate && stripTime(d).getTime() === stripTime(startDate).getTime();
-
-            const isDepartureMarker =
-              endDate && stripTime(d).getTime() === stripTime(endDate).getTime();
+            // Verificar si es nuestra fecha seleccionada
+            const isOurCheckin = startDate && dateIso(startDate) === ds;
+            const isOurCheckout = endDate && dateIso(endDate) === ds;
 
             let disabled = false;
-            let fakeDisabled = false;
             let availabilityStatus = "";
 
+            // Días pasados siempre deshabilitados
             if (stripTime(d).getTime() < today.getTime()) {
               disabled = true;
-              availabilityStatus = "Past";
-            } else if (mode === "arrival" && isOccupied) {
-              disabled = true;
-              availabilityStatus = "Occupied";
             }
-
-            // 🔹 Bloquear departure date en arrival mode
-            let showNotAvailableTooltip = false;
-            let tooltipMessage = "";
-
-            if (mode === "arrival" && isDepartureMarker) {
-              // Si está ocupado, realmente deshabilitado + tooltip
-              if (isOccupied) {
+            // Modo arrival: deshabilitar días ocupados (excepto nuestras selecciones)
+            else if (mode === "arrival") {
+              if (isOccupied && !isOurCheckin && !isOurCheckout) {
                 disabled = true;
-                showNotAvailableTooltip = true;
-                tooltipMessage = "Not available for check-in";
-                availabilityStatus = "Not available";
-              } else {
-                // Si no está ocupado, mantener disponible para click
-                disabled = false;
-                availabilityStatus = "";
-                fakeDisabled = true;
+                availabilityStatus = "Occupied";
               }
             }
-
-            // 🔹 Tooltip para arrival marker en rojo
-            if (mode === "arrival" && isArrivalMarker && isOccupied) {
-              showNotAvailableTooltip = true;
-              tooltipMessage = "This date is occupied";
-            }
-
-            // 🔹 Tooltip para departure marker en rojo
-            if (mode === "departure" && isDepartureMarker && ((isOccupied && !isCheckinStart) || isCheckoutEnd)) {
-              showNotAvailableTooltip = true;
-              tooltipMessage = "This date is occupied";
-            }
-
-            if (mode === "departure") {
+            // Modo departure: lógica especial
+            else if (mode === "departure") {
               if (startDate) {
                 const startDay = stripTime(new Date(startDate));
+                // No se puede seleccionar el mismo día de check-in o anterior
                 if (stripTime(d).getTime() <= startDay.getTime()) {
                   disabled = true;
-                  availabilityStatus = "";
+                  // No mostrar "Occupied" para el día de check-in
                 }
               }
-              if ((isOccupied && !isCheckinStart) || isCheckoutEnd) {
+              // Deshabilitar días ocupados (excepto si es inicio de check-in o nuestra checkout)
+              if (((isOccupied && !isCheckinStart) || isCheckoutEnd) && !isOurCheckout) {
                 disabled = true;
                 availabilityStatus = "Occupied";
               }
             }
 
-            if (!disabled) {
-              if (mode === "arrival") availabilityStatus = "✓ Avalailable";
-              else availabilityStatus = "✓ Available";
+            // Si no está deshabilitado, está disponible
+            if (!disabled && stripTime(d).getTime() >= today.getTime()) {
+              availabilityStatus = "✓ Available";
             }
 
-            const selectedArrival = startDate && dateIso(startDate) === ds;
-            const selectedDeparture = endDate && dateIso(endDate) === ds;
-            const inRange = startDate && endDate && dateIso(startDate) <= ds && ds <= dateIso(endDate);
+            // Determinar si pintar como ocupado (rojo) - pero no si son nuestras fechas o el día de check-in en departure mode
+            const isCheckinInDepartureMode = mode === "departure" && startDate && dateIso(startDate) === ds;
 
             const paintAsOccupied =
-              (mode === "arrival" && isOccupied) ||
-              (mode === "departure" && ((isOccupied && !isCheckinStart) || isCheckoutEnd));
+              (mode === "arrival" && isOccupied && !isOurCheckin && !isOurCheckout) ||
+              (mode === "departure" && ((isOccupied && !isCheckinStart) || isCheckoutEnd) && !isOurCheckout && !isCheckinInDepartureMode);
 
-            // 🎨 Colores base
+            // Solo dos colores: disponible o ocupado
             let bgClass = "bg-white border-2 border-gray-200";
             let textClass = "text-gray-700";
             let statusClass = "text-gray-500";
 
-            // 🔺 PRIORIDAD VISUAL: ArrivalMarker y DepartureMarker antes de cualquier otra cosa
-            if (isArrivalMarker) {
-              bgClass = "bg-[var(--color-primary)]/20 border-2 border-[var(--color-primary)]/40";
-              textClass = "text-[var(--color-primary-dark)] font-bold";
-              statusClass = "text-[var(--color-primary)]";
-            } else if (isDepartureMarker) {
-              bgClass = "bg-[var(--color-primary)]/20 border-2 border-[var(--color-primary)]/40";
-              textClass = "text-[var(--color-primary-dark)] font-bold";
-              statusClass = "text-[var(--color-primary)]";
-            } else if (paintAsOccupied || (disabled && stripTime(d).getTime() >= today.getTime())) {
-              bgClass = "bg-red-50 border-2 border-red-300";
-              textClass = "text-red-600";
-              statusClass = "text-red-500";
-            } else if (selectedArrival || selectedDeparture) {
-              bgClass = "bg-[var(--color-primary)] border-2 border-[var(--color-primary)]";
-              textClass = "text-white";
-              statusClass = "text-white";
-            } else if (inRange) {
-              bgClass = "bg-[var(--color-primary)]/10 border-2 border-[var(--color-primary)]/30";
-              textClass = "text-[var(--color-primary-dark)]";
-            } else if (!disabled) {
-              bgClass = "bg-white border-2 border-gray-200 hover:border-[var(--color-primary)] hover:shadow-lg";
-            }
-
             if (disabled && stripTime(d).getTime() < today.getTime()) {
+              // Días pasados
               bgClass = "bg-gray-100 border-2 border-gray-200";
               textClass = "text-gray-400";
               statusClass = "text-gray-400";
+            } else if (paintAsOccupied || (disabled && stripTime(d).getTime() >= today.getTime())) {
+              // Días ocupados (rojo)
+              bgClass = "bg-red-50 border-2 border-red-300";
+              textClass = "text-red-600";
+              statusClass = "text-red-500";
+            } else if (!disabled) {
+              // Días disponibles (blanco)
+              bgClass = "bg-white border-2 border-gray-200 hover:border-[var(--color-primary)] hover:shadow-lg";
             }
-
-            // ❌ Si el día es un marker, NO mostrar Available/Occupied
-            if (isArrivalMarker || isDepartureMarker) {
-              availabilityStatus = "";
-            }
-
 
             return (
               <button
@@ -1563,36 +1411,33 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                 disabled={disabled}
                 onClick={() => {
                   if (disabled) return;
-                  if (mode === "arrival") handleSelectArrival(houseId, d);
-                  else handleSelectDeparture(houseId, d);
+
+                  // Si en modo arrival seleccionamos el día de checkout actual, mover checkout un día
+                  if (mode === "arrival" && endDate && dateIso(d) === dateIso(endDate)) {
+                    const newCheckout = addDays(d, 1);
+                    handleSelectArrival(houseId, d);
+                    // Actualizar checkout si el siguiente día está disponible
+                    if (!occupiedSet.has(dateIso(newCheckout))) {
+                      setSelectedDepartureDates(prev => ({ ...prev, [houseId]: newCheckout }));
+                      setEndDate(newCheckout);
+                    } else {
+                      // Si el siguiente día está ocupado, eliminar checkout
+                      setSelectedDepartureDates(prev => ({ ...prev, [houseId]: null }));
+                      setEndDate(null);
+                    }
+                  } else {
+                    if (mode === "arrival") handleSelectArrival(houseId, d);
+                    else handleSelectDeparture(houseId, d);
+                  }
                 }}
                 className={`
                 ${bgClass}
                 ${textClass}
                 p-4 rounded-xl relative transition-all duration-200
                 flex flex-col items-center justify-between min-h-[140px]
-                ${disabled
-                    ? showNotAvailableTooltip
-                      ? "cursor-not-allowed opacity-60 group"
-                      : "cursor-not-allowed opacity-60"
-                    : fakeDisabled
-                      ? "opacity-60 cursor-pointer hover:opacity-60 hover:border-gray-300 hover:shadow-none hover:scale-105"
-                      : "transform hover:scale-105 cursor-pointer"
-                  }
-flex flex-col items-center justify-between min-h-[140px]`}
+                ${disabled ? "cursor-not-allowed opacity-60" : "transform hover:scale-105 cursor-pointer"}
+              `}
               >
-                {/* Tooltip para días no disponibles */}
-                {showNotAvailableTooltip && (
-                  <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
-                    <div className="bg-gray-900 text-white text-xs px-3 py-2 rounded-lg shadow-lg whitespace-nowrap">
-                      {tooltipMessage}
-                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
-                        <div className="border-8 border-transparent border-t-gray-900"></div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
                 {/* Día de la semana */}
                 <div className="text-xs font-bold uppercase tracking-wider opacity-75">
                   {d.toLocaleString("en-US", { weekday: "short" })}
@@ -1611,35 +1456,10 @@ flex flex-col items-center justify-between min-h-[140px]`}
                   <PriceBadgeLocal houseId={house.id} date={d} />
                 </div>
 
-
                 {/* Estado */}
                 <div className={`text-xs font-bold ${statusClass} text-center leading-tight`}>
                   {availabilityStatus}
                 </div>
-
-                {/* 🔹 Etiquetas */}
-                {isArrivalMarker && (
-                  <span
-                    className={
-                      `absolute bottom-2 text-[12px] font-bold px-1 rounded
-       ${isOccupied ? "bg-red-600 text-white" : "bg-[var(--color-primary)] text-white"}`
-                    }
-                  >
-                    Check-in
-                  </span>
-                )}
-
-                {isDepartureMarker && (
-                  <span
-                    className={
-                      `absolute bottom-2 text-[12px] font-bold px-1 rounded 
-       ${(isOccupied && !isCheckinStart) || isCheckoutEnd ? "bg-red-600 text-white" : "bg-[var(--color-primary)] text-white"}`
-                    }
-                  >
-                    Check-out
-                  </span>
-                )}
-
               </button>
             );
           })}
@@ -1649,12 +1469,8 @@ flex flex-col items-center justify-between min-h-[140px]`}
         <div className="mt-6 pt-4 border-t border-gray-200">
           <div className="flex flex-wrap gap-4 justify-center text-xs">
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-[var(--color-primary)] rounded"></div>
-              <span className="text-gray-600">Selected</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-[var(--color-primary)]/20 border-2 border-[var(--color-primary)]/40 rounded"></div>
-              <span className="text-gray-600">Check-in/Check-out</span>
+              <div className="w-4 h-4 bg-white border-2 border-gray-200 rounded"></div>
+              <span className="text-gray-600">Available</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-red-50 border-2 border-red-300 rounded"></div>
@@ -1665,7 +1481,6 @@ flex flex-col items-center justify-between min-h-[140px]`}
       </div>
     );
   };
-
 
   /* ---------------- Render ---------------- */
   return (

@@ -1269,34 +1269,49 @@ export default function CheckoutDetailsClient() {
             </div>
           </div>
 
-          <button
-            disabled={!canSubmit}
-            onClick={handleGoToCheckout}
-            className={`w-full py-4 rounded-xl font-bold uppercase tracking-wide text-xl shadow-lg transition-all duration-300 ${canSubmit
-              ? "bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] hover:shadow-xl transform hover:-translate-y-0.5"
-              : "bg-gray-300 text-gray-500 cursor-not-allowed"
-              }`}
-          >
-            {canSubmit ? (
-              <>
-                Pay by Card,<br />
-                AP, GP or Paypal
-              </>
-            ) : (
-              "Fill your details"
-            )}
-          </button>
-          <button
-            onClick={handleMontonioCheckout}
-            disabled={!canPayWithMontonio}
-            aria-disabled={!canPayWithMontonio}
-            className={`w-full py-4 rounded-xl font-bold uppercase tracking-wide text-sm shadow-lg transition-all duration-300 ${canPayWithMontonio
-              ? "bg-white text-[var(--color-primary)] border border-[var(--color-primary)] hover:shadow-md"
-              : "bg-gray-200 text-gray-400 cursor-not-allowed"
-              }`}
-          >
-            Pay with Bank Transfer
-          </button>
+       {payNowAmount === 0 ? (
+            <button
+              disabled={!canSubmit}
+              onClick={handleGoToCheckout}
+              className={`w-full py-4 rounded-xl font-bold uppercase tracking-wide text-xl shadow-lg transition-all duration-300 ${canSubmit
+                ? "bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] hover:shadow-xl transform hover:-translate-y-0.5"
+                : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                }`}
+            >
+              {canSubmit ? "Continue to checkout" : "Fill your details"}
+            </button>
+          ) : (
+            <>
+              <button
+                disabled={!canSubmit}
+                onClick={handleGoToCheckout}
+                className={`w-full py-4 rounded-xl font-bold uppercase tracking-wide text-xl shadow-lg transition-all duration-300 ${canSubmit
+                  ? "bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] hover:shadow-xl transform hover:-translate-y-0.5"
+                  : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  }`}
+              >
+                {canSubmit ? (
+                  <>
+                    Pay by Card,<br />
+                    AP, GP or Paypal
+                  </>
+                ) : (
+                  "Fill your details"
+                )}
+              </button>
+              <button
+                onClick={handleMontonioCheckout}
+                disabled={!canPayWithMontonio}
+                aria-disabled={!canPayWithMontonio}
+                className={`w-full py-4 rounded-xl font-bold uppercase tracking-wide text-sm shadow-lg transition-all duration-300 ${canPayWithMontonio
+                  ? "bg-white text-[var(--color-primary)] border border-[var(--color-primary)] hover:shadow-md"
+                  : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                  }`}
+              >
+                Pay with Bank Transfer
+              </button>
+            </>
+          )}
 
           <button
             onClick={() => router.back()}

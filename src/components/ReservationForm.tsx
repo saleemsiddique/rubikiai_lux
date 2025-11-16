@@ -449,7 +449,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
 
       let results = apiResults.slice();
 
-      /*if (effectiveGuests > 4 && effectiveType !== "ezero namelis") {
+      if (effectiveGuests > 4 && effectiveType !== "ezero namelis") {
         const duplexes = apiResults.filter((r) => r.type === "dupleksas");
         const combos: HouseLight[] = [];
         for (let i = 0; i < duplexes.length; i++) {
@@ -469,7 +469,6 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
         }
         results = [...results, ...combos];
       }
-      */
 
       results = results.filter((h) => (h.maxGuests ?? 0) >= effectiveGuests);
 
@@ -575,7 +574,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
 
     let results = apiResults.slice();
 
-    /*if (guestsCount > 4 && effectiveType !== "ezero namelis") {
+    if (guestsCount > 4 && effectiveType !== "ezero namelis") {
       const duplexes = apiResults.filter((r) => r.type === "dupleksas");
       const combos: HouseLight[] = [];
       for (let i = 0; i < duplexes.length; i++) {
@@ -595,7 +594,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       }
       results = [...results, ...combos];
     }
-    */
+    
 
     results = results.filter((h) => (h.maxGuests ?? 0) >= guestsCount);
 
@@ -1318,13 +1317,15 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
             const isCheckinStart = isOccupied && !isPrevOccupied;
             const isCheckoutEnd = !isOccupied && isPrevOccupied;
 
-            // 🔹 Marcadores claros
+            // 🔹 Marcadores SIEMPRE visibles (independientemente del modo)
             const isArrivalMarker =
-              mode === "departure" && startDate && stripTime(d).getTime() === stripTime(startDate).getTime();
+              startDate && stripTime(d).getTime() === stripTime(startDate).getTime();
+
             const isDepartureMarker =
-              mode === "arrival" && endDate && stripTime(d).getTime() === stripTime(endDate).getTime();
+              endDate && stripTime(d).getTime() === stripTime(endDate).getTime();
 
             let disabled = false;
+            let fakeDisabled = false;
             let availabilityStatus = "";
 
             if (stripTime(d).getTime() < today.getTime()) {
@@ -1337,9 +1338,14 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
 
             // 🔹 Bloquear departure date en arrival mode
             if (mode === "arrival" && isDepartureMarker) {
-              disabled = true;
+              // Mantener disponible para click
+              disabled = false;
+
+              // Pero estilísticamente que parezca deshabilitado
               availabilityStatus = "";
+              fakeDisabled = true;
             }
+
 
             if (mode === "departure") {
               if (startDate) {
@@ -1403,6 +1409,12 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
               statusClass = "text-gray-400";
             }
 
+            // ❌ Si el día es un marker, NO mostrar Available/Occupied
+            if (isArrivalMarker || isDepartureMarker) {
+              availabilityStatus = "";
+            }
+
+
             return (
               <button
                 key={ds}
@@ -1412,8 +1424,18 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                   if (mode === "arrival") handleSelectArrival(houseId, d);
                   else handleSelectDeparture(houseId, d);
                 }}
-                className={`${bgClass} ${textClass} p-4 rounded-xl relative transition-all duration-200 ${!disabled ? "transform hover:scale-105 cursor-pointer" : "cursor-not-allowed opacity-60"
-                  } flex flex-col items-center justify-between min-h-[140px]`}
+                className={`
+                ${bgClass}
+                ${textClass}
+                p-4 rounded-xl relative transition-all duration-200
+                flex flex-col items-center justify-between min-h-[140px]
+                ${disabled
+                    ? "cursor-not-allowed opacity-60"
+                    : fakeDisabled
+                      ? "opacity-60 cursor-pointer hover:opacity-60 hover:border-gray-300 hover:shadow-none hover:scale-105"
+                      : "transform hover:scale-105 cursor-pointer"
+                  }
+ flex flex-col items-center justify-between min-h-[140px]`}
               >
                 {/* Día de la semana */}
                 <div className="text-xs font-bold uppercase tracking-wider opacity-75">
@@ -1433,6 +1455,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                   <PriceBadgeLocal houseId={house.id} date={d} />
                 </div>
 
+
                 {/* Estado */}
                 <div className={`text-xs font-bold ${statusClass} text-center leading-tight`}>
                   {availabilityStatus}
@@ -1440,15 +1463,27 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
 
                 {/* 🔹 Etiquetas */}
                 {isArrivalMarker && (
-                  <span className="absolute bottom-2 text-[12px] font-bold text-white bg-[var(--color-primary)] px-1 rounded">
+                  <span
+                    className={
+                      `absolute bottom-2 text-[12px] font-bold px-1 rounded
+       ${isOccupied ? "bg-red-600 text-white" : "bg-[var(--color-primary)] text-white"}`
+                    }
+                  >
                     Check-in
                   </span>
                 )}
+
                 {isDepartureMarker && (
-                  <span className="absolute bottom-2 text-[12px] font-bold text-white bg-[var(--color-primary)] px-1 rounded">
+                  <span
+                    className={
+                      `absolute bottom-2 text-[12px] font-bold px-1 rounded 
+       ${(isOccupied && !isCheckinStart) || isCheckoutEnd ? "bg-red-600 text-white" : "bg-[var(--color-primary)] text-white"}`
+                    }
+                  >
                     Check-out
                   </span>
                 )}
+
               </button>
             );
           })}
@@ -1619,20 +1654,47 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
           const reserveButtonClass = isAvailable
             ? "bg-[var(--color-primary)] text-white hover:bg-opacity-90 transition duration-300"
             : "bg-gray-200 text-gray-500 cursor-not-allowed";
+          const [idA, idB] = splitDuoId(house.id);
+          const isDual = !!idB;
 
-          return (
+  return (
             <div key={house.id} className="bg-white rounded-2xl border border-gray-100 shadow-xl overflow-hidden transition-all duration-300 hover:shadow-2xl">
               <div className="flex flex-col md:flex-row">
                 <div className="shrink-0 w-full md:w-80 lg:w-96">
-                  <div className="w-full aspect-[4/3] md:h-full overflow-hidden">
-                    <img
-                      key={img.key}
-                      src={img.url}
-                      alt={img.alt ?? house.name}
-                      loading="lazy"
-                      className="w-full h-full object-cover transition-transform duration-700 hover:scale-110"
-                    />
-                  </div>
+                  {isDual ? (
+                    // Mostrar dos imágenes para búsquedas duales
+                    <div className="w-full h-full grid grid-rows-2 gap-1">
+                      <div className="w-full overflow-hidden">
+                        <img
+                          key={getHouseImage(idA!).key}
+                          src={getHouseImage(idA!).url}
+                          alt={getHouseImage(idA!).alt}
+                          loading="lazy"
+                          className="w-full h-full object-cover transition-transform duration-700 hover:scale-110"
+                        />
+                      </div>
+                      <div className="w-full overflow-hidden">
+                        <img
+                          key={getHouseImage(idB).key}
+                          src={getHouseImage(idB).url}
+                          alt={getHouseImage(idB).alt}
+                          loading="lazy"
+                          className="w-full h-full object-cover transition-transform duration-700 hover:scale-110"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    // Mostrar una sola imagen para búsquedas normales
+                    <div className="w-full aspect-[4/3] md:h-full overflow-hidden">
+                      <img
+                        key={img.key}
+                        src={img.url}
+                        alt={img.alt ?? house.name}
+                        loading="lazy"
+                        className="w-full h-full object-cover transition-transform duration-700 hover:scale-110"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex-1 p-6 md:p-8 flex flex-col justify-between">
@@ -1642,9 +1704,6 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                     </h3>
                     <p className="text-base font-medium text-gray-500 mb-4">
                       Maximum Guests: {house.maxGuests}
-                    </p>
-                    <p className="text-gray-700 leading-relaxed text-lg mb-6 border-l-4 border-[var(--color-primary)] pl-4 italic">
-                      {house.description}
                     </p>
                   </div>
 

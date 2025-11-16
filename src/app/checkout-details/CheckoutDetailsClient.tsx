@@ -880,12 +880,34 @@ export default function CheckoutDetailsClient() {
               <div className="flex-1">
                 <div className="text-base font-semibold text-gray-900 flex flex-wrap items-baseline gap-2">
                   Private jacuzzi
+
+                  {/* Horario elegante al lado del título */}
+                  <span className="flex items-center gap-1 text-[15px] font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="w-4 h-4 text-gray-500"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M12 6v6l4 2m6-2A10 10 0 11 2 12a10 10 0 0120 0z"
+                      />
+                    </svg>
+                    Available from 18:00 – 24:00
+                  </span>
+
                   {priceData && withJacuzzi && (
                     <span className="text-sm font-bold text-[var(--color-primary)]">
                       +{formatCurrency(jacuzziFeeShown)}
                     </span>
                   )}
                 </div>
+
+
                 <div className="text-sm text-gray-600 leading-relaxed mb-3">
                   First day: 65€ (up to 2 guests, +10€/extra guest). Additional
                   days: 45€/day (+10€/extra guest).
@@ -970,7 +992,7 @@ export default function CheckoutDetailsClient() {
             {/* quick note when initial pay-now is below coupon threshold */}
             {initialPayNow < COUPON_MIN_EUROS && (
               <div className="mt-2 text-xs text-gray-500">
-                Note: Coupons (fixed-euro balance) require an initial charge now
+                Coupons require an initial charge now
                 (Reservation fee) of at least{" "}
                 <span className="font-medium">
                   {formatCurrency(COUPON_MIN_EUROS)}

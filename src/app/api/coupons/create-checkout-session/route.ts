@@ -38,7 +38,7 @@ export async function POST(req: Request) {
       {
         mode: "payment",
         customer_creation: "always",
-        payment_method_types: ["card"],
+        payment_method_types: ["card", "paypal"],
         line_items: [
           {
             price_data: {

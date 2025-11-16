@@ -42,11 +42,8 @@ export async function POST(req: Request) {
       checkOut,
       houseId,
       houseIds,
-      note,
       guests,
-      // NUEVO: customer object esperado opcionalmente
       customer,
-      // Opcionales: coupon/code/amountApplied (si quieres pre-aplicarlos)
       coupon,
       amountApplied,
       code,
@@ -55,13 +52,20 @@ export async function POST(req: Request) {
       userId,
     } = body || {};
 
-    const guestsNum = Math.max(1, Number(guests || 2)); // ← mínimo 1
+    const guestsNum = Math.max(1, Number(guests || 2));
 
     if (!isISO(checkIn) || !isISO(checkOut) || checkIn >= checkOut) {
       return Response.json({ error: "Invalid date range" }, { status: 400 });
     }
 
-    // No permitir bloqueo en el pasado (comparando fechas, sin horas)
+    // Validate required customer information
+    if (!customer || !customer.email || !customer.name) {
+      return Response.json({ 
+        error: "Customer information (name and email) is required" 
+      }, { status: 400 });
+    }
+
+    // No permitir bloqueo en el pasado
     const today = new Date();
     const todayISO = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
     if (checkOut <= todayISO) {
@@ -77,7 +81,7 @@ export async function POST(req: Request) {
       return Response.json({ error: "houseId or houseIds required" }, { status: 400 });
     }
 
-    // Comprobar solape con reservas bloqueantes (reserved|complete|admin)
+    // Check for conflicts
     const blockingStatuses = ["reserved", "complete", "admin"];
     const reservationsRef = adminDb.collection("reservations");
 
@@ -100,7 +104,7 @@ export async function POST(req: Request) {
         const rIn = String(data.checkIn);
         const rOut = String(data.checkOut);
         if (rIn < checkOut && checkIn < rOut) {
-          return true; // hay conflicto
+          return true;
         }
       }
       return false;
@@ -108,10 +112,12 @@ export async function POST(req: Request) {
 
     const conflictsArray = await Promise.all(conflictPromises);
     if (conflictsArray.some(Boolean)) {
-      return Response.json({ error: "Date range overlaps an existing reservation (reserved/complete/admin)" }, { status: 409 });
+      return Response.json({ 
+        error: "Date range overlaps an existing reservation (reserved/complete/admin)" 
+      }, { status: 409 });
     }
 
-    // === PRICING: usa el endpoint oficial para calcular precios ===
+    // Get pricing
     const origin = new URL(req.url).origin;
     const houseIdForPrice = targetHouseIds.join("__");
 
@@ -136,7 +142,7 @@ export async function POST(req: Request) {
       return Response.json({ error: `Price API: ${priceJson.error}` }, { status: 422 });
     }
 
-    // ✅ Valores calculados por el endpoint de precio (fuente de verdad)
+    // Extract pricing info
     const total = Number(priceJson.total ?? 0);
     const firstNight = Number(priceJson.first ?? 0);
     const nights = Number(priceJson.nights ?? nightsBetween(checkIn, checkOut));
@@ -148,7 +154,6 @@ export async function POST(req: Request) {
     const codeFromPrice = couponFromPrice?.code ?? priceJson.code ?? null;
     const totalNightsOnly = Number(priceJson.totalNightsOnly ?? total);
     
-    // ✅ Jacuzzi con days
     const jacuzziInfo = priceJson.jacuzzi ?? { 
       enabled: false, 
       fee: Number(priceJson.jacuzziFee ?? 0),
@@ -158,35 +163,21 @@ export async function POST(req: Request) {
     const discountedFirst = Number(priceJson.discountedFirst ?? 0);
     const currency = priceJson.currency ?? "EUR";
 
-    // ✅ Campos simplificados
     const payNow = Number(priceJson.payNow ?? discountedFirst);
     const totalStay = Number(priceJson.totalStay ?? discountedGrandTotal);
     const payAtArrival = Number(priceJson.payAtArrival ?? Math.max(0, totalStay - payNow));
 
-    // Si viene customer en body, úsalo, si no, construye desde campos sueltos
-    const customerObj: any = customer && typeof customer === "object"
-      ? {
-          name: customer.name ? String(customer.name) : null,
-          email: customer.email ? String(customer.email) : null,
-          phone: customer.phone ? String(customer.phone) : null,
-          userId: customer.userId ? String(customer.userId) : null,
-          arrivalTime: customer.arrivalTime ? String(customer.arrivalTime) : null,
-          comment: customer.comment ? String(customer.comment) : null,
-          // cualquier otro dato que quieras guardar
-          ...customer,
-        }
-      : (body.email || body.name || body.phone || userId || arrivalTime || comment)
-        ? {
-            name: body.name ? String(body.name) : null,
-            email: body.email ? String(body.email) : null,
-            phone: body.phone ? String(body.phone) : null,
-            userId: userId ? String(userId) : null,
-            arrivalTime: arrivalTime ? String(arrivalTime) : null,
-            comment: comment ? String(comment) : null,
-          }
-        : null;
+    // Build customer object
+    const customerObj: any = {
+      name: String(customer.name),
+      email: String(customer.email),
+      phone: customer.phone ? String(customer.phone) : null,
+      userId: customer.userId ? String(customer.userId) : (userId ? String(userId) : null),
+      arrivalTime: customer.arrivalTime ? String(customer.arrivalTime) : (arrivalTime ? String(arrivalTime) : null),
+      comment: customer.comment ? String(customer.comment) : (comment ? String(comment) : null),
+    };
 
-    // Construimos el payload; escribimos customer y también los campos raíz para compatibilidad
+    // Create reservation payload
     const payload: any = {
       status: "admin",
       createdBy: me.email || me.uid,
@@ -194,14 +185,11 @@ export async function POST(req: Request) {
       checkIn: String(checkIn),
       checkOut: String(checkOut),
       nights,
-      adminNote: note || null,
 
-      // ✅ CAMPOS SIMPLIFICADOS (NUEVOS)
       payNow,
       payAtArrival,
       totalStay,
 
-      // precios legacy (mantener por compatibilidad)
       total: total,
       grandTotal: grandTotal,
       discountedTotal: discountedGrandTotal,
@@ -214,7 +202,6 @@ export async function POST(req: Request) {
       code: code ?? codeFromPrice ?? null,
       currency: currency,
       
-      // ✅ jacuzzi con days
       jacuzzi: {
         enabled: Boolean(jacuzziInfo?.enabled),
         fee: Number(jacuzziInfo?.fee ?? jacuzziInfo?.jacuzziFee ?? 0),
@@ -222,30 +209,23 @@ export async function POST(req: Request) {
       },
       jacuzziFee: Number(jacuzziInfo?.fee ?? jacuzziInfo?.jacuzziFee ?? 0),
 
-      // huéspedes y ocupación
       guests: guestsNum,
       includedBase: includedBase,
       extraGuests: Math.max(0, guestsNum - includedBase),
 
-      // customer: guardamos el mapa completo aquí
       customer: customerObj,
-      customerEmail: (customerObj?.email ?? body.customerEmail ?? body.email ?? null),
+      customerEmail: customerObj.email,
+      email: customerObj.email,
+      name: customerObj.name,
+      phone: customerObj.phone,
+      userId: customerObj.userId,
+      arrivalTime: customerObj.arrivalTime,
+      comment: customerObj.comment,
 
-      // campos raíz para compatibilidad con UI que pueda leer email/name/phone directamente
-      email: customerObj?.email ?? body.email ?? null,
-      name: customerObj?.name ?? body.name ?? null,
-      phone: customerObj?.phone ?? body.phone ?? null,
-      userId: customerObj?.userId ?? userId ?? null,
-
-      arrivalTime: customerObj?.arrivalTime ?? arrivalTime ?? null,
-      comment: customerObj?.comment ?? comment ?? null,
-
-      // stripe / pagos (vacíos en bloqueo admin)
       stripeCustomerId: null,
       stripePaymentIntentId: null,
       stripeSessionId: null,
 
-      // flags de pago
       paidAt: null,
       paidInFull: false,
 
@@ -255,8 +235,180 @@ export async function POST(req: Request) {
 
     const ref = await adminDb.collection("reservations").add(payload);
     const snap = await ref.get();
+    const reservationId = snap.id;
 
-    // Normalizar salida
+    // ✅ SEND CONFIRMATION EMAIL
+    try {
+      const customerEmail = customerObj.email;
+      if (customerEmail) {
+        let discountApplied = 0;
+        if (coupon && amountApplied) {
+          discountApplied = Number(amountApplied) || 0;
+        }
+
+        await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            type: "reservation_confirmation",
+            to: customerEmail,
+            lang: "en",
+            data: {
+              reservationId,
+              guestName: customerObj.name || customerEmail,
+              bookingDate: new Date().toISOString().slice(0, 19),
+              checkIn,
+              checkOut,
+              nights,
+              roomType: (targetHouseIds.length === 1 ? targetHouseIds[0] : targetHouseIds.join(", ")) || "Accommodation",
+              guests: guestsNum,
+              paidNow: payNow,
+              payAtArrival: payAtArrival,
+              totalStay: totalStay,
+              discountApplied: discountApplied,
+              currency,
+              hotelName: "Rubikiai Lux",
+              hotelContactEmail: "info@rubikiailux.lt",
+              hotelContactPhone: "",
+            },
+          }),
+        })
+        .then(async (res) => {
+          if (!res.ok) {
+            const text = await res.text().catch(() => "");
+            console.error("Confirmation email send failed:", res.status, text);
+            await ref.update({
+              emailSendErrorAt: admin.firestore.Timestamp.now(),
+              emailSendError: `status_${res.status}`,
+              lastEmailResponse: text,
+            });
+          } else {
+            await ref.update({
+              confirmationEmailSentAt: admin.firestore.Timestamp.now(),
+            });
+          }
+        })
+        .catch(async (e) => {
+          console.error("Confirmation email send error:", e);
+          await ref.update({
+            emailSendErrorAt: admin.firestore.Timestamp.now(),
+            emailSendError: String(e?.message ?? e),
+          });
+        });
+
+        // Wait 600ms before next email
+        await new Promise(resolve => setTimeout(resolve, 600));
+      }
+    } catch (e) {
+      console.error("Unexpected error when sending confirmation email:", e);
+    }
+
+    // ✅ SEND OWNER NOTIFICATION EMAIL
+    try {
+      const OWNER_EMAIL = process.env.OWNER_EMAIL; // Replace with your owner email
+      
+      await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          type: "owner_reservation_notification",
+          to: OWNER_EMAIL,
+          data: {
+            reservationId,
+            guestName: customerObj.name || customerObj.email || "Guest",
+            guestEmail: customerObj.email || null,
+            guestPhone: customerObj.phone || null,
+            bookingDate: new Date().toISOString().slice(0, 19),
+            checkIn,
+            checkOut,
+            nights,
+            roomType: (targetHouseIds.length === 1 ? targetHouseIds[0] : targetHouseIds.join(", ")) || "Accommodation",
+            guests: guestsNum,
+            paidNow: payNow,
+            payAtArrival: payAtArrival,
+            totalStay: totalStay,
+            discountApplied: (coupon && amountApplied) ? Number(amountApplied || 0) : 0,
+            currency,
+            propertyName: targetHouseIds.join(", ") || "Rubikiai Lux",
+            propertyId: targetHouseIds.length === 1 ? targetHouseIds[0] : undefined,
+            paymentMethod: "admin_block",
+            merchantReference: reservationId,
+            notes: customerObj.comment || "",
+          },
+        }),
+      });
+      
+      // Wait 600ms before next email
+      await new Promise(resolve => setTimeout(resolve, 600));
+    } catch (e) {
+      console.error("Owner reservation email failed:", e);
+    }
+
+    // ✅ SEND REMINDER EMAIL IF CHECK-IN <= 7 DAYS
+    try {
+      const customerEmail = customerObj.email;
+      if (customerEmail && checkIn) {
+        const now = new Date();
+        const checkInDate = new Date(checkIn);
+        const daysUntilCheckIn = Math.ceil(
+          (checkInDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+        );
+
+        console.log(`📅 Check-in: ${checkIn}, Days until check-in: ${daysUntilCheckIn}`);
+
+        if (daysUntilCheckIn <= 7 && daysUntilCheckIn >= 0) {
+          console.log(`📧 Sending reminder (${daysUntilCheckIn} days)`);
+
+          const firstHouseId = targetHouseIds.length > 0 ? targetHouseIds[0] : "";
+          const reminderVariant = firstHouseId === "L0TeFf2LmrWGAaAyS8NY" ? "A" : "B";
+
+          const reminderPayload = {
+            type: "booking_reminder",
+            to: customerEmail,
+            lang: "en",
+            data: {
+              guestName: customerObj.name || customerEmail.split("@")[0],
+              houseName: targetHouseIds.length === 1 ? targetHouseIds[0] : (targetHouseIds.join(", ") || "Rubikiai Lux"),
+              checkIn,
+              checkOut: checkOut || undefined,
+              nGuests: guestsNum || 2,
+              variant: reminderVariant,
+              notes: customerObj.comment || undefined,
+            },
+          };
+
+          console.log("📤 Reminder payload:", JSON.stringify(reminderPayload, null, 2));
+
+          const reminderRes = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(reminderPayload),
+          });
+
+          if (reminderRes.ok) {
+            console.log("✅ Reminder email sent");
+            await ref.update({
+              reminderEmailSentAt: admin.firestore.Timestamp.now(),
+            });
+          } else {
+            const errorText = await reminderRes.text().catch(() => "");
+            console.error("❌ Error sending reminder:", reminderRes.status, errorText);
+            await ref.update({
+              reminderEmailErrorAt: admin.firestore.Timestamp.now(),
+              reminderEmailError: `status_${reminderRes.status}: ${errorText}`,
+            });
+          }
+        } else {
+          console.log(`ℹ️ Check-in in ${daysUntilCheckIn} days - no reminder sent`);
+        }
+      } else {
+        console.log("⚠️ No email or checkIn for reminder");
+      }
+    } catch (e) {
+      console.error("❌ Error in booking reminder:", e);
+    }
+
+    // Normalize output
     const raw = snap.data() as any;
     const normalized: any = { id: snap.id, ...raw };
 
@@ -269,12 +421,10 @@ export async function POST(req: Request) {
     normalized.checkOut = String(raw.checkOut);
     normalized.guests = Number(raw.guests ?? guestsNum);
     
-    // ✅ Campos simplificados
     normalized.payNow = Number(raw.payNow ?? payNow);
     normalized.payAtArrival = Number(raw.payAtArrival ?? payAtArrival);
     normalized.totalStay = Number(raw.totalStay ?? totalStay);
     
-    // Legacy
     normalized.total = Number(raw.total ?? grandTotal);
     normalized.grandTotal = Number(raw.grandTotal ?? normalized.total);
     normalized.discountedGrandTotal = Number(raw.discountedGrandTotal ?? normalized.grandTotal);
@@ -283,7 +433,6 @@ export async function POST(req: Request) {
     normalized.includedBase = Number(raw.includedBase ?? includedBase);
     normalized.extraGuests = Number(raw.extraGuests ?? Math.max(0, guestsNum - includedBase));
     
-    // ✅ Jacuzzi con days
     normalized.jacuzzi = raw.jacuzzi ?? { 
       enabled: false, 
       fee: Number(raw.jacuzziFee ?? 0),
@@ -293,7 +442,6 @@ export async function POST(req: Request) {
     normalized.code = raw.code ?? (normalized.coupon?.code ?? null);
     normalized.percentDiscount = raw.percentDiscount ?? null;
 
-    // devolver customer normalizado también
     normalized.customer = raw.customer ?? null;
     normalized.customerEmail = raw.customerEmail ?? normalized.email ?? null;
     normalized.email = raw.email ?? null;

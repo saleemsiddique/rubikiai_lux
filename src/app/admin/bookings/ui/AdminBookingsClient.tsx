@@ -11,7 +11,7 @@ type Reservation = {
     status?: string;
     houseId?: string;
     houseIds?: string[];
-    
+
     // Customer info
     customer?: {
         name?: string;
@@ -29,12 +29,12 @@ type Reservation = {
     userId?: string;
     arrivalTime?: string;
     comment?: string;
-    
+
     // ✅ Pricing (NUEVOS CAMPOS SIMPLIFICADOS)
     payNow?: number;
     payAtArrival?: number;
     totalStay?: number;
-    
+
     // Pricing (legacy - mantener para compatibilidad)
     guests?: number;
     total?: number;
@@ -49,7 +49,7 @@ type Reservation = {
     includedBase?: number;
     extraGuests?: number;
     currency?: string;
-    
+
     // ✅ Jacuzzi (ACTUALIZADO CON DAYS)
     jacuzzi?: {
         enabled: boolean;
@@ -57,29 +57,29 @@ type Reservation = {
         jacuzziFee?: number;
         days?: number;
     };
-    
+
     // Coupon
     coupon?: any;
     code?: string;
     percentDiscount?: any;
-    
+
     // Timestamps
     createdAt?: string | null;
     paidAt?: string | null;
     deductedAt?: string | null;
     updatedAt?: string | null;
-    
+
     // Payment
     paidInFull?: boolean;
     stripeCustomerId?: string | null;
     stripePaymentIntentId?: string | null;
     stripeSessionId?: string | null;
-    
+
     // Metadata
     nights?: number;
     adminNote?: string;
     createdBy?: string;
-    
+
     [k: string]: any;
 };
 
@@ -91,6 +91,13 @@ const HOUSE_OPTIONS = [
     { id: "PZwbfMYlSXj61uYYJutg", alias: "Šalia Elnių Aptvaro" },
     { id: "oDzv9346CdaAsok162sX", alias: "Elnių Panorama" },
 ];
+
+const PROPERTY_NAME_MAP: Record<string, string> = {
+    "L0TeFf2LmrWGAaAyS8NY": "Ezero Namelis",
+    "PZwbfMYlSXj61uYYJutg": "Salia Elnių Aptvaro",
+    "oDzv9346CdaAsok162sX": "Salia Elnių Panorama",
+};
+
 
 /* ---------- Date helpers (LOCAL) ---------- */
 function pad2(n: number) {
@@ -197,14 +204,14 @@ export default function AdminBookingsClient() {
     const [blockHouseId, setBlockHouseId] = useState<string>("");
     const [blockNote, setBlockNote] = useState<string>("");
     const [blockGuests, setBlockGuests] = useState<number>(2);
-    
+
     // Customer info for blocking
     const [blockCustomerName, setBlockCustomerName] = useState<string>("");
     const [blockCustomerEmail, setBlockCustomerEmail] = useState<string>("");
     const [blockCustomerPhone, setBlockCustomerPhone] = useState<string>("");
     const [blockArrivalTime, setBlockArrivalTime] = useState<string>("");
     const [blockComment, setBlockComment] = useState<string>("");
-    
+
     const [blockBusy, setBlockBusy] = useState(false);
     const [blockMsg, setBlockMsg] = useState<string | null>(null);
 
@@ -445,23 +452,32 @@ export default function AdminBookingsClient() {
         }
     };
 
+    // createBlock function with email validation
     const createBlock = async () => {
         setBlockBusy(true);
         setBlockMsg(null);
         try {
             if (!blockHouseId) {
-                throw new Error("Debes indicar un House ID para bloquear.");
+                throw new Error("You must indicate a House ID to block.");
             }
             if (
                 !(isISODate(blockStart) && isISODate(blockEnd)) ||
                 !(blockStart < blockEnd)
             ) {
-                throw new Error("Rango de fechas inválido.");
+                throw new Error("Invalid date range.");
             }
 
             const todayISO = toISO(new Date());
             if (blockEnd <= todayISO) {
-                throw new Error("No puedes bloquear fechas en el pasado.");
+                throw new Error("You cannot block dates in the past.");
+            }
+
+            // Validate required customer fields
+            if (!blockCustomerName.trim()) {
+                throw new Error("Customer name is required.");
+            }
+            if (!blockCustomerEmail.trim()) {
+                throw new Error("Customer email is required.");
             }
 
             const hasConflict = await checkBlockConflicts(
@@ -471,25 +487,18 @@ export default function AdminBookingsClient() {
             );
             if (hasConflict) {
                 throw new Error(
-                    "Las fechas seleccionadas pisan una reserva existente (reserved / complete / admin)."
+                    "The selected dates overlap with an existing reservation (reserved / complete / admin)."
                 );
             }
 
-            // Build customer object if any field is filled
-            const customer: any = {};
-            let hasCustomerData = false;
-            
-            if (blockCustomerName.trim()) {
-                customer.name = blockCustomerName.trim();
-                hasCustomerData = true;
-            }
-            if (blockCustomerEmail.trim()) {
-                customer.email = blockCustomerEmail.trim();
-                hasCustomerData = true;
-            }
+            // Build customer object (now required)
+            const customer: any = {
+                name: blockCustomerName.trim(),
+                email: blockCustomerEmail.trim(),
+            };
+
             if (blockCustomerPhone.trim()) {
                 customer.phone = blockCustomerPhone.trim();
-                hasCustomerData = true;
             }
 
             const payload: any = {
@@ -497,19 +506,14 @@ export default function AdminBookingsClient() {
                 checkOut: blockEnd,
                 houseId: blockHouseId,
                 guests: blockGuests,
+                customer: customer,
             };
 
-            if (blockNote.trim()) {
-                payload.note = blockNote.trim();
-            }
             if (blockArrivalTime.trim()) {
                 payload.arrivalTime = blockArrivalTime.trim();
             }
             if (blockComment.trim()) {
                 payload.comment = blockComment.trim();
-            }
-            if (hasCustomerData) {
-                payload.customer = customer;
             }
 
             const res = await fetchWithTimeout(
@@ -527,14 +531,13 @@ export default function AdminBookingsClient() {
                 throw new Error(detail);
             }
 
-            setBlockMsg("Fechas bloqueadas correctamente.");
-            setBlockNote("");
+            setBlockMsg("Dates blocked successfully.");
             setBlockCustomerName("");
             setBlockCustomerEmail("");
             setBlockCustomerPhone("");
             setBlockArrivalTime("");
             setBlockComment("");
-            
+
             await fetchList();
             await fetchMonthOccupancy();
         } catch (e: any) {
@@ -720,12 +723,12 @@ export default function AdminBookingsClient() {
                                     {rows.map((r) => {
                                         const customerName = r.name || r.customer?.name || "—";
                                         const customerEmail = r.customerEmail || r.email || r.customer?.email || "—";
-                                        
+
                                         // ✅ Usar campos simplificados con fallback a legacy
                                         const totalStay = r.totalStay ?? r.discountedGrandTotal ?? r.discountedTotal ?? r.grandTotal ?? r.total ?? 0;
                                         const payNow = r.payNow ?? r.discountedFirst ?? r.firstNightCharge ?? 0;
                                         const jacuzziDays = r.jacuzzi?.days ?? 0;
-                                        
+
                                         return (
                                             <tr key={r.id} className="border-t">
                                                 <td className="px-3 py-2">
@@ -799,11 +802,11 @@ export default function AdminBookingsClient() {
                                                                             .value
                                                                     );
                                                                 } catch (
-                                                                    er: any
+                                                                er: any
                                                                 ) {
                                                                     alert(
                                                                         er?.message ||
-                                                                            "Error"
+                                                                        "Error"
                                                                     );
                                                                 }
                                                             }}
@@ -840,25 +843,25 @@ export default function AdminBookingsClient() {
                                                                         true
                                                                     );
                                                                 } catch (
-                                                                    er: any
+                                                                er: any
                                                                 ) {
                                                                     alert(
                                                                         er?.message ||
-                                                                            "Error"
+                                                                        "Error"
                                                                     );
                                                                 }
                                                             }}
                                                             disabled={
                                                                 r.status ===
-                                                                    "admin" ||
+                                                                "admin" ||
                                                                 r.status ===
-                                                                    "complete" ||
+                                                                "complete" ||
                                                                 r.status ===
-                                                                    "canceled"
+                                                                "canceled"
                                                             }
                                                             title={
                                                                 r.status ===
-                                                                "admin"
+                                                                    "admin"
                                                                     ? "Bloqueos de admin no pueden completarse"
                                                                     : undefined
                                                             }
@@ -881,22 +884,22 @@ export default function AdminBookingsClient() {
                                                                         "canceled"
                                                                     );
                                                                 } catch (
-                                                                    er: any
+                                                                er: any
                                                                 ) {
                                                                     alert(
                                                                         er?.message ||
-                                                                            "Error"
+                                                                        "Error"
                                                                     );
                                                                 }
                                                             }}
                                                             className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                                             disabled={
                                                                 r.status ===
-                                                                    "admin" ||
+                                                                "admin" ||
                                                                 r.status ===
-                                                                    "complete" ||
+                                                                "complete" ||
                                                                 r.status ===
-                                                                    "canceled"
+                                                                "canceled"
                                                             }
                                                         >
                                                             Cancelar
@@ -918,7 +921,7 @@ export default function AdminBookingsClient() {
                     <div className="lg:col-span-2 bg-white border rounded-xl p-4">
                         <div className="flex items-center justify-between mb-3">
                             <div className="font-semibold">
-                                Calendario global
+                                Global Calendar
                             </div>
                             <div className="flex items-center gap-2">
                                 <button
@@ -966,13 +969,13 @@ export default function AdminBookingsClient() {
 
                         <div className="grid grid-cols-7 gap-2 text-xs text-neutral-600 mb-1">
                             {[
-                                "Lun",
-                                "Mar",
-                                "Mié",
-                                "Jue",
-                                "Vie",
-                                "Sáb",
-                                "Dom",
+                                "Mon",
+                                "Tue",
+                                "Wed",
+                                "Thu",
+                                "Fri",
+                                "Sat",
+                                "Sun",
                             ].map((d) => (
                                 <div key={d} className="text-center">
                                     {d}
@@ -982,7 +985,7 @@ export default function AdminBookingsClient() {
 
                         {occLoading && (
                             <div className="text-xs text-neutral-600 mb-2">
-                                Cargando ocupación…
+                                Loading…
                             </div>
                         )}
                         {occErr && (
@@ -1018,25 +1021,24 @@ export default function AdminBookingsClient() {
                                         onClick={() =>
                                             setSelectedDay(cell.iso!)
                                         }
-                                        className={`h-16 rounded-md border text-xs flex flex-col items-center justify-center ${
-                                            onlyAdmin
-                                                ? "bg-neutral-200 border-neutral-300 text-neutral-700"
-                                                : busy
+                                        className={`h-16 rounded-md border text-xs flex flex-col items-center justify-center ${onlyAdmin
+                                            ? "bg-neutral-200 border-neutral-300 text-neutral-700"
+                                            : busy
                                                 ? "bg-[var(--color-primary)]/10 border-[var(--color-primary)]/40"
                                                 : "bg-white"
-                                        } hover:bg-neutral-50`}
+                                            } hover:bg-neutral-50`}
                                     >
                                         <div className="font-semibold">
                                             {cell.dayNum}
                                         </div>
                                         {onlyAdmin ? (
                                             <div className="text-[10px] text-neutral-700">
-                                                Bloqueado
+                                                Blocked by admin
                                             </div>
                                         ) : (
                                             busy && (
                                                 <div className="text-[10px] text-[var(--color-primary-dark)]">
-                                                    {list.length} reserva
+                                                    {list.length} Reservation
                                                     {list.length > 1 ? "s" : ""}
                                                 </div>
                                             )
@@ -1049,157 +1051,136 @@ export default function AdminBookingsClient() {
                         {selectedDay && (
                             <div className="mt-4 border-t pt-3">
                                 <div className="text-sm font-semibold">
-                                    Reservas el {selectedDay}
+                                    Reservations on {selectedDay}
                                 </div>
+
                                 <div className="mt-2 grid gap-2">
-                                    {(dayMap.get(selectedDay) || []).map(
-                                        (r) => {
-                                            const customerName = r.name || r.customer?.name || "—";
-                                            const customerEmail = r.customerEmail || r.email || r.customer?.email || "—";
-                                            const totalStay = r.totalStay ?? r.discountedGrandTotal ?? r.discountedTotal ?? r.grandTotal ?? r.total ?? 0;
-                                            const jacuzziDays = r.jacuzzi?.days ?? 0;
-                                            
-                                            return (
-                                                <div
-                                                    key={r.id}
-                                                    className="rounded-md border p-2 text-xs bg-white"
-                                                >
-                                                    <div className="font-semibold">
-                                                        {r.checkIn} →{" "}
-                                                        {r.checkOut}{" "}
-                                                        <span className="ml-1">
-                                                            ({r.status})
-                                                        </span>
-                                                    </div>
-                                                    <div>
-                                                        House:{" "}
-                                                        {r.houseId ??
-                                                            r.houseIds?.join(
-                                                                ","
-                                                            )}
-                                                    </div>
-                                                    <div>
-                                                        Cliente: {customerName}
-                                                    </div>
-                                                    <div>
-                                                        Email: {customerEmail}
-                                                    </div>
-                                                    {(r.phone || r.customer?.phone) && (
-                                                        <div>
-                                                            Teléfono: {r.phone || r.customer?.phone}
-                                                        </div>
-                                                    )}
-                                                    <div>
-                                                        Huéspedes:{" "}
-                                                        {r.guests ?? "—"}
-                                                        {r.extraGuests ? ` (+${r.extraGuests} extra)` : ""}
-                                                    </div>
-                                                    <div>
-                                                        Total: {totalStay.toFixed(2)}€
-                                                        {r.jacuzzi?.enabled && (
-                                                            <span>
-                                                                {" "}(+{r.jacuzziFee ?? 0}€ jacuzzi
-                                                                {jacuzziDays > 0 && ` ${jacuzziDays}d`})
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    {(r.arrivalTime || r.customer?.arrivalTime) && (
-                                                        <div>
-                                                            Llegada: {r.arrivalTime || r.customer?.arrivalTime}
-                                                        </div>
-                                                    )}
-                                                    {(r.comment || r.customer?.comment) && (
-                                                        <div className="mt-1 text-neutral-600">
-                                                            Comentario: {r.comment || r.customer?.comment}
-                                                        </div>
-                                                    )}
-                                                    {r.adminNote && (
-                                                        <div className="mt-1 text-neutral-600">
-                                                            Nota admin: {r.adminNote}
-                                                        </div>
-                                                    )}
-                                                    <div className="mt-2 flex gap-2">
-                                                        <button
-                                                            onClick={async () => {
-                                                                if (
-                                                                    r.status ===
-                                                                    "admin"
-                                                                )
-                                                                    return;
-                                                                if (
-                                                                    !confirm(
-                                                                        "¿Marcar pago completo y completar?"
-                                                                    )
-                                                                )
-                                                                    return;
-                                                                try {
-                                                                    await updateStatus(
-                                                                        r.id,
-                                                                        "complete",
-                                                                        true
-                                                                    );
-                                                                } catch (
-                                                                    er: any
-                                                                ) {
-                                                                    alert(
-                                                                        er?.message ||
-                                                                            "Error"
-                                                                    );
-                                                                }
-                                                            }}
-                                                            disabled={
-                                                                r.status ===
-                                                                "admin"
-                                                            }
-                                                            title={
-                                                                r.status ===
-                                                                "admin"
-                                                                    ? "Bloqueos de admin no pueden completarse"
-                                                                    : undefined
-                                                            }
-                                                            className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                        >
-                                                            Pago completo
-                                                        </button>
-                                                        <button
-                                                            onClick={async () => {
-                                                                try {
-                                                                    await updateStatus(
-                                                                        r.id,
-                                                                        "canceled"
-                                                                    );
-                                                                } catch (
-                                                                    e: any
-                                                                ) {
-                                                                    alert(
-                                                                        e?.message ||
-                                                                            "Error"
-                                                                    );
-                                                                }
-                                                            }}
-                                                            className="rounded-md border px-2 py-1 hover:bg-neutral-50"
-                                                        >
-                                                            Cancelar
-                                                        </button>
-                                                    </div>
+                                    {(dayMap.get(selectedDay) || []).map((r) => {
+                                        const customerName = r.name || r.customer?.name || "—";
+                                        const customerEmail = r.customerEmail || r.email || r.customer?.email || "—";
+                                        const totalStay =
+                                            r.totalStay ??
+                                            r.discountedGrandTotal ??
+                                            r.discountedTotal ??
+                                            r.grandTotal ??
+                                            r.total ??
+                                            0;
+                                        const jacuzziDays = r.jacuzzi?.days ?? 0;
+
+                                        return (
+                                            <div
+                                                key={r.id}
+                                                className="rounded-md border p-2 text-xs bg-white"
+                                            >
+                                                <div className="font-semibold">
+                                                    {r.checkIn} → {r.checkOut}{" "}
+                                                    <span className="ml-1">({r.status})</span>
                                                 </div>
-                                            );
-                                        }
-                                    )}
+
+                                                <div>
+                                                    Stay:{" "}
+                                                    {r.houseId
+                                                        ? PROPERTY_NAME_MAP[r.houseId] || r.houseId
+                                                        : r.houseIds
+                                                            ?.map((id: string) => PROPERTY_NAME_MAP[id] || id)
+                                                            .join(", ")}
+                                                </div>
+
+                                                <div>Guest: {customerName}</div>
+                                                <div>Email: {customerEmail}</div>
+
+                                                {(r.phone || r.customer?.phone) && (
+                                                    <div>Phone: {r.phone || r.customer?.phone}</div>
+                                                )}
+
+                                                <div>
+                                                    Guests: {r.guests ?? "—"}
+                                                    {r.extraGuests ? ` (+${r.extraGuests} extra)` : ""}
+                                                </div>
+
+                                                <div>
+                                                    Total: {totalStay.toFixed(2)}€
+                                                    {r.jacuzzi?.enabled && (
+                                                        <span>
+                                                            {" "}
+                                                            (+{r.jacuzziFee ?? 0}€ jacuzzi
+                                                            {jacuzziDays > 0 && ` ${jacuzziDays}d`})
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                {(r.arrivalTime || r.customer?.arrivalTime) && (
+                                                    <div>
+                                                        Arrival time: {r.arrivalTime || r.customer?.arrivalTime}
+                                                    </div>
+                                                )}
+
+                                                {(r.comment || r.customer?.comment) && (
+                                                    <div className="mt-1 text-neutral-600">
+                                                        Comment: {r.comment || r.customer?.comment}
+                                                    </div>
+                                                )}
+
+                                                {r.adminNote && (
+                                                    <div className="mt-1 text-neutral-600">
+                                                        Admin note: {r.adminNote}
+                                                    </div>
+                                                )}
+
+                                                <div className="mt-2 flex gap-2">
+                                                    <button
+                                                        onClick={async () => {
+                                                            if (r.status === "admin") return;
+                                                            if (!confirm("Mark as fully paid and complete?")) return;
+
+                                                            try {
+                                                                await updateStatus(r.id, "complete", true);
+                                                            } catch (er: any) {
+                                                                alert(er?.message || "Error");
+                                                            }
+                                                        }}
+                                                        disabled={r.status === "admin"}
+                                                        title={
+                                                            r.status === "admin"
+                                                                ? "Admin blocks cannot be completed"
+                                                                : undefined
+                                                        }
+                                                        className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    >
+                                                        Fully Paid
+                                                    </button>
+
+                                                    <button
+                                                        onClick={async () => {
+                                                            try {
+                                                                await updateStatus(r.id, "canceled");
+                                                            } catch (e: any) {
+                                                                alert(e?.message || "Error");
+                                                            }
+                                                        }}
+                                                        className="rounded-md border px-2 py-1 hover:bg-neutral-50"
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         )}
+
                     </div>
 
                     {/* Block form */}
                     <div className="bg-white border rounded-xl p-4">
                         <div className="font-semibold mb-2">
-                            Bloquear fechas
+                            Block dates
                         </div>
                         <div className="grid gap-3 text-sm">
                             <div>
                                 <label className="text-xs text-neutral-600">
-                                    Desde
+                                    From
                                 </label>
                                 <input
                                     type="date"
@@ -1213,7 +1194,7 @@ export default function AdminBookingsClient() {
 
                             <div>
                                 <label className="text-xs text-neutral-600">
-                                    Hasta
+                                    To
                                 </label>
                                 <input
                                     type="date"
@@ -1236,7 +1217,7 @@ export default function AdminBookingsClient() {
                                     }
                                     className="w-full border rounded-md p-2 mt-1"
                                 >
-                                    <option value="">— Selecciona —</option>
+                                    <option value="">— Select —</option>
                                     {HOUSE_OPTIONS.map((h) => (
                                         <option key={h.id} value={h.id}>
                                             {h.alias}
@@ -1247,7 +1228,7 @@ export default function AdminBookingsClient() {
 
                             <div>
                                 <label className="text-xs text-neutral-600">
-                                    Huéspedes
+                                    Guests
                                 </label>
                                 <input
                                     type="number"
@@ -1272,12 +1253,12 @@ export default function AdminBookingsClient() {
 
                             <div className="border-t pt-3 mt-2">
                                 <div className="text-xs font-semibold text-neutral-700 mb-2">
-                                    Datos del cliente (opcional)
+                                    Customer information *
                                 </div>
-                                
+
                                 <div className="mb-2">
                                     <label className="text-xs text-neutral-600">
-                                        Nombre
+                                        Name *
                                     </label>
                                     <input
                                         type="text"
@@ -1285,14 +1266,14 @@ export default function AdminBookingsClient() {
                                         onChange={(e) =>
                                             setBlockCustomerName(e.target.value)
                                         }
-                                        placeholder="Nombre del cliente"
+                                        placeholder="Customer name"
                                         className="w-full border rounded-md p-2 mt-1"
                                     />
                                 </div>
 
                                 <div className="mb-2">
                                     <label className="text-xs text-neutral-600">
-                                        Email
+                                        Email *
                                     </label>
                                     <input
                                         type="email"
@@ -1300,14 +1281,14 @@ export default function AdminBookingsClient() {
                                         onChange={(e) =>
                                             setBlockCustomerEmail(e.target.value)
                                         }
-                                        placeholder="email@ejemplo.com"
+                                        placeholder="email@example.com"
                                         className="w-full border rounded-md p-2 mt-1"
                                     />
                                 </div>
 
                                 <div className="mb-2">
                                     <label className="text-xs text-neutral-600">
-                                        Teléfono
+                                        Phone
                                     </label>
                                     <input
                                         type="tel"
@@ -1322,7 +1303,7 @@ export default function AdminBookingsClient() {
 
                                 <div className="mb-2">
                                     <label className="text-xs text-neutral-600">
-                                        Hora de llegada
+                                        Arrival time
                                     </label>
                                     <input
                                         type="time"
@@ -1336,7 +1317,7 @@ export default function AdminBookingsClient() {
 
                                 <div>
                                     <label className="text-xs text-neutral-600">
-                                        Comentario
+                                        Comment
                                     </label>
                                     <textarea
                                         value={blockComment}
@@ -1344,25 +1325,10 @@ export default function AdminBookingsClient() {
                                             setBlockComment(e.target.value)
                                         }
                                         rows={2}
-                                        placeholder="Comentarios adicionales"
+                                        placeholder="Additional comments"
                                         className="w-full border rounded-md p-2 mt-1"
                                     />
                                 </div>
-                            </div>
-
-                            <div>
-                                <label className="text-xs text-neutral-600">
-                                    Nota interna
-                                </label>
-                                <textarea
-                                    value={blockNote}
-                                    onChange={(e) =>
-                                        setBlockNote(e.target.value)
-                                    }
-                                    rows={2}
-                                    placeholder="Notas para el equipo"
-                                    className="w-full border rounded-md p-2 mt-1"
-                                />
                             </div>
 
                             <button
@@ -1370,16 +1336,15 @@ export default function AdminBookingsClient() {
                                 disabled={blockBusy}
                                 className="mt-2 rounded-md bg-[var(--color-primary)] text-white px-4 py-2 text-sm font-semibold hover:opacity-95 disabled:opacity-60"
                             >
-                                {blockBusy ? "Creando…" : "Bloquear"}
+                                {blockBusy ? "Creating…" : "Block"}
                             </button>
 
                             {blockMsg && (
                                 <div
-                                    className={`text-xs mt-1 whitespace-pre-wrap ${
-                                        blockMsg.startsWith("Error")
-                                            ? "text-red-600"
-                                            : "text-green-600"
-                                    }`}
+                                    className={`text-xs mt-1 whitespace-pre-wrap ${blockMsg.startsWith("Error")
+                                        ? "text-red-600"
+                                        : "text-green-600"
+                                        }`}
                                 >
                                     {blockMsg}
                                 </div>

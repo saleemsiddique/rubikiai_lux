@@ -349,13 +349,28 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     }
   }, [searchParams]);
 
-  const onChange = (dates: [Date | null, Date | null]) => {
-    const [start, end] = dates;
-    setStartDate(start);
-    setEndDate(end);
-    if (start && !end) setOpenPicker("departure");
-    else setOpenPicker(null);
-    setTimeout(() => recomputeHousesAvailability(start, end), 0);
+  const onChangeArrival = (date: Date | null) => {
+    setStartDate(date);
+    if (date) {
+      // Si la fecha seleccionada es igual o mayor al endDate actual, resetear endDate
+      if (endDate && date.getTime() >= endDate.getTime()) {
+        setEndDate(null);
+      }
+      setOpenPicker("departure");
+    }
+    setTimeout(() => recomputeHousesAvailability(date, endDate), 0);
+  };
+
+  const onChangeDeparture = (date: Date | null) => {
+    // No permitir que check-out sea igual a check-in
+    if (date && startDate && date.getTime() === startDate.getTime()) {
+      return;
+    }
+    setEndDate(date);
+    if (date) {
+      setOpenPicker(null);
+    }
+    setTimeout(() => recomputeHousesAvailability(startDate, date), 0);
   };
 
   const handleGuestsChange = (inc: number) => {
@@ -594,7 +609,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       }
       results = [...results, ...combos];
     }
-    
+
 
     results = results.filter((h) => (h.maxGuests ?? 0) >= guestsCount);
 
@@ -1074,8 +1089,9 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     }
 
     setEndDate(d);
-    // Removed automatic recompute to prevent unwanted calendar repositioning
-    // The availability will be computed when user clicks "Reserve"
+
+    // 🔹 Recompute availability with the new departure date
+    setTimeout(() => recomputeHousesAvailability(startDate, d), 0);
   };
 
   function slugify(name?: string) {
@@ -1337,15 +1353,35 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
             }
 
             // 🔹 Bloquear departure date en arrival mode
-            if (mode === "arrival" && isDepartureMarker) {
-              // Mantener disponible para click
-              disabled = false;
+            let showNotAvailableTooltip = false;
+            let tooltipMessage = "";
 
-              // Pero estilísticamente que parezca deshabilitado
-              availabilityStatus = "";
-              fakeDisabled = true;
+            if (mode === "arrival" && isDepartureMarker) {
+              // Si está ocupado, realmente deshabilitado + tooltip
+              if (isOccupied) {
+                disabled = true;
+                showNotAvailableTooltip = true;
+                tooltipMessage = "Not available for check-in";
+                availabilityStatus = "Not available";
+              } else {
+                // Si no está ocupado, mantener disponible para click
+                disabled = false;
+                availabilityStatus = "";
+                fakeDisabled = true;
+              }
             }
 
+            // 🔹 Tooltip para arrival marker en rojo
+            if (mode === "arrival" && isArrivalMarker && isOccupied) {
+              showNotAvailableTooltip = true;
+              tooltipMessage = "This date is occupied";
+            }
+
+            // 🔹 Tooltip para departure marker en rojo
+            if (mode === "departure" && isDepartureMarker && ((isOccupied && !isCheckinStart) || isCheckoutEnd)) {
+              showNotAvailableTooltip = true;
+              tooltipMessage = "This date is occupied";
+            }
 
             if (mode === "departure") {
               if (startDate) {
@@ -1430,13 +1466,27 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                 p-4 rounded-xl relative transition-all duration-200
                 flex flex-col items-center justify-between min-h-[140px]
                 ${disabled
-                    ? "cursor-not-allowed opacity-60"
+                    ? showNotAvailableTooltip
+                      ? "cursor-not-allowed opacity-60 group"
+                      : "cursor-not-allowed opacity-60"
                     : fakeDisabled
                       ? "opacity-60 cursor-pointer hover:opacity-60 hover:border-gray-300 hover:shadow-none hover:scale-105"
                       : "transform hover:scale-105 cursor-pointer"
                   }
- flex flex-col items-center justify-between min-h-[140px]`}
+flex flex-col items-center justify-between min-h-[140px]`}
               >
+                {/* Tooltip para días no disponibles */}
+                {showNotAvailableTooltip && (
+                  <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
+                    <div className="bg-gray-900 text-white text-xs px-3 py-2 rounded-lg shadow-lg whitespace-nowrap">
+                      {tooltipMessage}
+                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
+                        <div className="border-8 border-transparent border-t-gray-900"></div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Día de la semana */}
                 <div className="text-xs font-bold uppercase tracking-wider opacity-75">
                   {d.toLocaleString("en-US", { weekday: "short" })}
@@ -1577,10 +1627,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
             <label className="text-[var(--color-primary-dark)] text-sm mb-1 font-sans uppercase">Check-in</label>
             <DatePicker
               selected={startDate}
-              onChange={onChange}
-              startDate={startDate}
-              endDate={endDate}
-              selectsRange
+              onChange={onChangeArrival}
               minDate={new Date()}
               maxDate={getGlobalMaxDate()}
               open={openPicker === "arrival"}
@@ -1598,11 +1645,8 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
             <label className="text-[var(--color-primary-dark)] text-sm mb-1 font-sans uppercase">Check-out</label>
             <DatePicker
               selected={endDate}
-              onChange={onChange}
-              startDate={startDate}
-              endDate={endDate}
-              selectsRange
-              minDate={startDate || new Date()}
+              onChange={onChangeDeparture}
+              minDate={startDate ? new Date(startDate.getTime() + 86400000) : new Date()}
               maxDate={getGlobalMaxDate()}
               openToDate={startDate ?? new Date()}
               open={openPicker === "departure"}
@@ -1657,7 +1701,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
           const [idA, idB] = splitDuoId(house.id);
           const isDual = !!idB;
 
-  return (
+          return (
             <div key={house.id} className="bg-white rounded-2xl border border-gray-100 shadow-xl overflow-hidden transition-all duration-300 hover:shadow-2xl">
               <div className="flex flex-col md:flex-row">
                 <div className="shrink-0 w-full md:w-80 lg:w-96">

@@ -743,7 +743,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     return newDate;
   }
 
-  function MobileCalendarMonthModal({ house }: { house: HouseLight }) {
+function MobileCalendarMonthModal({ house }: { house: HouseLight }) {
     const safeHouse = house ?? { id: "unknown" } as HouseLight;
     const houseId = safeHouse.id;
 
@@ -756,6 +756,16 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       if (mode === 'arrival') return localStartDate ? stripTime(new Date(localStartDate)) : today;
       else return localEndDate ? stripTime(new Date(localEndDate)) : localStartDate ? stripTime(new Date(localStartDate)) : today;
     });
+
+    // 🔹 Estado para mostrar tooltips temporales en móvil
+    const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
+
+    useEffect(() => {
+      if (activeTooltip) {
+        const timer = setTimeout(() => setActiveTooltip(null), 2000);
+        return () => clearTimeout(timer);
+      }
+    }, [activeTooltip]);
 
     if (!house) return null;
 
@@ -872,6 +882,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       <div className="fixed inset-0 z-[2000] bg-black bg-opacity-60 flex items-end md:items-center justify-center">
         <div className="w-full h-[90vh] md:h-[80vh] bg-white rounded-t-2xl md:rounded-2xl overflow-hidden shadow-2xl flex flex-col p-4">
 
+          {/* Header de navegación */}
           <div className="flex items-center justify-between mb-2">
             <button onClick={goPrevMonth} className="px-3 py-1 border rounded-full hover:bg-gray-100">‹</button>
             <div className="text-lg font-semibold">
@@ -886,6 +897,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
             </button>
           </div>
 
+          {/* Botones de modo */}
           <div className="flex justify-center mb-2 space-x-2">
             <button
               className={`px-3 py-1 rounded-full transition-all ${mode === 'arrival' ? 'bg-[var(--color-primary)] text-white' : 'bg-gray-200'}`}
@@ -901,12 +913,14 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
             </button>
           </div>
 
+          {/* Días de la semana */}
           <div className="flex justify-between mb-2 text-xs font-semibold text-gray-500">
             {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(d => (
               <div key={d} className="w-[14.28%] text-center">{d}</div>
             ))}
           </div>
 
+          {/* Grid de días */}
           <div className="flex-1 overflow-auto max-h-[60vh]">
             <div className="grid grid-cols-7 gap-1">
               {days.map((d, idx) => {
@@ -923,12 +937,15 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                 const isSelectedDeparture = localEndDate && dateIso(localEndDate) === ds;
                 const inRange = localStartDate && localEndDate && dateIso(localStartDate) < ds && ds < dateIso(localEndDate);
 
-                // 🔹 Marcadores claros
-                const isArrivalMarker = mode === 'departure' && localStartDate && dateIso(localStartDate) === ds;
-                const isDepartureMarker = mode === 'arrival' && localEndDate && dateIso(localEndDate) === ds;
+                // 🔹 Marcadores SIEMPRE visibles (independientemente del modo)
+                const isArrivalMarker = localStartDate && stripTime(d).getTime() === stripTime(localStartDate).getTime();
+                const isDepartureMarker = localEndDate && stripTime(d).getTime() === stripTime(localEndDate).getTime();
 
                 const isPast = stripTime(d).getTime() < today.getTime();
                 let disabled = false;
+                let fakeDisabled = false;
+                let showNotAvailableTooltip = false;
+                let tooltipMessage = "";
 
                 // Días pasados siempre bloqueados
                 if (isPast) {
@@ -936,79 +953,132 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                 }
 
                 if (mode === 'arrival') {
-                  // En arrival mode, bloquear departure date
-                  if (isDepartureMarker) {
+                  if (!isPast && isOccupied) {
                     disabled = true;
-                  } else if (!isPast) {
-                    disabled = disabled || isOccupied;
+                  }
+                  
+                  // 🔹 Bloquear departure date en arrival mode
+                  if (isDepartureMarker) {
+                    if (isOccupied) {
+                      disabled = true;
+                      showNotAvailableTooltip = true;
+                      tooltipMessage = "Not available for check-in";
+                    } else {
+                      disabled = false;
+                      fakeDisabled = true;
+                    }
+                  }
+
+                  // 🔹 Tooltip para arrival marker en rojo
+                  if (isArrivalMarker && isOccupied) {
+                    showNotAvailableTooltip = true;
+                    tooltipMessage = "This date is occupied";
                   }
                 } else {
                   // En departure mode
                   if (localStartDate) {
                     disabled = disabled || stripTime(d).getTime() <= stripTime(localStartDate).getTime();
                   }
-                  if (!isPast && !isArrivalMarker) {
-                    disabled = disabled || (isOccupied && !isCheckinStart) || isCheckoutEnd;
+                  if (!isPast) {
+                    if ((isOccupied && !isCheckinStart) || isCheckoutEnd) {
+                      disabled = true;
+                    }
+                  }
+
+                  // 🔹 Tooltip para departure marker en rojo
+                  if (isDepartureMarker && ((isOccupied && !isCheckinStart) || isCheckoutEnd)) {
+                    showNotAvailableTooltip = true;
+                    tooltipMessage = "This date is occupied";
                   }
                 }
 
-                let dayClass = "bg-white";
+                const paintAsOccupied =
+                  (mode === "arrival" && isOccupied) ||
+                  (mode === "departure" && ((isOccupied && !isCheckinStart) || isCheckoutEnd));
+
+                let dayClass = "bg-white border-2 border-gray-200";
                 let textClass = "text-gray-700";
 
-                // 🔺 PRIORIDAD VISUAL: Markers primero
+                // 🔺 PRIORIDAD VISUAL: ArrivalMarker y DepartureMarker antes de cualquier otra cosa
                 if (isArrivalMarker) {
                   dayClass = "bg-[var(--color-primary)]/20 border-2 border-[var(--color-primary)]/40";
                   textClass = "text-[var(--color-primary-dark)] font-bold";
                 } else if (isDepartureMarker) {
                   dayClass = "bg-[var(--color-primary)]/20 border-2 border-[var(--color-primary)]/40";
                   textClass = "text-[var(--color-primary-dark)] font-bold";
-                } else if (isPast) {
-                  // Días pasados en gris
-                  dayClass = "bg-gray-100 border-2 border-gray-200";
-                  textClass = "text-gray-400";
+                } else if (paintAsOccupied || (disabled && !isPast)) {
+                  dayClass = "bg-red-50 border-2 border-red-300";
+                  textClass = "text-red-600";
                 } else if (isSelectedArrival || isSelectedDeparture) {
                   dayClass = "bg-[var(--color-primary)] border-2 border-[var(--color-primary)]";
                   textClass = "text-white font-bold";
                 } else if (inRange) {
                   dayClass = "bg-[var(--color-primary)]/10 border-2 border-[var(--color-primary)]/30";
                   textClass = "text-[var(--color-primary-dark)]";
-                } else if (isOccupied && !(mode === 'departure' && isCheckinStart)) {
-                  // Días ocupados en rojo
-                  dayClass = "bg-red-50 border-2 border-red-300";
-                  textClass = "text-red-600";
-                } else if (mode == 'departure' && isCheckoutEnd) {
-                  dayClass = "bg-red-50 border-2 border-red-300";
-                  textClass = "text-red-600";
                 } else if (!disabled) {
-                  // Días disponibles con borde
                   dayClass = "bg-white border-2 border-gray-200";
+                }
+
+                if (isPast) {
+                  dayClass = "bg-gray-100 border-2 border-gray-200";
+                  textClass = "text-gray-400";
                 }
 
                 return (
                   <button
                     key={ds}
-                    disabled={disabled}
+                    disabled={disabled && !showNotAvailableTooltip}
                     onClick={() => {
+                      // 🔹 Si tiene tooltip, mostrar mensaje temporal en móvil
+                      if (showNotAvailableTooltip) {
+                        setActiveTooltip(ds);
+                        return;
+                      }
+                      
                       if (disabled) return;
                       if (mode === 'arrival') handleSelectArrival(d);
                       else handleSelectDeparture(d);
                     }}
                     className={`w-full h-20 p-1 rounded-lg flex flex-col items-center justify-between transition-all relative
-      ${dayClass} ${textClass} ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:shadow-md'}`}
+      ${dayClass} ${textClass} 
+      ${disabled && !showNotAvailableTooltip
+                        ? "cursor-not-allowed opacity-60"
+                        : fakeDisabled
+                          ? "opacity-60 cursor-pointer active:opacity-50"
+                          : "cursor-pointer active:scale-95"
+                      }`}
                   >
+                    {/* 🔹 Tooltip temporal para móvil (2 segundos) */}
+                    {showNotAvailableTooltip && activeTooltip === ds && (
+                      <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 z-20 animate-fade-in">
+                        <div className="bg-gray-900 text-white text-xs px-3 py-2 rounded-lg shadow-xl whitespace-nowrap">
+                          {tooltipMessage}
+                          <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
+                            <div className="border-4 border-transparent border-t-gray-900"></div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="text-sm font-semibold">{d.getDate()}</div>
                     <div className="text-xs mt-1">
                       <PriceBadgeLocal houseId={house.id} date={d} />
                     </div>
 
-                    {/* 🔹 Labels */}
+                    {/* 🔹 Labels con colores condicionales según ocupación */}
                     {isArrivalMarker && (
-                      <span className="absolute bottom-0.5 text-[12px] font-bold text-white bg-[var(--color-primary)] px-1 rounded">
+                      <span
+                        className={`absolute bottom-0.5 text-[10px] font-bold px-1 rounded
+                          ${isOccupied ? "bg-red-600 text-white" : "bg-[var(--color-primary)] text-white"}`}
+                      >
                         Check-in
                       </span>
                     )}
                     {isDepartureMarker && (
-                      <span className="absolute bottom-0.5 text-[12px] font-bold text-white bg-[var(--color-primary)] px-1 rounded">
+                      <span
+                        className={`absolute bottom-0.5 text-[10px] font-bold px-1 rounded
+                          ${(isOccupied && !isCheckinStart) || isCheckoutEnd ? "bg-red-600 text-white" : "bg-[var(--color-primary)] text-white"}`}
+                      >
                         Check-out
                       </span>
                     )}
@@ -1018,6 +1088,25 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
             </div>
           </div>
 
+          {/* Leyenda */}
+          <div className="mt-4 pt-3 border-t border-gray-200">
+            <div className="flex flex-wrap gap-3 justify-center text-xs">
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-[var(--color-primary)] rounded"></div>
+                <span className="text-gray-600">Selected</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-[var(--color-primary)]/20 border-2 border-[var(--color-primary)]/40 rounded"></div>
+                <span className="text-gray-600">Check-in/Check-out</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-red-50 border-2 border-red-300 rounded"></div>
+                <span className="text-gray-600">Occupied</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Botones de acción */}
           <div className="flex justify-between items-center mt-4">
             <button onClick={close} className="px-3 py-1 border rounded-full hover:bg-gray-100">Close</button>
             <button onClick={close} className="px-4 py-2 bg-[var(--color-primary)] text-white rounded-full hover:bg-[var(--color-primary-dark)]">
@@ -1025,6 +1114,17 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
             </button>
           </div>
         </div>
+
+        {/* Estilos para animación de tooltip */}
+        <style>{`
+          @keyframes fade-in {
+            from { opacity: 0; transform: translate(-50%, -5px); }
+            to { opacity: 1; transform: translate(-50%, 0); }
+          }
+          .animate-fade-in {
+            animation: fade-in 0.2s ease-out;
+          }
+        `}</style>
       </div>
     );
   }

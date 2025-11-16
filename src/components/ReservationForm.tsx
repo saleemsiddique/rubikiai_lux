@@ -743,7 +743,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     return newDate;
   }
 
-function MobileCalendarMonthModal({ house }: { house: HouseLight }) {
+  function MobileCalendarMonthModal({ house }: { house: HouseLight }) {
     const safeHouse = house ?? { id: "unknown" } as HouseLight;
     const houseId = safeHouse.id;
 
@@ -956,7 +956,7 @@ function MobileCalendarMonthModal({ house }: { house: HouseLight }) {
                   if (!isPast && isOccupied) {
                     disabled = true;
                   }
-                  
+
                   // 🔹 Bloquear departure date en arrival mode
                   if (isDepartureMarker) {
                     if (isOccupied) {
@@ -1034,7 +1034,7 @@ function MobileCalendarMonthModal({ house }: { house: HouseLight }) {
                         setActiveTooltip(ds);
                         return;
                       }
-                      
+
                       if (disabled) return;
                       if (mode === 'arrival') handleSelectArrival(d);
                       else handleSelectDeparture(d);
@@ -1050,10 +1050,16 @@ function MobileCalendarMonthModal({ house }: { house: HouseLight }) {
                   >
                     {/* 🔹 Tooltip temporal para móvil (2 segundos) */}
                     {showNotAvailableTooltip && activeTooltip === ds && (
-                      <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 z-20 animate-fade-in">
+                      <div className={`absolute -top-12 z-20 animate-fade-in ${idx % 7 === 0 ? 'left-0' :
+                          idx % 7 === 6 ? 'right-0' :
+                            'left-1/2 -translate-x-1/2'
+                        }`}>
                         <div className="bg-gray-900 text-white text-xs px-3 py-2 rounded-lg shadow-xl whitespace-nowrap">
                           {tooltipMessage}
-                          <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
+                          <div className={`absolute top-full -mt-1 ${idx % 7 === 0 ? 'left-4' :
+                              idx % 7 === 6 ? 'right-4' :
+                                'left-1/2 -translate-x-1/2'
+                            }`}>
                             <div className="border-4 border-transparent border-t-gray-900"></div>
                           </div>
                         </div>

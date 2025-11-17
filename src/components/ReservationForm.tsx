@@ -1349,9 +1349,9 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
             if (stripTime(d).getTime() < today.getTime()) {
               disabled = true;
             }
-            // Modo arrival: deshabilitar días ocupados (excepto nuestras selecciones)
+            // Modo arrival: deshabilitar días ocupados
             else if (mode === "arrival") {
-              if (isOccupied && !isOurCheckin && !isOurCheckout) {
+              if (isOccupied) {
                 disabled = true;
                 availabilityStatus = "Occupied";
               }
@@ -1366,8 +1366,8 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                   // No mostrar "Occupied" para el día de check-in
                 }
               }
-              // Deshabilitar días ocupados (excepto si es inicio de check-in o nuestra checkout)
-              if (((isOccupied && !isCheckinStart) || isCheckoutEnd) && !isOurCheckout) {
+              // Deshabilitar días ocupados (excepto si es inicio de check-in)
+              if ((isOccupied && !isCheckinStart) || isCheckoutEnd) {
                 disabled = true;
                 availabilityStatus = "Occupied";
               }
@@ -1378,14 +1378,22 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
               availabilityStatus = "✓ Available";
             }
 
-            // Determinar si pintar como ocupado (rojo) - pero no si son nuestras fechas o el día de check-in en departure mode
+            // Determinar si pintar como ocupado (rojo)
             const isCheckinInDepartureMode = mode === "departure" && startDate && dateIso(startDate) === ds;
 
+            // Un día está ocupado si:
+            // - En arrival: está ocupado
+            // - En departure: está ocupado (excepto inicio de check-in) o es fin de checkout, PERO no es el día de check-in
             const paintAsOccupied =
-              (mode === "arrival" && isOccupied && !isOurCheckin && !isOurCheckout) ||
-              (mode === "departure" && ((isOccupied && !isCheckinStart) || isCheckoutEnd) && !isOurCheckout && !isCheckinInDepartureMode);
+              (mode === "arrival" && isOccupied) ||
+              (mode === "departure" && ((isOccupied && !isCheckinStart) || isCheckoutEnd) && !isCheckinInDepartureMode);
 
-            // Solo dos colores: disponible o ocupado
+            // Determinar si este día debe mostrarse como seleccionado
+            // En departure mode, el check-in también se muestra como seleccionado (pero deshabilitado)
+            const isSelected = isOurCheckin || isOurCheckout;
+            const isSelectedAndAvailable = isSelected && !paintAsOccupied;
+
+            // Solo dos/tres colores: disponible, ocupado, o seleccionado
             let bgClass = "bg-white border-2 border-gray-200";
             let textClass = "text-gray-700";
             let statusClass = "text-gray-500";
@@ -1395,14 +1403,30 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
               bgClass = "bg-gray-100 border-2 border-gray-200";
               textClass = "text-gray-400";
               statusClass = "text-gray-400";
+            } else if (isSelectedAndAvailable) {
+              // Días seleccionados y disponibles (color primary)
+              // Esto incluye el check-in en departure mode
+              bgClass = "bg-[var(--color-primary)]/20 border-2 border-[var(--color-primary)]/40";
+              textClass = "text-[var(--color-primary-dark)] font-bold";
+              statusClass = "text-[var(--color-primary-dark)]";
             } else if (paintAsOccupied || (disabled && stripTime(d).getTime() >= today.getTime())) {
-              // Días ocupados (rojo)
+              // Días ocupados (rojo) - SIEMPRE se muestran en rojo, sin importar si están seleccionados
               bgClass = "bg-red-50 border-2 border-red-300";
               textClass = "text-red-600";
               statusClass = "text-red-500";
             } else if (!disabled) {
               // Días disponibles (blanco)
               bgClass = "bg-white border-2 border-gray-200 hover:border-[var(--color-primary)] hover:shadow-lg";
+            }
+
+            // Determinar el label de selección - SOLO si está seleccionado
+            let selectionLabel = "";
+            if (isSelectedAndAvailable) {
+              if (isOurCheckin) {
+                selectionLabel = "Check-in";
+              } else if (isOurCheckout) {
+                selectionLabel = "Check-out";
+              }
             }
 
             return (
@@ -1438,6 +1462,13 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                 ${disabled ? "cursor-not-allowed opacity-60" : "transform hover:scale-105 cursor-pointer"}
               `}
               >
+                {/* Label de Check-in/Check-out en la parte superior */}
+                {selectionLabel && (
+                  <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-[var(--color-primary)] text-white text-xs font-bold px-3 py-1 rounded-full shadow-md whitespace-nowrap">
+                    {selectionLabel}
+                  </div>
+                )}
+
                 {/* Día de la semana */}
                 <div className="text-xs font-bold uppercase tracking-wider opacity-75">
                   {d.toLocaleString("en-US", { weekday: "short" })}
@@ -1476,12 +1507,15 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
               <div className="w-4 h-4 bg-red-50 border-2 border-red-300 rounded"></div>
               <span className="text-gray-600">Occupied</span>
             </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-[var(--color-primary)]/20 border-2 border-[var(--color-primary)]/40 rounded"></div>
+              <span className="text-gray-600">Selected</span>
+            </div>
           </div>
         </div>
       </div>
     );
   };
-
   /* ---------------- Render ---------------- */
   return (
     <div className="max-w-6xl w-full mx-auto">

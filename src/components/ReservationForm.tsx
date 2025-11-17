@@ -1230,7 +1230,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
   }
 
   /* ---------------- Carousel rendering ---------------- */
-  const renderCarouselForHouse = (house: HouseLight, mode: "arrival" | "departure") => {
+const renderCarouselForHouse = (house: HouseLight, mode: "arrival" | "departure") => {
     const houseId = house.id;
     const offset = getOffset(houseId, mode);
     const STEP = 7;
@@ -1342,6 +1342,10 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
             const isOurCheckin = startDate && dateIso(startDate) === ds;
             const isOurCheckout = endDate && dateIso(endDate) === ds;
 
+            // Verificar si el check-in seleccionado está disponible
+            const checkinDateStr = startDate ? dateIso(startDate) : null;
+            const isCheckinAvailable = checkinDateStr ? !occupiedSet.has(checkinDateStr) : false;
+
             let disabled = false;
             let availabilityStatus = "";
 
@@ -1389,8 +1393,10 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
               (mode === "departure" && ((isOccupied && !isCheckinStart) || isCheckoutEnd) && !isCheckinInDepartureMode);
 
             // Determinar si este día debe mostrarse como seleccionado
-            // En departure mode, el check-in también se muestra como seleccionado (pero deshabilitado)
-            const isSelected = isOurCheckin || isOurCheckout;
+            // IMPORTANTE: Solo mostrar como seleccionado si el check-in está disponible
+            // - En check-in mode: solo si el día está seleccionado Y no está ocupado
+            // - En check-out mode: solo si el día está seleccionado Y el check-in está disponible
+            const isSelected = (isOurCheckin && !isOccupied) || (isOurCheckout && isCheckinAvailable);
             const isSelectedAndAvailable = isSelected && !paintAsOccupied;
 
             // Solo dos/tres colores: disponible, ocupado, o seleccionado
@@ -1419,7 +1425,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
               bgClass = "bg-white border-2 border-gray-200 hover:border-[var(--color-primary)] hover:shadow-lg";
             }
 
-            // Determinar el label de selección - SOLO si está seleccionado
+            // Determinar el label de selección - SOLO si está seleccionado Y disponible
             let selectionLabel = "";
             if (isSelectedAndAvailable) {
               if (isOurCheckin) {

@@ -870,6 +870,21 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     return (
       <div className="fixed inset-0 z-[2000] bg-black bg-opacity-60 flex items-end md:items-center justify-center">
         <div className="w-full h-[90vh] md:h-[80vh] bg-white rounded-t-2xl md:rounded-2xl overflow-hidden shadow-2xl flex flex-col p-4">
+          {/* Estilos para animaciones */}
+          <style>{`
+            @keyframes pulse-subtle {
+              0%, 100% {
+                box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.4);
+              }
+              50% {
+                box-shadow: 0 0 0 8px rgba(251, 191, 36, 0);
+              }
+            }
+            
+            .animate-pulse-subtle {
+              animation: pulse-subtle 2s ease-in-out infinite;
+            }
+          `}</style>
 
           {/* Header de navegación */}
           <div className="flex items-center justify-between mb-2">
@@ -926,35 +941,124 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                 const isOurCheckin = localStartDate && dateIso(localStartDate) === ds;
                 const isOurCheckout = localEndDate && dateIso(localEndDate) === ds;
 
+                // Verificar si el check-in seleccionado está disponible
+                const checkinDateStr = localStartDate ? dateIso(localStartDate) : null;
+                const isCheckinAvailable = checkinDateStr ? !occupiedSetFull.has(checkinDateStr) : false;
+
                 const isPast = stripTime(d).getTime() < today.getTime();
                 let disabled = false;
+                let isBlockedByReservation = false;
+                let isFirstAvailableCheckout = false;
 
                 // Días pasados siempre bloqueados
                 if (isPast) {
                   disabled = true;
                 }
-
-                if (mode === 'arrival') {
-                  // Deshabilitar días ocupados excepto nuestras fechas
-                  if (!isPast && isOccupied && !isOurCheckin && !isOurCheckout) {
+                // Modo arrival: deshabilitar días ocupados
+                else if (mode === 'arrival') {
+                  if (isOccupied) {
                     disabled = true;
                   }
-                } else {
-                  // En departure mode
+                }
+                // Modo departure: lógica especial
+                else if (mode === 'departure') {
                   if (localStartDate) {
-                    disabled = disabled || stripTime(d).getTime() <= stripTime(localStartDate).getTime();
-                  }
-                  if (!isPast) {
-                    // Deshabilitar ocupados excepto si es inicio de check-in o nuestra checkout
-                    if (((isOccupied && !isCheckinStart) || isCheckoutEnd) && !isOurCheckout) {
+                    const startDay = stripTime(new Date(localStartDate));
+                    // No se puede seleccionar el mismo día de check-in o anterior
+                    if (stripTime(d).getTime() <= startDay.getTime()) {
                       disabled = true;
+                    }
+
+                    // Buscar la primera fecha ocupada después del check-in
+                    let firstOccupiedAfterCheckin: Date | null = null;
+                    const currentDay = addDays(startDay, 1);
+                    const maxCheck = addDays(startDay, 365);
+
+                    for (let checkDate = new Date(currentDay); checkDate <= maxCheck; checkDate = addDays(checkDate, 1)) {
+                      if (occupiedSetFull.has(dateIso(checkDate))) {
+                        firstOccupiedAfterCheckin = new Date(checkDate);
+                        break;
+                      }
+                    }
+
+                    // Si hay una fecha ocupada después del check-in y el día actual está después de ella
+                    if (firstOccupiedAfterCheckin && stripTime(d).getTime() > stripTime(firstOccupiedAfterCheckin).getTime()) {
+                      disabled = true;
+                      isBlockedByReservation = true;
+                    }
+                  }
+
+                  // Deshabilitar días ocupados (excepto si es inicio de check-in)
+                  if ((isOccupied && !isCheckinStart) || isCheckoutEnd) {
+                    disabled = true;
+                  }
+
+                  // Identificar el ÚLTIMO día disponible para checkout antes de una reserva
+                  // SOLO si NO hay un checkout válido ya seleccionado
+                  if (localStartDate && !disabled && stripTime(d).getTime() > stripTime(new Date(localStartDate)).getTime()) {
+                    // Verificar si hay un checkout válido seleccionado
+                    let hasValidCheckout = false;
+
+                    if (localEndDate && stripTime(localEndDate).getTime() > stripTime(new Date(localStartDate)).getTime()) {
+                      const startDay = stripTime(new Date(localStartDate));
+                      const endDay = stripTime(localEndDate);
+
+                      // Verificar si hay alguna reserva ENTRE check-in y checkout (sin incluir el día de checkout)
+                      let hasReservationBetween = false;
+
+                      for (let checkDate = addDays(startDay, 1); stripTime(checkDate).getTime() < endDay.getTime(); checkDate = addDays(checkDate, 1)) {
+                        if (occupiedSetFull.has(dateIso(checkDate))) {
+                          hasReservationBetween = true;
+                          break;
+                        }
+                      }
+
+                      // El checkout es válido si no hay reservas entre check-in y checkout
+                      hasValidCheckout = !hasReservationBetween;
+                    }
+
+                    if (!hasValidCheckout) {
+                      const startDay = stripTime(new Date(localStartDate));
+                      // Buscar todos los días disponibles consecutivos después del check-in
+                      let lastAvailableCheckout: Date | null = null;
+                      const currentDay = addDays(startDay, 1);
+                      const maxCheck = addDays(startDay, 365);
+
+                      for (let checkDate = new Date(currentDay); checkDate <= maxCheck; checkDate = addDays(checkDate, 1)) {
+                        const checkDateStr = dateIso(checkDate);
+                        const isOccupiedCheck = occupiedSetFull.has(checkDateStr);
+                        const isPrevOccupiedCheck = occupiedSetFull.has(dateIso(addDays(checkDate, -1)));
+                        const isCheckinStartCheck = isOccupiedCheck && !isPrevOccupiedCheck;
+
+                        // Es disponible si: no está ocupado (o es inicio de check-in que permite checkout)
+                        if (!isOccupiedCheck || isCheckinStartCheck) {
+                          lastAvailableCheckout = new Date(checkDate);
+                        } else {
+                          // Si encontramos un día ocupado (que no sea inicio de check-in), paramos
+                          break;
+                        }
+                      }
+
+                      if (lastAvailableCheckout && dateIso(d) === dateIso(lastAvailableCheckout)) {
+                        isFirstAvailableCheckout = true;
+                      }
                     }
                   }
                 }
 
+                // Determinar si pintar como ocupado (rojo)
+                const isCheckinInDepartureMode = mode === "departure" && localStartDate && dateIso(localStartDate) === ds;
+
                 const paintAsOccupied =
-                  (mode === "arrival" && isOccupied && !isOurCheckin && !isOurCheckout) ||
-                  (mode === "departure" && ((isOccupied && !isCheckinStart) || isCheckoutEnd) && !isOurCheckout);
+                  (mode === "arrival" && isOccupied) ||
+                  (mode === "departure" && ((isOccupied && !isCheckinStart) || isCheckoutEnd) && !isCheckinInDepartureMode);
+
+                // Determinar si este día debe mostrarse como seleccionado
+                const isSelected =
+                  (mode === "arrival" && isOurCheckin && !isOccupied) ||
+                  (mode === "departure" && isOurCheckin && !isOccupied) ||
+                  (mode === "departure" && isOurCheckout && isCheckinAvailable && !isBlockedByReservation && !paintAsOccupied);
+                const isSelectedAndAvailable = isSelected && !paintAsOccupied && !isBlockedByReservation;
 
                 let dayClass = "bg-white border-2 border-gray-200";
                 let textClass = "text-gray-700";
@@ -962,11 +1066,30 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                 if (isPast) {
                   dayClass = "bg-gray-100 border-2 border-gray-200";
                   textClass = "text-gray-400";
-                } else if (paintAsOccupied || (disabled && !isPast)) {
+                } else if (isSelectedAndAvailable) {
+                  // Días seleccionados y disponibles (color primary)
+                  dayClass = "bg-[var(--color-primary)]/20 border-2 border-[var(--color-primary)]/40";
+                  textClass = "text-[var(--color-primary-dark)] font-bold";
+                } else if (paintAsOccupied) {
+                  // Días ocupados (rojo) - SIEMPRE se muestran en rojo
                   dayClass = "bg-red-50 border-2 border-red-300";
                   textClass = "text-red-600";
+                } else if (isBlockedByReservation || (disabled && !isPast && !paintAsOccupied)) {
+                  // Días bloqueados por estar después de una reserva (gris) - SOLO si NO están ocupados
+                  dayClass = "bg-gray-100 border-2 border-gray-300";
+                  textClass = "text-gray-500";
                 } else if (!disabled) {
                   dayClass = "bg-white border-2 border-gray-200";
+                }
+
+                // Determinar el label de selección
+                let selectionLabel = "";
+                if (isSelectedAndAvailable) {
+                  if (isOurCheckin) {
+                    selectionLabel = "Check-in";
+                  } else if (isOurCheckout) {
+                    selectionLabel = "Check-out";
+                  }
                 }
 
                 return (
@@ -997,8 +1120,17 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                     className={`w-full h-20 p-1 rounded-lg flex flex-col items-center justify-between transition-all relative
                       ${dayClass} ${textClass} 
                       ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer active:scale-95"}
+                      ${isFirstAvailableCheckout ? "animate-pulse-subtle" : ""}
                     `}
                   >
+                    
+                    {/* Label de Check-in/Check-out */}
+                    {selectionLabel && (
+                      <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 bg-[var(--color-primary)] text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-md whitespace-nowrap z-10">
+                        {selectionLabel}
+                      </div>
+                    )}
+
                     <div className="text-sm font-semibold">{d.getDate()}</div>
                     <div className="text-xs mt-1">
                       <PriceBadgeLocal houseId={house.id} date={d} />
@@ -1019,6 +1151,14 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-red-50 border-2 border-red-300 rounded"></div>
                 <span className="text-gray-600">Occupied</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-[var(--color-primary)]/20 border-2 border-[var(--color-primary)]/40 rounded"></div>
+                <span className="text-gray-600">Selected</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-gray-100 border-2 border-gray-300 rounded"></div>
+                <span className="text-gray-600">Not available</span>
               </div>
             </div>
           </div>

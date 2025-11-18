@@ -1567,13 +1567,6 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                 ${isFirstAvailableCheckout ? "animate-pulse-subtle" : ""}
               `}
               >
-                {/* Indicador visual para el primer día disponible */}
-                {isFirstAvailableCheckout && (
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-amber-400 rounded-full animate-ping"></div>
-                )}
-                {isFirstAvailableCheckout && (
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-amber-500 rounded-full"></div>
-                )}
                 {/* Label de Check-in/Check-out en la parte superior */}
                 {selectionLabel && (
                   <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-[var(--color-primary)] text-white text-xs font-bold px-3 py-1 rounded-full shadow-md whitespace-nowrap">

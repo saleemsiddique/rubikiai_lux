@@ -9,6 +9,9 @@ import { HouseProvider } from "@/context/HouseContext"; // <-- wrap app with pro
 export const metadata: Metadata = {
   title: "Rubikiai Lux - Alojamientos vacacionales",
   description: "Escapadas con estética de cine. Alojamientos exclusivos en entornos naturales.",
+  icons: {
+    icon: "/Logotipas.PNG",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

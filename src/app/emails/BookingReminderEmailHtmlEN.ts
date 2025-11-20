@@ -81,7 +81,10 @@ function baseHeader(
             <tr>
               <td style="padding:14px 22px 6px;">
                 <div style="font:500 15px Inter,Arial,sans-serif;color:#334155;line-height:1.6;">
-                  We're excited to host you at <strong>${displayName}</strong> on <strong>${checkInFmt}</strong>${checkOut ? ` until ${checkOutFmt}` : ""}. Please review the house information and rules below.
+                  We're excited to host you at <strong>${displayName}</strong> on <strong>${checkInFmt}</strong>${checkOut ? ` until ${checkOutFmt}` : ""}. Please review the house information and rules below. <br>
+                  Klientas privalo užtikrinti, kad su vidaus tvarkos taisyklėmis būtų supažindinti ir jų laikytųsi visi kartu su juo atvykę į sodybą
+                  svečiai. Jeigu klientas ar bet kuris iš kartu su klientu atvykusių svečių vidaus tvarkos taisyklių nesilaiko, už bet kokias kilusias
+                  pasekmes klientas atsako asmeniškai teisės aktų nustatyta tvarka.
                 </div>
               </td>
             </tr>
@@ -188,28 +191,28 @@ export function BookingReminderEmailHtml_A(params: BookingReminderEmailParams): 
   const header = baseHeader(params, { title: `Hi ${params.guestName}, important info for your stay` });
   const rules = [
     // Based on Rubikiai Lux E.N. Taisykles.pdf
-    "Apgyvendinimo para: 16:00–12:00 (kitą dieną).",
-    "Atvykus sumokėti likusią rezervacijos sumą.",
-    "Augintiniai griežtai draudžiami (mokėjimas negrąžinamas).",
-    "Neišstumdyti baldų, nelaikyti daiktų ne jiems skirtose vietose; palaikyti tvarką ir švarą.",
-    "Saugioti turtą; apie sugadinimus informuoti ir atsiskaityti iš karto (už nepilnamečius atsako tėvai / globėjai).",
-    "Nepalikti vaikų be priežiūros; už jų saugumą ir padarytą žalą atsako tėvai / globėjai.",
-    "Ramybės valandos 24:00–09:00.",
-    "RŪKYTI VIDUJE DRAUDŽIAMA; lauke nuorūkas mesti tik į talpas terasoje.",
-    "Nepjaustyti ant stalo ar stalviršių – naudoti pjaustymo lenteles.",
+    "Apgyvendinimo para prasideda 16 val., baigiasi kitos dienos 12 val.",
+    "Atvykus reikia sumokėti likusią rezervacijos sumą.",
+    "Atvykti su augintiniais griežtai draudžiama. Visgi atvykus, bus paprašyta išvykti. Mokėjimas nebus grąžinamas.",
+    "Neišstumdyti baldų ir neperdėti daiktų į ne jiems skirtas vietas. Palaikyti apartamentuose tvarką ir švarą. Viskas yra idealaus stovio ir mes norėtumėme tai išlaikyti.",
+    "Prašome saugoti musų turtą. Jei inventorius sulaužomas, sudaužomas ar kitaip sugadinamas - informuoti ir atsiskaityti reikia iš karto. Jeigu minėtą žalą padaro nepilnamečiai vaikai, materialiai už juos atsako jų tėvai ar globėjai, o šiems atsisakius žalą atlygina – visais atvejais Klientas.",
+    "Jei Klientas atvyksta su nepilnamečiais vaikais - privalo rūpintis jais, t.y. nepalikti jų be priežiūros, ir pilnai atsako pats už jų saugumą bei pilnai materialiai atsako už vaikų padarytus sodyboje nuostolius (sulaužytą, sugadintą inventorių, turtą).",
+    "Priimame svečius tik ramiam poilsiui, todėl prašome gerbti aplinkinių ramybę, ramybės valandos nuo 24 iki 9 valandos.",
+    "RŪKYTI VIDUJE DRAUDŽIAMA. Rūkant lauke, nuorūkas mesti tik į tam skirtas talpas terasoje.",
+    "Nepjaustyti ant stalo ar stalviršių, naudoti pjaustymo lenteles.",
     "Orkaitėje naudoti kepimo popierių ar foliją.",
-    "Laikytis saugaus naudojimosi elektros prietaisais; neišjungus nepalikti be priežiūros; išeinant išjungti šviesas ir užsukti vandenį.",
-    "Antklodės, rankšluosčiai ir kt. inventorius negali būti naudojami pliaže ar iškyloje lauke.",
+    "Naudotis elektros prietaisais laikantis saugumo reikalavimų, neleisti jais naudotis vaikams. Nepalikti be priežiūros įjungtų elektros prietaisų. Prašome išjungti visas šviesas ir užsukti vandens čiaupus prieš paliekant apartamentus.",
+    "Antklodės, rankšluosčiai ir kitas kambarių inventorius negali buti naudojamas pliaže ar iškyloje lauke.",
   ];
   const jacuzzi = [
-    "Jei paslauga neapmokėta – naudotis griežtai draudžiama.",
-    "Naudojimosi laikas 18:00–24:00.",
-    "Jacuzzi nėra skirta prausimuisi – prieš naudojimą BŪTINA nusiprausti duše.",
-    "Nedėvėti papuošalų / aksesuarų – galima sugadinti siurblius (taisymo išlaidas dengtų svečias).",
-    "Draudžiama naudotis išsitepus kremais ar aliejais.",
-    "Nevalgyti ir negerti sūkurinėje vonioje; nepilti jokių skysčių (šampūno, muilo ir pan.) – pažeidžia filtravimo sistemą.",
-    "Draudžiama atidaryti dangtį naudojant grilį / šašlykinę.",
-    "Po kiekvieno naudojimosi BŪTINA uždaryti dangtį.",
+    "Jei jacuzzi paslauga neapmokėta, ja naudotis griežtai draudžiama!",
+    "Jacuzzi naudojimosi laikas nuo 18 val iki 24 val.",
+    "Jacuzzi nėra skirta prausimuisi, todėl prieš naudojantis ja, rekomenduojame nusiprausti duše",
+    "Nedėvėti papuošalų ir aksesuarų (žiedų, apyrankių, grandinėlių, laikrodžių...) dėl galimybės juos prarasti bei sugadinti jacuzzi siurblius...turėsite padengti taisymo išlaidas...€",
+    "Draudžiama naudotis jacuzzi išsitepus bet kokiais kremais ar aliejais,",
+    "Nevalgyti ir negerti sūkurinėje vonioje ir nepilti į ją jokių skysčių, nei šampūno, muilo... - taip galite sugadinti filtravimo sistemą bei siurblius ir turėsite padengti taisymo išlaidas ...€...",
+    "Draudžiama atidaryti jacuzzi dangtį naudojant grilių – šašlykinę,",
+    "Po kiekvieno naudojimosi sūkurine vonia BŪTINA uždaryti dangtį.",
   ];
 
   return header + rulesList(rules) + jacuzziList(jacuzzi) + baseFooter(params.notes);
@@ -220,33 +223,33 @@ export function BookingReminderEmailHtml_B(params: BookingReminderEmailParams): 
   const header = baseHeader(params, { title: `Hi ${params.guestName}, important info for your stay` });
   const rules = [
     // Based on RubikiaiLux_Sutartis.pdf
-    "Apgyvendinimo para: 16:00–11:00 (kitą dieną).",
-    "Atvykus sumokėti likusią rezervacijos sumą.",
-    "Augintiniai griežtai draudžiami (mokėjimas negrąžinamas).",
-    "Neišstumdyti baldų, nelaikyti daiktų ne jiems skirtose vietose; palaikyti tvarką ir švarą.",
-    "Saugioti turtą; apie sugadinimus informuoti ir atsiskaityti iš karto (už nepilnamečius atsako tėvai / globėjai).",
-    "Jei atvykstama su nepilnamečiais – jų nepalikti be priežiūros; už jų saugumą ir žalą atsako tėvai / globėjai.",
-    "Ramybės valandos 24:00–09:00.",
-    "RŪKYTI VIDUJE DRAUDŽIAMA; lauke nuorūkas mesti tik į talpas terasoje.",
-    "Nepjaustyti ant stalo ar stalviršių – naudoti pjaustymo lenteles.",
+    "Apgyvendinimo para prasideda 16 val., baigiasi kitos dienos 11 val.",
+    "Atvykus reikia sumokėti likusią rezervacijos sumą.",
+    "Atvykti su augintiniais griežtai draudžiama. Visgi atvykus, bus paprašyta išvykti. Mokėjimas nebus grąžinamas.",
+    "Neišstumdyti baldų ir neperdėti daiktų į ne jiems skirtas vietas. Palaikyti apartamentuose tvarką ir švarą. Viskas yra idealaus stovio ir mes norėtumėme tai išlaikyti.",
+    "Prašome saugoti musų turtą. Jei inventorius sulaužomas, sudaužomas ar kitaip sugadinamas - informuoti ir atsiskaityti reikia iš karto. Jeigu minėtą žalą padaro nepilnamečiai vaikai, materialiai už juos atsako jų tėvai ar globėjai, o šiems atsisakius žalą atlygina – visais atvejais Klientas.",
+    "Jei Klientas ar su juo atvykę asmenys atvyksta su nepilnamečiais vaikais - privalo rūpintis jais, t.y. nepalikti jų be priežiūros, ir pilnai atsako patys už jų saugumą bei pilnai materialiai atsako už vaikų padarytus sodyboje nuostolius (sulaužytą, sugadintą inventorių, turtą).",
+    "Priimame svečius tik ramiam poilsiui, todėl prašome gerbti aplinkinių ramybę, ramybės valandos nuo 24 iki 9 valandos.",
+    "RŪKYTI VIDUJE DRAUDŽIAMA. Rūkant lauke, nuorūkas mesti tik į tam skirtas talpas terasoje.",
+    "Nepjaustyti ant stalo ar stalviršių, naudoti pjaustymo lenteles.",
     "Orkaitėje naudoti kepimo popierių ar foliją.",
-    "Elektros prietaisus naudoti saugiai; išeinant išjungti šviesas ir užsukti vandenį.",
-    "Kambaryje esančią krosnelę kūrenti tik šeimininkui leidus ir po instruktažo.",
-    "Nedėti daiktų ant krosnelės, nekūrenti buitinėmis atliekomis.",
-    "Laikytis saugaus atstumo nuo įkaitusios krosnelės; nekūrenti be priežiūros.",
-    "Antklodės, rankšluosčiai ir kt. inventorius negali būti naudojami pliaže ar iškyloje lauke.",
-    "Nemaitinti elnių danielių be šeimininkų leidimo (tik vaisiais ar daržovėmis).",
+    "Naudotis elektros prietaisais laikantis saugumo reikalavimų, neleisti jais naudotis vaikams. Nepalikti be priežiūros įjungtų elektros prietaisų. Prašome išjungti visas šviesas ir užsukti vandens čiaupus prieš paliekant apartamentus.",
+    "Kambaryje esančia krosnelę kūrenti tik leidus sodybos šeimininkui ir išklausius instruktažą.",
+    "Nedėti daiktų ant krosnelės, nekūrenti krosnelės buitinėmis atliekomis.",
+    "Laikytis saugaus atstumo nuo įkaitusios krosnelės, bei nepalikti kūrentis be priežiūros.",
+    "Antklodės, rankšluosčiai ir kitas kambarių inventorius negali buti naudojamas pliaže ar iškyloje lauke.",
+    "Nemaitinti elnių danielių kitu maistu, tik vaisiais ar daržovėmis.",
   ];
   const jacuzzi = [
-    "Jei paslauga neapmokėta – naudotis griežtai draudžiama.",
-    "Naudojimosi laikas 18:00–24:00.",
-    "Jacuzzi nėra skirta prausimuisi – prieš naudojimą BŪTINA nusiprausti duše.",
-    "Nedėvėti papuošalų / aksesuarų – galima sugadinti siurblius (taisymo išlaidas dengtų svečias).",
-    "Draudžiama naudotis išsitepus kremais ar aliejais.",
-    "Nevalgyti ir negerti sūkurinėje vonioje; nepilti jokių skysčių (šampūno, muilo ir pan.) – pažeidžia filtravimo sistemą.",
-    "Draudžiama atidaryti dangtį naudojant grilį / šašlykinę.",
-    "Po kiekvieno naudojimosi BŪTINA uždaryti dangtį.",
-    "Griežtai draudžiama šokinėti į / iš jacuzzi.",
+    "Jei jacuzzi paslauga neapmokėta, ja naudotis griežtai draudžiama!",
+    "Jacuzzi naudojimosi laikas nuo 18 val iki 24 val.",
+    "Jacuzzi nėra skirta prausimuisi, todėl prieš naudojantis ja, rekomenduojame nusiprausti duše !!!",
+    "Griežtai draužiama šokinėti į ir iš Jacuzzi.",
+    "Nedėvėti papuošalų ir aksesuarų (žiedų, apyrankių, grandinėlių, laikrodžių...) dėl galimybės juos prarasti bei sugadinti jacuzzi siurblius...turėsite padengti taisymo išlaidas...€",
+    "Draudžiama naudotis jacuzzi išsitepus bet kokiais kremais ar aliejais.",
+    "Nevalgyti ir negerti sūkurinėje vonioje ir nepilti į ją jokių skysčių, nei šampūno, muilo... - taip galite sugadinti filtravimo sistemą bei siurblius ir turėsite padengti taisymo išlaidas ...€..",
+    "Draudžiama atidaryti jacuzzi dangtį naudojant grilių – šašlykinę,",
+    "Po kiekvieno naudojimosi sūkurine vonia BŪTINA uždaryti dangtį.",
   ];
 
   return header + rulesList(rules) + jacuzziList(jacuzzi) + baseFooter(params.notes);

@@ -14,11 +14,21 @@ const HeroSection: React.FC = () => {
         backgroundImage: 'url("/home/IMG_6656-1.jpeg")',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
-        backgroundAttachment: 'fixed'
       }}
     >
       <div className="absolute inset-0 bg-[var(--color-highlight)] opacity-40 mt-0 sm:mt-12"></div>
 
+      <style jsx>{`
+        section {
+          background-attachment: scroll;
+        }
+        
+        @media (min-width: 768px) {
+          section {
+            background-attachment: fixed;
+          }
+        }
+      `}</style>
 
       <div className="relative z-10 text-center px-4">
         <h1 className="text-4xl md:text-6xl font-extrabold tracking-wide drop-shadow-lg font-header">
@@ -27,7 +37,6 @@ const HeroSection: React.FC = () => {
         <p className="hidden sm:block mt-4 text-lg md:text-xl font-light font-sans">
           MAGIŠKOMS AKIMIRKOMS.
         </p>
-
 
         <ReservationForm showResults={false} />
       </div>

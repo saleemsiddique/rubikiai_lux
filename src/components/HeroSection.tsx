@@ -11,7 +11,7 @@ const HeroSection: React.FC = () => {
     <section
       className="relative h-screen flex items-center justify-center text-[var(--color-background-soft)]"
       style={{
-        backgroundImage: 'url("/home/rubikiai_lago.avif")',
+        backgroundImage: 'url("/home/IMG_6656-1.jpeg")',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundAttachment: 'fixed'

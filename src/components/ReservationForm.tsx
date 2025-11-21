@@ -1123,7 +1123,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                       ${isFirstAvailableCheckout ? "animate-pulse-subtle" : ""}
                     `}
                   >
-                    
+
                     {/* Label de Check-in/Check-out */}
                     {selectionLabel && (
                       <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 bg-[var(--color-primary)] text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-md whitespace-nowrap z-10">
@@ -1768,7 +1768,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
   /* ---------------- Render ---------------- */
   return (
     <div className="max-w-6xl w-full mx-auto">
-      <div className="card-soft mt-6 sm:mt-16 p-6 md:p-8 flex flex-col items-center relative z-10">
+      <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl shadow-lg mt-6 sm:mt-16 p-6 md:p-8 flex flex-col items-center relative z-10 gap-4">
         <div className="mb-4 z-10 relative w-full">
           <div className="sm:hidden flex justify-center">
             <label htmlFor="propertyTypeMobile" className="sr-only">Property type</label>
@@ -1828,7 +1828,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
 
         <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 w-full justify-center items-center">
           <div className="flex flex-col text-left flex-1 border-r border-[var(--color-primary)] pr-4 w-full">
-            <label className="text-[var(--color-primary-dark)] text-sm mb-1 font-sans uppercase">Check-in</label>
+            <label className="text-[var(--color-primary)] text-sm mb-1 font-sans uppercase font-bold">Check-in</label>
             <DatePicker
               selected={startDate}
               onChange={onChangeArrival}
@@ -1838,7 +1838,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
               onInputClick={() => setOpenPicker("arrival")}
               onClickOutside={() => setOpenPicker(null)}
               customInput={
-                <div className="p-2 bg-transparent text-[var(--color-text)] font-sans text-xl cursor-pointer">
+                <div className="p-2 bg-transparent text-white font-sans text-xl cursor-pointer">
                   {startDate ? formatDateDDMMYYYY(startDate) : 'DD/MM/YYYY'}
                 </div>
               }
@@ -1846,7 +1846,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
           </div>
 
           <div className="flex flex-col text-left flex-1 border-r border-[var(--color-primary)] pr-4 w-full">
-            <label className="text-[var(--color-primary-dark)] text-sm mb-1 font-sans uppercase">Check-out</label>
+            <label className="text-[var(--color-primary)] text-sm mb-1 font-sans uppercase font-bold">Check-out</label>
             <DatePicker
               selected={endDate}
               onChange={onChangeDeparture}
@@ -1857,7 +1857,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
               onInputClick={() => setOpenPicker("departure")}
               onClickOutside={() => setOpenPicker(null)}
               customInput={
-                <div className="p-2 bg-transparent text-[var(--color-text)] font-sans text-xl cursor-pointer">
+                <div className="p-2 bg-transparent text-white font-sans text-xl cursor-pointer">
                   {endDate ? formatDateDDMMYYYY(endDate) : 'DD/MM/YYYY'}
                 </div>
               }
@@ -1865,11 +1865,11 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
           </div>
 
           <div className="flex flex-col text-left flex-1 w-full">
-            <label className="text-[var(--color-primary-dark)] text-sm mb-1 font-sans uppercase">Guests</label>
+            <label className="text-[var(--color-primary)] text-sm mb-1 font-sans uppercase font-bold">Guests</label>
             <div className="flex items-center justify-center p-2 bg-transparent text-[var(--color-text)] font-sans text-xl">
-              <button onClick={() => handleGuestsChange(-1)} className="px-2 text-3xl leading-none text-[var(--color-text)] hover:text-[var(--color-primary-dark)]">-</button>
-              <div className="w-12 text-center">{guests}</div>
-              <button onClick={() => handleGuestsChange(1)} className="px-2 text-3xl leading-none text-[var(--color-text)] hover:text-[var(--color-primary-dark)]">+</button>
+              <button onClick={() => handleGuestsChange(-1)} className="px-2 text-3xl leading-none text-white hover:text-[var(--color-primary-dark)]">-</button>
+              <div className="w-12 text-center text-white">{guests}</div>
+              <button onClick={() => handleGuestsChange(1)} className="px-2 text-3xl leading-none text-white hover:text-[var(--color-primary-dark)]">+</button>
             </div>
           </div>
         </div>

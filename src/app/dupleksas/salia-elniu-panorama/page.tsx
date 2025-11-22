@@ -4,17 +4,20 @@ import { redirect } from "next/navigation";
 import HousePage from "@/components/HousePage";
 
 const panoramaImages = [
-  "/dupleksas/2-dupleksas-n1.jpeg",
-  "/dupleksas/2-dupleksas-n2.jpg",
-  "/dupleksas/2-dupleksas-n3.jpeg",
-  "/dupleksas/dupleksas-n4.JPG",
-  "/dupleksas/dupleksas-n5.JPG",
-  "/dupleksas/dupleksas-n6.jpeg",
-  "/dupleksas/dupleksas-n7.jpeg",
-  "/dupleksas/dupleksas-n8.jpeg",
-  "/dupleksas/dupleksas-n9.jpeg",
-  "/dupleksas/dupleksas-n10.jpeg",
-  "/dupleksas/dupleksas-n11.jpeg",
+  "/dupleksas/2-dupleksas8.jpeg",
+  "/dupleksas/2-dupleksas4.jpeg",
+  "/dupleksas/2-dupleksas7.jpeg",
+  "/dupleksas/2-dupleksas6.jpeg",
+  "/dupleksas/2-dupleksas3.jpeg",
+  "/dupleksas/2-dupleksas9.jpeg",
+  "/dupleksas/2-dupleksas5.jpeg",
+  "/dupleksas/2-dupleksas1.jpeg",
+  "/dupleksas/2-dupleksas14.jpeg",
+  "/dupleksas/2-dupleksas2.jpeg",
+  "/dupleksas/2-dupleksas13.jpg",
+  "/dupleksas/2-dupleksas11.jpeg",
+  "/dupleksas/2-dupleksas12.jpeg",
+  "/dupleksas/2-dupleksas10.jpeg",
 ];
 
 const ACCOMMODATES = 4;
@@ -40,8 +43,8 @@ export default function Page({
 
   return (
     <HousePage
-      heroSrc="/dupleksas/1-dupleksas-n1.jpeg"
-      title="N°2 - Elnių Panorama"
+      heroSrc=  "/dupleksas/2-dupleksas8.jpeg"
+      title="Nr.2 – Elnių Panorama"
       subtitle="Experience magical moments by the Rubikiai lake."
       accommodates={ACCOMMODATES}
       size="40 sq m"

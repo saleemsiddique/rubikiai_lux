@@ -277,16 +277,21 @@ export default function HousePage(props: HousePageProps) {
           </div>
 
           <button
-            onClick={handleReserveNow}
-            disabled={!startParam || !endParam}
-            className={`ml-2 whitespace-nowrap px-4 py-2 rounded-lg font-bold text-sm transition-colors ${
-              !startParam || !endParam
-                ? "bg-gray-300 text-gray-600 cursor-not-allowed"
-                : "bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)]"
-            }`}
+            onClick={() => {
+              if (!startParam || !endParam) {
+                router.push("/reservations");
+                return;
+              }
+              handleReserveNow();
+            }}
+            className={`ml-2 whitespace-nowrap px-4 py-2 rounded-lg font-bold text-sm transition-colors ${!startParam || !endParam
+              ? "bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)]"
+              : "bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)]"
+              }`}
           >
             {startParam && endParam ? "Reserve now" : "Select dates"}
           </button>
+
         </div>
       </div>
     );
@@ -466,17 +471,23 @@ export default function HousePage(props: HousePageProps) {
                     </div>
                   </div>
                 ) : (
-                  <div className="hidden" />
+                  <div className="mt-4">
+                    <button
+                      onClick={() => router.push("/reservations")}
+                      className="bg-[var(--color-primary)] hover:bg-[var(--color-primary-dark)] text-white font-bold py-3 px-8 rounded-md transition-colors w-full text-center font-sans block"
+                    >
+                      Select dates
+                    </button>
+                  </div>
                 )}
 
                 <button
                   onClick={handleReserveNow}
                   disabled={!startParam || !endParam}
-                  className={`mt-4 ${
-                    !startParam || !endParam
-                      ? "opacity-60 cursor-not-allowed"
-                      : "bg-[var(--color-primary)] hover:bg-[var(--color-primary-dark)]"
-                  } text-white font-bold py-3 px-8 rounded-md transition-colors w-full text-center font-sans block`}
+                  className={`mt-4 ${!startParam || !endParam
+                    ? "opacity-60 cursor-not-allowed hidden"
+                    : "bg-[var(--color-primary)] hover:bg-[var(--color-primary-dark)]"
+                    } text-white font-bold py-3 px-8 rounded-md transition-colors w-full text-center font-sans block`}
                 >
                   {startParam && endParam
                     ? "Reserve now"
@@ -526,7 +537,7 @@ export default function HousePage(props: HousePageProps) {
             <iframe
               src={
                 mapSrc ??
-                "https://www.google.com/maps?q=Rubikiai%20LUX%20SPA%20Apartments%2C%20Piliakalnio%20vs%201%2C%20Anyk%C5%A1%C4%8Diai%2029203%2C%20Lituania&hl=es&z=15&output=embed"
+                "https://www.google.com/maps?q=Rubikiai%20LUX%20SPA%20Apartments%2C%20Piliakalnio%20vs%201%2C%20Anykščiai%2029203%2C%20Lituania&hl=lt&z=15&output=embed"
               }
               width="100%"
               height="100%"

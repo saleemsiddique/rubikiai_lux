@@ -12,7 +12,7 @@ const DuplexSelectionPage: React.FC = () => {
       {/* Opción 1: Dúplex N°1 */}
       <Link href="/dupleksas/salia-elniu-aptvaro" className="relative flex-1 group overflow-hidden cursor-pointer h-screen">
         <Image
-          src="/dupleksas/dupleksas1.png"
+          src="/dupleksas/1-dupleksas8.jpg"
           alt="Dúplex N°1 - Šalia Elnių Aptvaro"
           layout="fill"
           objectFit="cover"
@@ -22,10 +22,10 @@ const DuplexSelectionPage: React.FC = () => {
         <div className="absolute inset-0 flex items-center justify-center text-center text-white p-4">
           <div className="transform transition-transform duration-500 group-hover:scale-110">
             <h2 className="text-4xl md:text-5xl font-extrabold drop-shadow-lg mb-2 font-header">
-              N°1 - Šalia Elnių Aptvaro
+              Nr.1 - Šalia Elnių Aptvaro
             </h2>
             <p className="text-lg md:text-xl font-light font-sans">
-              Vistas a los ciervos.
+              
             </p>
           </div>
         </div>
@@ -34,7 +34,7 @@ const DuplexSelectionPage: React.FC = () => {
       {/* Opción 2: Dúplex N°2 */}
       <Link href="/dupleksas/salia-elniu-panorama" className="relative flex-1 group overflow-hidden cursor-pointer h-screen">
         <Image
-          src="/dupleksas/2-dupleksas-n1.jpeg"
+          src="/dupleksas/2-dupleksas9.jpeg"
           alt="Dúplex N°2 - Elnių Panorama"
           layout="fill"
           objectFit="cover"
@@ -44,10 +44,10 @@ const DuplexSelectionPage: React.FC = () => {
         <div className="absolute inset-0 flex items-center justify-center text-center text-white p-4">
           <div className="transform transition-transform duration-500 group-hover:scale-110">
             <h2 className="text-4xl md:text-5xl font-extrabold drop-shadow-lg mb-2 font-header">
-              N°2 - Elnių Panorama
+              Nr.2 – Elnių Panorama
             </h2>
             <p className="text-lg md:text-xl font-light font-sans">
-              Panorámica desde la terraza.
+              
             </p>
           </div>
         </div>

@@ -4,18 +4,20 @@ import { redirect } from "next/navigation";
 import HousePage from "@/components/HousePage";
 
 const aptvaroImages = [
-  "/dupleksas/dupleksas1.png",
-  "/dupleksas/1-dupleksas-n1.jpeg",
-  "/dupleksas/1-dupleksas-n2.jpeg",
-  "/dupleksas/1-dupleksas-n3.jpeg",
-  "/dupleksas/dupleksas-n4.JPG",
-  "/dupleksas/dupleksas-n5.JPG",
-  "/dupleksas/dupleksas-n6.jpeg",
-  "/dupleksas/dupleksas-n7.jpeg",
-  "/dupleksas/dupleksas-n8.jpeg",
-  "/dupleksas/dupleksas-n9.jpeg",
-  "/dupleksas/dupleksas-n10.jpeg",
-  "/dupleksas/dupleksas-n11.jpeg",
+  "/dupleksas/1-dupleksas10.jpeg",
+  "/dupleksas/1-dupleksas12.jpeg",
+  "/dupleksas/1-dupleksas3.jpeg",
+  "/dupleksas/1-dupleksas4.jpeg",
+  "/dupleksas/1-dupleksas13.jpg",
+  "/dupleksas/1-dupleksas6.jpeg",
+  "/dupleksas/1-dupleksas7.jpeg",
+  "/dupleksas/1-dupleksas8.jpg",
+  "/dupleksas/1-dupleksas9.jpeg",
+  "/dupleksas/1-dupleksas14.jpg",
+  "/dupleksas/1-dupleksas5.jpeg",
+  "/dupleksas/1-dupleksas2.jpeg",
+  "/dupleksas/1-dupleksas1.jpeg",
+  "/dupleksas/1-dupleksas11.jpg",
 ];
 
 const ACCOMMODATES = 4;
@@ -38,8 +40,8 @@ export default function Page({
 
   return (
     <HousePage
-      heroSrc="/dupleksas/dupleksas1.png"
-      title="N°1 - Šalia Elnių Aptvaro"
+      heroSrc="/dupleksas/1-dupleksas10.jpeg"
+      title="Nr.1 - Šalia Elnių Aptvaro"
       subtitle="Experience magical moments by the Rubikiai lake."
       accommodates={ACCOMMODATES}
       size="40 sq m"

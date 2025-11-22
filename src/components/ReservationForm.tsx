@@ -204,8 +204,8 @@ type HouseImage = { key: string; url: string; alt?: string };
 
 const HOUSE_IMAGES: Record<string | number, HouseImage> = {
   "L0TeFf2LmrWGAaAyS8NY": { key: "L0TeFf2LmrWGAaAyS8NY", url: "./ezero-namelis/lake-house1.png", alt: "Accommodation 1" },
-  "PZwbfMYlSXj61uYYJutg": { key: "PZwbfMYlSXj61uYYJutg", url: "/dupleksas/1-dupleksas-n1.jpeg", alt: "Accommodation 2" },
-  "oDzv9346CdaAsok162sX": { key: "oDzv9346CdaAsok162sX", url: "/dupleksas/2-dupleksas-n1.jpeg", alt: "Accommodation 3" },
+  "PZwbfMYlSXj61uYYJutg": { key: "PZwbfMYlSXj61uYYJutg", url: "/dupleksas/1-dupleksas10.jpeg", alt: "Accommodation 2" },
+  "oDzv9346CdaAsok162sX": { key: "oDzv9346CdaAsok162sX", url: "/dupleksas/2-dupleksas8.jpeg", alt: "Accommodation 3" },
 };
 
 function getHouseImage(houseId: string | number): HouseImage {
@@ -275,6 +275,9 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       }
     }
   }, [isMobile]);
+
+  const isReservations = pathname.startsWith("/reservations");
+  const textColorClass = isReservations ? "text-black" : "text-white";
 
   // -------------------------------------------------------
 
@@ -1838,7 +1841,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
               onInputClick={() => setOpenPicker("arrival")}
               onClickOutside={() => setOpenPicker(null)}
               customInput={
-                <div className="p-2 bg-transparent text-white font-sans text-xl cursor-pointer">
+                <div className="p-2 bg-transparent font-sans text-xl cursor-pointer ${textColorClass}">
                   {startDate ? formatDateDDMMYYYY(startDate) : 'DD/MM/YYYY'}
                 </div>
               }
@@ -1857,7 +1860,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
               onInputClick={() => setOpenPicker("departure")}
               onClickOutside={() => setOpenPicker(null)}
               customInput={
-                <div className="p-2 bg-transparent text-white font-sans text-xl cursor-pointer">
+                <div className="p-2 bg-transparent font-sans text-xl cursor-pointer ${textColorClass}">
                   {endDate ? formatDateDDMMYYYY(endDate) : 'DD/MM/YYYY'}
                 </div>
               }
@@ -1866,10 +1869,10 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
 
           <div className="flex flex-col text-left flex-1 w-full">
             <label className="text-[var(--color-primary)] text-sm mb-1 font-sans uppercase font-bold">Guests</label>
-            <div className="flex items-center justify-center p-2 bg-transparent text-[var(--color-text)] font-sans text-xl">
-              <button onClick={() => handleGuestsChange(-1)} className="px-2 text-3xl leading-none text-white hover:text-[var(--color-primary-dark)]">-</button>
-              <div className="w-12 text-center text-white">{guests}</div>
-              <button onClick={() => handleGuestsChange(1)} className="px-2 text-3xl leading-none text-white hover:text-[var(--color-primary-dark)]">+</button>
+            <div className="flex items-center justify-center p-2 bg-transparent ${textColorClass} font-sans text-xl">
+              <button onClick={() => handleGuestsChange(-1)} className="px-2 text-3xl leading-none hover:text-[var(--color-primary-dark)] ${textColorClass}">-</button>
+              <div className="w-12 text-center ${textColorClass}">{guests}</div>
+              <button onClick={() => handleGuestsChange(1)} className="px-2 text-3xl leading-none hover:text-[var(--color-primary-dark)] ${textColorClass}">+</button>
             </div>
           </div>
         </div>

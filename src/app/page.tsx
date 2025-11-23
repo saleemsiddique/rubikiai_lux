@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import AboutSection from '@/components/AboutSection';
@@ -11,32 +11,64 @@ export default function HomePage() {
   const [scrollY, setScrollY] = useState(0);
   const [activeSection, setActiveSection] = useState(0);
   const [isMounted, setIsMounted] = useState(false);
+  const [isImageVisible, setIsImageVisible] = useState(false);
   const router = useRouter();
+  const imageRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
   useEffect(() => {
+    let ticking = false;
+    
     const handleScroll = () => {
-      setScrollY(window.scrollY);
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          setScrollY(window.scrollY);
+          ticking = false;
+        });
+        ticking = true;
+      }
     };
-
+    
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Calcular la opacidad del título basado en el scroll
+  useEffect(() => {
+    const observerOptions = {
+      threshold: 0.2,
+      rootMargin: '0px 0px -100px 0px'
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting && entry.target === imageRef.current) {
+          setIsImageVisible(true);
+        }
+      });
+    }, observerOptions);
+
+    if (imageRef.current) {
+      observer.observe(imageRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, []);
+
   const heroHeight = isMounted ? window.innerHeight * 1.3 : 1300;
-  const titleOpacity = Math.max(1 - scrollY / (heroHeight * 0.4), 0);
-  const imageOpacity = scrollY < heroHeight ? 1 : Math.max(1 - (scrollY - heroHeight) / 200, 0);
   const isMobile = isMounted && window.innerWidth <= 768;
+  
+  // Opacidad más rápida - desaparece en menos scroll
+  const titleOpacity = Math.max(1 - scrollY / (heroHeight * 8), 0); // Cambiado de 0.6 a 0.4
+  const imageOpacity = scrollY < heroHeight ? 1 : Math.max(1 - (scrollY - heroHeight) / 200, 0);
 
   return (
     <div className="bg-[var(--color-background-soft)]">
       {/* HERO SECTION */}
       <section className="relative h-[130vh] md:h-[150vh]">
-        {/* Background Image - Fixed in Mobile, scrollable in Desktop */}
+        {/* Background Image */}
         <div
           className="fixed md:absolute top-0 left-0 w-full h-screen md:h-[150vh]"
           style={{
@@ -50,7 +82,7 @@ export default function HomePage() {
           }}
         />
 
-        {/* Dark Overlay - Fixed in Mobile */}
+        {/* Dark Overlay */}
         <div
           className="fixed md:absolute top-0 left-0 w-full h-screen md:h-[150vh] bg-black/50"
           style={{
@@ -60,16 +92,17 @@ export default function HomePage() {
           }}
         />
 
-        {/* Content - Title */}
+        {/* Content - Title - Sticky nativo simple */}
         <div 
-          className="sticky top-[15vh] md:top-[20vh] h-screen md:h-auto flex items-start md:items-center justify-center pt-12 md:pt-0"
-          style={{ zIndex: 2 }}
+          className="sticky top-[16vh] md:top-[20vh] left-0 right-0 w-full flex items-start md:items-center justify-center pt-1 md:pt-0"
+          style={{ 
+            zIndex: 2,
+          }}
         >
           <div 
             className="relative text-center px-4 pointer-events-auto w-full"
             style={{
               opacity: titleOpacity,
-              transition: 'opacity 0.1s ease-out',
             }}
           >
             <h1 className="text-5xl md:text-7xl lg:text-8xl font-extrabold tracking-tight md:tracking-widest text-[var(--color-background-soft)] drop-shadow-2xl">
@@ -82,13 +115,25 @@ export default function HomePage() {
       <div className="relative z-10 bg-[var(--color-background-soft)]">
         <AboutSection></AboutSection>
 
-        {/* FULLSCREEN IMAGE WITH CTA */}
-        <section className="relative w-full overflow-hidden">
+        {/* FULLSCREEN IMAGE WITH CTA - Slide up animation */}
+        <section 
+          ref={imageRef}
+          className={`relative w-full overflow-hidden transition-all duration-1000 ease-out ${
+            isImageVisible 
+              ? 'opacity-100 translate-y-0' 
+              : 'opacity-0 translate-y-16'
+          }`}
+        >
           <div className="relative w-full">
             <img
-              src="/home/inicio-2.avif"
+              src="/home/rubikiai_lago.avif"
               alt="Rubikiai Lux"
-              className="w-full h-auto object-contain"
+              className="w-full h-auto"
+              style={{
+                display: 'block',
+                maxWidth: '100%',
+                height: 'auto',
+              }}
             />
 
             {/* Dark Overlay */}

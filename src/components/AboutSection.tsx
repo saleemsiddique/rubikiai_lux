@@ -1,8 +1,50 @@
 // components/AboutSection.tsx
-import React from 'react';
+'use client';
+
+import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 
 const AboutSection: React.FC = () => {
+  const [isTextVisible, setIsTextVisible] = useState(false);
+  const [isCard1Visible, setIsCard1Visible] = useState(false);
+  const [isCard2Visible, setIsCard2Visible] = useState(false);
+  const [isActivitiesVisible, setIsActivitiesVisible] = useState(false);
+
+  const textRef = useRef<HTMLDivElement>(null);
+  const card1Ref = useRef<HTMLAnchorElement>(null);
+  const card2Ref = useRef<HTMLAnchorElement>(null);
+  const activitiesRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const observerOptions = {
+      threshold: 0.2,
+      rootMargin: '0px 0px -50px 0px'
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          if (entry.target === textRef.current) {
+            setIsTextVisible(true);
+          } else if (entry.target === card1Ref.current) {
+            setIsCard1Visible(true);
+          } else if (entry.target === card2Ref.current) {
+            setIsCard2Visible(true);
+          } else if (entry.target === activitiesRef.current) {
+            setIsActivitiesVisible(true);
+          }
+        }
+      });
+    }, observerOptions);
+
+    if (textRef.current) observer.observe(textRef.current);
+    if (card1Ref.current) observer.observe(card1Ref.current);
+    if (card2Ref.current) observer.observe(card2Ref.current);
+    if (activitiesRef.current) observer.observe(activitiesRef.current);
+
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <section className="relative w-full py-12 md:py-20 bg-gradient-to-br from-[var(--color-background-light)] via-[var(--color-background-main)] to-[var(--color-background-light)]">
       <div className="container mx-auto px-6 max-w-7xl">
@@ -17,7 +59,15 @@ const AboutSection: React.FC = () => {
             />
           </div>
 
-          <div className="w-full lg:w-1/2 space-y-4 md:space-y-5">
+          {/* Text with fade-in animation */}
+          <div 
+            ref={textRef}
+            className={`w-full lg:w-1/2 space-y-4 md:space-y-5 transition-all duration-1000 ease-out ${
+              isTextVisible 
+                ? 'opacity-100 translate-y-0' 
+                : 'opacity-0 translate-y-8'
+            }`}
+          >
             <h2 className="font-serif text-3xl md:text-4xl lg:text-5xl text-[var(--color-highlight)] font-bold leading-tight">
               Šiaurietiškas poilsis kūnui ir sielai
             </h2>
@@ -33,10 +83,15 @@ const AboutSection: React.FC = () => {
         {/* ACCOMMODATIONS - 2 cards with background images */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10 mb-8 md:mb-12">
 
-          {/* EŽERO NAMELIS */}
+          {/* EŽERO NAMELIS - slide from left */}
           <Link
+            ref={card1Ref}
             href="/ezero-namelis"
-            className="group relative rounded-2xl shadow-lg overflow-hidden min-h-[300px] md:min-h-[350px] flex flex-col justify-end"
+            className={`group relative rounded-2xl shadow-lg overflow-hidden min-h-[300px] md:min-h-[350px] flex flex-col justify-end transition-all duration-1000 ease-out ${
+              isCard1Visible 
+                ? 'opacity-100 translate-x-0' 
+                : 'opacity-0 -translate-x-12'
+            }`}
           >
             {/* Background Image */}
             <div className="absolute inset-0 z-0">
@@ -59,10 +114,15 @@ const AboutSection: React.FC = () => {
             </div>
           </Link>
 
-          {/* DUPLEKSO APARTAMENTAI */}
+          {/* DUPLEKSO APARTAMENTAI - slide from right */}
           <Link
+            ref={card2Ref}
             href="/dupleksas"
-            className="group relative rounded-2xl shadow-lg overflow-hidden min-h-[300px] md:min-h-[350px] flex flex-col justify-end"
+            className={`group relative rounded-2xl shadow-lg overflow-hidden min-h-[300px] md:min-h-[350px] flex flex-col justify-end transition-all duration-1000 ease-out ${
+              isCard2Visible 
+                ? 'opacity-100 translate-x-0' 
+                : 'opacity-0 translate-x-12'
+            }`}
           >
             {/* Background Image */}
             <div className="absolute inset-0 z-0">
@@ -86,8 +146,15 @@ const AboutSection: React.FC = () => {
           </Link>
         </div>
 
-        {/* ACTIVITIES TEXT - Simple paragraph */}
-        <div className="text-center max-w-3xl mx-auto">
+        {/* ACTIVITIES TEXT - Slide up from bottom */}
+        <div 
+          ref={activitiesRef}
+          className={`text-center max-w-3xl mx-auto transition-all duration-1000 ease-out ${
+            isActivitiesVisible 
+              ? 'opacity-100 translate-y-0' 
+              : 'opacity-0 translate-y-12'
+          }`}
+        >
           <p className="text-base md:text-lg lg:text-xl text-deep-green font-light leading-relaxed">
             Papildykite savo viešnagę ežero pramogomis – ramiais pasiplaukiojimais valtimi ar vandens dviračiu...
           </p>

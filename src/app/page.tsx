@@ -90,7 +90,8 @@ export default function HomePage() {
           className="absolute inset-0 w-full h-full min-h-screen"
           style={{
             backgroundImage: 'url("/home/inicio-2.avif")',
-            backgroundSize: 'cover',
+            backgroundSize: 'contain',
+            backgroundRepeat: 'no-repeat',
             backgroundPosition: 'center',
             backgroundAttachment: typeof window !== 'undefined' && window.innerWidth > 768 ? 'fixed' : 'scroll',
           }}
@@ -100,7 +101,7 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-black/40" />
 
         {/* CTA Content */}
-        <div className="relative z-20 text-center px-6 py-20 md:py-0">
+        {/*<div className="relative z-20 text-center px-6 py-20 md:py-0">
           <h3 className="text-4xl md:text-6xl font-serif font-bold text-white mb-6 drop-shadow-2xl">
             Atraskite savo kitą prieglobstį
           </h3>
@@ -116,7 +117,7 @@ export default function HomePage() {
           >
             REZERVUOKITE SAVO PATIRTĮ
           </button>
-        </div>
+        </div>*/}
 
         <style jsx>{`
           @media (min-width: 768px) {

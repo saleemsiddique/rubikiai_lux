@@ -1033,7 +1033,7 @@ export default function AdminBookingsClient() {
                                         </div>
                                         {onlyAdmin ? (
                                             <div className="text-[10px] text-neutral-700">
-                                                Reservation <br></br> by admin
+                                                Reservation <br> </br> by admin
                                             </div>
                                         ) : (
                                             busy && (

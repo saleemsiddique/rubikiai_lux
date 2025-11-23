@@ -32,12 +32,8 @@ const HeroSection: React.FC = () => {
 
       <div className="relative z-10 text-center px-4">
         <h1 className="text-4xl md:text-6xl font-extrabold tracking-wide drop-shadow-lg font-header">
-          RUBIKIAI LUX SPA APARTMENTS
+          RUBIKIAI LUX
         </h1>
-        <p className="hidden sm:block mt-4 text-lg md:text-xl font-light font-sans">
-          MAGIŠKOMS AKIMIRKOMS.
-        </p>
-
         <ReservationForm showResults={false} />
       </div>
     </section>

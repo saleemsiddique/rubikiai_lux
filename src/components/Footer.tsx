@@ -6,7 +6,7 @@ const Footer: React.FC = () => {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="w-full mt-12 border-t border-neutral-700 bg-neutral-900">
+    <footer className="w-full mt-12 border-t border-neutral-700 bg-[var(--color-secondary)] text-white">
       <div className="max-w-7xl mx-auto px-6 py-12">
         {/* Grid con Quick Links destacados y resto de información */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 mb-8">

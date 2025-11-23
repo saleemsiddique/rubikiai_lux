@@ -249,7 +249,7 @@ export default function HousePage(props: HousePageProps) {
     const showPrice = totalFromServer !== null || firstFromServer !== null;
     return (
       <div className="md:hidden fixed left-4 right-4 bottom-4 z-50">
-        <div className="bg-white rounded-xl shadow-lg p-3 flex items-center justify-between gap-3">
+        <div className="rounded-xl shadow-lg p-3 flex items-center justify-between gap-3">
           <div className="flex-1 min-w-0">
             {loadingPrice ? (
               <div className="text-sm text-gray-500">Calculating…</div>
@@ -299,7 +299,7 @@ export default function HousePage(props: HousePageProps) {
 
   return (
     // add a bottom padding on small screens to avoid the fixed bar overlapping content
-    <main className="bg-gray-100 text-[var(--color-text)] pb-24 md:pb-0">
+    <main className="text-[var(--color-text)]">
       {/* Hero */}
       <div className="relative h-[60vh] md:h-screen">
         <Image
@@ -369,7 +369,7 @@ export default function HousePage(props: HousePageProps) {
             </div>
 
             {/* Right: reservation summary */}
-            <div className="order-1 lg:order-2 lg:col-span-1">
+            <div className="hidden md:block order-1 lg:order-2 lg:col-span-1">
               <div className="card-soft p-6">
                 <h3 className="text-2xl font-bold mb-4 font-header text-[var(--color-primary)]">
                   Reservation
@@ -501,7 +501,7 @@ export default function HousePage(props: HousePageProps) {
 
       {/* Amenities */}
       {amenitiesSections.length > 0 && (
-        <section className="bg-white py-12 px-4">
+        <section className="py-12 px-4">
           <div className="container mx-auto">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
               {amenitiesSections.map((s) => (
@@ -525,7 +525,7 @@ export default function HousePage(props: HousePageProps) {
 
       <ImageGallery images={images} />
 
-      <section className="py-12 bg-white px-4">
+      <section className="py-12 px-4">
         <div className="container mx-auto text-center">
           <h2 className="text-3xl font-bold mb-4 font-header text-[var(--color-primary-dark)]">
             Location

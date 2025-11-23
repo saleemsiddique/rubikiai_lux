@@ -7,22 +7,24 @@
 
 :root {
   /* Primary Colors */
-  --color-primary: #bfa58b; 
-  --color-primary-dark: #8f6e52; 
+  --color-primary: #bfa58b;
+  --color-primary-dark: #8f6e52;
 
   /* Secondary Color */
-  --color-secondary: #7b8ed6; 
-  
+  /*--color-secondary: #7b8ed6;*/
+  --color-secondary: #1b343b;
   /* Background Colors */
-  --color-background-main: #f4efe9; 
-  --color-background-soft: #fafafa; 
-  
+  --color-background-main: #f4efe9;
+  --color-background-soft: #fafafa;
+
   /* Text and Highlight Colors */
-  --color-text: #0f172a; 
-  --color-highlight: #214235; 
+  --color-text: #0f172a;
+  --color-highlight: #214235;
 }
 
-html, body, #root {
+html,
+body,
+#root {
   height: 100%;
 }
 
@@ -41,11 +43,28 @@ body {
 }
 
 .card-soft {
-  background: linear-gradient(180deg, rgba(255,255,255,0.7), rgba(255,255,255,0.5));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.5));
   backdrop-filter: blur(6px);
   border-radius: 14px;
-  box-shadow: 0 8px 30px rgba(15,23,42,0.08);
+  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.08);
 }
 
-.react-datepicker-popper { z-index: 99999 !important; }
+.react-datepicker-popper {
+  z-index: 99999 !important;
+}
 
+@keyframes pulse-subtle {
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.4);
+  }
+
+  50% {
+    box-shadow: 0 0 0 8px rgba(251, 191, 36, 0);
+  }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s ease-in-out infinite;
+}

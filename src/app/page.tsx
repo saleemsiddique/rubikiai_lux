@@ -61,7 +61,7 @@ export default function HomePage() {
   const isMobile = isMounted && window.innerWidth <= 768;
   
   // Opacidad más rápida - desaparece en menos scroll
-  const titleOpacity = Math.max(1 - scrollY / (heroHeight * 8), 0); // Cambiado de 0.6 a 0.4
+  const titleOpacity = Math.max(1 - scrollY / (heroHeight * 0.6), 0); // Cambiado de 0.6 a 0.4
   const imageOpacity = scrollY < heroHeight ? 1 : Math.max(1 - (scrollY - heroHeight) / 200, 0);
 
   return (

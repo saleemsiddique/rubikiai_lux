@@ -61,13 +61,8 @@ const Footer: React.FC = () => {
               Contact
             </h3>
             <div className="space-y-5 text-sm mt-6">
-              <div>
-                <p className="font-bold text-white text-base mb-1">Haroldas Aukštikalnis</p>
-                <p className="text-xs text-gray-400 leading-relaxed">Veikla pagal verslo liudijimą</p>
-                <p className="text-xs text-gray-400 leading-relaxed">Licencija Nr. AP-3287</p>
-              </div>
               
-              <div className="space-y-2 pt-1">
+              <div className="space-y-2">
                 <p className="flex items-center gap-2">
                   <span className="text-gray-400 text-xs">✉</span>
                   <a 
@@ -98,8 +93,13 @@ const Footer: React.FC = () => {
 
         {/* Línea divisoria */}
         <div className="border-t border-[#2a4850] pt-6">
-          <div className="text-center text-xs text-white tracking-wide">
-            © {year} Rubikiai Lux. All rights reserved.
+          <div className="flex flex-col md:flex-row items-center justify-between gap-2 text-xs text-gray-400">
+            <div className="text-center md:text-left">
+              <span className="text-white">© {year} Rubikiai Lux.</span> All rights reserved.
+            </div>
+            <div className="text-center md:text-right">
+              Veikla pagal verslo liudijimą · Licencija Nr. AP-3287
+            </div>
           </div>
         </div>
       </div>

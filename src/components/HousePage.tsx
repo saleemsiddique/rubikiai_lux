@@ -248,7 +248,7 @@ export default function HousePage(props: HousePageProps) {
   const BookingBarMobile = () => {
     const showPrice = totalFromServer !== null || firstFromServer !== null;
     return (
-      <div className="md:hidden fixed left-4 right-4 bottom-4 z-50">
+      <div className="md:hidden fixed left-4 right-4 bottom-4 z-50 bg-white">
         <div className="rounded-xl shadow-lg p-3 flex items-center justify-between gap-3">
           <div className="flex-1 min-w-0">
             {loadingPrice ? (

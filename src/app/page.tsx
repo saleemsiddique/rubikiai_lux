@@ -10,7 +10,12 @@ const ReservationForm = dynamic(() => import('@/components/ReservationForm'), { 
 export default function HomePage() {
   const [scrollY, setScrollY] = useState(0);
   const [activeSection, setActiveSection] = useState(0);
+  const [isMounted, setIsMounted] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -21,112 +26,76 @@ export default function HomePage() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Calcular la opacidad del título basado en el scroll
+  const heroHeight = isMounted ? window.innerHeight * 1.3 : 1300;
+  const titleOpacity = Math.max(1 - scrollY / (heroHeight * 0.4), 0);
+  const imageOpacity = scrollY < heroHeight ? 1 : Math.max(1 - (scrollY - heroHeight) / 200, 0);
+  const isMobile = isMounted && window.innerWidth <= 768;
+
   return (
-    <div className="bg-[var(--color-background-soft)] overflow-hidden">
+    <div className="bg-[var(--color-background-soft)]">
       {/* HERO SECTION */}
-      <section className="relative h-screen flex items-center justify-center overflow-hidden">
-        {/* Background Image - Parallax */}
+      <section className="relative h-[130vh] md:h-[150vh]">
+        {/* Background Image - Fixed in Mobile, scrollable in Desktop */}
         <div
-          className="absolute inset-0 w-full h-full"
+          className="fixed md:absolute top-0 left-0 w-full h-screen md:h-[150vh]"
           style={{
             backgroundImage: 'url("/home/IMG_6656-1.jpeg")',
             backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            backgroundAttachment: 'fixed',
-            transform: `translateY(${scrollY * 0.5}px)`,
-            transition: 'transform 0.1s ease-out',
+            backgroundPosition: isMobile ? 'center' : 'center bottom',
+            backgroundAttachment: 'scroll',
+            transition: 'opacity 0.3s ease-out',
+            zIndex: 0,
+            opacity: imageOpacity,
           }}
         />
 
-        {/* Dark Overlay */}
+        {/* Dark Overlay - Fixed in Mobile */}
         <div
-          className="absolute inset-0 bg-black/50"
+          className="fixed md:absolute top-0 left-0 w-full h-screen md:h-[150vh] bg-black/50"
           style={{
-            opacity: Math.min(scrollY / 300, 0.5) + 0.35,
+            opacity: 0.35 * imageOpacity,
+            zIndex: 1,
+            transition: 'opacity 0.3s ease-out',
           }}
         />
 
-        {/* Content */}
-        <div className="relative z-20 text-center px-4 pointer-events-auto">
-          {/* Title */}
-          <div
+        {/* Content - Title */}
+        <div 
+          className="sticky top-[15vh] md:top-[20vh] h-screen md:h-auto flex items-start md:items-center justify-center pt-12 md:pt-0"
+          style={{ zIndex: 2 }}
+        >
+          <div 
+            className="relative text-center px-4 pointer-events-auto w-full"
             style={{
-              opacity: Math.max(1 - scrollY / 400, 0),
-              transform: `translateY(${scrollY * 0.3}px)`,
-              transition: 'all 0.1s ease-out',
+              opacity: titleOpacity,
+              transition: 'opacity 0.1s ease-out',
             }}
           >
-            <h1 className="text-5xl md:text-7xl font-extrabold tracking-widest text-[var(--color-background-soft)] drop-shadow-2xl mb-8">
+            <h1 className="text-5xl md:text-7xl lg:text-8xl font-extrabold tracking-tight md:tracking-widest text-[var(--color-background-soft)] drop-shadow-2xl">
               RUBIKIAI LUX
             </h1>
           </div>
-
-          {/* Reservation Button */}
-          <button
-            onClick={() => router.push("/reservations")}
-            className="relative z-30 px-8 py-3 cursor-pointer md:px-12 md:py-4 bg-[var(--color-primary)] hover:bg-[var(--color-primary-dark)] text-white font-semibold text-lg tracking-wide transition-all duration-300 hover:shadow-2xl hover:scale-105"
-            style={{
-              opacity: Math.max(1 - scrollY / 300, 0),
-              transform: `translateY(${scrollY * 0.2}px) scale(${Math.max(1 - scrollY / 500, 0.8)})`,
-            }}
-          >
-            REZERVUOTI
-          </button>
         </div>
-
-        <style jsx>{`
-          section {
-            background-attachment: fixed;
-          }
-        `}</style>
       </section>
+      
+      <div className="relative z-10 bg-[var(--color-background-soft)]">
+        <AboutSection></AboutSection>
 
-      <AboutSection></AboutSection>
+        {/* FULLSCREEN IMAGE WITH CTA */}
+        <section className="relative w-full overflow-hidden">
+          <div className="relative w-full">
+            <img
+              src="/home/inicio-2.avif"
+              alt="Rubikiai Lux"
+              className="w-full h-auto object-contain"
+            />
 
-
-      {/* FULLSCREEN IMAGE WITH CTA */}
-      <section className="relative w-full min-h-screen h-auto flex items-center justify-center overflow-hidden">
-        <div
-          className="absolute inset-0 w-full h-full min-h-screen"
-          style={{
-            backgroundImage: 'url("/home/inicio-2.avif")',
-            backgroundSize: 'contain',
-            backgroundRepeat: 'no-repeat',
-            backgroundPosition: 'center',
-            backgroundAttachment: typeof window !== 'undefined' && window.innerWidth > 768 ? 'fixed' : 'scroll',
-          }}
-        />
-
-        {/* Dark Overlay */}
-        <div className="absolute inset-0 bg-black/40" />
-
-        {/* CTA Content */}
-        {/*<div className="relative z-20 text-center px-6 py-20 md:py-0">
-          <h3 className="text-4xl md:text-6xl font-serif font-bold text-white mb-6 drop-shadow-2xl">
-            Atraskite savo kitą prieglobstį
-          </h3>
-          <p className="text-lg md:text-2xl font-light text-white/90 max-w-3xl mx-auto mb-10 drop-shadow-lg">
-            Rubikiai Lux rasite tobulą pusiausvyrą tarp gamtos, komforto ir prabangos. Kiekviena detalė sukurta jūsų visiškam atsipalaidavimui.
-          </p>
-          <button
-            onClick={() => {
-              const element = document.getElementById('about-section');
-              element?.scrollIntoView({ behavior: 'smooth' });
-            }}
-            className="px-12 py-4 bg-[var(--color-primary)] hover:bg-[var(--color-primary-dark)] text-white font-semibold text-lg tracking-wide transition-all duration-300 hover:shadow-2xl hover:scale-105"
-          >
-            REZERVUOKITE SAVO PATIRTĮ
-          </button>
-        </div>*/}
-
-        <style jsx>{`
-          @media (min-width: 768px) {
-            section {
-              background-attachment: fixed;
-            }
-          }
-        `}</style>
-      </section>
+            {/* Dark Overlay */}
+            <div className="absolute inset-0 bg-black/40" />
+          </div>
+        </section>
+      </div>
     </div>
   );
 }

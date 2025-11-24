@@ -61,26 +61,49 @@ export default function HomePage() {
   const isMobile = isMounted && window.innerWidth <= 768;
   
   // Opacidad más rápida - desaparece en menos scroll
-  const titleOpacity = Math.max(1 - scrollY / (heroHeight * 0.6), 0); // Cambiado de 0.6 a 0.4
+  const titleOpacity = Math.max(1 - scrollY / (heroHeight * 0.6), 0);
   const imageOpacity = scrollY < heroHeight ? 1 : Math.max(1 - (scrollY - heroHeight) / 200, 0);
 
   return (
     <div className="bg-[var(--color-background-soft)]">
       {/* HERO SECTION */}
       <section className="relative h-[130vh] md:h-[150vh]">
-        {/* Background Image */}
+        {/* Background Image - Desktop */}
         <div
-          className="fixed md:absolute top-0 left-0 w-full h-screen md:h-[150vh]"
+          className="hidden md:block fixed md:absolute top-0 left-0 w-full h-screen md:h-[150vh]"
           style={{
             backgroundImage: 'url("/home/IMG_6656-1.jpeg")',
             backgroundSize: 'cover',
-            backgroundPosition: isMobile ? 'center' : 'center bottom',
+            backgroundPosition: 'center bottom',
             backgroundAttachment: 'scroll',
             transition: 'opacity 0.3s ease-out',
             zIndex: 0,
             opacity: imageOpacity,
           }}
         />
+
+        {/* Background Video - Mobile */}
+        <div
+          className="block md:hidden fixed top-0 left-0 w-full h-screen flex items-center justify-center overflow-hidden"
+          style={{
+            transition: 'opacity 0.3s ease-out',
+            zIndex: 0,
+            opacity: imageOpacity,
+          }}
+        >
+          <video
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="h-full w-auto object-cover"
+            style={{
+              minHeight: '100%',
+            }}
+          >
+            <source src="/home/video-reno.mp4" type="video/mp4" />
+          </video>
+        </div>
 
         {/* Dark Overlay */}
         <div

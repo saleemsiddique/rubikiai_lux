@@ -5,10 +5,13 @@ import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import ImageGallery from "@/components/ImageGallery";
 import OtherOptions from "@/components/OtherOptions";
-import { FaBed, FaUserFriends, FaRulerCombined, FaCheck } from "react-icons/fa";
+import BookingBarMobile from "@/components/house-components/BookingBarMobile";
+import AboutSection from "@/components/house-components/AboutSectionHouse";
+import AmenitiesSection from "@/components/house-components/AmenitiesSection";
+import { FaBed, FaUserFriends, FaRulerCombined } from "react-icons/fa";
 import { HOUSE_ROUTE_OVERRIDES_BY_ID } from "@/lib/houseRoutes";
 
-type AmenitiesSection = {
+type AmenitiesSectionType = {
   title: string;
   items: string[];
 };
@@ -22,11 +25,11 @@ export type HousePageProps = {
   size?: string;
   beds?: string;
   images: string[];
-  houseSlug: string; // houseParam used to find real houseId in mapping
-  defaultGuests?: string; // string because coming from query normally
+  houseSlug: string;
+  defaultGuests?: string;
   defaultType?: string;
   description?: React.ReactNode;
-  amenitiesSections?: AmenitiesSection[];
+  amenitiesSections?: AmenitiesSectionType[];
   mapSrc?: string;
 };
 
@@ -82,7 +85,10 @@ export default function HousePage(props: HousePageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Query params
+  const [scrollY, setScrollY] = useState(0);
+  const [heroHeight, setHeroHeight] = useState(0);
+  const [isStatsVisible, setIsStatsVisible] = useState(false);
+
   const startParam = searchParams?.get("start") ?? null;
   const endParam = searchParams?.get("end") ?? null;
   const guestsParam = searchParams?.get("guests") ?? defaultGuests;
@@ -91,7 +97,6 @@ export default function HousePage(props: HousePageProps) {
   const startFriendly = formatDateFriendly(startParam);
   const endFriendly = formatDateFriendly(endParam);
 
-  // Resolve actual houseId from mapping
   const houseIdFromMapping = useMemo(() => {
     try {
       const entries = Object.entries(HOUSE_ROUTE_OVERRIDES_BY_ID || {});
@@ -102,7 +107,6 @@ export default function HousePage(props: HousePageProps) {
     }
   }, [houseSlug]);
 
-  // price state
   const [loadingPrice, setLoadingPrice] = useState(false);
   const [priceError, setPriceError] = useState<string | null>(null);
   const [totalFromServer, setTotalFromServer] = useState<number | null>(null);
@@ -117,10 +121,34 @@ export default function HousePage(props: HousePageProps) {
   }
 
   useEffect(() => {
+    const handleScroll = () => {
+      setScrollY(window.scrollY);
+    };
+
+    const updateHeroHeight = () => {
+      const hero = document.getElementById('hero-section');
+      if (hero) {
+        setHeroHeight(hero.offsetHeight);
+      }
+    };
+
+    handleScroll();
+    updateHeroHeight();
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('resize', updateHeroHeight);
+
+    setTimeout(() => setIsStatsVisible(true), 300);
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', updateHeroHeight);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!houseIdFromMapping) {
-      setPriceError(
-        "House mapping not found. Ensure lib/houseRoutes.ts exports the mapping with this houseParam."
-      );
+      setPriceError("House mapping not found.");
       setTotalFromServer(null);
       setFirstFromServer(null);
       return;
@@ -157,10 +185,7 @@ export default function HousePage(props: HousePageProps) {
           const res = await callPriceEndpoint(ep, body);
           if (!res.ok) {
             const text = await res.text().catch(() => "");
-            lastErr = `Endpoint ${ep} returned ${res.status}: ${text.substring(
-              0,
-              300
-            )}`;
+            lastErr = `Endpoint ${ep} returned ${res.status}: ${text.substring(0, 300)}`;
             if (res.status === 404) continue;
             throw new Error(lastErr);
           }
@@ -197,27 +222,16 @@ export default function HousePage(props: HousePageProps) {
     return () => {
       mounted = false;
     };
-  }, [
-    startParam,
-    endParam,
-    guestsParam,
-    typeParam,
-    houseIdFromMapping,
-    defaultGuests,
-  ]);
+  }, [startParam, endParam, guestsParam, typeParam, houseIdFromMapping, defaultGuests]);
 
-  // Guests display helper
   const guestsDisplay = (() => {
     const p = parseInt(guestsParam as string, 10);
     if (!Number.isFinite(p) || Number.isNaN(p)) return defaultGuests;
     return String(p);
   })();
 
-  const checkoutTime = title?.includes("EŽERO NAMELIS")
-    ? "12:00"
-    : "11:00";
+  const checkoutTime = title?.includes("EŽERO NAMELIS") ? "12:00" : "11:00";
 
-  // go to checkout-details (no coupon logic anymore)
   const handleReserveNow = () => {
     if (!startParam || !endParam) {
       router.push("/reservations");
@@ -232,7 +246,7 @@ export default function HousePage(props: HousePageProps) {
     const q = new URLSearchParams({
       houseId: houseIdFromMapping,
       houseSlug: houseSlug || "",
-      houseTitle: title || "",           // <-- NUEVO: pasar el título/nombre de la casa
+      houseTitle: title || "",
       start: startParam,
       end: endParam,
       guests: String(parseInt(guestsParam || defaultGuests, 10)),
@@ -241,299 +255,209 @@ export default function HousePage(props: HousePageProps) {
     router.push(`/checkout-details?${q.toString()}`);
   };
 
-  /* --- MOBILE BOOKING BAR ---
-     Fixed bottom booking bar visible only on small screens (md:hidden).
-     Shows total/first and reserve CTA so user can act immediately.
-  */
-  const BookingBarMobile = () => {
-    const showPrice = totalFromServer !== null || firstFromServer !== null;
-    return (
-      <div className="md:hidden fixed left-4 right-4 bottom-4 z-50 bg-white">
-        <div className="rounded-xl shadow-lg p-3 flex items-center justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            {loadingPrice ? (
-              <div className="text-sm text-gray-500">Calculating…</div>
-            ) : priceError ? (
-              <div className="text-sm text-red-600">Price unavailable</div>
-            ) : showPrice ? (
-              <>
-                <div className="text-xs text-gray-500">Total / Charge now</div>
-                <div className="flex items-baseline gap-3">
-                  <div className="text-lg font-semibold">
-                    {formatCurrency(totalFromServer ?? undefined)}
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    {firstFromServer !== null
-                      ? `Now ${formatCurrency(firstFromServer ?? undefined)}`
-                      : "Reservation fee shown at checkout"}
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="text-sm text-gray-700">
-                Select dates to see price
-              </div>
-            )}
-          </div>
-
-          <button
-            onClick={() => {
-              if (!startParam || !endParam) {
-                router.push("/reservations");
-                return;
-              }
-              handleReserveNow();
-            }}
-            className={`ml-2 whitespace-nowrap px-4 py-2 rounded-lg font-bold text-sm transition-colors ${!startParam || !endParam
-              ? "bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)]"
-              : "bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)]"
-              }`}
-          >
-            {startParam && endParam ? "Reserve now" : "Select dates"}
-          </button>
-
-        </div>
-      </div>
-    );
-  };
+  const showHeroButton = scrollY < heroHeight - 100;
 
   return (
-    // add a bottom padding on small screens to avoid the fixed bar overlapping content
-    <main className="text-[var(--color-text)]">
-      {/* Hero */}
-      <div className="relative h-[60vh] md:h-screen">
-        <Image
-          src={heroSrc}
-          alt={heroAlt ?? title}
-          fill
-          style={{ objectFit: "cover" }}
-          className="absolute inset-0 z-0"
-        />
-        <div className="absolute inset-0 bg-black opacity-40 z-10" />
-        <div className="relative z-20 flex flex-col items-start justify-end h-full p-8 text-white">
-          <h1 className="text-4xl md:text-6xl font-extrabold font-header">
-            {title}
-          </h1>
-          {subtitle && (
-            <p className="text-lg md:text-xl font-light font-sans mt-2">
-              {subtitle}
-            </p>
-          )}
-          <div className="mt-6 flex flex-wrap gap-4 text-sm font-sans">
-            {accommodates !== undefined && (
-              <span className="flex items-center">
-                <FaUserFriends className="mr-2" /> Accommodates:{" "}
-                {accommodates}
-              </span>
-            )}
-            {size && (
-              <span className="flex items-center">
-                <FaRulerCombined className="mr-2" /> Size: {size}
-              </span>
-            )}
-            {beds && (
-              <span className="flex items-center">
-                <FaBed className="mr-2" /> Beds: {beds}
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
+    <main className="text-[var(--color-text)] md:pb-0">
+      {/* Hero Section */}
+      <section id="hero-section" className="relative">
+        {/* Hero Image */}
+        <div className="relative h-[75vh] md:h-screen w-full overflow-hidden">
+          <Image
+            src={heroSrc}
+            alt={heroAlt ?? title}
+            fill
+            style={{ objectFit: 'cover', objectPosition: 'center' }}
+            priority
+            className="absolute inset-0"
+          />
 
-      {/* Render mobile booking bar */}
-      <BookingBarMobile />
+          {/* Mobile Gradient */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/30 to-black/70 md:hidden" />
 
-      {/* Info + reservation */}
-      <section className="py-16 px-4">
-        <div className="container mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-            {/* Left: description */}
-            <div className="order-2 lg:order-1 lg:col-span-2">
-              <h2 className="text-3xl font-bold mb-4 font-header text-[var(--color-primary-dark)]">
-                About this place
-              </h2>
-              <div className="prose max-w-none font-sans text-gray-800">
-                {description ? (
-                  <div className="prose prose-neutral max-w-none">
-                    {description}
-                  </div>
-                ) : (
-                  <div className="prose prose-neutral max-w-none">
-                    <p className="text-neutral-700">
-                      Add a custom description using the{" "}
-                      <code>description</code> prop of <code>HousePage</code>.
+          {/* Desktop Gradient - Darker at bottom */}
+          <div className="hidden md:block absolute inset-0 bg-gradient-to-b from-transparent via-black/10 to-black/80" />
+
+          {/* Content Container - Bottom aligned, full width */}
+          <div className="absolute bottom-0 left-0 right-0 p-6 md:pb-12 md:px-8 lg:pb-16 lg:px-12 xl:px-16">
+            <div className="w-full max-w-[1600px] mx-auto">
+              <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-6 md:gap-8">
+                {/* Left: Title and Subtitle */}
+                <div className="text-white md:max-w-lg lg:max-w-2xl">
+                  <h1
+                    className="text-4xl md:text-4xl lg:text-5xl font-bold font-header mb-2 md:mb-3 leading-tight tracking-tight"
+                    style={{
+                      animation: 'fadeInUp 0.8s ease-out',
+                      textShadow: '0 2px 20px rgba(0,0,0,0.4)'
+                    }}
+                  >
+                    {title}
+                  </h1>
+                  {subtitle && (
+                    <p
+                      className="text-lg md:text-base lg:text-lg font-light font-sans opacity-90 leading-relaxed"
+                      style={{
+                        animation: 'fadeInUp 0.8s ease-out 0.2s both',
+                        textShadow: '0 1px 10px rgba(0,0,0,0.4)'
+                      }}
+                    >
+                      {subtitle}
                     </p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Right: reservation summary */}
-            <div className="hidden md:block order-1 lg:order-2 lg:col-span-1">
-              <div className="card-soft p-6">
-                <h3 className="text-2xl font-bold mb-4 font-header text-[var(--color-primary)]">
-                  Reservation
-                </h3>
-
-                <div className="space-y-4 font-sans mb-4">
-                  <div>
-                    <h4 className="font-bold">Check-in:</h4>
-                    {startFriendly ? (
-                      <p className="text-lg">
-                        {startFriendly} —{" "}
-                        <span className="font-medium">16:00</span>
-                      </p>
-                    ) : (
-                      <p className="text-lg">16:00</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <h4 className="font-bold">Check-out:</h4>
-                    {endFriendly ? (
-                      <p className="text-lg">
-                        {endFriendly} —{" "}
-                        <span className="font-medium">{checkoutTime}</span>
-                      </p>
-                    ) : (
-                      <p className="text-lg">
-                        <span className="font-medium">{checkoutTime}</span>
-                      </p>
-                    )}
-                  </div>
+                  )}
                 </div>
 
-                {/* Payment summary (no coupons here) */}
-                {startParam && endParam ? (
-                  <div className="mt-3 p-4 rounded-md border bg-white">
-                    <div className="text-sm font-medium text-gray-700">
-                      Payment summary
-                    </div>
-
-                    <div className="mt-2 flex flex-wrap items-center justify-between text-sm text-gray-700">
-                      <div className="flex items-center">
-                        <FaUserFriends className="mr-2" />
-                        Guests:{" "}
-                        <span className="font-medium ml-1">
-                          {guestsDisplay}
-                        </span>
-                      </div>
-                      {typeParam && (
-                        <div className="text-sm">
-                          Type:{" "}
-                          <span className="font-medium ml-1">{typeParam}</span>
+                {/* Right: Stats - Desktop only, compact card */}
+                <div className="hidden md:block">
+                  <div
+                    className="bg-black/10 backdrop-blur-[4px] rounded-xl p-5 lg:p-6 border border-white/30 shadow-2xl min-w-[280px]"
+                    style={{ animation: 'fadeInUp 0.8s ease-out 0.4s both' }}
+                  >
+                    <div className="flex items-center gap-6">
+                      {accommodates !== undefined && (
+                        <div className="flex flex-col items-center gap-2 flex-1">
+                          <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center">
+                            <FaUserFriends className="text-lg text-white" />
+                          </div>
+                          <div className="text-center">
+                            <div className="text-[10px] text-white/60 uppercase tracking-wider mb-0.5">Guests</div>
+                            <div className="text-xl font-bold text-white">{accommodates}</div>
+                          </div>
                         </div>
                       )}
-                    </div>
 
-                    {loadingPrice ? (
-                      <div className="mt-2 text-sm text-gray-600">
-                        Calculating price…
-                      </div>
-                    ) : priceError ? (
-                      <div className="mt-2 text-sm text-red-600">
-                        Could not calculate price: {priceError}
-                      </div>
-                    ) : totalFromServer !== null ? (
-                      <div className="mt-2">
-                        <div className="text-xs text-gray-500">
-                          Total for the stay
-                        </div>
-                        <div className="text-lg font-semibold">
-                          {formatCurrency(totalFromServer)}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="mt-2 text-sm text-gray-600">
-                        Total price:{" "}
-                        <span className="font-medium">
-                          Price will be shown on selection
-                        </span>
-                      </div>
-                    )}
-
-                    <div className="mt-3 p-3 rounded-md bg-[var(--color-primary)]/10 border-l-4 border-[var(--color-primary)]">
-                      <div className="text-xs text-gray-600">
-                        Charge now
-                      </div>
-                      {firstFromServer !== null ? (
-                        <div className="text-2xl font-bold text-[var(--color-primary)-dark]">
-                          {formatCurrency(firstFromServer)}
-                        </div>
-                      ) : (
-                        <div className="text-sm font-semibold text-gray-800">
-                          Reservation fee (price shown at checkout)
+                      {beds && (
+                        <div className="flex flex-col items-center gap-2 flex-1 border-l border-r border-white/20 px-4">
+                          <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center">
+                            <FaBed className="text-lg text-white" />
+                          </div>
+                          <div className="text-center">
+                            <div className="text-[10px] text-white/60 uppercase tracking-wider mb-0.5">Beds</div>
+                            <div className="text-xl font-bold text-white">{beds}</div>
+                          </div>
                         </div>
                       )}
-                      <div className="mt-2 text-xs text-gray-600">
-                        The remaining amount will be charged on arrival.
-                      </div>
+
+                      {size && (
+                        <div className="flex flex-col items-center gap-2 flex-1">
+                          <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center">
+                            <FaRulerCombined className="text-lg text-white" />
+                          </div>
+                          <div className="text-center">
+                            <div className="text-[10px] text-white/60 uppercase tracking-wider mb-0.5">Size</div>
+                            <div className="text-xl font-bold text-white">{size}</div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
-                ) : (
-                  <div className="mt-4">
-                    <button
-                      onClick={() => router.push("/reservations")}
-                      className="bg-[var(--color-primary)] hover:bg-[var(--color-primary-dark)] text-white font-bold py-3 px-8 rounded-md transition-colors w-full text-center font-sans block"
-                    >
-                      Select dates
-                    </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Stats Section - Mobile only */}
+        <div className="md:hidden">
+          <div
+            className={`py-6 px-4 transition-all duration-700 ${isStatsVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
+              }`}
+          >
+            <div className="container mx-auto max-w-4xl">
+              <div className="grid grid-cols-3 divide-x divide-gray-400">
+                {accommodates !== undefined && (
+                  <div className="flex items-center justify-center gap-3 px-4">
+                    <FaUserFriends className="text-xl text-[var(--color-primary)] flex-shrink-0" />
+                    <div className="text-left">
+                      <div className="text-sm text-gray-500">Guests</div>
+                      <div className="text-lg font-bold text-gray-900">{accommodates}</div>
+                    </div>
                   </div>
                 )}
-
-                <button
-                  onClick={handleReserveNow}
-                  disabled={!startParam || !endParam}
-                  className={`mt-4 ${!startParam || !endParam
-                    ? "opacity-60 cursor-not-allowed hidden"
-                    : "bg-[var(--color-primary)] hover:bg-[var(--color-primary-dark)]"
-                    } text-white font-bold py-3 px-8 rounded-md transition-colors w-full text-center font-sans block`}
-                >
-                  {startParam && endParam
-                    ? "Reserve now"
-                    : "Select dates to reserve"}
-                </button>
+                {beds && (
+                  <div className="flex items-center justify-center gap-3 px-4">
+                    <FaBed className="text-xl text-[var(--color-primary)] flex-shrink-0" />
+                    <div className="text-left">
+                      <div className="text-sm text-gray-500">Beds</div>
+                      <div className="text-sm font-bold text-gray-900">{beds}</div>
+                    </div>
+                  </div>
+                )}
+                {size && (
+                  <div className="flex items-center justify-center gap-3 px-4">
+                    <FaRulerCombined className="text-xl text-[var(--color-primary)] flex-shrink-0" />
+                    <div className="text-left">
+                      <div className="text-sm text-gray-500">Size</div>
+                      <div className="text-lg font-bold text-gray-900">{size}</div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Amenities */}
-      {amenitiesSections.length > 0 && (
-        <section className="py-12 px-4">
-          <div className="container mx-auto">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-              {amenitiesSections.map((s) => (
-                <div key={s.title}>
-                  <h3 className="text-2xl font-bold mb-4 font-header text-[var(--color-primary-dark)]">
-                    {s.title}
-                  </h3>
-                  <ul className="space-y-2 font-sans">
-                    {s.items.map((it) => (
-                      <li key={it} className="flex items-center">
-                        <FaCheck className="text-green-500 mr-2" /> {it}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
+      <BookingBarMobile
+        showHeroButton={showHeroButton}
+        loadingPrice={loadingPrice}
+        priceError={priceError}
+        totalFromServer={totalFromServer}
+        firstFromServer={firstFromServer}
+        startParam={startParam}
+        endParam={endParam}
+        handleReserveNow={handleReserveNow}
+        formatCurrency={formatCurrency}
+      />
+
+      <AboutSection
+        description={description}
+        startFriendly={startFriendly}
+        endFriendly={endFriendly}
+        checkoutTime={checkoutTime}
+        guestsDisplay={guestsDisplay}
+        typeParam={typeParam}
+        loadingPrice={loadingPrice}
+        priceError={priceError}
+        totalFromServer={totalFromServer}
+        firstFromServer={firstFromServer}
+        startParam={startParam}
+        endParam={endParam}
+        formatCurrency={formatCurrency}
+        onSelectDates={() => router.push("/reservations")}
+        onReserveNow={handleReserveNow}
+      />
+
+      <AmenitiesSection amenitiesSections={amenitiesSections} />
 
       <ImageGallery images={images} />
 
-      <section className="py-12 px-4">
-        <div className="container mx-auto text-center">
-          <h2 className="text-3xl font-bold mb-4 font-header text-[var(--color-primary-dark)]">
-            Location
-          </h2>
-          <p className="text-gray-600 mb-6 font-sans">
-            Find us on Google Maps to plan your trip.
-          </p>
-          <div className="relative w-full h-96 rounded-lg overflow-hidden shadow-lg">
+      <section className="py-8 px-4 md:py-20 bg-[#1b343b] relative overflow-hidden">
+        {/* Decorative elements */}
+        <div className="absolute top-0 right-0 w-96 h-96 bg-[#bfa58b]/5 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-[#8f6e52]/5 rounded-full blur-3xl" />
+
+        {/* Subtle grid pattern overlay */}
+        <div
+          className="absolute inset-0 opacity-[0.03]"
+          style={{
+            backgroundImage: `repeating-linear-gradient(0deg, #fff 0px, #fff 1px, transparent 1px, transparent 50px),
+                       repeating-linear-gradient(90deg, #fff 0px, #fff 1px, transparent 1px, transparent 50px)`
+          }}
+        />
+
+        <div className="container mx-auto max-w-6xl relative z-10">
+          <div className="text-center mb-4">
+            <div className="inline-block">
+              <div className="h-1 w-20 bg-[#bfa58b] mx-auto mb-4" />
+              <h2 className="text-3xl md:text-5xl font-bold font-header text-[#f4efe9]">
+                Location
+              </h2>
+            </div>
+            <p className="text-[#f4efe9]/80 text-lg mt-4 max-w-2xl mx-auto">
+              Find us on Google Maps to plan your trip
+            </p>
+          </div>
+          <div className="relative w-full h-96 md:h-[500px] rounded-2xl overflow-hidden shadow-2xl border-2 border-[#bfa58b]/30">
             <iframe
               src={
                 mapSrc ??
@@ -552,6 +476,19 @@ export default function HousePage(props: HousePageProps) {
       </section>
 
       <OtherOptions />
+
+      <style jsx>{`
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
     </main>
   );
 }

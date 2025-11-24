@@ -8,12 +8,10 @@ const AboutSection: React.FC = () => {
   const [isTextVisible, setIsTextVisible] = useState(false);
   const [isCard1Visible, setIsCard1Visible] = useState(false);
   const [isCard2Visible, setIsCard2Visible] = useState(false);
-  const [isActivitiesVisible, setIsActivitiesVisible] = useState(false);
 
   const textRef = useRef<HTMLDivElement>(null);
   const card1Ref = useRef<HTMLAnchorElement>(null);
   const card2Ref = useRef<HTMLAnchorElement>(null);
-  const activitiesRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const observerOptions = {
@@ -30,8 +28,6 @@ const AboutSection: React.FC = () => {
             setIsCard1Visible(true);
           } else if (entry.target === card2Ref.current) {
             setIsCard2Visible(true);
-          } else if (entry.target === activitiesRef.current) {
-            setIsActivitiesVisible(true);
           }
         }
       });
@@ -40,17 +36,21 @@ const AboutSection: React.FC = () => {
     if (textRef.current) observer.observe(textRef.current);
     if (card1Ref.current) observer.observe(card1Ref.current);
     if (card2Ref.current) observer.observe(card2Ref.current);
-    if (activitiesRef.current) observer.observe(activitiesRef.current);
 
     return () => observer.disconnect();
   }, []);
 
   return (
-    <section className="relative w-full py-12 md:py-20 bg-gradient-to-br from-[var(--color-background-light)] via-[var(--color-background-main)] to-[var(--color-background-light)]">
+    <section className="relative w-full py-6 md:py-8 bg-gradient-to-br from-[var(--color-background-light)] via-[var(--color-background-main)] to-[var(--color-background-light)]">
       <div className="container mx-auto px-6 max-w-7xl">
 
+        {/* Title - Mobile only */}
+        <h2 className="lg:hidden font-serif text-2xl md:text-3xl text-[var(--color-highlight)] font-bold leading-tight pb-3 md:pb-6 text-center">
+          Šiaurietiškas poilsis <span className="md:inline block">kūnui ir sielai</span>
+        </h2>
+
         {/* HERO IMAGE + INTRO TEXT */}
-        <div className="flex flex-col lg:flex-row items-center gap-6 md:gap-10 mb-10 md:mb-16">
+        <div className="flex flex-col lg:flex-row items-start gap-6 md:gap-10 mb-10 md:mb-16">
           <div className="w-full lg:w-1/2 rounded-3xl overflow-hidden shadow-2xl h-[45vh] md:h-[400px] lg:h-[500px]">
             <img
               src="/home/IMG_0634-1.jpeg"
@@ -59,23 +59,49 @@ const AboutSection: React.FC = () => {
             />
           </div>
 
-          {/* Text with fade-in animation */}
-          <div 
+          {/* Text with staggered paragraph animations */}
+          <div
             ref={textRef}
-            className={`w-full lg:w-1/2 space-y-4 md:space-y-5 transition-all duration-1000 ease-out ${
-              isTextVisible 
-                ? 'opacity-100 translate-y-0' 
-                : 'opacity-0 translate-y-8'
-            }`}
+            className="w-full lg:w-1/2 space-y-4 md:space-y-5"
           >
-            <h2 className="font-serif text-3xl md:text-4xl lg:text-5xl text-[var(--color-highlight)] font-bold leading-tight">
-              Šiaurietiškas poilsis kūnui ir sielai
+            {/* Title - visible on desktop only, centered on mobile */}
+            <h2 className="hidden lg:block font-serif text-3xl lg:text-4xl text-[var(--color-highlight)] text-center font-bold leading-tight">
+              Šiaurietiškas poilsis <br /> kūnui ir sielai
             </h2>
-            <p className="text-sm md:text-base lg:text-lg font-light text-deep-green leading-relaxed">
-              Kviečiame atvykti pailsėti į skandinaviško stiliaus duplekso apartamentus šalia Rubikių ežero Anykščių rajone. Čia mėgausitės privačia sūkurine vonia - Jacuzzi, iš jos stebėsite vietovės gyventojus elnius – danielius.
+
+            <p
+              className={`text-base md:text-lg lg:text-xl font-bolder text-deep-green font-bolder leading-relaxed text-center transition-all duration-700 ease-out ${isTextVisible
+                ? 'opacity-100 translate-y-0'
+                : 'opacity-0 -translate-y-8'
+                }`}
+              style={{
+                transitionDelay: isTextVisible ? '0ms' : '0ms'
+              }}
+            >
+              Kviečiame atvykti pailsėti į skandinaviško stiliaus duplekso apartamentus šalia Rubikių ežero Anykščių rajone. Čia mėgausitės privačia sūkurine vonia - Jacuzzi, iš jos stebėsite vietovės gyventojus elnius – danielius. Jais galėsite grožėtis bei
+              pamaitinti, o jie apdovanos Jus nepamirštamomis akimirkomis, sielos terapija ir ramybe...
             </p>
-            <p className="text-sm md:text-base lg:text-lg font-light text-deep-green leading-relaxed">
+            <p
+              className={`text-base md:text-lg lg:text-xl font-bolder text-deep-green leading-relaxed text-center transition-all duration-700 ease-out ${isTextVisible
+                ? 'opacity-100 translate-y-0'
+                : 'opacity-0 -translate-y-8'
+                }`}
+              style={{
+                transitionDelay: isTextVisible ? '200ms' : '0ms'
+              }}
+            >
               Norintiems visiško privatumo - prabangus Ežero Namelis dviems gamtos glėbyje, tik 10 žingsnių iki ežero ir miško…
+            </p>
+            <p
+              className={`text-base md:text-lg lg:text-xl font-bolder text-deep-green leading-relaxed text-center transition-all duration-700 ease-out ${isTextVisible
+                ? 'opacity-100 translate-y-0'
+                : 'opacity-0 -translate-y-8'
+                }`}
+              style={{
+                transitionDelay: isTextVisible ? '400ms' : '0ms'
+              }}
+            >
+              Papildykite savo viešnagę ežero pramogomis – ramiais pasiplaukiojimais valtimi ar vandens dviračiu, o gal įsimintinais baidarių nuotykiais...
             </p>
           </div>
         </div>
@@ -87,11 +113,10 @@ const AboutSection: React.FC = () => {
           <Link
             ref={card1Ref}
             href="/ezero-namelis"
-            className={`group relative rounded-2xl shadow-lg overflow-hidden min-h-[300px] md:min-h-[350px] flex flex-col justify-end transition-all duration-1000 ease-out ${
-              isCard1Visible 
-                ? 'opacity-100 translate-x-0' 
-                : 'opacity-0 -translate-x-12'
-            }`}
+            className={`group relative rounded-2xl shadow-lg overflow-hidden min-h-[300px] md:min-h-[350px] flex flex-col justify-end transition-all duration-1000 ease-out ${isCard1Visible
+              ? 'opacity-100 translate-x-0'
+              : 'opacity-0 -translate-x-12'
+              }`}
           >
             {/* Background Image */}
             <div className="absolute inset-0 z-0">
@@ -104,12 +129,12 @@ const AboutSection: React.FC = () => {
             </div>
 
             {/* Content */}
-            <div className="relative z-10 p-6 md:p-8 space-y-3">
-              <h3 className="font-serif text-2xl md:text-3xl lg:text-4xl text-white font-bold group-hover:text-[var(--color-primary)] transition-colors duration-300 border-b-2 border-transparent group-hover:border-[var(--color-primary)] pb-2 inline-block drop-shadow-lg">
+            <div className="relative z-10 p-6 md:p-8 space-y-1">
+              <h3 className="font-serif text-xl md:text-3xl lg:text-4xl text-white font-bold group-hover:text-[var(--color-primary)] transition-colors duration-300 border-b-2 border-transparent group-hover:border-[var(--color-primary)] inline-block drop-shadow-lg">
                 Ežero Namelis →
               </h3>
-              <p className="text-sm md:text-base text-white/90 font-light leading-relaxed drop-shadow-md">
-                Žavingas, atskiras poilsio namelis ant ežero kranto – Tai tobulas pabėgimas su nuostabiausiais saulėlydžiais...
+              <p className="text-xs md:text-sm text-white/90 font-light leading-relaxed drop-shadow-md">
+                Žavingas, atskiras poilsio namelis ant ežero kranto – Tai tobulas pabėgimas su nuostabiausiais saulėlydžiais, žvaigždėtomis naktimis ir tyliais rytais...
               </p>
             </div>
           </Link>
@@ -118,11 +143,10 @@ const AboutSection: React.FC = () => {
           <Link
             ref={card2Ref}
             href="/dupleksas"
-            className={`group relative rounded-2xl shadow-lg overflow-hidden min-h-[300px] md:min-h-[350px] flex flex-col justify-end transition-all duration-1000 ease-out ${
-              isCard2Visible 
-                ? 'opacity-100 translate-x-0' 
-                : 'opacity-0 translate-x-12'
-            }`}
+            className={`group relative rounded-2xl shadow-lg overflow-hidden min-h-[300px] md:min-h-[350px] flex flex-col justify-end transition-all duration-1000 ease-out ${isCard2Visible
+              ? 'opacity-100 translate-x-0'
+              : 'opacity-0 -translate-x-12'
+              }`}
           >
             {/* Background Image */}
             <div className="absolute inset-0 z-0">
@@ -135,29 +159,16 @@ const AboutSection: React.FC = () => {
             </div>
 
             {/* Content */}
-            <div className="relative z-10 p-6 md:p-8 space-y-3">
-              <h3 className="font-serif text-2xl md:text-3xl lg:text-4xl text-white font-bold group-hover:text-[var(--color-primary)] transition-colors duration-300 border-b-2 border-transparent group-hover:border-[var(--color-primary)] pb-2 inline-block drop-shadow-lg">
-                Duplekso apartamentai →
+            <div className="relative z-10 p-6 md:p-8 space-y-1">
+              <h3 className="font-serif text-xl md:text-3xl lg:text-4xl text-white font-bold group-hover:text-[var(--color-primary)] transition-colors duration-300 border-b-2 border-transparent group-hover:border-[var(--color-primary)] inline-block drop-shadow-lg">
+                Duplekso apartamentai <br />Nr. 1 ir Nr. 2 →
               </h3>
-              <p className="text-sm md:text-base text-white/90 font-light leading-relaxed drop-shadow-md">
-                Du stilingi apartamentai, siūlantys skandinavišką komfortą ir modernius patogumus...
+
+              <p className="text-xs md:text-sm text-white/90 font-light leading-relaxed drop-shadow-md">
+                Du stilingi apartamentai, siūlantys skandinavišką komfortą ir modernius patogumus elniukų draugijoje…
               </p>
             </div>
           </Link>
-        </div>
-
-        {/* ACTIVITIES TEXT - Slide up from bottom */}
-        <div 
-          ref={activitiesRef}
-          className={`text-center max-w-3xl mx-auto transition-all duration-1000 ease-out ${
-            isActivitiesVisible 
-              ? 'opacity-100 translate-y-0' 
-              : 'opacity-0 translate-y-12'
-          }`}
-        >
-          <p className="text-base md:text-lg lg:text-xl text-deep-green font-light leading-relaxed">
-            Papildykite savo viešnagę ežero pramogomis – ramiais pasiplaukiojimais valtimi ar vandens dviračiu...
-          </p>
         </div>
 
       </div>

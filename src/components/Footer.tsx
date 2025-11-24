@@ -7,13 +7,13 @@ const Footer: React.FC = () => {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="w-full mt-12 border-t border-[#2a4850] bg-[var(--color-secondary)] text-white">
+    <footer className="w-full border-t border-[#2a4850] bg-[var(--color-secondary)] text-white">
       <div className="max-w-7xl mx-auto px-6 py-12">
         {/* Grid con Quick Links destacados y resto de información */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 mb-8">
 
           {/* Quick Links - Destacado */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 text-center">
             <h3 className="text-sm font-bold text-white mb-6 uppercase tracking-wider border-b border-[var(--color-primary)] pb-2 inline-block">
               Navigate
             </h3>
@@ -53,17 +53,26 @@ const Footer: React.FC = () => {
                 <span className="opacity-0 group-hover:opacity-100 transition-opacity mr-1">→</span>
                 Privacy Policy
               </Link>
+              <Link
+                href="/faq"
+                className="text-[var(--color-primary)] hover:text-white hover:translate-x-1 transition-all duration-200 font-normal flex items-center group"
+              >
+                <span className="opacity-0 group-hover:opacity-100 transition-opacity mr-1">→</span>
+                FAQ
+              </Link>
             </nav>
           </div>
 
           {/* Información de contacto */}
-          <div>
-            <h3 className="text-sm font-bold text-white mb-6 uppercase tracking-wider border-b border-[var(--color-primary)] pb-2 inline-block">
-              Contact
-            </h3>
-            <div className="space-y-5 text-sm mt-6">
+          <div className="text-center">
+            <Link href="/contact">
+              <h3 className="text-sm font-bold text-white mb-6 uppercase tracking-wider border-b border-[var(--color-primary)] pb-2 inline-block cursor-pointer hover:text-[var(--color-primary)] transition-colors">
+                Contact
+              </h3>
+            </Link>
+            <div className="space-y-5 text-sm mt-2">
 
-              <p className="flex items-center gap-2">
+              <p className="flex items-center gap-2 text-center justify-center">
                 <InboxIcon className="w-4 h-4 text-gray-400" />
                 <a
                   href="mailto:info@rubikiailux.lt"
@@ -73,7 +82,7 @@ const Footer: React.FC = () => {
                 </a>
               </p>
 
-              <p className="flex items-center gap-2">
+              <p className="flex items-center gap-2 text-center justify-center">
                 <PhoneIcon className="w-4 h-4 text-gray-400" />
                 <a
                   href="tel:+37064632972"
@@ -84,7 +93,7 @@ const Footer: React.FC = () => {
               </p>
 
 
-              <div className="pt-1">
+              <div className="pt-3">
                 <p className="text-xs text-gray-400 leading-relaxed">Piliakalnio vs 1.</p>
                 <p className="text-xs text-gray-400 leading-relaxed">Anykščių raj. LT-29203, Lithuania</p>
               </div>

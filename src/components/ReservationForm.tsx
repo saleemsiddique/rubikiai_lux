@@ -747,7 +747,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
   }
 
   function MobileCalendarMonthModal({ house }: { house: HouseLight }) {
-    const safeHouse = house ?? { id: "unknown" } as HouseLight;
+    const safeHouse = house ?? ({ id: "unknown" } as HouseLight);
     const houseId = safeHouse.id;
 
     const mode = calendarModeByHouse[houseId] || 'arrival';
@@ -798,7 +798,8 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       }
     };
 
-    const handleSelectArrival = (date: Date) => {
+    // <-- Cambiado: ahora acepta opts.preserveDepartureIfSame -->
+    const handleSelectArrival = (date: Date, opts?: { preserveDepartureIfSame?: boolean }) => {
       const iso = dateIso(date);
       if (occupiedSet.has(iso)) return;
 
@@ -806,19 +807,34 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       const newStart = date;
       let newEnd = localEndDate ? new Date(localEndDate) : null;
 
-      // Si arrival coincide con departure → mover departure un día más
+      // Si arrival coincide con departure → intentar mover departure UN DÍA (pero
+      // comprobar la validez del día candidato COMO checkout, no como checkin)
       if (newEnd && dateIso(newEnd) === iso) {
         const candidate = addDays(newEnd, 1);
-        if (occupiedSetFull.has(dateIso(candidate))) {
+
+        // Comprobar validez del candidate COMO día de checkout
+        const candidateDs = dateIso(candidate);
+        const isOccCandidate = occupiedSetFull.has(candidateDs);
+        const isPrevOccCandidate = occupiedSetFull.has(dateIso(addDays(candidate, -1)));
+        const isCheckinStartCandidate = isOccCandidate && !isPrevOccCandidate;
+        const isCheckoutEndCandidate = !isOccCandidate && isPrevOccCandidate;
+
+        // Reglas de "checkout válido" (misma lógica que usas para departure mode)
+        const candidateIsValidCheckout = !((isOccCandidate && !isCheckinStartCandidate) || isCheckoutEndCandidate);
+
+        if (!candidateIsValidCheckout) {
+          // Si NO es válido COMO checkout → no mover (comportamiento previo: eliminar checkout)
           newEnd = null;
           setSelectedDepartureDates(prev => ({ ...prev, [houseId]: null }));
           setEndDate(null);
         } else {
+          // Si SÍ es válido COMO checkout → mover el checkout al día siguiente
           newEnd = candidate;
           setSelectedDepartureDates(prev => ({ ...prev, [houseId]: candidate }));
           setEndDate(candidate);
         }
       }
+
 
       // Validar rango arrival → departure
       if (newEnd) {
@@ -890,7 +906,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
           </div>
 
           {/* Botones de modo */}
-          <div className="flex justify-center mb-2 space-x-2">
+          <div className="flex justificentre mb-2 space-x-2">
             <button
               className={`px-3 py-1 rounded-full transition-all ${mode === 'arrival' ? 'bg-[var(--color-primary)] text-white' : 'bg-gray-200'}`}
               onClick={() => switchMode('arrival')}
@@ -939,9 +955,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                   const startDay = stripTime(new Date(localStartDate));
                   const checkoutDay = stripTime(d);
 
-                  // El checkout debe estar después del checkin
                   if (checkoutDay.getTime() > startDay.getTime()) {
-                    // Verificar que no haya días ocupados entre checkin y checkout (lógica de departure mode)
                     let hasBlockingReservation = false;
                     for (let checkDate = addDays(startDay, 1); stripTime(checkDate).getTime() < checkoutDay.getTime(); checkDate = addDays(checkDate, 1)) {
                       if (occupiedSetFull.has(dateIso(checkDate))) {
@@ -950,13 +964,11 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                       }
                     }
 
-                    // Verificar que el día de checkout cumpla las reglas de departure
                     const isOccupiedCheckout = occupiedSetFull.has(ds);
                     const isPrevOccupiedCheckout = occupiedSetFull.has(dateIso(addDays(d, -1)));
                     const isCheckinStartCheckout = isOccupiedCheckout && !isPrevOccupiedCheckout;
                     const isCheckoutEndCheckout = !isOccupiedCheckout && isPrevOccupiedCheckout;
 
-                    // El checkout es válido si NO hay reservas bloqueantes Y el día cumple las reglas
                     const checkoutDayIsValid = !((isOccupiedCheckout && !isCheckinStartCheckout) || isCheckoutEndCheckout);
 
                     isCheckoutValidInDepartureMode = !hasBlockingReservation && checkoutDayIsValid;
@@ -964,35 +976,33 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                 }
 
                 const isPast = stripTime(d).getTime() < today.getTime();
-                let disabled = false;
+
+                // Nuevo: visual vs real disabled
+                let disabled = false; // real, no click
+                let visuallyDisabled = false; // solo para apariencia
                 let isBlockedByReservation = false;
                 let isFirstAvailableCheckout = false;
 
-                // Días pasados siempre bloqueados
+                // Días pasados siempre bloqueados (real)
                 if (isPast) {
                   disabled = true;
                 }
-                // Modo arrival: deshabilitar días ocupados
+                // Modo arrival: deshabilitar días ocupados (real), pero si es nuestro checkout válido -> solo visual
                 else if (mode === 'arrival') {
-                  // Si es el día de check-out seleccionado Y es válido en departure mode
-                  if (isOurCheckout && isCheckoutValidInDepartureMode) {
-                    disabled = true;
-                  }
-                  // Si está ocupado
-                  else if (isOccupied) {
+                  if (isOurCheckout && isCheckinAvailable && isCheckoutValidInDepartureMode) {
+                    visuallyDisabled = true; // apariencia deshabilitada, pero clickable
+                  } else if (isOccupied) {
                     disabled = true;
                   }
                 }
-                // Modo departure: lógica especial
+                // Modo departure: lógica especial (igual que antes)
                 else if (mode === 'departure') {
                   if (localStartDate) {
                     const startDay = stripTime(new Date(localStartDate));
-                    // No se puede seleccionar el mismo día de check-in o anterior
                     if (stripTime(d).getTime() <= startDay.getTime()) {
                       disabled = true;
                     }
 
-                    // --- Lógica para deshabilitar días posteriores a una reserva ---
                     let firstOccupiedAfterCheckin: Date | null = null;
                     const currentDay = addDays(startDay, 1);
                     const maxCheck = addDays(startDay, 365);
@@ -1003,47 +1013,36 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                       const isPrevOccupiedCheck = occupiedSetFull.has(dateIso(addDays(checkDate, -1)));
                       const isCheckinStartCheck = isOccupiedCheck && !isPrevOccupiedCheck;
 
-                      // Bloquea el checkout si está ocupado Y no es un 'checkin start' (que permite checkout)
-                      // o si es el final de un checkout (que no permite checkout)
                       if ((isOccupiedCheck && !isCheckinStartCheck) || (!isOccupiedCheck && isPrevOccupiedCheck)) {
                         firstOccupiedAfterCheckin = new Date(checkDate);
                         break;
                       }
                     }
 
-                    // Si hay una fecha ocupada después del check-in y el día actual está después de ella
                     if (firstOccupiedAfterCheckin && stripTime(d).getTime() > stripTime(firstOccupiedAfterCheckin).getTime()) {
                       disabled = true;
                       isBlockedByReservation = true;
                     }
                   }
 
-                  // Deshabilitar días ocupados (excepto si es inicio de check-in)
                   if ((isOccupied && !isCheckinStart) || isCheckoutEnd) {
                     disabled = true;
                   }
 
-                  // Identificar el ÚLTIMO día disponible para checkout antes de una reserva
-                  // SOLO si NO hay un checkout válido ya seleccionado
                   if (localStartDate && !disabled && stripTime(d).getTime() > stripTime(new Date(localStartDate)).getTime()) {
-                    // Verificar si hay un checkout válido seleccionado
                     let hasValidCheckout = false;
 
                     if (localEndDate && stripTime(localEndDate).getTime() > stripTime(new Date(localStartDate)).getTime()) {
                       const startDay = stripTime(new Date(localStartDate));
                       const endDay = stripTime(localEndDate);
 
-                      // Verificar si hay alguna reserva ENTRE check-in y checkout (sin incluir el día de checkout)
                       let hasReservationBetween = false;
-
                       for (let checkDate = addDays(startDay, 1); stripTime(checkDate).getTime() < endDay.getTime(); checkDate = addDays(checkDate, 1)) {
                         if (occupiedSetFull.has(dateIso(checkDate))) {
                           hasReservationBetween = true;
                           break;
                         }
                       }
-
-                      // El checkout es válido si no hay reservas entre check-in y checkout
                       hasValidCheckout = !hasReservationBetween;
                     }
 
@@ -1051,7 +1050,6 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                       const startDay = stripTime(new Date(localStartDate));
                       const maxCheck = addDays(startDay, 365);
 
-                      // --- LÓGICA CORREGIDA para lastAvailableCheckout ---
                       let firstBlockingDate: Date | null = null;
                       const currentDayForBlockingCheck = addDays(startDay, 1);
 
@@ -1061,9 +1059,6 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                         const isPrevOccupiedCheck = occupiedSetFull.has(dateIso(addDays(checkDate, -1)));
                         const isCheckinStartCheck = isOccupiedCheck && !isPrevOccupiedCheck;
 
-                        // Criterio de bloqueo:
-                        // 1. Está ocupado Y no es un 'checkin start' (no se puede salir ese día).
-                        // 2. No está ocupado Y es un 'checkout end' (no se puede salir ese día).
                         if ((isOccupiedCheck && !isCheckinStartCheck) || (!isOccupiedCheck && isPrevOccupiedCheck)) {
                           firstBlockingDate = new Date(checkDate);
                           break;
@@ -1071,17 +1066,12 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                       }
 
                       let lastAvailableCheckout: Date | null = null;
-
-                      // Si encontramos una fecha que bloquea, el último disponible es el día ANTERIOR.
                       if (firstBlockingDate) {
                         lastAvailableCheckout = addDays(firstBlockingDate, -1);
                       }
-
-                      // El día anterior debe ser forzosamente posterior al check-in
-                      if (lastAvailableCheckout && stripTime(lastAvailableCheckout).getTime() <= startDay.getTime()) {
+                      if (lastAvailableCheckout && stripTime(lastAvailableCheckout).getTime() <= stripTime(startDay).getTime()) {
                         lastAvailableCheckout = null;
                       }
-
                       if (lastAvailableCheckout && dateIso(d) === dateIso(lastAvailableCheckout)) {
                         isFirstAvailableCheckout = true;
                       }
@@ -1106,22 +1096,21 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                   dayClass = "bg-gray-100 border-2 border-gray-200";
                   textClass = "text-gray-400";
                 } else if (isSelectedAndAvailable) {
-                  // Días seleccionados y disponibles (color primary)
                   dayClass = "bg-[var(--color-primary)]/20 border-2 border-[var(--color-primary)]/40";
                   textClass = "text-[var(--color-primary-dark)] font-bold";
-                } else if (disabled && !isPast) {
-                  // Días no disponibles (gris)
+                } else if ((disabled || visuallyDisabled) && !isPast) {
+                  // Si es visual disabled o real disabled → aspecto atenuado
                   dayClass = "bg-gray-100 border-2 border-gray-300";
                   textClass = "text-gray-500";
                 } else if (!disabled) {
                   dayClass = "bg-white border-2 border-gray-200";
                 }
 
-                // Manejo especial para el día de Check-out en modo arrival
+                // Manejo especial para el día de Check-out en modo arrival (mantenemos apariencia pero NO lo deshabilitamos realmente)
                 if (mode === "arrival" && isOurCheckout && isCheckinAvailable && isCheckoutValidInDepartureMode) {
                   dayClass = "bg-[var(--color-primary)]/20 border-2 border-[var(--color-primary)]/40";
                   textClass = "text-[var(--color-primary-dark)] font-bold";
-                  disabled = true;
+                  // NOTA: ya establecimos visuallyDisabled arriba, no tocar 'disabled' para permitir click
                 }
 
                 // Determinar el label de selección
@@ -1130,13 +1119,11 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
 
                 if (isOurCheckin && isCheckinAvailable) {
                   selectionLabel = "Check-in";
-                  // Si el checkout es el día siguiente, mover el label del checkin hacia arriba
                   if (localEndDate && dateIso(addDays(d, 1)) === dateIso(localEndDate)) {
                     labelPosition = mode === 'arrival' ? "-top-3" : "bottom-7";
                   }
                 } else if (isOurCheckout && isCheckinAvailable && isCheckoutValidInDepartureMode) {
                   selectionLabel = "Check-out";
-                  // Si el checkin es el día anterior, mover el label del checkout
                   if (localStartDate && dateIso(addDays(d, -1)) === dateIso(localStartDate)) {
                     labelPosition = mode === 'arrival' ? "bottom-7" : "-top-3";
                   }
@@ -1145,34 +1132,39 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                 return (
                   <button
                     key={ds}
+                    // SOLO deshabilitar realmente cuando `disabled === true`
                     disabled={disabled}
+                    // aria-disabled refleja estado visual + real (mejora accesibilidad)
+                    aria-disabled={disabled || visuallyDisabled}
                     onClick={() => {
+                      // sólo bloqueo cuando es realmente disabled
                       if (disabled) return;
 
-                      // Si en modo arrival seleccionamos el día de checkout actual, mover checkout un día
+                      // comportamiento especial: si pinchas el día del checkout en modo arrival,
+                      // solo moveremos el checkout UNICAMENTE si ESE DÍA está disponible para check-in.
                       if (mode === 'arrival' && localEndDate && dateIso(d) === dateIso(localEndDate)) {
-                        const newCheckout = addDays(d, 1);
-                        handleSelectArrival(d);
-                        // Actualizar checkout si el siguiente día está disponible
-                        if (!occupiedSetFull.has(dateIso(newCheckout))) {
-                          setSelectedDepartureDates(prev => ({ ...prev, [houseId]: newCheckout }));
-                          setEndDate(newCheckout);
+                        const occupiedSetFull = occupiedDatesByHouse[houseId] ?? new Set<string>();
+                        const isDayAvailableForCheckin = !occupiedSetFull.has(dateIso(d));
+
+                        if (isDayAvailableForCheckin) {
+                          // comportamiento antiguo: mover checkout al día siguiente si hace falta
+                          handleSelectArrival(d);
                         } else {
-                          // Si el siguiente día está ocupado, eliminar checkout
-                          setSelectedDepartureDates(prev => ({ ...prev, [houseId]: null }));
-                          setEndDate(null);
+                          // preserva el checkout en su sitio (no moverlo)
+                          handleSelectArrival(d, { preserveDepartureIfSame: true });
                         }
                       } else {
                         if (mode === 'arrival') handleSelectArrival(d);
                         else handleSelectDeparture(d);
                       }
                     }}
+
                     className={`w-full h-20 p-1 rounded-lg flex flex-col items-center justify-between transition-all relative
-                    ${dayClass} ${textClass} 
-                    ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer active:scale-95"}
-                    ${isFirstAvailableCheckout ? "animate-pulse-subtle" : ""}
-                    ${selectionLabel ? "z-20" : "z-10"}
-                  `}
+                  ${dayClass} ${textClass} 
+                  ${disabled ? "cursor-not-allowed opacity-60" : (visuallyDisabled ? "opacity-60 cursor-pointer" : "cursor-pointer active:scale-95")}
+                  ${isFirstAvailableCheckout ? "animate-pulse-subtle" : ""}
+                  ${selectionLabel ? "z-20" : "z-10"}
+                `}
                   >
 
                     {/* Label de Check-in/Check-out */}
@@ -1221,6 +1213,8 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       </div>
     );
   }
+
+
   const isBefore = (aIso: string, bIso: string) => new Date(aIso) < new Date(bIso);
   const isAfter = (aIso: string, bIso: string) => new Date(aIso) > new Date(bIso);
 
@@ -1229,34 +1223,105 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     return !!s && s.has(iso);
   };
 
-  const handleSelectArrival = (houseId: string, d: Date) => {
+  // Reemplaza tu función por esta
+  const handleSelectArrival = (
+    houseId: string,
+    d: Date,
+    opts?: { preserveDepartureIfSame?: boolean }
+  ) => {
     const iso = dateIso(d);
+    // Si el día está ocupado para ese house → nothing
     if (isOccupied(houseId, iso)) return;
 
+    const occupiedSetFull = occupiedDatesByHouse[houseId] ?? new Set<string>();
+    const strip = (dt: Date) => new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
+
     const newStart = d;
-    let newEnd = endDate;
-    if (!endDate) {
-      newEnd = addDays(d, 1);
+    let newEnd = endDate ? new Date(endDate) : null;
+
+    // Helper: valida si una fecha candidate es válida COMO día de CHECK-OUT
+    const candidateIsValidCheckout = (candidate: Date) => {
+      const candDs = dateIso(candidate);
+      const isOccCandidate = occupiedSetFull.has(candDs);
+      const isPrevOccCandidate = occupiedSetFull.has(dateIso(addDays(candidate, -1)));
+      const isCheckinStartCandidate = isOccCandidate && !isPrevOccCandidate;
+      const isCheckoutEndCandidate = !isOccCandidate && isPrevOccCandidate;
+
+      // mismo criterio usado en modo "departure"
+      return !((isOccCandidate && !isCheckinStartCandidate) || isCheckoutEndCandidate);
+    };
+
+    // Caso A: arrival coincide con departure seleccionado
+    if (newEnd && dateIso(newEnd) === dateIso(newStart)) {
+      // Si nos piden preservar el departure, no intentamos moverlo
+      if (!opts?.preserveDepartureIfSame) {
+        const candidate = addDays(newEnd, 1);
+
+        // Comprobar si el candidate es válido COMO checkout
+        if (candidateIsValidCheckout(candidate)) {
+          newEnd = candidate;
+        } else {
+          // Si no es válido COMO checkout → borrar checkout (comportamiento previo)
+          newEnd = null;
+        }
+      } else {
+        // preserveDepartureIfSame === true → NO tocar newEnd (se mantiene tal cual)
+        newEnd = new Date(newEnd);
+      }
     } else {
-      const endIso = dateIso(endDate);
-      if (!isBefore(iso, endIso)) {
-        newEnd = addDays(d, 1);
+      // Caso B: arrival no coincide con departure
+      // Si no había endDate → proponemos arrival + 1
+      if (!newEnd) {
+        const candidate = addDays(newStart, 1);
+        // Validar como checkout antes de asignar
+        if (candidateIsValidCheckout(candidate)) {
+          newEnd = candidate;
+        } else {
+          newEnd = null;
+        }
+      } else {
+        // Si arrival >= endDate (o same) → proponer arrival+1 (y validar como checkout)
+        const endStripped = strip(newEnd);
+        const startStripped = strip(newStart);
+        if (startStripped.getTime() >= endStripped.getTime()) {
+          const candidate = addDays(newStart, 1);
+          if (candidateIsValidCheckout(candidate)) {
+            newEnd = candidate;
+          } else {
+            newEnd = null;
+          }
+        } else {
+          // arrival < endDate → mantener newEnd tal cual
+          newEnd = new Date(newEnd);
+        }
       }
     }
 
+    // Actualizar estados globales y por house
     setStartDate(newStart);
-    if (newEnd) setEndDate(newEnd);
-    setOffset(houseId, "arrival", 0);
+    setSelectedArrivalDates?.(prev => ({ ...prev, [houseId]: newStart }));
 
-    // 🔹 Cambio automático al modo "departure"
+    if (newEnd) {
+      setEndDate(newEnd);
+      setSelectedDepartureDates?.(prev => ({ ...prev, [houseId]: newEnd }));
+    } else {
+      setEndDate(null);
+      setSelectedDepartureDates?.(prev => ({ ...prev, [houseId]: null }));
+    }
+
+    // Resetear offset para que el carousel/viewport muestre desde el inicio
+    setOffset?.(houseId, "arrival", 0);
+
+    // Cambiar a modo departure automáticamente (igual que antes)
     setCalendarModeByHouse((prev) => ({
       ...prev,
       [houseId]: "departure",
     }));
 
-    // 🔹 Opcional: refresca la disponibilidad visualmente
-    setTimeout(() => recomputeHousesAvailability(newStart, newEnd ?? endDate), 0);
+    // Refrescar disponibilidad/visualmente
+    setTimeout(() => recomputeHousesAvailability(newStart, newEnd), 0);
   };
+
 
   const handleSelectDeparture = (houseId: string, d: Date) => {
     const iso = dateIso(d);
@@ -1426,19 +1491,19 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
         ? (startDate ? new Date(startDate) : new Date())
         : (startDate ? new Date(startDate) : new Date());
 
-    const stripTime = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const stripTimeLocal = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
     const msPerDay = 24 * 60 * 60 * 1000;
-    const diffDays = (a: Date, b: Date) => Math.round((stripTime(a).getTime() - stripTime(b).getTime()) / msPerDay);
+    const diffDays = (a: Date, b: Date) => Math.round((stripTimeLocal(a).getTime() - stripTimeLocal(b).getTime()) / msPerDay);
 
-    const today = stripTime(new Date());
-    const globalMax = stripTime(getGlobalMaxDate());
+    const today = stripTimeLocal(new Date());
+    const globalMax = stripTimeLocal(getGlobalMaxDate());
 
     const minAllowed = today;
     const maxAllowed = globalMax;
 
-    const minForMode = mode === "departure" && startDate ? stripTime(new Date(startDate)) : minAllowed;
+    const minForMode = mode === "departure" && startDate ? stripTimeLocal(new Date(startDate)) : minAllowed;
 
-    const maxStartBaseCandidate = stripTime(addDays(maxAllowed, -(DATE_WINDOW_DAYS - 1)));
+    const maxStartBaseCandidate = stripTimeLocal(addDays(maxAllowed, -(DATE_WINDOW_DAYS - 1)));
     const maxStartBase = maxStartBaseCandidate < minForMode ? minForMode : maxStartBaseCandidate;
     const minStartBase = minForMode;
 
@@ -1467,15 +1532,14 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
 
     let days: Date[] = Array.from({ length: DATE_WINDOW_DAYS }).map((_, i) => addDays(finalBase, i));
     days = days.filter((d) => {
-      const sd = stripTime(d);
-      return sd.getTime() >= stripTime(minForMode).getTime() && sd.getTime() <= stripTime(maxAllowed).getTime();
+      const sd = stripTimeLocal(d);
+      return sd.getTime() >= stripTimeLocal(minForMode).getTime() && sd.getTime() <= stripTimeLocal(maxAllowed).getTime();
     });
 
     const occupiedSet = occupiedDatesByHouse[houseId] ?? new Set<string>();
 
     return (
       <div className="w-full">
-
         {/* Header con navegación */}
         <div className="flex items-center justify-between mb-4 pb-3 border-b-2 border-gray-200">
           <button
@@ -1536,14 +1600,14 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
             // NUEVA VALIDACIÓN: Verificar si el checkout está disponible en modo departure
             let isCheckoutValidInDepartureMode = false;
             if (isOurCheckout && startDate) {
-              const startDay = stripTime(new Date(startDate));
-              const checkoutDay = stripTime(d);
+              const startDay = stripTimeLocal(new Date(startDate));
+              const checkoutDay = stripTimeLocal(d);
 
               // El checkout debe estar después del checkin
               if (checkoutDay.getTime() > startDay.getTime()) {
                 // Verificar que no haya días ocupados entre checkin y checkout (lógica de departure mode)
                 let hasBlockingReservation = false;
-                for (let checkDate = addDays(startDay, 1); stripTime(checkDate).getTime() < checkoutDay.getTime(); checkDate = addDays(checkDate, 1)) {
+                for (let checkDate = addDays(startDay, 1); stripTimeLocal(checkDate).getTime() < checkoutDay.getTime(); checkDate = addDays(checkDate, 1)) {
                   if (occupiedSet.has(dateIso(checkDate))) {
                     hasBlockingReservation = true;
                     break;
@@ -1563,20 +1627,25 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
               }
             }
 
+            // --- NEW: si este día concreto puede usarse como check-in (y no es pasado) ---
+            const isDayAvailableForCheckin = !occupiedSet.has(ds) && stripTimeLocal(d).getTime() >= today.getTime();
+
             let disabled = false;
+            let visuallyDisabled = false; // nuevo: apariencia solo
             let availabilityStatus = "";
             let isBlockedByReservation = false;
             let isFirstAvailableCheckout = false;
 
             // Días pasados siempre deshabilitados
-            if (stripTime(d).getTime() < today.getTime()) {
+            if (stripTimeLocal(d).getTime() < today.getTime()) {
               disabled = true;
             }
             // Modo arrival: lógica especial para check-in
             else if (mode === "arrival") {
               // 1. Si es el día de check-out seleccionado Y es válido en departure mode
               if (isOurCheckout && isCheckoutValidInDepartureMode) {
-                disabled = true;
+                // mostrar como "disabled" visualmente pero permitir click (igual que en móvil)
+                visuallyDisabled = true;
                 availabilityStatus = "";
               }
               // 2. Si está ocupado
@@ -1588,9 +1657,9 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
             // Modo departure: lógica especial
             else if (mode === "departure") {
               if (startDate) {
-                const startDay = stripTime(new Date(startDate));
+                const startDay = stripTimeLocal(new Date(startDate));
                 // No se puede seleccionar el mismo día de check-in o anterior
-                if (stripTime(d).getTime() <= startDay.getTime()) {
+                if (stripTimeLocal(d).getTime() <= startDay.getTime()) {
                   disabled = true;
                 }
 
@@ -1613,7 +1682,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                 }
 
                 // Si hay una fecha ocupada después del check-in y el día actual está después de ella
-                if (firstOccupiedAfterCheckin && stripTime(d).getTime() > stripTime(firstOccupiedAfterCheckin).getTime()) {
+                if (firstOccupiedAfterCheckin && stripTimeLocal(d).getTime() > stripTimeLocal(firstOccupiedAfterCheckin).getTime()) {
                   disabled = true;
                   isBlockedByReservation = true; // Marcar como bloqueado por reserva
                   availabilityStatus = "Not available";
@@ -1627,15 +1696,15 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
               }
 
               // CORRECCIÓN: Identificar el ÚLTIMO día disponible para checkout
-              if (startDate && !disabled && stripTime(d).getTime() > stripTime(new Date(startDate)).getTime()) {
+              if (startDate && !disabled && stripTimeLocal(d).getTime() > stripTimeLocal(new Date(startDate)).getTime()) {
                 let hasValidCheckout = false;
 
-                if (endDate && stripTime(endDate).getTime() > stripTime(new Date(startDate)).getTime()) {
-                  const startDay = stripTime(new Date(startDate));
-                  const endDay = stripTime(endDate);
+                if (endDate && stripTimeLocal(endDate).getTime() > stripTimeLocal(new Date(startDate)).getTime()) {
+                  const startDay = stripTimeLocal(new Date(startDate));
+                  const endDay = stripTimeLocal(endDate);
 
                   let hasReservationBetween = false;
-                  for (let checkDate = addDays(startDay, 1); stripTime(checkDate).getTime() < endDay.getTime(); checkDate = addDays(checkDate, 1)) {
+                  for (let checkDate = addDays(startDay, 1); stripTimeLocal(checkDate).getTime() < endDay.getTime(); checkDate = addDays(checkDate, 1)) {
                     if (occupiedSet.has(dateIso(checkDate))) {
                       hasReservationBetween = true;
                       break;
@@ -1645,7 +1714,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                 }
 
                 if (!hasValidCheckout) {
-                  const startDay = stripTime(new Date(startDate));
+                  const startDay = stripTimeLocal(new Date(startDate));
                   const maxCheck = addDays(startDay, 365);
 
                   // Buscar el primer día que no es seleccionable como Check-out
@@ -1672,7 +1741,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                     lastAvailableCheckout = addDays(firstBlockingDate, -1);
                   }
 
-                  if (lastAvailableCheckout && stripTime(lastAvailableCheckout).getTime() <= startDay.getTime()) {
+                  if (lastAvailableCheckout && stripTimeLocal(lastAvailableCheckout).getTime() <= startDay.getTime()) {
                     lastAvailableCheckout = null;
                   }
 
@@ -1684,7 +1753,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
             }
 
             // Si no está deshabilitado, está disponible
-            if (!disabled && stripTime(d).getTime() >= today.getTime()) {
+            if (!disabled && stripTimeLocal(d).getTime() >= today.getTime()) {
               availabilityStatus = "✓ Available";
             }
 
@@ -1709,7 +1778,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
             let textClass = "text-gray-700";
             let statusClass = "text-gray-500";
 
-            if (disabled && stripTime(d).getTime() < today.getTime()) {
+            if (disabled && stripTimeLocal(d).getTime() < today.getTime()) {
               // Días pasados
               bgClass = "bg-gray-100 border-2 border-gray-200";
               textClass = "text-gray-400";
@@ -1719,8 +1788,8 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
               bgClass = "bg-[var(--color-primary)]/20 border-2 border-[var(--color-primary)]/40";
               textClass = "text-[var(--color-primary-dark)] font-bold";
               statusClass = "text-[var(--color-primary-dark)]";
-            } else if (disabled && stripTime(d).getTime() >= today.getTime()) {
-              // Días no disponibles (gris)
+            } else if ((disabled || visuallyDisabled) && stripTimeLocal(d).getTime() >= today.getTime()) {
+              // Días no disponibles (gris) — visual disabled también cae aquí
               bgClass = "bg-gray-100 border-2 border-gray-300";
               textClass = "text-gray-500";
               statusClass = "text-gray-400";
@@ -1734,9 +1803,9 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
               bgClass = "bg-[var(--color-primary)]/20 border-2 border-[var(--color-primary)]/40";
               textClass = "text-[var(--color-primary-dark)] font-bold";
               statusClass = "text-[var(--color-primary-dark)]";
-              disabled = true; // Asegurar que está disabled para la selección, pero se ve seleccionado
+              // ADAPTACIÓN: no marcar disabled real, marcar solo visualmente
+              visuallyDisabled = true;
             }
-
 
             // Determinar el label de selección - SOLO si está seleccionado y válido
             let selectionLabel = "";
@@ -1750,23 +1819,24 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
               <button
                 key={ds}
                 disabled={disabled}
+                // accessibility: solo decir aria-disabled si está realmente no-clickable
+                aria-disabled={disabled || (!isDayAvailableForCheckin && visuallyDisabled)}
                 onClick={() => {
+                  // si está real disabled, no hacer nada
                   if (disabled) return;
 
-                  // Si en modo arrival seleccionamos el día de checkout actual, mover checkout un día
-                  // NOTA: Con la nueva lógica, este bloque de código no debería ser accesible si 'isOurCheckout' es true en modo 'arrival',
-                  // pero se mantiene por si acaso.
+                  // Si en modo arrival seleccionamos el día de checkout actual,
+                  // solo moveremos el checkout UNICAMENTE si ESE DÍA está disponible para check-in.
                   if (mode === "arrival" && endDate && dateIso(d) === dateIso(endDate)) {
-                    const newCheckout = addDays(d, 1);
-                    handleSelectArrival(houseId, d);
-                    // Actualizar checkout si el siguiente día está disponible
-                    if (!occupiedSet.has(dateIso(newCheckout))) {
-                      setSelectedDepartureDates(prev => ({ ...prev, [houseId]: newCheckout }));
-                      setEndDate(newCheckout);
+                    const isDayAvailableForCheckin = !occupiedSet.has(dateIso(d));
+
+                    if (isDayAvailableForCheckin) {
+                      // comportamiento antiguo: dejar que handleSelectArrival procese y mueva el checkout si corresponde
+                      handleSelectArrival(houseId, d);
                     } else {
-                      // Si el siguiente día está ocupado, eliminar checkout
-                      setSelectedDepartureDates(prev => ({ ...prev, [houseId]: null }));
-                      setEndDate(null);
+                      // preservar el checkout en su sitio (no moverlo)
+                      // llamamos a handleSelectArrival con la opción para preservar
+                      handleSelectArrival(houseId, d, { preserveDepartureIfSame: true });
                     }
                   } else {
                     if (mode === "arrival") handleSelectArrival(houseId, d);
@@ -1774,14 +1844,26 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                   }
                 }}
                 className={`
-                                ${bgClass}
-                                ${textClass}
-                                p-4 rounded-xl relative transition-all duration-200
-                                flex flex-col items-center justify-between min-h-[140px]
-                                ${disabled ? "cursor-not-allowed opacity-60" : "transform hover:scale-105 cursor-pointer"}
-                                ${isFirstAvailableCheckout ? "animate-pulse-subtle" : ""}
-                            `}
+    ${bgClass}
+    ${textClass}
+    p-4 rounded-xl relative transition-all duration-200
+    flex flex-col items-center justify-between min-h-[140px]
+    ${disabled
+                    ? "cursor-not-allowed opacity-60"
+                    : (
+                      // si es visual disabled -> decidir si es clickable visualmente o no
+                      visuallyDisabled
+                        ? ((visuallyDisabled && isDayAvailableForCheckin)
+                          ? "opacity-80 cursor-pointer hover:shadow-lg transform hover:scale-105"
+                          : "opacity-60 cursor-not-allowed"
+                        )
+                        : "transform hover:scale-105 cursor-pointer"
+                    )
+                  }
+    ${isFirstAvailableCheckout ? "animate-pulse-subtle" : ""}
+  `}
               >
+
                 {/* Label de Check-in/Check-out en la parte inferior */}
                 {selectionLabel && (
                   <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-[var(--color-primary)] text-white text-xs font-bold px-3 py-1 rounded-full shadow-md whitespace-nowrap z-10">
@@ -1837,144 +1919,145 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     );
   };
 
+
   /* ---------------- Render ---------------- */
   return (
     <div className="max-w-6xl w-full mx-auto mt-28">
       <div className="relative md:min-w-[1000px] border border-[var(--color-primary)] rounded-2xl shadow-lg mt-6 sm:mt-16 p-6 md:p-8 flex flex-col items-center z-10 gap-4">
-  {/* Imagen de fondo */}
-  <div className="absolute inset-0 z-0 rounded-2xl overflow-hidden">
-    <img
-      src="/home/rubikiai_lago.avif"
-      alt="Background"
-      className="w-full h-full object-cover"
-    />
-    {/* Overlay de color secundario con mayor transparencia */}
-    <div className="absolute inset-0 bg-[var(--color-secondary)]/90"></div>
-  </div>
+        {/* Imagen de fondo */}
+        <div className="absolute inset-0 z-0 rounded-2xl overflow-hidden">
+          <img
+            src="/home/rubikiai_lago.avif"
+            alt="Background"
+            className="w-full h-full object-cover"
+          />
+          {/* Overlay de color secundario con mayor transparencia */}
+          <div className="absolute inset-0 bg-[var(--color-secondary)]/90"></div>
+        </div>
 
-  {/* Contenido del formulario - relativo para estar encima del fondo */}
-  <div className="relative z-10 w-full mb-4">
-    <div className="sm:hidden flex justify-center">
-      <label htmlFor="propertyTypeMobile" className="sr-only">Property type</label>
-      <div className="relative w-40">
-        <select
-          id="propertyTypeMobile"
-          value={propertyType}
-          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setPropertyType(e.target.value as "todos" | "dupleksas" | "ezero namelis")}
-          className="appearance-none w-full px-5 py-2 pr-10 rounded-full font-sans uppercase text-sm font-bold tracking-wide transition-colors border-2 border-[var(--color-primary)] bg-white text-[var(--color-secondary)] shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-opacity-25"
-        >
-          <option value="todos">All</option>
-          <option value="dupleksas">Duplex</option>
-          <option value="ezero namelis">Lake House</option>
-        </select>
-        <svg
-          className="pointer-events-none absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4"
-          viewBox="0 0 20 20"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          aria-hidden="true"
-        >
-          <path d="M6 8l4 4 4-4" stroke="var(--color-primary)" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </div>
-    </div>
-
-    <div className="hidden sm:flex justify-center space-x-4">
-      <button
-        onClick={() => setPropertyType('todos')}
-        className={`px-6 py-2 rounded-full font-sans uppercase text-sm font-bold tracking-wide transition-colors shadow-md ${propertyType === 'todos'
-          ? 'bg-[var(--color-primary-dark)] text-white'
-          : 'border-2 border-[var(--color-primary)] text-[var(--color-primary)] bg-white hover:bg-[var(--color-primary-dark)] hover:text-white'
-          }`}
-      >
-        All
-      </button>
-      <button
-        onClick={() => setPropertyType('dupleksas')}
-        className={`px-6 py-2 rounded-full font-sans uppercase text-sm font-bold tracking-wide transition-colors shadow-md ${propertyType === 'dupleksas'
-          ? 'bg-[var(--color-primary-dark)] text-white'
-          : 'border-2 border-[var(--color-primary)] text-[var(--color-primary)] bg-white hover:bg-[var(--color-primary-dark)] hover:text-white'
-          }`}
-      >
-        Duplex
-      </button>
-      <button
-        onClick={() => setPropertyType('ezero namelis')}
-        className={`px-6 py-2 rounded-full font-sans uppercase text-sm font-bold tracking-wide transition-colors shadow-md ${propertyType === 'ezero namelis'
-          ? 'bg-[var(--color-primary-dark)] text-white'
-          : 'border-2 border-[var(--color-primary)] text-[var(--color-primary)] bg-white hover:bg-[var(--color-primary-dark)] hover:text-white'
-          }`}
-      >
-        Lake House
-      </button>
-    </div>
-  </div>
-
-  <div className="relative z-20 flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 w-full justify-center items-center">
-    <div className="flex flex-col text-left flex-1 border-r border-[var(--color-primary)]/40 pr-4 w-full">
-      <label className="text-[var(--color-primary)] text-sm mb-1 font-sans uppercase font-bold drop-shadow-sm">Check-in</label>
-      <DatePicker
-        selected={startDate}
-        onChange={onChangeArrival}
-        minDate={new Date()}
-        maxDate={getGlobalMaxDate()}
-        open={openPicker === "arrival"}
-        onInputClick={() => setOpenPicker("arrival")}
-        onClickOutside={() => setOpenPicker(null)}
-        popperClassName="z-[9999]"
-        customInput={
-          <div className="p-2 bg-transparent font-sans text-xl cursor-pointer text-white drop-shadow-md">
-            {startDate ? formatDateDDMMYYYY(startDate) : 'DD/MM/YYYY'}
+        {/* Contenido del formulario - relativo para estar encima del fondo */}
+        <div className="relative z-10 w-full mb-4">
+          <div className="sm:hidden flex justify-center">
+            <label htmlFor="propertyTypeMobile" className="sr-only">Property type</label>
+            <div className="relative w-40">
+              <select
+                id="propertyTypeMobile"
+                value={propertyType}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setPropertyType(e.target.value as "todos" | "dupleksas" | "ezero namelis")}
+                className="appearance-none w-full px-5 py-2 pr-10 rounded-full font-sans uppercase text-sm font-bold tracking-wide transition-colors border-2 border-[var(--color-primary)] bg-white text-[var(--color-secondary)] shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-opacity-25"
+              >
+                <option value="todos">All</option>
+                <option value="dupleksas">Duplex</option>
+                <option value="ezero namelis">Lake House</option>
+              </select>
+              <svg
+                className="pointer-events-none absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4"
+                viewBox="0 0 20 20"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
+              >
+                <path d="M6 8l4 4 4-4" stroke="var(--color-primary)" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
           </div>
-        }
-      />
-    </div>
 
-    <div className="flex flex-col text-left flex-1 border-r border-[var(--color-primary)]/40 pr-4 w-full">
-      <label className="text-[var(--color-primary)] text-sm mb-1 font-sans uppercase font-bold drop-shadow-sm">Check-out</label>
-      <DatePicker
-        selected={endDate}
-        onChange={onChangeDeparture}
-        minDate={startDate ? new Date(startDate.getTime() + 86400000) : new Date()}
-        maxDate={getGlobalMaxDate()}
-        openToDate={startDate ?? new Date()}
-        open={openPicker === "departure"}
-        onInputClick={() => setOpenPicker("departure")}
-        onClickOutside={() => setOpenPicker(null)}
-        popperClassName="z-[9999]"
-        customInput={
-          <div className="p-2 bg-transparent font-sans text-xl cursor-pointer text-white drop-shadow-md">
-            {endDate ? formatDateDDMMYYYY(endDate) : 'DD/MM/YYYY'}
+          <div className="hidden sm:flex justify-center space-x-4">
+            <button
+              onClick={() => setPropertyType('todos')}
+              className={`px-6 py-2 rounded-full font-sans uppercase text-sm font-bold tracking-wide transition-colors shadow-md ${propertyType === 'todos'
+                ? 'bg-[var(--color-primary-dark)] text-white'
+                : 'border-2 border-[var(--color-primary)] text-[var(--color-primary)] bg-white hover:bg-[var(--color-primary-dark)] hover:text-white'
+                }`}
+            >
+              All
+            </button>
+            <button
+              onClick={() => setPropertyType('dupleksas')}
+              className={`px-6 py-2 rounded-full font-sans uppercase text-sm font-bold tracking-wide transition-colors shadow-md ${propertyType === 'dupleksas'
+                ? 'bg-[var(--color-primary-dark)] text-white'
+                : 'border-2 border-[var(--color-primary)] text-[var(--color-primary)] bg-white hover:bg-[var(--color-primary-dark)] hover:text-white'
+                }`}
+            >
+              Duplex
+            </button>
+            <button
+              onClick={() => setPropertyType('ezero namelis')}
+              className={`px-6 py-2 rounded-full font-sans uppercase text-sm font-bold tracking-wide transition-colors shadow-md ${propertyType === 'ezero namelis'
+                ? 'bg-[var(--color-primary-dark)] text-white'
+                : 'border-2 border-[var(--color-primary)] text-[var(--color-primary)] bg-white hover:bg-[var(--color-primary-dark)] hover:text-white'
+                }`}
+            >
+              Lake House
+            </button>
           </div>
-        }
-      />
-    </div>
+        </div>
 
-    <div className="flex flex-col text-left flex-1 w-full">
-      <label className="text-[var(--color-primary)] text-sm mb-1 font-sans uppercase font-bold drop-shadow-sm">Guests</label>
-      <div className="flex items-center justify-center p-2 bg-transparent text-white font-sans text-xl">
-        <button onClick={() => handleGuestsChange(-1)} className="px-2 text-3xl leading-none hover:text-[var(--color-primary)] text-white transition-colors drop-shadow-md">-</button>
-        <div className="w-12 text-center text-white drop-shadow-md">{guests}</div>
-        <button onClick={() => handleGuestsChange(1)} className="px-2 text-3xl leading-none hover:text-[var(--color-primary)] text-white transition-colors drop-shadow-md">+</button>
+        <div className="relative z-20 flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 w-full justify-center items-center">
+          <div className="flex flex-col text-left flex-1 border-r border-[var(--color-primary)]/40 pr-4 w-full">
+            <label className="text-[var(--color-primary)] text-sm mb-1 font-sans uppercase font-bold drop-shadow-sm">Check-in</label>
+            <DatePicker
+              selected={startDate}
+              onChange={onChangeArrival}
+              minDate={new Date()}
+              maxDate={getGlobalMaxDate()}
+              open={openPicker === "arrival"}
+              onInputClick={() => setOpenPicker("arrival")}
+              onClickOutside={() => setOpenPicker(null)}
+              popperClassName="z-[9999]"
+              customInput={
+                <div className="p-2 bg-transparent font-sans text-xl cursor-pointer text-white drop-shadow-md">
+                  {startDate ? formatDateDDMMYYYY(startDate) : 'DD/MM/YYYY'}
+                </div>
+              }
+            />
+          </div>
+
+          <div className="flex flex-col text-left flex-1 border-r border-[var(--color-primary)]/40 pr-4 w-full">
+            <label className="text-[var(--color-primary)] text-sm mb-1 font-sans uppercase font-bold drop-shadow-sm">Check-out</label>
+            <DatePicker
+              selected={endDate}
+              onChange={onChangeDeparture}
+              minDate={startDate ? new Date(startDate.getTime() + 86400000) : new Date()}
+              maxDate={getGlobalMaxDate()}
+              openToDate={startDate ?? new Date()}
+              open={openPicker === "departure"}
+              onInputClick={() => setOpenPicker("departure")}
+              onClickOutside={() => setOpenPicker(null)}
+              popperClassName="z-[9999]"
+              customInput={
+                <div className="p-2 bg-transparent font-sans text-xl cursor-pointer text-white drop-shadow-md">
+                  {endDate ? formatDateDDMMYYYY(endDate) : 'DD/MM/YYYY'}
+                </div>
+              }
+            />
+          </div>
+
+          <div className="flex flex-col text-left flex-1 w-full">
+            <label className="text-[var(--color-primary)] text-sm mb-1 font-sans uppercase font-bold drop-shadow-sm">Guests</label>
+            <div className="flex items-center justify-center p-2 bg-transparent text-white font-sans text-xl">
+              <button onClick={() => handleGuestsChange(-1)} className="px-2 text-3xl leading-none hover:text-[var(--color-primary)] text-white transition-colors drop-shadow-md">-</button>
+              <div className="w-12 text-center text-white drop-shadow-md">{guests}</div>
+              <button onClick={() => handleGuestsChange(1)} className="px-2 text-3xl leading-none hover:text-[var(--color-primary)] text-white transition-colors drop-shadow-md">+</button>
+            </div>
+          </div>
+        </div>
+
+        <button
+          onClick={() => {
+            if (!startDate || !endDate) { setOpenPicker('arrival'); return; }
+            const q = `start=${encodeURIComponent(startDate.toISOString())}&end=${encodeURIComponent(endDate.toISOString())}&guests=${encodeURIComponent(String(guests))}&type=${encodeURIComponent(propertyType)}`;
+            if (!showResults) {
+              router.push(`/reservations?${q}`);
+              return;
+            }
+            searchHouses();
+          }}
+          className="relative z-10 bg-[var(--color-primary-dark)] hover:bg-[var(--color-highlight)] text-white font-bold py-3 px-8 rounded-md transition-colors w-full md:w-auto mt-4 md:mt-0 font-sans shadow-md hover:shadow-lg"
+        >
+          {loading ? 'Searching...' : 'Search'}
+        </button>
       </div>
-    </div>
-  </div>
-
-  <button
-    onClick={() => {
-      if (!startDate || !endDate) { setOpenPicker('arrival'); return; }
-      const q = `start=${encodeURIComponent(startDate.toISOString())}&end=${encodeURIComponent(endDate.toISOString())}&guests=${encodeURIComponent(String(guests))}&type=${encodeURIComponent(propertyType)}`;
-      if (!showResults) {
-        router.push(`/reservations?${q}`);
-        return;
-      }
-      searchHouses();
-    }}
-    className="relative z-10 bg-[var(--color-primary-dark)] hover:bg-[var(--color-highlight)] text-white font-bold py-3 px-8 rounded-md transition-colors w-full md:w-auto mt-4 md:mt-0 font-sans shadow-md hover:shadow-lg"
-  >
-    {loading ? 'Searching...' : 'Search'}
-  </button>
-</div>
 
       <div className="mt-3 space-y-5">
         {showResults && houses.length === 0 && (

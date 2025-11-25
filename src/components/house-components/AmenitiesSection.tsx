@@ -114,7 +114,7 @@ export default function AmenitiesSection({ amenitiesSections }: AmenitiesSection
                     <div className="flex-shrink-0 w-6 h-6 rounded-full bg-[#bfa58b]/30 flex items-center justify-center mt-0.5 group-hover/item:bg-[#bfa58b] transition-all duration-300">
                       <FaCheck className="text-[#1b343b] text-xs group-hover/item:text-white transition-colors duration-300" />
                     </div>
-                    <span className="text-[#1b343b] text-sm md:text-base leading-relaxed font-medium group-hover/item:text-[#8f6e52] transition-colors duration-300">
+                    <span className="text-[#1b343b] text-lg md:text-lg leading-relaxed font-medium group-hover/item:text-[#8f6e52] transition-colors duration-300">
                       {item}
                     </span>
                   </li>

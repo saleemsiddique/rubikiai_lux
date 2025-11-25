@@ -72,3 +72,23 @@ body {
 p {
   @apply font-serif italic leading-relaxed;
 }
+
+/* DatePicker z-indexfix */
+.react-datepicker-popper {
+  z-index: 9999 !important;
+}
+
+.react-datepicker {
+  z-index: 9999 !important;
+}
+
+/* Asegurar que el wrapper también tenga el z-index correcto */
+.react-datepicker-wrapper {
+  z-index: 9999 !important;
+}
+
+/* Si el contenedor padre tiene overflow hidden, esto lo soluciona */
+.react-datepicker__portal {
+  z-index: 9999 !important;
+}
+

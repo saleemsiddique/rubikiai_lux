@@ -1839,132 +1839,146 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
 
   /* ---------------- Render ---------------- */
   return (
-    <div className="max-w-6xl w-full mx-auto">
-      <div className="bg-white/10 md:min-w-[1000px] backdrop-blur-md border border-white/20 rounded-2xl shadow-lg mt-6 sm:mt-16 p-6 md:p-8 flex flex-col items-center relative z-10 gap-4">
-        <div className="mb-4 z-10 relative w-full">
-          <div className="sm:hidden flex justify-center">
-            <label htmlFor="propertyTypeMobile" className="sr-only">Property type</label>
-            <div className="relative w-40">
-              <select
-                id="propertyTypeMobile"
-                value={propertyType}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setPropertyType(e.target.value as "todos" | "dupleksas" | "ezero namelis")}
-                className="appearance-none w-full px-5 py-2 pr-10 rounded-full font-sans uppercase text-sm font-bold tracking-wide transition-colors border border-[var(--color-primary)] bg-[var(--color-background-card)] text-[var(--color-primary)] shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-opacity-25"
-              >
-                <option value="todos">All</option>
-                <option value="dupleksas">Duplex</option>
-                <option value="ezero namelis">Lake House</option>
-              </select>
-              <svg
-                className="pointer-events-none absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4"
-                viewBox="0 0 20 20"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                aria-hidden="true"
-              >
-                <path d="M6 8l4 4 4-4" stroke="var(--color-primary)" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </div>
-          </div>
+    <div className="max-w-6xl w-full mx-auto mt-28">
+      <div className="relative md:min-w-[1000px] border border-[var(--color-primary)] rounded-2xl shadow-lg mt-6 sm:mt-16 p-6 md:p-8 flex flex-col items-center z-10 gap-4">
+  {/* Imagen de fondo */}
+  <div className="absolute inset-0 z-0 rounded-2xl overflow-hidden">
+    <img
+      src="/home/rubikiai_lago.avif"
+      alt="Background"
+      className="w-full h-full object-cover"
+    />
+    {/* Overlay de color secundario con mayor transparencia */}
+    <div className="absolute inset-0 bg-[var(--color-secondary)]/90"></div>
+  </div>
 
-          <div className="hidden sm:flex justify-center space-x-4">
-            <button
-              onClick={() => setPropertyType('todos')}
-              className={`px-6 py-2 rounded-full font-sans uppercase text-sm font-bold tracking-wide transition-colors ${propertyType === 'todos'
-                ? 'bg-[var(--color-primary)] text-white'
-                : 'border border-[var(--color-primary)] text-[var(--color-primary)] hover:bg-[var(--color-primary-dark)] hover:text-white'
-                }`}
-            >
-              All
-            </button>
-            <button
-              onClick={() => setPropertyType('dupleksas')}
-              className={`px-6 py-2 rounded-full font-sans uppercase text-sm font-bold tracking-wide transition-colors ${propertyType === 'dupleksas'
-                ? 'bg-[var(--color-primary)] text-white'
-                : 'border border-[var(--color-primary)] text-[var(--color-primary)] hover:bg-[var(--color-primary-dark)] hover:text-white'
-                }`}
-            >
-              Duplex
-            </button>
-            <button
-              onClick={() => setPropertyType('ezero namelis')}
-              className={`px-6 py-2 rounded-full font-sans uppercase text-sm font-bold tracking-wide transition-colors ${propertyType === 'ezero namelis'
-                ? 'bg-[var(--color-primary)] text-white'
-                : 'border border-[var(--color-primary)] text-[var(--color-primary)] hover:bg-[var(--color-primary-dark)] hover:text-white'
-                }`}
-            >
-              Lake House
-            </button>
-          </div>
-        </div>
-
-        <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 w-full justify-center items-center">
-          <div className="flex flex-col text-left flex-1 border-r border-[var(--color-primary)] pr-4 w-full">
-            <label className="text-[var(--color-primary)] text-sm mb-1 font-sans uppercase font-bold">Check-in</label>
-            <DatePicker
-              selected={startDate}
-              onChange={onChangeArrival}
-              minDate={new Date()}
-              maxDate={getGlobalMaxDate()}
-              open={openPicker === "arrival"}
-              onInputClick={() => setOpenPicker("arrival")}
-              onClickOutside={() => setOpenPicker(null)}
-              customInput={
-                <div className="p-2 bg-transparent font-sans text-xl cursor-pointer ${textColorClass}">
-                  {startDate ? formatDateDDMMYYYY(startDate) : 'DD/MM/YYYY'}
-                </div>
-              }
-            />
-          </div>
-
-          <div className="flex flex-col text-left flex-1 border-r border-[var(--color-primary)] pr-4 w-full">
-            <label className="text-[var(--color-primary)] text-sm mb-1 font-sans uppercase font-bold">Check-out</label>
-            <DatePicker
-              selected={endDate}
-              onChange={onChangeDeparture}
-              minDate={startDate ? new Date(startDate.getTime() + 86400000) : new Date()}
-              maxDate={getGlobalMaxDate()}
-              openToDate={startDate ?? new Date()}
-              open={openPicker === "departure"}
-              onInputClick={() => setOpenPicker("departure")}
-              onClickOutside={() => setOpenPicker(null)}
-              customInput={
-                <div className="p-2 bg-transparent font-sans text-xl cursor-pointer ${textColorClass}">
-                  {endDate ? formatDateDDMMYYYY(endDate) : 'DD/MM/YYYY'}
-                </div>
-              }
-            />
-          </div>
-
-          <div className="flex flex-col text-left flex-1 w-full">
-            <label className="text-[var(--color-primary)] text-sm mb-1 font-sans uppercase font-bold">Guests</label>
-            <div className="flex items-center justify-center p-2 bg-transparent ${textColorClass} font-sans text-xl">
-              <button onClick={() => handleGuestsChange(-1)} className="px-2 text-3xl leading-none hover:text-[var(--color-primary-dark)] ${textColorClass}">-</button>
-              <div className="w-12 text-center ${textColorClass}">{guests}</div>
-              <button onClick={() => handleGuestsChange(1)} className="px-2 text-3xl leading-none hover:text-[var(--color-primary-dark)] ${textColorClass}">+</button>
-            </div>
-          </div>
-        </div>
-
-        <button
-          onClick={() => {
-            if (!startDate || !endDate) { setOpenPicker('arrival'); return; }
-            const q = `start=${encodeURIComponent(startDate.toISOString())}&end=${encodeURIComponent(endDate.toISOString())}&guests=${encodeURIComponent(String(guests))}&type=${encodeURIComponent(propertyType)}`;
-            if (!showResults) {
-              router.push(`/reservations?${q}`);
-              return;
-            }
-            searchHouses();
-          }}
-          className="bg-[var(--color-primary)] hover:bg-[var(--color-primary-dark)] text-[var(--color-background-main)] font-bold py-3 px-8 rounded-md transition-colors w-full md:w-auto mt-4 md:mt-0 font-sans"
+  {/* Contenido del formulario - relativo para estar encima del fondo */}
+  <div className="relative z-10 w-full mb-4">
+    <div className="sm:hidden flex justify-center">
+      <label htmlFor="propertyTypeMobile" className="sr-only">Property type</label>
+      <div className="relative w-40">
+        <select
+          id="propertyTypeMobile"
+          value={propertyType}
+          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setPropertyType(e.target.value as "todos" | "dupleksas" | "ezero namelis")}
+          className="appearance-none w-full px-5 py-2 pr-10 rounded-full font-sans uppercase text-sm font-bold tracking-wide transition-colors border-2 border-[var(--color-primary)] bg-white text-[var(--color-secondary)] shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-opacity-25"
         >
-          {loading ? 'Searching...' : 'Reserve'}
-        </button>
+          <option value="todos">All</option>
+          <option value="dupleksas">Duplex</option>
+          <option value="ezero namelis">Lake House</option>
+        </select>
+        <svg
+          className="pointer-events-none absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4"
+          viewBox="0 0 20 20"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+        >
+          <path d="M6 8l4 4 4-4" stroke="var(--color-primary)" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
       </div>
+    </div>
+
+    <div className="hidden sm:flex justify-center space-x-4">
+      <button
+        onClick={() => setPropertyType('todos')}
+        className={`px-6 py-2 rounded-full font-sans uppercase text-sm font-bold tracking-wide transition-colors shadow-md ${propertyType === 'todos'
+          ? 'bg-[var(--color-primary-dark)] text-white'
+          : 'border-2 border-[var(--color-primary)] text-[var(--color-primary)] bg-white hover:bg-[var(--color-primary-dark)] hover:text-white'
+          }`}
+      >
+        All
+      </button>
+      <button
+        onClick={() => setPropertyType('dupleksas')}
+        className={`px-6 py-2 rounded-full font-sans uppercase text-sm font-bold tracking-wide transition-colors shadow-md ${propertyType === 'dupleksas'
+          ? 'bg-[var(--color-primary-dark)] text-white'
+          : 'border-2 border-[var(--color-primary)] text-[var(--color-primary)] bg-white hover:bg-[var(--color-primary-dark)] hover:text-white'
+          }`}
+      >
+        Duplex
+      </button>
+      <button
+        onClick={() => setPropertyType('ezero namelis')}
+        className={`px-6 py-2 rounded-full font-sans uppercase text-sm font-bold tracking-wide transition-colors shadow-md ${propertyType === 'ezero namelis'
+          ? 'bg-[var(--color-primary-dark)] text-white'
+          : 'border-2 border-[var(--color-primary)] text-[var(--color-primary)] bg-white hover:bg-[var(--color-primary-dark)] hover:text-white'
+          }`}
+      >
+        Lake House
+      </button>
+    </div>
+  </div>
+
+  <div className="relative z-20 flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 w-full justify-center items-center">
+    <div className="flex flex-col text-left flex-1 border-r border-[var(--color-primary)]/40 pr-4 w-full">
+      <label className="text-[var(--color-primary)] text-sm mb-1 font-sans uppercase font-bold drop-shadow-sm">Check-in</label>
+      <DatePicker
+        selected={startDate}
+        onChange={onChangeArrival}
+        minDate={new Date()}
+        maxDate={getGlobalMaxDate()}
+        open={openPicker === "arrival"}
+        onInputClick={() => setOpenPicker("arrival")}
+        onClickOutside={() => setOpenPicker(null)}
+        popperClassName="z-[9999]"
+        customInput={
+          <div className="p-2 bg-transparent font-sans text-xl cursor-pointer text-white drop-shadow-md">
+            {startDate ? formatDateDDMMYYYY(startDate) : 'DD/MM/YYYY'}
+          </div>
+        }
+      />
+    </div>
+
+    <div className="flex flex-col text-left flex-1 border-r border-[var(--color-primary)]/40 pr-4 w-full">
+      <label className="text-[var(--color-primary)] text-sm mb-1 font-sans uppercase font-bold drop-shadow-sm">Check-out</label>
+      <DatePicker
+        selected={endDate}
+        onChange={onChangeDeparture}
+        minDate={startDate ? new Date(startDate.getTime() + 86400000) : new Date()}
+        maxDate={getGlobalMaxDate()}
+        openToDate={startDate ?? new Date()}
+        open={openPicker === "departure"}
+        onInputClick={() => setOpenPicker("departure")}
+        onClickOutside={() => setOpenPicker(null)}
+        popperClassName="z-[9999]"
+        customInput={
+          <div className="p-2 bg-transparent font-sans text-xl cursor-pointer text-white drop-shadow-md">
+            {endDate ? formatDateDDMMYYYY(endDate) : 'DD/MM/YYYY'}
+          </div>
+        }
+      />
+    </div>
+
+    <div className="flex flex-col text-left flex-1 w-full">
+      <label className="text-[var(--color-primary)] text-sm mb-1 font-sans uppercase font-bold drop-shadow-sm">Guests</label>
+      <div className="flex items-center justify-center p-2 bg-transparent text-white font-sans text-xl">
+        <button onClick={() => handleGuestsChange(-1)} className="px-2 text-3xl leading-none hover:text-[var(--color-primary)] text-white transition-colors drop-shadow-md">-</button>
+        <div className="w-12 text-center text-white drop-shadow-md">{guests}</div>
+        <button onClick={() => handleGuestsChange(1)} className="px-2 text-3xl leading-none hover:text-[var(--color-primary)] text-white transition-colors drop-shadow-md">+</button>
+      </div>
+    </div>
+  </div>
+
+  <button
+    onClick={() => {
+      if (!startDate || !endDate) { setOpenPicker('arrival'); return; }
+      const q = `start=${encodeURIComponent(startDate.toISOString())}&end=${encodeURIComponent(endDate.toISOString())}&guests=${encodeURIComponent(String(guests))}&type=${encodeURIComponent(propertyType)}`;
+      if (!showResults) {
+        router.push(`/reservations?${q}`);
+        return;
+      }
+      searchHouses();
+    }}
+    className="relative z-10 bg-[var(--color-primary-dark)] hover:bg-[var(--color-highlight)] text-white font-bold py-3 px-8 rounded-md transition-colors w-full md:w-auto mt-4 md:mt-0 font-sans shadow-md hover:shadow-lg"
+  >
+    {loading ? 'Searching...' : 'Search'}
+  </button>
+</div>
 
       <div className="mt-3 space-y-5">
         {showResults && houses.length === 0 && (
-          <div className="text-center text-gray-600">No results. Select dates or change amount of guests and click &quot;Check availability&quot;.</div>
+          <div className="text-center text-gray-600">No results. Select dates or change amount of guests and click &quot;Search&quot;.</div>
         )}
 
         {houses.map((house) => {
@@ -1982,9 +1996,9 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
               <div className="flex flex-col md:flex-row">
                 <div className="shrink-0 w-full md:w-80 lg:w-96">
                   {isDual ? (
-                    // Mostrar dos imágenes para búsquedas duales
-                    <div className="w-full h-full grid grid-rows-2 gap-1">
-                      <div className="w-full overflow-hidden">
+                    // Mostrar dos imágenes lado a lado para búsquedas duales
+                    <div className="w-full h-full grid grid-cols-2 gap-0">
+                      <div className="w-full h-full overflow-hidden">
                         <img
                           key={getHouseImage(idA!).key}
                           src={getHouseImage(idA!).url}
@@ -1993,7 +2007,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                           className="w-full h-full object-cover transition-transform duration-700 hover:scale-110"
                         />
                       </div>
-                      <div className="w-full overflow-hidden">
+                      <div className="w-full h-full overflow-hidden">
                         <img
                           key={getHouseImage(idB).key}
                           src={getHouseImage(idB).url}
@@ -2094,7 +2108,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                             Processing
                           </span>
                         ) : isAvailable ? (
-                          "Reserve Now"
+                          "Select"
                         ) : (
                           "Not Available"
                         )}

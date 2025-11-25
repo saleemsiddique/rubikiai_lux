@@ -71,7 +71,7 @@ const OtherOptions: React.FC = () => {
                 />
                 
                 {/* Overlay oscuro en la parte inferior */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
+                {/*<div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>*/}
                 
                 {/* Texto sobre la imagen */}
                 <div className="absolute bottom-0 left-0 right-0 p-4 z-10">

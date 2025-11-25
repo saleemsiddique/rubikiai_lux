@@ -45,8 +45,8 @@ const AboutSection: React.FC = () => {
       <div className="container mx-auto px-6 max-w-7xl">
 
         {/* Title - Mobile only */}
-        <h2 className="lg:hidden font-serif text-2xl md:text-3xl text-[var(--color-highlight)] font-bold leading-tight pb-3 md:pb-6 text-center">
-          Šiaurietiškas poilsis <span className="md:inline block">kūnui ir sielai</span>
+        <h2 className="lg:hidden font-serif text-xl md:text-3xl text-[var(--color-highlight)] font-bold leading-tight pb-3 md:pb-6 text-center">
+          Šiaurietiškas poilsis kūnui <span className="md:inline block"> ir sielai visais metų laikais…</span>
         </h2>
 
         {/* HERO IMAGE + INTRO TEXT */}
@@ -66,7 +66,7 @@ const AboutSection: React.FC = () => {
           >
             {/* Title - visible on desktop only, centered on mobile */}
             <h2 className="hidden lg:block font-serif text-3xl lg:text-4xl text-[var(--color-highlight)] text-center font-bold leading-tight">
-              Šiaurietiškas poilsis <br /> kūnui ir sielai
+              Šiaurietiškas poilsis kūnui <br /> ir sielai visais metų laikais…
             </h2>
 
             <p
@@ -125,7 +125,7 @@ const AboutSection: React.FC = () => {
                 alt="Ežero Namelis background"
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/50 to-black/20"></div>
+              {/*<div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/50 to-black/20"></div>*/}
             </div>
 
             {/* Content */}
@@ -155,7 +155,7 @@ const AboutSection: React.FC = () => {
                 alt="Dupleksas background"
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/50 to-black/20"></div>
+              {/*<div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/50 to-black/20"></div>*/}
             </div>
 
             {/* Content */}

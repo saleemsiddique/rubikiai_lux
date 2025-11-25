@@ -273,10 +273,10 @@ export default function HousePage(props: HousePageProps) {
           />
 
           {/* Mobile Gradient */}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/30 to-black/70 md:hidden" />
+          {/*<div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/30 to-black/70 md:hidden" />*/}
 
           {/* Desktop Gradient - Darker at bottom */}
-          <div className="hidden md:block absolute inset-0 bg-gradient-to-b from-transparent via-black/10 to-black/80" />
+          {/*<div className="hidden md:block absolute inset-0 bg-gradient-to-b from-transparent via-black/10 to-black/80" />*/}
 
           {/* Content Container - Bottom aligned, full width */}
           <div className="absolute bottom-0 left-0 right-0 p-6 md:pb-12 md:px-8 lg:pb-16 lg:px-12 xl:px-16">

@@ -18,7 +18,7 @@ const DuplexSelectionPage: React.FC = () => {
           objectFit="cover"
           className="transition-transform duration-500 ease-in-out group-hover:scale-105"
         />
-        <div className="absolute inset-0 bg-black opacity-40 group-hover:opacity-60 transition-opacity"></div>
+        {/*<div className="absolute inset-0 bg-black opacity-40 group-hover:opacity-60 transition-opacity"></div>*/}
         <div className="absolute inset-0 flex items-center justify-center text-center text-white p-4">
           <div className="transform transition-transform duration-500 group-hover:scale-110">
             <h2 className="text-2xl md:text-4xl font-extrabold drop-shadow-lg mb-2 font-header">
@@ -40,7 +40,7 @@ const DuplexSelectionPage: React.FC = () => {
           objectFit="cover"
           className="transition-transform duration-500 ease-in-out group-hover:scale-105"
         />
-        <div className="absolute inset-0 bg-black opacity-40 group-hover:opacity-60 transition-opacity"></div>
+        {/*<div className="absolute inset-0 bg-black opacity-40 group-hover:opacity-60 transition-opacity"></div>*/}
         <div className="absolute inset-0 flex items-center justify-center text-center text-white p-4">
           <div className="transform transition-transform duration-500 group-hover:scale-110">
             <h2 className="text-2xl md:text-4xl font-extrabold drop-shadow-lg mb-2 font-header">

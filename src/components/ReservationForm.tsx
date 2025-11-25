@@ -1203,11 +1203,8 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
           </div>
 
           {/* Botones de acción */}
-          <div className="flex justify-between items-center mt-4">
+          <div className="flex justify-center items-center mt-4">
             <button onClick={close} className="px-3 py-1 border rounded-full hover:bg-gray-100">Close</button>
-            <button onClick={close} className="px-4 py-2 bg-[var(--color-primary)] text-white rounded-full hover:bg-[var(--color-primary-dark)]">
-              Done
-            </button>
           </div>
         </div>
       </div>

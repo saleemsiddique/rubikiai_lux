@@ -17,10 +17,16 @@ export default function PaymentSuccessClient() {
   const [reservationStatus, setReservationStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // En tu página de success (ej: /checkout/success o similar)
+  useEffect(() => {
+    // Limpiar datos del formulario solo cuando el pago fue exitoso
+    localStorage.removeItem("checkout-form-data");
+  }, []);
+
   useEffect(() => {
     let pollInterval: NodeJS.Timeout | null = null;
     let attempts = 0;
-    const MAX_ATTEMPTS = 20; // 20 intentos = ~40 segundos
+    const MAX_ATTEMPTS = 5; // 20 intentos = ~40 segundos
 
     const checkReservationStatus = async () => {
       if (!merchantRef) {
@@ -39,7 +45,7 @@ export default function PaymentSuccessClient() {
             attempts++;
             return; // continuar polling
           }
-          
+
           setError("No se pudo verificar el estado de la reserva");
           setLoading(false);
           if (pollInterval) clearInterval(pollInterval);
@@ -94,7 +100,7 @@ export default function PaymentSuccessClient() {
         attempts++;
       } catch (err) {
         console.error("Error checking reservation status:", err);
-        
+
         if (attempts >= MAX_ATTEMPTS) {
           setLoading(false);
           if (pollInterval) clearInterval(pollInterval);

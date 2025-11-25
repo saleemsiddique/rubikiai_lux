@@ -104,7 +104,7 @@ Po kiekvieno naudojimosi sūkurine vonia BŪTINA uždaryti dangtį.`;
 
 export default function Page() {
   return (
-    <main className="bg-[var(--color-background-main)] min-h-screen pt-8">
+    <main className="bg-[var(--color-background-main)] min-h-screen pt-14">
       <div className="max-w-5xl mx-auto px-6 md:px-8 py-12 md:py-16">
         <header className="mb-8 text-center">
           <h1 className="text-3xl md:text-4xl font-bold text-[var(--color-primary-dark)] mb-3">

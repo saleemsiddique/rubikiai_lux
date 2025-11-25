@@ -25,6 +25,9 @@ type CheckoutBody = {
   guests: number;
   type?: string;
 
+  // ✅ AÑADIR ESTE CAMPO
+  cancelUrl?: string;
+
   discount?: {
     kind?: "coupon" | "percent";
     id?: string;
@@ -183,6 +186,7 @@ export async function POST(req: Request) {
       guests,
       houseSlug,
       discount,
+      cancelUrl, // ✅ AÑADIR AQUÍ
     } = body || {};
 
     const extras = body?.extras || {};
@@ -451,8 +455,8 @@ export async function POST(req: Request) {
       ...(isFreeOrder
         ? {}
         : {
-            payment_method_types: methodTypes,
-          }),
+          payment_method_types: methodTypes,
+        }),
       customer: stripeCustomerId,
       line_items: [
         {
@@ -497,7 +501,7 @@ export async function POST(req: Request) {
         jacuzziDays: String(jacuzziDays), // ✅ NUEVO CAMPO
         grandTotal: String(grandTotal),
         discountedGrandTotal: String(discountedGrandTotal),
-        
+
         currency: "EUR",
 
         // descuentos
@@ -514,7 +518,7 @@ export async function POST(req: Request) {
           effectiveDiscountAmount > 0 && discountKindForMeta === "coupon"
             ? String(effectiveDiscountAmount)
             : "",
-        
+
         percentId:
           effectiveDiscountAmount > 0 && discountKindForMeta === "percent"
             ? String(discountIdForMeta)
@@ -539,7 +543,7 @@ export async function POST(req: Request) {
         comment: customerInput?.comment || "",
       },
       success_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/checkout-complete?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/cancel?reservationId=${reservationId}`,
+      cancel_url: cancelUrl || `${process.env.NEXT_PUBLIC_APP_URL}`,
     };
 
     const session = await stripe.checkout.sessions.create(sessionParams, {

@@ -20,6 +20,66 @@ interface PriceResponse {
   }>;
 }
 
+
+// ============================================
+// 🔹 FUNCIONES DE PERSISTENCIA (FUERA DEL COMPONENTE)
+// ============================================
+
+const FORM_STORAGE_KEY = "checkout-form-data";
+
+// Guardar con timestamp de expiración (1 hora)
+function saveFormData(data: {
+  firstName: string;
+  lastName: string;
+  email: string;
+  email2: string;
+  phone: string;
+  arrivalTime: string;
+  comment: string;
+  withJacuzzi: boolean;
+  jacuzziDays: number;
+  discountCode: string;
+}) {
+  try {
+    const toSave = {
+      data,
+      timestamp: Date.now(),
+      expiresIn: 15 * 60 * 1000, // 1 hora
+    };
+    console.log("💾 Guardando datos:", data); // DEBUG
+    localStorage.setItem(FORM_STORAGE_KEY, JSON.stringify(toSave));
+  } catch (e) {
+    console.error("❌ Error saving form data:", e);
+  }
+}
+
+// Cargar y validar expiración
+function loadFormData() {
+  try {
+    const saved = localStorage.getItem(FORM_STORAGE_KEY);
+    if (!saved) {
+      console.log("ℹ️ No hay datos guardados");
+      return null;
+    }
+
+    const parsed = JSON.parse(saved);
+    const now = Date.now();
+
+    // Si ha expirado, eliminar y retornar null
+    if (now - parsed.timestamp > parsed.expiresIn) {
+      console.log("⏰ Datos expirados, eliminando...");
+      localStorage.removeItem(FORM_STORAGE_KEY);
+      return null;
+    }
+
+    console.log("✅ Datos cargados:", parsed.data);
+    return parsed.data;
+  } catch (e) {
+    console.error("❌ Error loading form data:", e);
+    return null;
+  }
+}
+
 function formatCurrency(n: number | null | undefined) {
   if (n == null || Number.isNaN(n)) return "—";
   return new Intl.NumberFormat("en-GB", {
@@ -286,6 +346,26 @@ export default function CheckoutDetailsClient() {
   const { payNowAfterDiscount, totalAfterDiscount, effectiveDiscountUsedNow } =
     computedBreakdown;
 
+  // ============================================
+  // 🔹 CARGAR DATOS GUARDADOS AL MONTAR
+  // ============================================
+  useEffect(() => {
+    const savedData = loadFormData();
+    if (savedData) {
+      console.log("🔄 Restaurando datos del formulario:", savedData);
+      if (savedData.firstName) setFirstName(savedData.firstName);
+      if (savedData.lastName) setLastName(savedData.lastName);
+      if (savedData.email) setEmail(savedData.email);
+      if (savedData.email2) setEmail2(savedData.email2);
+      if (savedData.phone) setPhone(savedData.phone);
+      if (savedData.arrivalTime) setArrivalTime(savedData.arrivalTime);
+      if (savedData.comment) setComment(savedData.comment);
+      if (typeof savedData.withJacuzzi === "boolean") setWithJacuzzi(savedData.withJacuzzi);
+      if (savedData.jacuzziDays) setJacuzziDays(savedData.jacuzziDays);
+      if (savedData.discountCode) setDiscountCode(savedData.discountCode);
+    }
+  }, []); // ← Array vacío = solo se ejecuta al montar
+
   // Fetch price (with or without jacuzzi AND jacuzzi days)
   useEffect(() => {
     const fetchPrice = async () => {
@@ -332,6 +412,34 @@ export default function CheckoutDetailsClient() {
       setPriceError("Missing reservation parameters.");
     }
   }, [houseId, startIso, endIso, guests, withJacuzzi, jacuzziDays]); // AÑADIR jacuzziDays AQUÍ
+
+  // Guardar datos del formulario automáticamente cuando cambien
+  useEffect(() => {
+    const formData = {
+      firstName,
+      lastName,
+      email,
+      email2,
+      phone,
+      arrivalTime,
+      comment,
+      withJacuzzi,
+      jacuzziDays,
+      discountCode,
+    };
+    saveFormData(formData);
+  }, [
+    firstName,
+    lastName,
+    email,
+    email2,
+    phone,
+    arrivalTime,
+    comment,
+    withJacuzzi,
+    jacuzziDays,
+    discountCode,
+  ]);
 
   // Lookup discount code from backend
   const handleLookupDiscount = async () => {
@@ -548,6 +656,8 @@ export default function CheckoutDetailsClient() {
         end: endIso,
         guests,
 
+        cancelUrl: window.location.href,
+
         // NUEVOS CAMPOS DE PRECIO SIMPLIFICADOS
         pricing: {
           payNow: payNowAfterDiscount ?? priceData.first ?? 0,
@@ -637,6 +747,9 @@ export default function CheckoutDetailsClient() {
         start: startIso,
         end: endIso,
         guests,
+
+        cancelUrl: window.location.href,
+
         customer: {
           email,
           name: `${firstName} ${lastName}`.trim(),
@@ -729,7 +842,7 @@ export default function CheckoutDetailsClient() {
   const couponsAllowed = initialPayNow >= COUPON_MIN_EUROS;
 
   return (
-    <main className="max-w-5xl mx-auto px-4 py-8 mt-12 md:py-12">
+    <main className="max-w-5xl mx-auto px-4 py-8 mt-18 md:py-12">
       <h1 className="text-3xl font-extrabold text-[var(--color-primary-dark)] mb-6 leading-tight">
         Reservation information
       </h1>
@@ -1269,7 +1382,7 @@ export default function CheckoutDetailsClient() {
             </div>
           </div>
 
-       {payNowAmount === 0 ? (
+          {payNowAmount === 0 ? (
             <button
               disabled={!canSubmit}
               onClick={handleGoToCheckout}
@@ -1312,13 +1425,6 @@ export default function CheckoutDetailsClient() {
               </button>
             </>
           )}
-
-          <button
-            onClick={() => router.back()}
-            className="block w-full text-center text-xs text-gray-500 underline hover:text-gray-700"
-          >
-            Go back
-          </button>
         </aside>
       </div>
     </main>

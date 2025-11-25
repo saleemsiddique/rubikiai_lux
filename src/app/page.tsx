@@ -106,14 +106,14 @@ export default function HomePage() {
         </div>
 
         {/* Dark Overlay */}
-        <div
+        {/*<div
           className="fixed md:absolute top-0 left-0 w-full h-screen md:h-[150vh] bg-black/50"
           style={{
             opacity: 0.35 * imageOpacity,
             zIndex: 1,
             transition: 'opacity 0.3s ease-out',
           }}
-        />
+        />*/}
 
         {/* Content - Title - Sticky nativo simple */}
         <div 
@@ -160,7 +160,7 @@ export default function HomePage() {
             />
 
             {/* Dark Overlay */}
-            <div className="absolute inset-0 bg-black/40" />
+            {/*<div className="absolute inset-0 bg-black/40" />*/}
           </div>
         </section>
       </div>

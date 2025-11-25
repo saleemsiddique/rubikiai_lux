@@ -92,3 +92,47 @@ p {
   z-index: 9999 !important;
 }
 
+
+
+/* Evita el doble-tap por hover en dispositivos táctiles y mejora la respuesta al tap */
+.nav-link {
+  color: var(--color-primary);
+  transition: transform .18s ease, color .18s ease;
+  touch-action: manipulation;              /* importante para que el tap sea inmediato */
+  -webkit-tap-highlight-color: transparent;/* quita el brillo al tocar */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* La flecha por defecto oculta (sin usar :hover en dispositivos táctiles) */
+.nav-arrow {
+  opacity: 0;
+  transform: translateX(0);
+  transition: opacity .18s ease, transform .18s ease;
+}
+
+/* Aplicar efectos hover/hover-like sólo en dispositivos que soportan hover (escritorio) */
+@media (hover: hover) and (pointer: fine) {
+  .nav-link:hover {
+    transform: translateX(4px);
+    color: white;
+  }
+  .nav-link:hover .nav-arrow {
+    opacity: 1;
+    transform: translateX(2px);
+  }
+}
+
+/* Opcional: si quieres que la flecha esté siempre presente en pantallas pequeñas,
+   puedes forzar su opacidad > 0 en pequeños (descomenta si prefieres) */
+/*
+@media (max-width: 640px) {
+  .nav-arrow { opacity: 1; }
+}
+*/
+
+footer {
+  position: relative;
+  z-index: 999999 !important;
+}

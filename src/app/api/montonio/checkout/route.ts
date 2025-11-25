@@ -18,6 +18,8 @@ type CheckoutBody = {
   start: string | Date;
   end: string | Date;
   guests: number;
+  // ✅ AÑADIR ESTE CAMPO
+  cancelUrl?: string;
   discount?: {
     kind?: "coupon" | "percent";
     id?: string;
@@ -78,7 +80,7 @@ export async function POST(req: Request) {
     const body = (await req.json()) as CheckoutBody;
     console.debug("montonio/checkout body:", body);
 
-    const { houseId, houseSlug, start, end, guests, discount } = body || {};
+    const { houseId, houseSlug, start, end, guests, discount, cancelUrl } = body || {};
     const extras = body?.extras || {};
     const customerInput = body?.customer || {};
 
@@ -383,6 +385,7 @@ export async function POST(req: Request) {
       accessKey: process.env.MONTONIO_ACCESS_KEY || "",
       merchantReference: reservationId,
       returnUrl: `${process.env.NEXT_PUBLIC_APP_URL}/payment/success?ref=${reservationId}`,
+      cancelUrl: cancelUrl || `${process.env.NEXT_PUBLIC_APP_URL}`,
       notificationUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/montonio/webhook`,
       currency: "EUR",
       grandTotal: amountToPayNow, // IMPORTANT: only Reservation fee

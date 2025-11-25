@@ -14,6 +14,12 @@ export default function ReservationsThanksClient() {
   const [loading, setLoading] = useState(true);
   const [reservationStatus, setReservationStatus] = useState<string | null>(null);
 
+  // En tu página de success (ej: /checkout/success o similar)
+  useEffect(() => {
+    // Limpiar datos del formulario solo cuando el pago fue exitoso
+    localStorage.removeItem("checkout-form-data");
+  }, []);
+  
   useEffect(() => {
     (async () => {
       if (!reservationId) {

@@ -96,26 +96,52 @@ export default function ReservationPage() {
             <div className="rounded-2xl border border-neutral-200 bg-white shadow-sm p-5">
               <div className="flex items-center gap-2 mb-2">
                 <FaShieldAlt className="text-[var(--color-primary)]" />
-                <h2 id="rules-title" className="text-lg font-semibold text-[var(--color-primary-dark)]">
+                <h2
+                  id="rules-title"
+                  className="text-lg font-semibold text-[var(--color-primary-dark)]"
+                >
                   House rules
                 </h2>
               </div>
+
               <ul className="mt-2 space-y-2 text-sm text-neutral-700">
                 <li>• Apartments are rented for quiet relaxation only.</li>
+
                 <li>
-                  • Minors are accepted only from <strong>16 years of age</strong>, or by prior arrangement when booking
-                  <strong> both duplex apartments</strong>.
+                  • Minors are accepted only from <strong>16 years of age</strong>, or by prior
+                  arrangement when booking <strong>both duplex apartments</strong>.
                 </li>
+
                 <li>
                   • For the safety and peace of the fallow deer —{" "}
-                  <strong className="uppercase tracking-wide">bringing pets to the duplex is strictly prohibited</strong>.
+                  <strong className="uppercase tracking-wide">
+                    bringing pets to the duplex is strictly prohibited
+                  </strong>
+                  .
                 </li>
+
                 <li>
-                  • By making a reservation, you confirm that you have read our <strong>house rules</strong> and{" "}
-                  <strong>reservation terms</strong>.
+                  • By making a reservation, you confirm that you have read our{" "}
+                  <strong>house rules</strong> and <strong>reservation terms</strong>.
+                </li>
+
+                <li>
+                  • <strong>Check-in</strong> time is from <strong>16:00</strong>. <strong>Check-out</strong> time is until <strong>12:00</strong> in Ezero Namelis and <strong>11:00</strong> in Duplexes.
                 </li>
               </ul>
+
+              <p className="mt-4 text-sm text-neutral-600">
+                You can view all rules on our{" "}
+                <a
+                  href="/house-rules"
+                  className="font-semibold text-[var(--color-primary)] hover:underline"
+                >
+                  House Rules
+                </a>{" "}
+                page.
+              </p>
             </div>
+
 
             {/* Payment & Terms */}
             <div className="rounded-2xl border border-neutral-200 bg-white shadow-sm p-5">
@@ -132,6 +158,10 @@ export default function ReservationPage() {
                   If an error occurs in the booking system that makes the service unavailable or results in an unreasonably low price,{" "}
                   we will inform you as soon as possible and the reservation will be{" "}
                   <strong>canceled</strong>, <strong>rescheduled</strong>, or your <strong>deposit will be refunded</strong>.
+                </p>
+                <p>
+                  You may change the reservation date once free of charge no later than 7 days before arrival. The reservation deposit is
+                  non-refundable. Multiple date changes cost €20.
                 </p>
               </div>
             </div>

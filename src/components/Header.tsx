@@ -188,7 +188,7 @@ export default function Header() {
                       : "border-2 border-white/80 md:border-white text-white md:text-white hover:bg-white md:hover:bg-white hover:text-[var(--color-secondary)] md:hover:text-[var(--color-secondary)] backdrop-blur-sm px-4 py-1"
                     } transition-colors duration-300 rounded`}
                 >
-                  Book
+                  Reservations
                 </span>
               </Link>
             </div>

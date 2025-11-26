@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React from 'react';
 import { useRouter } from 'next/navigation';
 import { Calendar, CreditCard } from 'lucide-react';
 
@@ -28,46 +28,11 @@ export default function BookingBarMobile({
   formatCurrency,
 }: BookingBarMobileProps) {
   const router = useRouter();
-  const [isVisible, setIsVisible] = useState(true);
-  const lastScrollY = useRef(0);
-  const ticking = useRef(false);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      if (!ticking.current) {
-        window.requestAnimationFrame(() => {
-          const currentScrollY = window.scrollY;
-
-          // Scroll hacia abajo - ocultar
-          if (currentScrollY > lastScrollY.current && currentScrollY > 150) {
-            setIsVisible(false);
-          }
-          // Scroll hacia arriba - mostrar
-          else if (currentScrollY < lastScrollY.current || currentScrollY <= 150) {
-            setIsVisible(true);
-          }
-
-          lastScrollY.current = currentScrollY;
-          ticking.current = false;
-        });
-
-        ticking.current = true;
-      }
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
 
   const showPrice = totalFromServer !== null || firstFromServer !== null;
 
   return (
-    <div
-      className={`md:hidden fixed left-3 right-3 z-50 transition-all duration-400 ease-out ${
-        isVisible ? 'bottom-4 opacity-100' : '-bottom-32 opacity-0'
-      }`}
-    >
+    <div className="md:hidden fixed left-3 right-3 bottom-4 z-50">
       <div className="relative bg-gradient-to-br from-white via-[#f4efe9]/30 to-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-[var(--color-primary)]/20 backdrop-blur-md overflow-hidden">
         {/* Decorative accent bar at top */}
         <div className="h-1 bg-gradient-to-r from-[var(--color-secondary)] via-[var(--color-primary)] to-[var(--color-secondary)]" />

@@ -95,7 +95,7 @@ export default function AboutSection({
                 }}
               >
                 {description ? (
-                  <div className="prose prose-neutral prose-lg max-w-none [&_p]:mb-3 [&_p]:leading-relaxed">
+                  <div className="prose prose-neutral prose-xl max-w-none [&_p]:text-lg [&_p]:mb-3 [&_p]:leading-relaxed">
                     {description}
                   </div>
                 ) : (

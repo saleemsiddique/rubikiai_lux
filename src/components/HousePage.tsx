@@ -86,7 +86,6 @@ export default function HousePage(props: HousePageProps) {
 
   const [scrollY, setScrollY] = useState(0);
   const [heroHeight, setHeroHeight] = useState(0);
-  const [isStatsVisible, setIsStatsVisible] = useState(false);
 
   const startParam = searchParams?.get("start") ?? null;
   const endParam = searchParams?.get("end") ?? null;
@@ -118,32 +117,6 @@ export default function HousePage(props: HousePageProps) {
       body: JSON.stringify(body),
     });
   }
-
-  useEffect(() => {
-    const handleScroll = () => {
-      setScrollY(window.scrollY);
-    };
-
-    const updateHeroHeight = () => {
-      const hero = document.getElementById('hero-section');
-      if (hero) {
-        setHeroHeight(hero.offsetHeight);
-      }
-    };
-
-    handleScroll();
-    updateHeroHeight();
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    window.addEventListener('resize', updateHeroHeight);
-
-    setTimeout(() => setIsStatsVisible(true), 300);
-
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-      window.removeEventListener('resize', updateHeroHeight);
-    };
-  }, []);
 
   useEffect(() => {
     if (!houseIdFromMapping) {
@@ -292,17 +265,6 @@ export default function HousePage(props: HousePageProps) {
                   >
                     {title}
                   </h1>
-                  {subtitle && (
-                    <p
-                      className="text-lg md:text-base lg:text-lg font-light font-sans opacity-90 leading-relaxed"
-                      style={{
-                        animation: 'fadeInUp 0.8s ease-out 0.2s both',
-                        textShadow: '0 1px 10px rgba(0,0,0,0.4)'
-                      }}
-                    >
-                      {subtitle}
-                    </p>
-                  )}
                 </div>
               </div>
             </div>

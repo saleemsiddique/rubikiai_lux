@@ -15,7 +15,7 @@ const OtherOptions: React.FC = () => {
       name: (
         <>
           <span className="text-xl font-bold">Duplex N°1</span> <br /> 
-          <span className="text-sm">Šalia Elnių Aptvaro</span>
+          <span className="text-sm ml-2">Šalia Elnių Aptvaro</span>
         </>
       ),
       path: '/dupleksas/salia-elniu-aptvaro',
@@ -25,7 +25,7 @@ const OtherOptions: React.FC = () => {
       name: (
         <>
           <span className="text-xl font-bold">Duplex N°2</span> <br /> 
-          <span className="text-sm">Elnių Panorama</span>
+          <span className="text-sm ml-1">Elnių Panorama</span>
         </>
       ),
       path: '/dupleksas/salia-elniu-panorama',
@@ -75,7 +75,7 @@ const OtherOptions: React.FC = () => {
                 
                 {/* Texto sobre la imagen */}
                 <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
-                  <span className="text-base font-semibold text-white drop-shadow-lg leading-tight">
+                  <span className="text-base font-semibold text-white drop-shadow-lg leading-tight ml-1">
                     {prop.name}
                   </span>
                 </div>

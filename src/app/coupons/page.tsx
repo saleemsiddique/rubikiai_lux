@@ -162,10 +162,10 @@ export default function CouponPage(): JSX.Element {
 
   const statePill = (state?: LookupResult["state"]) => {
     const map: Record<LookupResult["state"], string> = {
-      active: "bg-emerald-100 text-emerald-700 border-emerald-200",
-      used: "bg-amber-100 text-amber-700 border-amber-200",
-      expired: "bg-rose-100 text-rose-700 border-rose-200",
-      disabled: "bg-gray-100 text-gray-700 border-gray-200",
+      active: "bg-emerald-100 text-emerald-700 border-emerald-300",
+      used: "bg-amber-100 text-amber-700 border-amber-300",
+      expired: "bg-rose-100 text-rose-700 border-rose-300",
+      disabled: "bg-gray-100 text-gray-700 border-gray-300",
     };
     const label: Record<LookupResult["state"], string> = {
       active: "Active",
@@ -175,257 +175,422 @@ export default function CouponPage(): JSX.Element {
     };
     if (!state) return null;
     return (
-      <span className={`px-2 py-1 text-xs font-semibold rounded-full border ${map[state]}`}>{label[state]}</span>
+      <span className={`inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full border ${map[state]}`}>
+        {label[state]}
+      </span>
     );
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center pt-24 px-4 md:px-8" style={{ '--color-primary': '#bfa58b', '--color-primary-dark': '#8f6e52', '--color-secondary': '#7b8ed6', '--color-background-main': '#f4efe9', '--color-background-soft': '#fafafa', '--color-text': '#0f172a', '--color-highlight': '#214235' } as React.CSSProperties}>
-      <div className="w-full max-w-6xl">
-        <header className="flex items-center justify-start gap-4 p-4 border-b border-[var(--color-primary-dark)]/20">
-          <div>
-            <h1 className="text-3xl font-extrabold text-[var(--color-highlight)]">Rubikiai Lux Gift Vouchers</h1>
-            <p className="text-md text-[var(--color-text)]/80">Gift an unforgettable getaway</p>
-          </div>
-        </header>
-      </div>
+    <div className="min-h-screen bg-[var(--color-background-soft)] overflow-x-hidden">
+      {/* Hero Header - Mobile First */}
+      <header className="bg-[var(--color-secondary)] text-white pt-24 md:pt-36 pb-8 px-4 relative overflow-hidden">
+        {/* Decorative elements */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-[var(--color-primary)]/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full blur-2xl" />
+        
+        <div className="relative z-10 max-w-4xl mx-auto text-center">
+          <h1 className="text-3xl md:text-5xl font-bold mb-3 tracking-tight">
+            Gift Vouchers
+          </h1>
+          <p className="text-base md:text-lg text-white/90 max-w-xl mx-auto">
+            Share unforgettable experiences at Rubikiai Lux
+          </p>
+        </div>
+      </header>
 
-      <main className="w-full max-w-6xl mt-12 grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Buy coupons */}
-        <section className="lg:col-span-2 bg-[var(--color-background-soft)] rounded-2xl p-6 shadow-xl border border-[var(--color-primary)]/40">
-          <div className="flex flex-col gap-6">
-            <div>
-              <h2 className="text-3xl font-bold text-[var(--color-primary-dark)]">Gift Experiences</h2>
-              <p className="text-base mt-2 text-[var(--color-text)]/70">Select the amount and quantity of the voucher you wish to gift.</p>
-            </div>
+      <main className="max-w-7xl mx-auto px-4 py-8 space-y-8">
+        {/* Purchase Section - Mobile First, Desktop Grid */}
+        <section className="bg-white rounded-2xl shadow-lg overflow-hidden">
+          <div className="p-5 md:p-8 lg:grid lg:grid-cols-[1fr,400px] lg:gap-8">
+            {/* Left Column - Amount Selection & Preview */}
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl md:text-2xl font-bold text-[var(--color-text)] mb-4">
+                  Select Amount
+                </h2>
+                
+                <div className="grid grid-cols-2 gap-3 md:gap-4 mb-6">
+                  {AMOUNTS.map((amt) => {
+                    const active = selected === amt;
+                    return (
+                      <button
+                        key={amt}
+                        onClick={() => setSelected(amt)}
+                        className={`relative p-4 md:p-6 rounded-xl transition-all duration-200 ${
+                          active 
+                            ? 'bg-[var(--color-secondary)] text-white shadow-lg scale-[1.02]' 
+                            : 'bg-[var(--color-background-main)] text-[var(--color-text)] hover:shadow-md'
+                        }`}
+                      >
+                        <div className="text-xs md:text-sm uppercase tracking-wider opacity-75 mb-1">
+                          Voucher
+                        </div>
+                        <div className="text-3xl md:text-4xl font-black">
+                          €{amt}
+                        </div>
+                        {active && (
+                          <div className="absolute -top-2 -right-2 w-6 h-6 bg-[var(--color-primary)] rounded-full flex items-center justify-center">
+                            <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
-            <div className="mt-4">
-              <h3 className="text-xl font-semibold mb-4 border-b-2 border-[var(--color-secondary)]/50 pb-2 inline-block">Select Amount</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                {AMOUNTS.map((amt) => {
-                  const active = selected === amt;
-                  return (
-                    <button
-                      key={amt}
-                      onClick={() => setSelected(amt)}
-                      className={`relative flex flex-col items-center justify-center p-5 rounded-xl shadow-lg transform hover:-translate-y-1 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-[var(--color-secondary)]/50`}
-                      style={{
-                        background: active
-                          ? 'linear-gradient(180deg, var(--color-primary), var(--color-primary-dark))'
-                          : 'var(--color-background-soft)',
-                        color: active ? 'var(--color-background-soft)' : 'var(--color-text)',
-                        border: active ? `2px solid var(--color-secondary)` : '1px solid var(--color-primary)'
-                      }}
-                    >
-                      <span className="text-sm uppercase tracking-wider font-medium opacity-80">Voucher</span>
-                      <span className="mt-1 text-3xl font-black">€{amt}</span>
-                      <span className="text-xs mt-1 opacity-70">For accommodation</span>
-                      {active && (
-                        <span className="absolute -top-3 right-3 text-xs px-3 py-1 rounded-full font-bold shadow-md" style={{ background: 'var(--color-secondary)', color: 'white' }}>
-                          Selected
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
+              {/* Voucher Preview Card */}
+              <div className="bg-gradient-to-br from-[var(--color-primary-dark)] to-[var(--color-primary)] rounded-xl p-6 text-white shadow-md">
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <div className="text-xs uppercase tracking-wider opacity-80 mb-1">
+                      Rubikiai Lux
+                    </div>
+                    <div className="text-4xl font-black">
+                      €{selected}
+                    </div>
+                  </div>
+                  <div className="bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-semibold">
+                    Gift Voucher
+                  </div>
+                </div>
+                
+                <div className="space-y-1 text-sm opacity-90">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>Valid for 12 months</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 19v-8.93a2 2 0 01.89-1.664l7-4.666a2 2 0 012.22 0l7 4.666A2 2 0 0121 10.07V19M3 19a2 2 0 002 2h14a2 2 0 002-2M3 19l6.75-4.5M21 19l-6.75-4.5M3 10l6.75 4.5M21 10l-6.75 4.5m0 0l-1.14.76a2 2 0 01-2.22 0l-1.14-.76" />
+                    </svg>
+                    <span>Redeemable for accommodation</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    <span>Sent by email instantly</span>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="mt-6 flex flex-col sm:flex-row sm:items-end sm:gap-6 gap-4 border-t pt-6 border-[var(--color-primary)]/20">
-              <div className="flex items-center gap-3">
-                <strong className="font-semibold">Total to pay:</strong> <span className="font-black text-2xl text-[var(--color-primary-dark)]">€{(selected * quantity).toFixed(2)}</span>
-              </div>
-              <div className="flex-1" />
-              <div className="flex items-end gap-3">
-                <button
-                  onClick={handleBuy}
-                  disabled={loading}
-                  className="px-6 py-3 rounded-xl font-bold text-lg shadow-lg hover:scale-[1.03] disabled:opacity-50 disabled:cursor-not-allowed transition-transform duration-200"
-                  style={{ background: 'var(--color-secondary)', color: 'white' }}
-                >
-                  {loading ? (
-                    "Redirecting…"
-                  ) : (
-                    <>
-                      Pay by Card,<br />
-                      AP, GP or Paypal
-                    </>
-                  )}
-                </button>
+            {/* Right Column - Total and Payment (Desktop: Sticky sidebar) */}
+            <div className="lg:mt-0 mt-6 border-t lg:border-t-0 lg:border-l border-gray-200 pt-6 lg:pt-0 lg:pl-8">
+              <div className="lg:sticky lg:top-8 space-y-6">
+                <div className="flex justify-between items-center">
+                  <span className="text-lg font-semibold text-[var(--color-text)]">Total</span>
+                  <span className="text-3xl font-black text-[var(--color-secondary)]">
+                    €{(selected * quantity).toFixed(2)}
+                  </span>
+                </div>
 
-                <button
-                  onClick={handleOpenBankModal}
-                  disabled={loading}
-                  className="px-6 py-3 rounded-xl font-bold text-lg shadow-lg hover:scale-[1.03] disabled:opacity-50 disabled:cursor-not-allowed transition-transform duration-200 border border-[var(--color-primary)]"
-                  style={{ background: 'white', color: 'var(--color-highlight)' }}
-                >
-                  {loading ? 'Redirecting…' : 'Pay with bank transfer'}
-                </button>
+                <div className="space-y-3">
+                  <button
+                    onClick={handleBuy}
+                    disabled={loading}
+                    className="w-full bg-[var(--color-secondary)] text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-[var(--color-secondary)]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? "Processing..." : "Pay with Card / PayPal"}
+                  </button>
+
+                  <button
+                    onClick={handleOpenBankModal}
+                    disabled={loading}
+                    className="w-full bg-white border-2 border-[var(--color-secondary)] text-[var(--color-secondary)] py-4 rounded-xl font-bold text-lg hover:bg-[var(--color-background-main)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? "Processing..." : "Pay with Bank Transfer"}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* Preview */}
-        <aside className="bg-[var(--color-background-soft)] rounded-2xl p-6 shadow-xl flex flex-col gap-6 border border-[var(--color-secondary)]/40 h-fit">
-          <h3 className="text-xl font-semibold border-b border-[var(--color-primary)]/50 pb-2">Preview</h3>
-          <div className="rounded-xl overflow-hidden relative shadow-lg">
-            <div className="p-6" style={{ background: 'linear-gradient(135deg, var(--color-primary-dark), var(--color-primary))' }}>
-              <div className="flex items-start justify-between">
-                <div>
-                  <div className="text-sm uppercase tracking-wider text-[var(--color-background-soft)]/90">Gift Voucher</div>
-                  <div className="text-4xl font-black mt-2 text-white">€{selected}</div>
-                  <div className="text-sm text-[var(--color-background-soft)]/70 mt-1">Redeemable for accommodation</div>
+        {/* Check Voucher Section - Mobile First, Desktop 2-Column */}
+        <section className="bg-white rounded-2xl shadow-lg p-5 md:p-8">
+          <div className="lg:grid lg:grid-cols-2 lg:gap-8">
+            {/* Left Column - Search Form */}
+            <div>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-[var(--color-secondary)]/10 rounded-full flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5 text-[var(--color-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
                 </div>
+                <h2 className="text-xl md:text-2xl font-bold text-[var(--color-text)]">
+                  Check Your Voucher
+                </h2>
               </div>
-            </div>
-            <div className="p-4 bg-[var(--color-background-soft)] text-[var(--color-text)]/70 border-t border-[var(--color-primary)]/20">
-              <div className="text-sm font-medium">Valid for 12 months from purchase</div>
-              <div className="text-xs mt-1">Non-refundable. Subject to property availability.</div>
-            </div>
-          </div>
-          <div className="mt-2">
-            <h4 className="text-base font-semibold text-[var(--color-highlight)]">Key Information</h4>
-            <ul className="text-sm mt-2 space-y-1 text-[var(--color-text)]/70">
-              <li>• Redeemable at all participating properties.</li>
-              <li>• Sent via email to purchaser after payment.</li>
-              <li>• Expires after 12 months.</li>
-            </ul>
-          </div>
-        </aside>
 
-        {/* Coupon lookup */}
-        <section className="lg:col-span-3 bg-[var(--color-background-soft)] rounded-2xl p-6 shadow-xl border border-[var(--color-secondary)]/40">
-          <div className="flex flex-col gap-4">
-            <h3 className="text-2xl font-semibold text-[var(--color-primary-dark)]">Check Your Voucher</h3>
-            <p className="text-sm text-[var(--color-text)]/70">Enter your code (e.g., <span className="font-mono">ABCD-EFGH</span>) to view balance and expiration date.</p>
+              <p className="text-sm text-[var(--color-text)]/70 mb-4">
+                Enter your code to view balance and expiration
+              </p>
 
-            <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-end">
-              <div className="flex-1">
-                <label className="block text-sm mb-1 text-[var(--color-text)]">Voucher code</label>
+              <div className="space-y-3">
                 <input
                   value={codeInput}
                   onChange={(e) => setCodeInput(e.target.value.toUpperCase())}
                   placeholder="ABCD-EFGH"
-                  className="w-full p-3 rounded-lg border-2 border-[var(--color-primary)] bg-white text-base focus:border-[var(--color-secondary)] focus:ring-0 transition"
+                  className="w-full px-4 py-3 rounded-lg border-2 border-gray-200 focus:border-[var(--color-secondary)] focus:outline-none transition-colors text-lg font-mono"
                 />
-              </div>
-              <div>
+
                 <button
                   onClick={handleLookup}
                   disabled={lookupLoading}
-                  className="px-6 py-3 rounded-xl font-bold text-lg shadow-lg hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed transition-transform duration-200"
-                  style={{ background: 'var(--color-secondary)', color: 'white' }}
+                  className="w-full bg-[var(--color-secondary)] text-white py-3 rounded-lg font-semibold hover:bg-[var(--color-secondary)]/90 transition-colors disabled:opacity-50"
                 >
-                  {lookupLoading ? 'Checking…' : 'Check'}
+                  {lookupLoading ? "Checking..." : "Check Voucher"}
                 </button>
               </div>
+
+              {lookupError && (
+                <div className="mt-4 p-3 bg-rose-50 border border-rose-200 rounded-lg text-sm text-rose-700">
+                  {lookupError}
+                </div>
+              )}
             </div>
 
-            {lookupError && (
-              <div className="text-sm text-rose-600">{lookupError}</div>
-            )}
+            {/* Right Column - Results */}
+            <div className="lg:border-l lg:pl-8 mt-6 lg:mt-0">
+              {!lookup && !lookupError && (
+                <div className="h-full flex items-center justify-center text-center text-[var(--color-text)]/40">
+                  <div>
+                    <svg className="w-16 h-16 mx-auto mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <p className="text-sm">Enter a voucher code to see details</p>
+                  </div>
+                </div>
+              )}
 
-            {lookup && lookup.kind === "coupon" && (
-              <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 rounded-xl border bg-white">
-                  <div className="text-xs uppercase tracking-wider text-[var(--color-text)]/60">Type</div>
-                  <div className="mt-1 text-lg font-semibold text-[var(--color-secondary)]">Value Voucher</div>
-                </div>
-                <div className="p-4 rounded-xl border bg-white">
-                  <div className="text-xs uppercase tracking-wider text-[var(--color-text)]/60">Status</div>
-                  <div className="mt-1">{statePill(lookup.state)}</div>
-                </div>
-                <div className="p-4 rounded-xl border bg-white">
-                  <div className="text-xs uppercase tracking-wider text-[var(--color-text)]/60">Available balance</div>
-                  <div className="mt-1 text-2xl font-bold text-[var(--color-primary-dark)]">{lookup.coupon.remaining.toFixed(2)} {lookup.coupon.currency}</div>
-                  <div className="text-xs text-[var(--color-text)]/60">Original amount: {lookup.coupon.unitAmount.toFixed(2)} {lookup.coupon.currency}</div>
-                </div>
-                <div className="p-4 rounded-xl border bg-white">
-                  <div className="text-xs uppercase tracking-wider text-[var(--color-text)]/60">Expiration</div>
-                  <div className="mt-1 text-lg font-semibold">{formatDate(lookup.coupon.expiresAtIso)}</div>
-                  <div className="text-xs text-[var(--color-text)]/60">Purchased on {formatDate(lookup.coupon.purchasedAtIso)}</div>
-                </div>
+              {lookup && lookup.kind === "coupon" && (
+                <div className="space-y-3">
+                  {/* Status Banner */}
+                  <div className={`p-4 rounded-lg ${
+                    lookup.state === 'active' 
+                      ? 'bg-emerald-50 border border-emerald-200' 
+                      : 'bg-gray-50 border border-gray-200'
+                  }`}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-[var(--color-text)]/70">Status</span>
+                      {statePill(lookup.state)}
+                    </div>
+                  </div>
 
-                <div className="p-4 rounded-xl border bg-white md:col-span-2">
-                  <div className="text-xs uppercase tracking-wider text-[var(--color-text)]/60">Code</div>
-                  <div className="mt-1 font-mono text-lg">{lookup.coupon.code}</div>
-                  {lookup.coupon.orderId && (
-                    <div className="text-xs text-[var(--color-text)]/60 mt-1">Voucher ID: <span className="font-mono">{lookup.coupon.orderId}</span></div>
-                  )}
-                </div>
-              </div>
-            )}
+                  {/* Balance Card */}
+                  <div className="bg-gradient-to-br from-[var(--color-primary-dark)] to-[var(--color-primary)] rounded-xl p-6 text-white">
+                    <div className="text-sm opacity-80 mb-2">Available Balance</div>
+                    <div className="text-4xl font-black mb-2">
+                      €{lookup.coupon.remaining.toFixed(2)}
+                    </div>
+                    <div className="text-sm opacity-80">
+                      Original: €{lookup.coupon.unitAmount.toFixed(2)}
+                    </div>
+                  </div>
 
-            {lookup && lookup.kind === "percent" && (
-              <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 rounded-xl border bg-white">
-                  <div className="text-xs uppercase tracking-wider text-[var(--color-text)]/60">Type</div>
-                  <div className="mt-1 text-lg font-semibold text-[var(--color-secondary)]">Percentage Discount</div>
-                </div>
-                <div className="p-4 rounded-xl border bg-white">
-                  <div className="text-xs uppercase tracking-wider text-[var(--color-text)]/60">Status</div>
-                  <div className="mt-1">{statePill(lookup.state)}</div>
-                </div>
-                <div className="p-4 rounded-xl border bg-white">
-                  <div className="text-xs uppercase tracking-wider text-[var(--color-text)]/60">Discount</div>
-                  <div className="mt-1 text-3xl font-bold text-[var(--color-primary-dark)]">{lookup.percentDoc.percent}%</div>
-                  <div className="text-xs text-[var(--color-text)]/60">Off total booking</div>
-                </div>
-                <div className="p-4 rounded-xl border bg-white">
-                  <div className="text-xs uppercase tracking-wider text-[var(--color-text)]/60">Expiration</div>
-                  <div className="mt-1 text-lg font-semibold">{lookup.percentDoc.expiresAt || "No expiration"}</div>
-                </div>
-                <div className="p-4 rounded-xl border bg-white">
-                  <div className="text-xs uppercase tracking-wider text-[var(--color-text)]/60">Usage</div>
-                  <div className="mt-1 text-lg font-semibold">{lookup.percentDoc.used ? "Already used" : "Available"}</div>
-                </div>
+                  {/* Details Grid */}
+                  <div className="grid grid-cols-1 gap-3">
+                    <div className="p-4 bg-[var(--color-background-main)] rounded-lg">
+                      <div className="text-xs uppercase tracking-wider text-[var(--color-text)]/60 mb-1">
+                        Voucher Code
+                      </div>
+                      <div className="font-mono text-lg font-semibold text-[var(--color-text)]">
+                        {lookup.coupon.code}
+                      </div>
+                    </div>
 
-                <div className="p-4 rounded-xl border bg-white md:col-span-1">
-                  <div className="text-xs uppercase tracking-wider text-[var(--color-text)]/60">Code</div>
-                  <div className="mt-1 font-mono text-lg">{lookup.percentDoc.code}</div>
+                    <div className="p-4 bg-[var(--color-background-main)] rounded-lg">
+                      <div className="text-xs uppercase tracking-wider text-[var(--color-text)]/60 mb-1">
+                        Expiration Date
+                      </div>
+                      <div className="text-lg font-semibold text-[var(--color-text)]">
+                        {formatDate(lookup.coupon.expiresAtIso)}
+                      </div>
+                    </div>
+
+                    <div className="p-4 bg-[var(--color-background-main)] rounded-lg">
+                      <div className="text-xs uppercase tracking-wider text-[var(--color-text)]/60 mb-1">
+                        Purchase Date
+                      </div>
+                      <div className="text-lg font-semibold text-[var(--color-text)]">
+                        {formatDate(lookup.coupon.purchasedAtIso)}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+
+              {lookup && lookup.kind === "percent" && (
+                <div className="space-y-3">
+                  {/* Status Banner */}
+                  <div className={`p-4 rounded-lg ${
+                    lookup.state === 'active' 
+                      ? 'bg-emerald-50 border border-emerald-200' 
+                      : 'bg-gray-50 border border-gray-200'
+                  }`}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-[var(--color-text)]/70">Status</span>
+                      {statePill(lookup.state)}
+                    </div>
+                  </div>
+
+                  {/* Discount Card */}
+                  <div className="bg-gradient-to-br from-[var(--color-primary-dark)] to-[var(--color-primary)] rounded-xl p-6 text-white">
+                    <div className="text-sm opacity-80 mb-2">Discount</div>
+                    <div className="text-5xl font-black mb-2">
+                      {lookup.percentDoc.percent}%
+                    </div>
+                    <div className="text-sm opacity-80">
+                      Off total booking
+                    </div>
+                  </div>
+
+                  {/* Details Grid */}
+                  <div className="grid grid-cols-1 gap-3">
+                    <div className="p-4 bg-[var(--color-background-main)] rounded-lg">
+                      <div className="text-xs uppercase tracking-wider text-[var(--color-text)]/60 mb-1">
+                        Discount Code
+                      </div>
+                      <div className="font-mono text-lg font-semibold text-[var(--color-text)]">
+                        {lookup.percentDoc.code}
+                      </div>
+                    </div>
+
+                    <div className="p-4 bg-[var(--color-background-main)] rounded-lg">
+                      <div className="text-xs uppercase tracking-wider text-[var(--color-text)]/60 mb-1">
+                        Expiration
+                      </div>
+                      <div className="text-lg font-semibold text-[var(--color-text)]">
+                        {lookup.percentDoc.expiresAt || "No expiration"}
+                      </div>
+                    </div>
+
+                    <div className="p-4 bg-[var(--color-background-main)] rounded-lg">
+                      <div className="text-xs uppercase tracking-wider text-[var(--color-text)]/60 mb-1">
+                        Usage Status
+                      </div>
+                      <div className="text-lg font-semibold text-[var(--color-text)]">
+                        {lookup.percentDoc.used ? "Already used" : "Available"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
+        </section>
+
+        {/* Info Section */}
+        <section className="bg-[var(--color-secondary)]/5 border border-[var(--color-secondary)]/20 rounded-2xl p-5 md:p-6">
+          <h3 className="font-semibold text-[var(--color-text)] mb-3 flex items-center gap-2">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Important Information
+          </h3>
+          <ul className="space-y-2 text-sm text-[var(--color-text)]/70">
+            <li className="flex gap-2">
+              <span className="text-[var(--color-secondary)] font-bold">•</span>
+              <span>Vouchers are valid for 12 months from purchase date</span>
+            </li>
+            <li className="flex gap-2">
+              <span className="text-[var(--color-secondary)] font-bold">•</span>
+              <span>Redeemable at all Rubikiai Lux properties</span>
+            </li>
+            <li className="flex gap-2">
+              <span className="text-[var(--color-secondary)] font-bold">•</span>
+              <span>Non-refundable and subject to availability</span>
+            </li>
+            <li className="flex gap-2">
+              <span className="text-[var(--color-secondary)] font-bold">•</span>
+              <span>Sent via email immediately after payment</span>
+            </li>
+          </ul>
         </section>
       </main>
 
-      {/* Bank email modal */}
+      {/* Bank Transfer Modal - Mobile Optimized */}
       {showBankModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm">
-          <div className="absolute inset-0" onClick={() => setShowBankModal(false)} />
-          <div className="relative z-10 w-full max-w-md bg-white rounded-2xl p-6 shadow-xl">
-            <h3 className="text-lg font-semibold">Email to receive voucher</h3>
-            <p className="text-sm text-[var(--color-text)]/70 mt-2">Enter the email address where you want to receive the voucher after completing the bank transfer payment.</p>
-
-            <div className="mt-4">
-              <label className="block text-sm mb-1">Email address</label>
-              <input
-                value={buyerEmail}
-                onChange={(e) => setBuyerEmail(e.target.value)}
-                placeholder="your@email.com"
-                type="email"
-                className="w-full p-3 rounded-lg border-2 border-[var(--color-primary)] bg-white text-base focus:border-[var(--color-secondary)] focus:ring-0 transition"
-              />
+        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 backdrop-blur-sm p-0 md:p-4">
+          <div 
+            className="absolute inset-0" 
+            onClick={() => !bankSubmitting && setShowBankModal(false)} 
+          />
+          
+          <div className="relative z-10 w-full md:max-w-md bg-white rounded-t-3xl md:rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="sticky top-0 bg-white border-b border-gray-100 px-5 py-4 flex items-center justify-between rounded-t-3xl md:rounded-t-2xl">
+              <h3 className="text-lg font-bold text-[var(--color-text)]">
+                Bank Transfer Payment
+              </h3>
+              <button
+                onClick={() => !bankSubmitting && setShowBankModal(false)}
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+                disabled={bankSubmitting}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
 
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                className="px-4 py-2 rounded-lg border"
-                onClick={() => setShowBankModal(false)}
-                disabled={bankSubmitting}
-              >
-                Cancel
-              </button>
-              <button
-                className="px-4 py-2 rounded-lg font-bold"
-                onClick={handleConfirmBankPayment}
-                disabled={bankSubmitting}
-                style={{ background: 'var(--color-secondary)', color: 'white' }}
-              >
-                {bankSubmitting ? "Processing…" : "Pay with Bank Transfer"}
-              </button>
+            {/* Modal Content */}
+            <div className="p-5 space-y-4">
+              <p className="text-sm text-[var(--color-text)]/70">
+                Enter your email to receive the voucher after completing the bank transfer.
+              </p>
+
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-text)] mb-2">
+                  Email Address
+                </label>
+                <input
+                  value={buyerEmail}
+                  onChange={(e) => setBuyerEmail(e.target.value)}
+                  placeholder="your@email.com"
+                  type="email"
+                  className="w-full px-4 py-3 rounded-lg border-2 border-gray-200 focus:border-[var(--color-secondary)] focus:outline-none transition-colors"
+                  disabled={bankSubmitting}
+                />
+              </div>
+
+              <div className="bg-[var(--color-secondary)]/5 border border-[var(--color-secondary)]/20 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <svg className="w-5 h-5 text-[var(--color-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-sm font-semibold text-[var(--color-text)]">Order Summary</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-[var(--color-text)]/70">Voucher Amount</span>
+                  <span className="text-xl font-black text-[var(--color-secondary)]">€{selected}</span>
+                </div>
+              </div>
+
+              <div className="space-y-3 pt-2">
+                <button
+                  onClick={handleConfirmBankPayment}
+                  disabled={bankSubmitting}
+                  className="w-full bg-[var(--color-secondary)] text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-[var(--color-secondary)]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {bankSubmitting ? "Processing..." : "Continue to Bank Transfer"}
+                </button>
+
+                <button
+                  onClick={() => setShowBankModal(false)}
+                  disabled={bankSubmitting}
+                  className="w-full bg-white border border-gray-200 text-[var(--color-text)] py-3 rounded-xl font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         </div>

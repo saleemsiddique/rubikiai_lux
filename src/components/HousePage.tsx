@@ -8,7 +8,6 @@ import OtherOptions from "@/components/OtherOptions";
 import BookingBarMobile from "@/components/house-components/BookingBarMobile";
 import AboutSection from "@/components/house-components/AboutSectionHouse";
 import AmenitiesSection from "@/components/house-components/AmenitiesSection";
-import { FaBed, FaUserFriends, FaRulerCombined } from "react-icons/fa";
 import { HOUSE_ROUTE_OVERRIDES_BY_ID } from "@/lib/houseRoutes";
 
 type AmenitiesSectionType = {
@@ -258,7 +257,7 @@ export default function HousePage(props: HousePageProps) {
   const showHeroButton = scrollY < heroHeight - 100;
 
   return (
-    <main className="text-[var(--color-text)] md:pb-0">
+    <main className="text-[var(--color-text)] md:pb-0 overflow-x-hidden max-w-full">
       {/* Hero Section */}
       <section id="hero-section" className="relative">
         {/* Hero Image */}

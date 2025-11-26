@@ -384,7 +384,7 @@ export async function POST(req: Request) {
     const montonioPayload: any = {
       accessKey: process.env.MONTONIO_ACCESS_KEY || "",
       merchantReference: reservationId,
-      returnUrl: `${process.env.NEXT_PUBLIC_APP_URL}/payment/success?ref=${reservationId}`,
+      returnUrl: `${process.env.NEXT_PUBLIC_APP_URL}/payment/success?ref=${reservationId}&cancelUrl=${encodeURIComponent(cancelUrl || `${process.env.NEXT_PUBLIC_APP_URL}`)}`,
       cancelUrl: cancelUrl || `${process.env.NEXT_PUBLIC_APP_URL}`,
       notificationUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/montonio/webhook`,
       currency: "EUR",

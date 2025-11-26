@@ -21,12 +21,6 @@ export default function PaymentSuccessClient() {
   );
   const [error, setError] = useState<string | null>(null);
 
-  // En tu página de success (ej: /checkout/success o similar)
-  useEffect(() => {
-    // Limpiar datos del formulario solo cuando el pago fue exitoso
-    localStorage.removeItem("checkout-form-data");
-  }, []);
-
   useEffect(() => {
     let pollInterval: NodeJS.Timeout | null = null;
     let attempts = 0;
@@ -76,6 +70,10 @@ export default function PaymentSuccessClient() {
             router.replace(
               `/cancel?reservationId=${merchantRef}&reason=payment_failed`
             );
+          } else if (reservation.status === "reserved") {
+            // 🔹 AÑADIR ESTAS 3 LÍNEAS AQUÍ
+            localStorage.removeItem("checkout-form-data");
+            console.log("✅ Pago exitoso - datos del formulario eliminados");
           }
           return;
         }
@@ -238,7 +236,10 @@ export default function PaymentSuccessClient() {
     }
   }, [orderToken, cancelUrlParam, merchantRef, router]);
 
-  const validateOrderToken = async (token: string, cancelUrl?: string | null) => {
+  const validateOrderToken = async (
+    token: string,
+    cancelUrl?: string | null
+  ) => {
     try {
       const res = await fetch(`/api/montonio/validate-order`, {
         method: "POST",
@@ -251,6 +252,7 @@ export default function PaymentSuccessClient() {
       if (result.status === "PAID") {
         setReservationStatus("reserved");
         setLoading(false);
+        localStorage.removeItem("checkout-form-data");
       } else {
         // Payment failed/cancelled/abandoned - redirect to cancel page
         const redirectUrl = cancelUrl || "/cancel";

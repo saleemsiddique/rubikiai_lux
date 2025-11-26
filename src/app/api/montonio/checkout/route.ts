@@ -80,8 +80,7 @@ export async function POST(req: Request) {
     const body = (await req.json()) as CheckoutBody;
     console.debug("montonio/checkout body:", body);
 
-    const { houseId, houseSlug, start, end, guests, discount, cancelUrl } =
-      body || {};
+    const { houseId, houseSlug, start, end, guests, discount, cancelUrl } = body || {};
     const extras = body?.extras || {};
     const customerInput = body?.customer || {};
 
@@ -196,11 +195,11 @@ export async function POST(req: Request) {
       const jacuzziExtraGuests = Math.max(0, guestsNum - 2);
 
       // Primer día: 65€ + 10€ por guest extra
-      const firstDayFee = 65 + jacuzziExtraGuests * 10;
+      const firstDayFee = 65 + (jacuzziExtraGuests * 10);
 
       // Días adicionales: 45€ + 10€ por guest extra cada día
       const additionalDays = Math.max(0, jacuzziDays - 1);
-      const additionalDaysFee = additionalDays * (45 + jacuzziExtraGuests * 10);
+      const additionalDaysFee = additionalDays * (45 + (jacuzziExtraGuests * 10));
 
       jacuzziFee = firstDayFee + additionalDaysFee;
     }
@@ -313,10 +312,9 @@ export async function POST(req: Request) {
     const totalStay = discountedGrandTotal; // total de la estancia
     const payAtArrival = Math.max(0, totalStay - payNow); // lo que queda por pagar
 
-    let reservationId = null;
     // prepare reservationId (Firestore id) — will be used as merchantReference
     const reservationRef = db.collection("reservations").doc();
-    reservationId = reservationRef.id;
+    const reservationId = reservationRef.id;
 
     // build metadata (same keys Stripe uses)
     const metadata: { [k: string]: string } = {
@@ -381,18 +379,12 @@ export async function POST(req: Request) {
       comment: customerInput?.comment || "",
     };
 
-    const isValidRef =
-    typeof reservationId === "string" && reservationId.trim() !== "";
-    const returnUrl = isValidRef
-      ? `${process.env.NEXT_PUBLIC_APP_URL}/payment/success?ref=${reservationId}`
-      : cancelUrl;
-      
     // MONTONIO PAY ONLY Reservation fee: set grandTotal/payment.amount to discountedFirst (lo que debe cobrarse ahora)
     const amountToPayNow = parseFloat(discountedFirst.toFixed(2)); // importe que cobramos ahora (Reservation fee)
     const montonioPayload: any = {
       accessKey: process.env.MONTONIO_ACCESS_KEY || "",
       merchantReference: reservationId,
-      returnUrl: returnUrl,
+      returnUrl: `${process.env.NEXT_PUBLIC_APP_URL}/payment/success?ref=${reservationId}`,
       cancelUrl: cancelUrl || `${process.env.NEXT_PUBLIC_APP_URL}`,
       notificationUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/montonio/webhook`,
       currency: "EUR",

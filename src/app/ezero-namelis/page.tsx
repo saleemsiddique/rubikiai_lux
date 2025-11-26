@@ -14,6 +14,7 @@ const HousePageClient = dynamic(() => import("@/components/HousePage"), { ssr: f
 
 const images = [
   "/ezero-namelis/ezero-namelis (19).jpg",
+  "/ezero-namelis/ezero-namelis (9).jpeg",
   "/ezero-namelis/ezero-namelis (5).jpeg",
   "/ezero-namelis/ezero-namelis (16).jpeg",
   "/ezero-namelis/ezero-namelis (3).jpeg",
@@ -23,13 +24,12 @@ const images = [
   "/ezero-namelis/ezero-namelis (13).jpeg",
   "/ezero-namelis/ezero-namelis (14).jpeg",
   "/ezero-namelis/ezero-namelis (6).jpeg",
-  "/ezero-namelis/ezero-namelis (9).jpeg",
   "/ezero-namelis/ezero-namelis (1).jpeg",
   "/ezero-namelis/ezero-namelis (10).jpeg",
   "/ezero-namelis/ezero-namelis (11).jpeg",
   "/ezero-namelis/ezero-namelis (15).jpeg",
   "/ezero-namelis/ezero-namelis (7).jpeg",
-  "/ezero-namelis/ezero-namelis (17).jpg",
+  "/ezero-namelis/ezero-namelis (17).JPG",
   "/ezero-namelis/ezero-namelis (2).jpeg",
   "/ezero-namelis/ezero-namelis (8).jpeg",
 ];

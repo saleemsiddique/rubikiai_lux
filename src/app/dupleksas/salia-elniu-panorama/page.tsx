@@ -5,6 +5,7 @@ import HousePage from "@/components/HousePage";
 
 const panoramaImages = [
   "/dupleksas/2-dupleksas8.jpeg",
+  "/dupleksas/2-dupleksas11.jpeg",
   "/dupleksas/2-dupleksas4.jpeg",
   "/dupleksas/2-dupleksas7.jpeg",
   "/dupleksas/2-dupleksas6.jpeg",
@@ -15,7 +16,6 @@ const panoramaImages = [
   "/dupleksas/2-dupleksas14.jpeg",
   "/dupleksas/2-dupleksas2.jpeg",
   "/dupleksas/2-dupleksas13.jpg",
-  "/dupleksas/2-dupleksas11.jpeg",
   "/dupleksas/2-dupleksas12.jpeg",
   "/dupleksas/2-dupleksas10.jpeg",
 ];
@@ -43,7 +43,7 @@ export default function Page({
 
   return (
     <HousePage
-      heroSrc=  "/dupleksas/2-dupleksas8.jpeg"
+      heroSrc="/dupleksas/2-dupleksas8.jpeg"
       title="Nr.2 – Elnių Panorama"
       subtitle="Experience magical moments by the Rubikiai lake."
       accommodates={ACCOMMODATES}

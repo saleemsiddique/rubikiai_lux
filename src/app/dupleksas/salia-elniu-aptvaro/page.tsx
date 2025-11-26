@@ -5,15 +5,15 @@ import HousePage from "@/components/HousePage";
 
 const aptvaroImages = [
   "/dupleksas/1-dupleksas10.jpeg",
+  "/dupleksas/1-dupleksas7.jpeg",
   "/dupleksas/1-dupleksas12.jpeg",
   "/dupleksas/1-dupleksas3.jpeg",
   "/dupleksas/1-dupleksas4.jpeg",
-  "/dupleksas/1-dupleksas13.jpg",
+  "/dupleksas/1-dupleksas13.JPG",
   "/dupleksas/1-dupleksas6.jpeg",
-  "/dupleksas/1-dupleksas7.jpeg",
   "/dupleksas/1-dupleksas8.jpg",
   "/dupleksas/1-dupleksas9.jpeg",
-  "/dupleksas/1-dupleksas14.jpg",
+  "/dupleksas/1-dupleksas14.JPG",
   "/dupleksas/1-dupleksas5.jpeg",
   "/dupleksas/1-dupleksas2.jpeg",
   "/dupleksas/1-dupleksas1.jpeg",

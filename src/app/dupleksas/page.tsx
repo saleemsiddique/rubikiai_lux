@@ -37,7 +37,7 @@ const DuplexSelectionPage: React.FC = () => {
               alt="Nr.1 - Šalia Elnių Aptvaro"
               width={800}
               height={600}
-              className="w-full h-auto block transition-transform duration-500 group-hover:scale-105"
+              className="w-full h-auto block transition-transform duration-500 group-hover:scale-102"
             />
           </div>
         </Link>
@@ -61,7 +61,7 @@ const DuplexSelectionPage: React.FC = () => {
               alt="Nr.2 - Elnių Panorama"
               width={800}
               height={600}
-              className="w-full h-auto transition-transform duration-500 group-hover:scale-105 md:hidden"
+              className="w-full h-auto transition-transform duration-500 group-hover:scale-102 md:hidden"
             />
             {/* Desktop image */}
             <Image
@@ -69,7 +69,7 @@ const DuplexSelectionPage: React.FC = () => {
               alt="Nr.2 - Elnių Panorama"
               width={800}
               height={600}
-              className="w-full h-auto transition-transform duration-500 group-hover:scale-105 hidden md:block"
+              className="w-full h-auto transition-transform duration-500 group-hover:scale-102 hidden md:block"
             />
           </div>
         </Link>

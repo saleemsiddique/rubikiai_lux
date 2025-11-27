@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import { formatLithuaniaTime, toLithuaniaISO } from "@/app/utils/date";
 
 type ReservationRow = {
   id: string;
@@ -226,8 +227,8 @@ export default function AdminRevenueClient() {
         payAtArrival: num(r.payAtArrival),
         stripeSessionId: r.stripeSessionId ?? "",
         montonioOrderUuid: r.montonioOrderUuid ?? "",
-        paidAtIso: r.paidAtIso ?? "",
-        createdAtIso: r.createdAtIso ?? "",
+        paidAt: toLithuaniaISO(r.paidAtIso),
+        createdAt: toLithuaniaISO(r.createdAtIso),
       }));
       const wsRes = XLSX.utils.json_to_sheet(resData);
       XLSX.utils.book_append_sheet(wb, wsRes, "Reservations");
@@ -241,8 +242,8 @@ export default function AdminRevenueClient() {
         unitAmount: o.unitAmount,
         currency: o.currency,
         revenue: o.revenue,
-        createdAtIso: o.createdAtIso ?? "",
-        completedAtIso: o.completedAtIso ?? "",
+        createdAt: toLithuaniaISO(o.createdAtIso),
+        completedAt: toLithuaniaISO(o.completedAtIso),
       }));
       const wsOrd = XLSX.utils.json_to_sheet(ordData);
       XLSX.utils.book_append_sheet(wb, wsOrd, "CouponOrders");
@@ -531,9 +532,7 @@ export default function AdminRevenueClient() {
                   {orders.map((o) => (
                     <tr key={o.id} className="border-t">
                       <td className="px-3 py-2">
-                        {o.completedAtIso?.slice(0, 10) ||
-                          o.createdAtIso?.slice(0, 10) ||
-                          "—"}
+                        {formatLithuaniaTime(o.completedAtIso || o.createdAtIso, { dateOnly: true })}
                       </td>
                       <td className="px-3 py-2">{o.buyerEmail ?? "—"}</td>
                       <td className="px-3 py-2">{o.quantity}</td>

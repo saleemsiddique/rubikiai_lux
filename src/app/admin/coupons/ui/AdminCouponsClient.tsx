@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useState } from "react";
+import { formatLithuaniaTime } from "@/app/utils/date";
 
 /** Tipos del lookup existente (/api/coupons/lookup) */
 type CouponLookup = {
@@ -55,13 +56,9 @@ export default function AdminCouponsClient() {
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
 
+  // Usa formatLithuaniaTime para mostrar fechas en hora de Lituania
   const formatDate = (iso: string | null) => {
-    if (!iso) return "—";
-    try {
-      return new Date(iso).toLocaleDateString("es-ES", { year: "numeric", month: "2-digit", day: "2-digit" });
-    } catch {
-      return iso;
-    }
+    return formatLithuaniaTime(iso, { dateOnly: true });
   };
 
   const statePill = (state?: LookupResult["state"]) => {

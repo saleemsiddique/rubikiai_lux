@@ -14,6 +14,8 @@ const LITHUANIA_TIMEZONE = 'Europe/Vilnius';
  * Este timestamp se guarda en Firebase como UTC pero representa el momento actual en Lituania
  */
 export function nowInLithuania(): Timestamp {
-  const now = dayjs().tz(LITHUANIA_TIMEZONE);
+  // CORRECTO: dayjs.tz() obtiene la hora actual EN la zona horaria de Lituania
+  // dayjs().tz() solo cambia la representación, NO convierte la hora
+  const now = dayjs.tz(LITHUANIA_TIMEZONE);
   return Timestamp.fromDate(now.toDate());
 }

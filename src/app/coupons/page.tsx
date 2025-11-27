@@ -1,5 +1,6 @@
 "use client";
 import React, { JSX, useState } from "react";
+import { formatLithuaniaTime } from "@/app/utils/date";
 
 const AMOUNTS = [100, 150, 200, 300] as const;
 
@@ -151,13 +152,9 @@ export default function CouponPage(): JSX.Element {
     }
   };
 
+  // Usa formatLithuaniaTime para mostrar fechas en hora de Lituania
   const formatDate = (iso: string | null) => {
-    if (!iso) return "—";
-    try {
-      return new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "2-digit", day: "2-digit" });
-    } catch {
-      return iso;
-    }
+    return formatLithuaniaTime(iso, { dateOnly: true });
   };
 
   const statePill = (state?: LookupResult["state"]) => {

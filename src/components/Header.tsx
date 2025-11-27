@@ -6,10 +6,18 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 
 export default function Header() {
-  const [isOpen, setIsOpen] = React.useState(false);
+  const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
   const drawerRef = useRef<HTMLDivElement | null>(null);
+
+  // Refs for rAF scroll handling + hysteresis
+  const lastYRef = useRef<number>(0);
+  const tickingRef = useRef<boolean>(false);
+  const scrolledRef = useRef<boolean>(false);
+
+  const SCROLL_DOWN_THRESHOLD = 60; // entra a scrolled
+  const SCROLL_UP_THRESHOLD = 40; // sale de scrolled
 
   const pageTitles: Record<string, string> = {
     "/": "INICIO",
@@ -34,24 +42,54 @@ export default function Header() {
   const toggle = useCallback(() => setIsOpen((v) => !v), []);
   const close = useCallback(() => setIsOpen(false), []);
 
+  // Check if we're on home page
+  const isHomePage = pathname === "/";
+
+  // --- Smooth rAF-based scroll handling with hysteresis ---
   useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 50);
-    };
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
+    function onScroll() {
+      lastYRef.current = window.scrollY;
+      if (!tickingRef.current) {
+        tickingRef.current = true;
+        requestAnimationFrame(() => {
+          const y = lastYRef.current;
+          const prev = scrolledRef.current;
+          let next = prev;
+
+          if (!prev && y > SCROLL_DOWN_THRESHOLD) next = true;
+          else if (prev && y < SCROLL_UP_THRESHOLD) next = false;
+          // else keep prev to avoid toggle when near threshold
+
+          if (next !== prev) {
+            scrolledRef.current = next;
+            setScrolled(next);
+          }
+          tickingRef.current = false;
+        });
+      }
+    }
+
+    // attach passive listener (cheap) + rAF decouples work
+    window.addEventListener("scroll", onScroll, { passive: true });
+    // init state
+    lastYRef.current = window.scrollY;
+    if (window.scrollY > SCROLL_DOWN_THRESHOLD) {
+      scrolledRef.current = true;
+      setScrolled(true);
+    }
+
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  // close drawer on navigation changes
   useEffect(() => {
     close();
   }, [pathname, close]);
 
+  // lock body overflow when drawer open
   useEffect(() => {
-    if (isOpen) {
-      document.body.classList.add("overflow-hidden");
-    } else {
-      document.body.classList.remove("overflow-hidden");
-    }
+    if (isOpen) document.body.classList.add("overflow-hidden");
+    else document.body.classList.remove("overflow-hidden");
     return () => document.body.classList.remove("overflow-hidden");
   }, [isOpen]);
 
@@ -73,142 +111,141 @@ export default function Header() {
     };
   }, [isOpen, close]);
 
+  // Decide if mobile reservation button should appear (visual only)
+  // We will NOT remove it from DOM; only animate opacity/pointer-events to avoid layout shifts
+  const showMobileReservationButton = isHomePage && !scrolled;
+
   return (
     <>
       <header
-        className={`fixed inset-x-0 top-0 z-50 transition-all duration-100 md:duration-500 ease-in-out ${scrolled
-            ? // HEADER SCROLLED  → menos translucido
-            "bg-[var(--color-background-main)]/97 backdrop-blur-md shadow-lg py-3 md:py-1"
-            : // HEADER TOP  → menos translucido en desktop
-            "bg-gradient-to-b from-black/50 to-transparent md:bg-[var(--color-background-main)]/80 md:backdrop-blur-sm py-4 md:py-1"
-          }`}
+        // kept padding stable to avoid layout jumps (same padding both states)
+        className={`fixed inset-x-0 top-0 z-50 transition-colors duration-400 ease-in-out`}
         style={{
-          // suaviza transiciones y ayuda a que móviles usen GPU
-          transitionProperty:
-            "background-color, box-shadow, backdrop-filter, opacity, transform",
-          transitionDuration: "500ms",
-          willChange: "background-color, opacity, transform",
+          // we transition properties that are GPU-friendly (background-color, backdrop-filter, box-shadow, opacity)
+          WebkitBackfaceVisibility: "hidden",
+          backfaceVisibility: "hidden",
+          willChange: "background-color, box-shadow, backdrop-filter, opacity",
         }}
       >
-        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 md:px-6">
-          <div className="flex items-center justify-between">
+        {/* Visual container with consistent height to avoid layout jumps.
+            We layer a "visual" background that changes with scrolled state via classes. */}
+        <div
+          className={`max-w-screen-xl mx-auto px-4 sm:px-6 md:px-6 py-3 md:py-1 flex items-center justify-between transition-all duration-400`}
+        >
+          <div className="flex items-center gap-2 md:gap-2 min-w-[120px] md:min-w-[80px]">
+            <button
+              aria-expanded={isOpen}
+              aria-label={isOpen ? "Close navigation" : "Open navigation"}
+              onClick={toggle}
+              className={`p-2.5 md:p-2 rounded focus:outline-none focus:ring-2 hover:scale-105 transition-all duration-300 flex items-center justify-center flex-shrink-0 min-w-[40px] min-h-[40px]`}
+              style={{ willChange: "transform, opacity" }}
+            >
+              <svg
+                className={`w-7 h-7 md:w-5 md:h-5 transition-colors duration-300 ${
+                  scrolled ? "text-[var(--color-secondary)]" : "text-white md:text-[var(--color-secondary)]"
+                }`}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+              >
+                <path
+                  className={`transition-all duration-200 ${isOpen ? "opacity-0 scale-90" : "opacity-100 scale-100"}`}
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
+                <g className={`transition-opacity duration-200 ${isOpen ? "opacity-100" : "opacity-0"}`}>
+                  <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </g>
+              </svg>
+            </button>
 
-            {/* LEFT SIDE */}
-            <div className="flex items-center gap-2 md:gap-2 min-w-[120px] md:min-w-[80px]">
-              <button
-                aria-expanded={isOpen}
-                aria-label={isOpen ? "Close navigation" : "Open navigation"}
-                onClick={toggle}
-                className={`p-2.5 md:p-2 rounded focus:outline-none focus:ring-2 hover:scale-105 transition-all duration-300 flex items-center justify-center flex-shrink-0 min-w-[40px] min-h-[40px]`}
-                // Estilos de foco/tema se mantienen condicionados visualmente por el color:
+            <span
+              className={`hidden sm:inline-block text-[10px] md:text-[12px] font-light tracking-wide transition-colors duration-300 ${
+                scrolled ? "text-[var(--color-secondary)]" : "text-white/90 md:text-[var(--color-secondary)] drop-shadow-lg"
+              }`}
+            >
+              {pageTitles[pathname] || ""}
+            </span>
+          </div>
+
+{/* Logo: kept in DOM and positioned absolutely on small screens always (no layout toggles).
+    Visual changes (opacity/scale) handled via CSS transitions only. */}
+<div className="flex-1 flex justify-center items-center pointer-events-none">
+  <Link href="/" className="block pointer-events-auto">
+    <div
+      className={`transform transition-all duration-400 will-change-transform will-change-opacity ${
+        scrolled ? "opacity-100 scale-100" : "opacity-0 scale-95 md:opacity-90"
+      }`}
                 style={{
-                  // evitar reflow por cambios de color; la coloración la gestiona el CSS de :root
-                  willChange: "transform, opacity",
+                  // keep transform/opacity animated; avoid switching between absolute/relative
+                  transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
                 }}
               >
-                <svg
-                  className={`w-7 h-7 md:w-5 md:h-5 ${scrolled ? "text-[var(--color-highlight)]" : "text-white md:text-white"
-                    }`}
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                >
-                  <path
-                    className={`transition-all duration-200 ${isOpen ? "opacity-0 scale-90" : "opacity-100 scale-100"
-                      }`}
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M4 6h16M4 12h16M4 18h16"
-                  />
-                  <g
-                    className={`transition-opacity duration-200 ${isOpen ? "opacity-100" : "opacity-0"
-                      }`}
-                  >
-                    <path
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </g>
-                </svg>
-              </button>
+                <Image
+                  src="/rubikiai-logo.png"
+                  alt="Rubikiai Lux Logo"
+                  width={120}
+                  height={40}
+                  priority
+                  className="h-auto drop-shadow-2xl w-26 md:w-32"
+                  style={{ transition: "all 400ms cubic-bezier(0.4,0,0.2,1)" }}
+                />
+              </div>
+            </Link>
+          </div>
 
-              <span
-                className={`hidden sm:inline-block text-[10px] md:text-[12px] font-light tracking-wide transition-colors duration-500 ${scrolled
-                    ? "text-[var(--color-highlight)]"
-                    : "text-white/90 md:text-white drop-shadow-lg"
-                  }`}
-              >
-                {pageTitles[pathname] || ""}
-              </span>
-            </div>
-
-            {/* CENTER LOGO - ahora siempre presente en el DOM (evita reflow en móvil).
-                En móvil se controla por opacity/transform y pointer-events. En md+ mantiene el mismo comportamiento visual que antes. */}
-            <div
-              className={`flex-1 flex justify-center items-center transition-all duration-500`}
-              aria-hidden={!scrolled}
+          {/* RIGHT BUTTON - BOOK
+              Always in DOM; on mobile we toggle opacity/pointer-events so layout doesn't reflow. */}
+          <div className="flex justify-end items-center min-w-[120px] md:min-w-[100px]">
+            <Link
+              href="/reservations"
+              className={`uppercase tracking-wider text-[10px] md:text-[12px] px-4 py-2 rounded font-semibold transition-all duration-300 ease-in-out flex items-center justify-center min-w-[84px] md:flex`}
             >
-              <Link href="/" className="block">
-                <div
-                  className={`transition-all duration-500 transform ${scrolled
-                      ? "opacity-100 translate-y-0 pointer-events-auto md:opacity-90"
-                      : "opacity-0 -translate-y-1 pointer-events-none md:opacity-75 md:pointer-events-auto md:translate-y-0"
-                    }`}
-                  style={{ willChange: "opacity, transform" }}
-                >
-                  <Image
-                    src="/rubikiai-logo.png"
-                    alt="Rubikiai Lux Logo"
-                    width={120}
-                    height={40}
-                    priority
-                    className={`h-auto drop-shadow-2xl transition-all duration-500 w-32 md:w-32`}
-                  />
-                </div>
-              </Link>
-            </div>
-
-            {/* RIGHT BUTTON - BOOK (tamaño mínimo fijado para evitar cambios) */}
-            <div className="flex justify-end items-center min-w-[120px] md:min-w-[100px]">
-              <Link
-                href="/reservations"
-                className={`uppercase tracking-wider 
-                text-[10px] md:text-[12px] 
-                px-5 py-2.5 
-                md:px-4 md:py-2 
-                rounded font-semibold
-                transition-all duration-500 ease-in-out flex items-center justify-center min-w-[84px]`}
+              <span
+                // we animate the inner span for the look; pointer-events toggled so it won't be clickable when hidden on mobile
+                className={`transition-all duration-300 rounded px-4 py-1 ${
+                  scrolled
+                    ? "border-2 border-[var(--color-secondary)] text-[var(--color-secondary)] hover:bg-[var(--color-secondary)] hover:text-white"
+                    : "border-2 border-white/80 md:border-[var(--color-secondary)] text-white md:text-[var(--color-secondary)] hover:bg-white md:hover:bg-[var(--color-secondary)] hover:text-[var(--color-secondary)] md:hover:text-white backdrop-blur-sm"
+                }`}
+                style={{
+                  // mobile visibility handled via opacity and pointer-events to avoid layout reflow
+                  opacity: showMobileReservationButton ? 1 : 0,
+                  pointerEvents: showMobileReservationButton ? "auto" : "none",
+                  transitionProperty: "opacity, transform",
+                }}
               >
-                <span
-                  className={`${scrolled
-                      ? "border-2 border-[var(--color-highlight)] text-[var(--color-highlight)] hover:bg-[var(--color-highlight)] hover:text-white px-4 py-1"
-                      : "border-2 border-white/80 md:border-white text-white md:text-white hover:bg-white md:hover:bg-white hover:text-[var(--color-secondary)] md:hover:text-[var(--color-secondary)] backdrop-blur-sm px-4 py-1"
-                    } transition-colors duration-300 rounded`}
-                >
-                  Reservations
-                </span>
-              </Link>
-            </div>
+                Reserve
+              </span>
+            </Link>
           </div>
         </div>
+
+        {/* Visual overlay that changes background + shadow based on scrolled (no layout changes) */}
+        <div
+          aria-hidden
+          className={`absolute inset-0 pointer-events-none transition-all duration-400 ${
+            scrolled
+              ? "bg-[var(--color-background-main)]/97 backdrop-blur-md shadow-lg"
+              : "bg-gradient-to-b from-black/50 to-transparent md:bg-[var(--color-background-main)]/20 md:backdrop-blur-sm"
+          }`}
+          style={{ zIndex: -1 }}
+        />
       </header>
 
       {/* BACKDROP */}
       {isOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/50 transition-opacity"
-          aria-hidden
-        />
+        <div className="fixed inset-0 z-40 bg-black/50 transition-opacity" aria-hidden />
       )}
 
       {/* DRAWER */}
       <aside
         ref={drawerRef}
-        className={`fixed top-0 left-0 z-50 h-full w-[85vw] sm:w-3/4 md:w-1/2 lg:w-1/3 max-w-sm bg-[var(--color-background-main)] shadow-2xl transform transition-transform duration-300 ease-in-out overflow-y-auto ${isOpen ? "translate-x-0" : "-translate-x-full"
-          }`}
+        className={`fixed top-0 left-0 z-[9999999] h-full w-[85vw] sm:w-3/4 md:w-1/2 lg:w-1/3 max-w-sm bg-[var(--color-background-main)] shadow-2xl transform transition-transform duration-300 ease-in-out overflow-y-auto ${
+          isOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
         aria-hidden={!isOpen}
       >
         <div className="relative p-6 md:p-10 min-h-full flex flex-col">
@@ -217,20 +254,10 @@ export default function Header() {
             <button
               onClick={close}
               aria-label="Close menu"
-              className="p-2 rounded focus:outline-none focus:ring-2 focus:ring-[var(--color-highlight)] hover:scale-105 transition-transform"
+              className="p-2 rounded focus:outline-none focus:ring-2 focus:ring-[var(--color-secondary)] hover:scale-105 transition-transform"
             >
-              <svg
-                className="w-6 h-6"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-              >
-                <path
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M6 18L18 6M6 6l12 12"
-                />
+              <svg className="w-6 h-6 text-[var(--color-secondary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
@@ -241,23 +268,20 @@ export default function Header() {
                 <Link
                   href={n.href}
                   onClick={close}
-                  className={`w-full text-center font-sans text-[var(--color-highlight)] text-lg md:text-xl font-light hover:text-[var(--color-primary-dark)] transition-colors duration-200 uppercase py-2 ${pathname === n.href
-                      ? "text-[var(--color-primary-dark)] font-medium"
-                      : ""
-                    }`}
+                  className={`w-full text-center font-sans text-[var(--color-secondary)] text-lg md:text-xl font-light hover:text-[var(--color-primary-dark)] transition-colors duration-200 uppercase py-2 ${
+                    pathname === n.href ? "text-[var(--color-primary-dark)] font-medium" : ""
+                  }`}
                 >
                   {n.name}
                 </Link>
                 {idx < navLinks.length - 1 && (
-                  <hr className="w-8 border-t border-[var(--color-highlight)]/20" />
+                  <hr className="w-8 border-t border-[var(--color-secondary)]/20" />
                 )}
               </React.Fragment>
             ))}
           </nav>
 
-          <div className="mt-8 text-center text-xs text-[var(--color-highlight)]/60">
-            © {new Date().getFullYear()} Rubikiai Lux
-          </div>
+          <div className="mt-8 text-center text-xs text-[var(--color-secondary)]/60">© {new Date().getFullYear()} Rubikiai Lux</div>
         </div>
       </aside>
     </>

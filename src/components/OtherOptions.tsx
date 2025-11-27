@@ -12,22 +12,13 @@ const OtherOptions: React.FC = () => {
 
   const otherProperties = [
     {
-      name: (
-        <>
-          <span className="text-xl font-bold">Duplex N°1</span> <br /> 
-          <span className="text-sm ml-2">Šalia Elnių Aptvaro</span>
-        </>
-      ),
+
+      name: 'N°1 Šalia Elnių Aptvaro',
       path: '/dupleksas/salia-elniu-aptvaro',
       image: '/dupleksas/1-dupleksas10.jpeg',
     },
     {
-      name: (
-        <>
-          <span className="text-xl font-bold">Duplex N°2</span> <br /> 
-          <span className="text-sm ml-1">Elnių Panorama</span>
-        </>
-      ),
+      name: 'N°2 Elnių Panorama',
       path: '/dupleksas/salia-elniu-panorama',
       image: '/dupleksas/2-dupleksas8.jpeg',
     },
@@ -55,9 +46,9 @@ const OtherOptions: React.FC = () => {
         {/* Cards - Centradas en móvil, scroll horizontal en desktop */}
         <div className="flex flex-col items-center justify-center sm:flex-row sm:justify-center sm:items-stretch gap-6 sm:gap-4 sm:overflow-x-auto sm:pb-4 min-h-[400px] sm:min-h-0">
           {filteredProperties.map((prop) => (
-            <Link 
-              key={prop.path} 
-              href={prop.path} 
+            <Link
+              key={prop.path}
+              href={prop.path}
               className="w-64 h-56 sm:flex-none group"
             >
               <div className="relative w-full h-full rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-all duration-300">
@@ -69,12 +60,12 @@ const OtherOptions: React.FC = () => {
                   style={{ objectFit: 'cover' }}
                   className="group-hover:scale-110 transition-transform duration-500"
                 />
-                
+
                 {/* Overlay oscuro en la parte inferior */}
                 {/*<div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>*/}
-                
+
                 {/* Texto sobre la imagen */}
-                <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
+                <div className="absolute bottom-0 left-0 right-0 p-2 z-10">
                   <span className="text-base font-semibold text-white drop-shadow-lg leading-tight ml-1">
                     {prop.name}
                   </span>

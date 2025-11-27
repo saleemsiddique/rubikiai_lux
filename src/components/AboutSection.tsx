@@ -41,151 +41,157 @@ const AboutSection: React.FC = () => {
   }, []);
 
   return (
-    <section className="relative w-full py-6 md:py-8 bg-[var(--color-secondary)]">
-      <div className="container mx-auto px-6 max-w-7xl">
+    <section className="relative w-full">
+      {/* Top section with bg-secondary */}
+      <div className="bg-[var(--color-secondary)] py-6 md:py-8">
+        <div className="container mx-auto px-6 max-w-7xl">
+          {/* Title - Mobile only */}
+          <h2 className="lg:hidden  text-xl md:text-3xl text-white font-bold leading-tight pb-3 md:pb-6 text-center">
+            Šiaurietiškas poilsis kūnui <span className="md:inline block"> ir sielai visais metų laikais…</span>
+          </h2>
 
-        {/* Title - Mobile only */}
-        <h2 className="lg:hidden font-serif text-xl md:text-3xl text-white font-bold leading-tight pb-3 md:pb-6 text-center">
-          Šiaurietiškas poilsis kūnui <span className="md:inline block"> ir sielai visais metų laikais…</span>
-        </h2>
-
-        {/* HERO IMAGE + INTRO TEXT */}
-        <div className="flex flex-col lg:flex-row items-start gap-6 md:gap-10 mb-10 md:mb-16">
-          <div className="w-full lg:w-1/2 rounded-3xl overflow-hidden shadow-2xl h-[45vh] md:h-[400px] lg:h-[500px]">
-            <img
-              src="/home/IMG_0634-1.jpeg"
-              alt="Rubikiai Lux prie ežero"
-              className="w-full h-full object-cover transform hover:scale-105 transition-transform duration-700 ease-out"
-            />
-          </div>
-
-          {/* Text with staggered paragraph animations */}
-          <div
-            ref={textRef}
-            className="w-full lg:w-1/2 space-y-4 md:space-y-5"
-          >
-            {/* Title - visible on desktop only, centered on mobile */}
-            <h2 className="hidden lg:block font-serif text-3xl lg:text-4xl text-white text-center font-bold leading-tight">
-              Šiaurietiškas poilsis kūnui <br /> ir sielai visais metų laikais…
-            </h2>
-
-            <p
-              className={`text-base md:text-lg lg:text-xl font-bolder text-white font-bolder leading-relaxed text-center transition-all duration-700 ease-out ${isTextVisible
-                ? 'opacity-100 translate-y-0'
-                : 'opacity-0 -translate-y-8'
-                }`}
-              style={{
-                transitionDelay: isTextVisible ? '0ms' : '0ms'
-              }}
-            >
-              Kviečiame atvykti pailsėti į skandinaviško stiliaus duplekso apartamentus šalia Rubikių ežero Anykščių rajone. Čia mėgausitės privačia sūkurine vonia - Jacuzzi, iš jos stebėsite vietovės gyventojus elnius – danielius. Jais galėsite grožėtis bei
-              pamaitinti, o jie apdovanos Jus nepamirštamomis akimirkomis, sielos terapija ir ramybe...
-            </p>
-            <p
-              className={`text-base md:text-lg lg:text-xl font-bolder text-white leading-relaxed text-center transition-all duration-700 ease-out ${isTextVisible
-                ? 'opacity-100 translate-y-0'
-                : 'opacity-0 -translate-y-8'
-                }`}
-              style={{
-                transitionDelay: isTextVisible ? '200ms' : '0ms'
-              }}
-            >
-              Norintiems visiško privatumo - prabangus Ežero Namelis dviems gamtos glėbyje, tik 10 žingsnių iki ežero ir miško…
-            </p>
-            <p
-              className={`text-base md:text-lg lg:text-xl font-bolder text-white leading-relaxed text-center transition-all duration-700 ease-out ${isTextVisible
-                ? 'opacity-100 translate-y-0'
-                : 'opacity-0 -translate-y-8'
-                }`}
-              style={{
-                transitionDelay: isTextVisible ? '400ms' : '0ms'
-              }}
-            >
-              Papildykite savo viešnagę ežero pramogomis – ramiais pasiplaukiojimais valtimi ar vandens dviračiu, o gal įsimintinais baidarių nuotykiais...
-            </p>
-          </div>
-        </div>
-
-   {/* ACCOMMODATIONS - 2 cards with background images */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10 mb-8 md:mb-12">
-
-          {/* EŽERO NAMELIS - slide from left */}
-          <Link
-            ref={card1Ref}
-            href="/ezero-namelis"
-            className={`group transition-all duration-1000 ease-out ${
-              isCard1Visible
-                ? 'opacity-100 translate-x-0'
-                : 'opacity-0 -translate-x-12'
-            }`}
-          >
-            {/* Image Container */}
-            <div className="relative rounded-2xl shadow-lg overflow-hidden min-h-[300px] md:min-h-[350px] mb-4">
-              {/* Background Image */}
+          {/* HERO IMAGE + INTRO TEXT */}
+          <div className="flex flex-col lg:flex-row items-start gap-6 md:gap-10">
+            <div className="w-full lg:w-1/2 rounded-3xl overflow-hidden shadow-2xl h-[45vh] md:h-[400px] lg:h-[500px]">
               <img
-                src="/ezero-namelis/ezero-namelis (19).jpg"
-                alt="Ežero Namelis"
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                src="/home/IMG_0634-1.jpeg"
+                alt="Rubikiai Lux prie ežero"
+                className="w-full h-full object-cover transform hover:scale-105 transition-transform duration-700 ease-out"
               />
-
-              {/* Title inside image - bottom */}
-              <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8">
-                <h3 className="font-serif text-xl md:text-2xl lg:text-4xl text-white font-bold group-hover:text-[var(--color-primary)] transition-colors duration-300 drop-shadow-2xl">
-                  Ežero Namelis →
-                </h3>
-              </div>
             </div>
 
-            {/* Description below with decoration */}
-            <div className="px-2">
-              {/* Decorative line */}
-              <div className="w-16 h-1 bg-[var(--color-primary)] mb-3 transition-all duration-300 group-hover:w-24"></div>
-              
-              <p className="text-base text-white leading-relaxed">
-                Žavingas, atskiras poilsio namelis ant ežero kranto – Tai tobulas pabėgimas su nuostabiausiais saulėlydžiais, žvaigždėtomis naktimis ir tyliais rytais...
+            {/* Text with staggered paragraph animations */}
+            <div
+              ref={textRef}
+              className="w-full lg:w-1/2 space-y-4 md:space-y-5"
+            >
+              {/* Title - visible on desktop only, centered on mobile */}
+              <h2 className="hidden lg:block  text-3xl lg:text-4xl text-white text-center font-bold leading-tight">
+                Šiaurietiškas poilsis kūnui <br /> ir sielai visais metų laikais…
+              </h2>
+
+              <p
+                className={`text-base md:text-lg lg:text-xl font-bolder text-white font-bolder leading-relaxed text-center transition-all duration-700 ease-out ${isTextVisible
+                  ? 'opacity-100 translate-y-0'
+                  : 'opacity-0 -translate-y-8'
+                  }`}
+                style={{
+                  transitionDelay: isTextVisible ? '0ms' : '0ms'
+                }}
+              >
+                Kviečiame atvykti pailsėti į skandinaviško stiliaus duplekso apartamentus šalia Rubikių ežero Anykščių rajone. Čia mėgausitės privačia sūkurine vonia - Jacuzzi, iš jos stebėsite vietovės gyventojus elnius – danielius. Jais galėsite grožėtis bei
+                pamaitinti, o jie apdovanos Jus nepamirštamomis akimirkomis, sielos terapija ir ramybe...
+              </p>
+              <p
+                className={`text-base md:text-lg lg:text-xl font-bolder text-white leading-relaxed text-center transition-all duration-700 ease-out ${isTextVisible
+                  ? 'opacity-100 translate-y-0'
+                  : 'opacity-0 -translate-y-8'
+                  }`}
+                style={{
+                  transitionDelay: isTextVisible ? '200ms' : '0ms'
+                }}
+              >
+                Norintiems visiško privatumo - prabangus Ežero Namelis dviems gamtos glėbyje, tik 10 žingsnių iki ežero ir miško…
+              </p>
+              <p
+                className={`text-base md:text-lg lg:text-xl font-bolder text-white leading-relaxed text-center transition-all duration-700 ease-out ${isTextVisible
+                  ? 'opacity-100 translate-y-0'
+                  : 'opacity-0 -translate-y-8'
+                  }`}
+                style={{
+                  transitionDelay: isTextVisible ? '400ms' : '0ms'
+                }}
+              >
+                Papildykite savo viešnagę ežero pramogomis – ramiais pasiplaukiojimais valtimi ar vandens dviračiu, o gal įsimintinais baidarių nuotykiais...
               </p>
             </div>
-          </Link>
-
-          {/* DUPLEKSO APARTAMENTAI - slide from right */}
-          <Link
-            ref={card2Ref}
-            href="/dupleksas"
-            className={`group transition-all duration-1000 ease-out ${
-              isCard2Visible
-                ? 'opacity-100 translate-x-0'
-                : 'opacity-0 translate-x-12'
-            }`}
-          >
-            {/* Image Container */}
-            <div className="relative rounded-2xl shadow-lg overflow-hidden mb-4">
-              {/* Background Image */}
-              <img
-                src="/dupleksas/1-dupleksas8.jpg"
-                alt="Duplekso apartamentai"
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-              />
-              
-              {/* Title inside image - bottom */}
-              <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8">
-                <h3 className="font-serif text-lg md:text-2xl lg:text-4xl text-white font-bold group-hover:text-[var(--color-primary)] transition-colors duration-300 drop-shadow-2xl">
-                  Duplekso apartamentai<br />Nr. 1 ir Nr. 2 →
-                </h3>
-              </div>
-            </div>
-
-            {/* Description below with decoration */}
-            <div className="px-2">
-              {/* Decorative line */}
-              <div className="w-16 h-1 bg-[var(--color-primary)] mb-3 transition-all duration-300 group-hover:w-24"></div>
-              
-              <p className="text-base text-white leading-relaxed">
-                Du stilingi apartamentai, siūlantys skandinavišką komfortą ir modernius patogumus elniukų draugijoje…
-              </p>
-            </div>
-          </Link>
+          </div>
         </div>
+      </div>
 
+      {/* Accommodations section - NO background color */}
+      <div className="py-8 md:py-12">
+        <div className="container mx-auto px-6 max-w-7xl">
+          {/* ACCOMMODATIONS - 2 cards with background images */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10">
+
+            {/* EŽERO NAMELIS - slide from left */}
+            <Link
+              ref={card1Ref}
+              href="/ezero-namelis"
+              className={`group transition-all duration-1000 ease-out ${
+                isCard1Visible
+                  ? 'opacity-100 translate-x-0'
+                  : 'opacity-0 -translate-x-12'
+              }`}
+            >
+              {/* Image Container */}
+              <div className="relative rounded-2xl shadow-lg overflow-hidden min-h-[300px] md:min-h-[350px] mb-4">
+                {/* Background Image */}
+                <img
+                  src="/ezero-namelis/ezero-namelis (19).jpg"
+                  alt="Ežero Namelis"
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                />
+
+                {/* Title inside image - bottom */}
+                <div className="absolute bottom-0 left-0 right-0 p-3 md:p-4">
+                  <h3 className=" text-xl md:text-2xl lg:text-4xl text-white font-bold group-hover:text-[var(--color-primary)] transition-colors duration-300 drop-shadow-2xl">
+                    Ežero Namelis →
+                  </h3>
+                </div>
+              </div>
+
+              {/* Description below with decoration */}
+              <div className="px-2">
+                {/* Decorative line */}
+                <div className="w-16 h-1 bg-[var(--color-primary)] mb-3 transition-all duration-300 group-hover:w-24"></div>
+                
+                <p className="text-base text-[var(--color-text)] leading-relaxed">
+                  Žavingas, atskiras poilsio namelis ant ežero kranto – Tai tobulas pabėgimas su nuostabiausiais saulėlydžiais, žvaigždėtomis naktimis ir tyliais rytais...
+                </p>
+              </div>
+            </Link>
+
+            {/* DUPLEKSO APARTAMENTAI - slide from right */}
+            <Link
+              ref={card2Ref}
+              href="/dupleksas"
+              className={`group transition-all duration-1000 ease-out ${
+                isCard2Visible
+                  ? 'opacity-100 translate-x-0'
+                  : 'opacity-0 -translate-x-15'
+              }`}
+            >
+              {/* Image Container */}
+              <div className="relative rounded-2xl shadow-lg overflow-hidden mb-4">
+                {/* Background Image */}
+                <img
+                  src="/dupleksas/2-dupleksas11.jpeg"
+                  alt="Duplekso apartamentai"
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                />
+                
+                {/* Title inside image - bottom */}
+                <div className="absolute bottom-0 left-0 right-0 p-3 md:p-4">
+                  <h3 className="text-lg md:text-2xl lg:text-4xl text-white font-bold group-hover:text-[var(--color-primary)] transition-colors duration-300 drop-shadow-2xl">
+                    Duplekso apartamentai
+                  </h3>
+                </div>
+              </div>
+
+              {/* Description below with decoration */}
+              <div className="px-2">
+                {/* Decorative line */}
+                <div className="w-16 h-1 bg-[var(--color-primary)] mb-3 transition-all duration-300 group-hover:w-24"></div>
+                
+                <p className="text-base text-[var(--color-text)] leading-relaxed">
+                  Du stilingi apartamentai, siūlantys skandinavišką komfortą ir modernius patogumus elniukų draugijoje…
+                </p>
+              </div>
+            </Link>
+          </div>
+        </div>
       </div>
     </section>
   );

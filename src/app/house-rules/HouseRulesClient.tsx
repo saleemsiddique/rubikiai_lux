@@ -24,7 +24,7 @@ export default function HouseRulesClient({ introText, ezeroText, dupleksText }: 
         {/* Reglas Generales */}
         <div>
           <div className="mb-8 pb-4 border-b-2 border-[var(--color-primary)]">
-            <h3 className="text-2xl font-serif text-[var(--color-primary-dark)]">
+            <h3 className="text-2xl  text-[var(--color-primary-dark)]">
               Bendrosios Taisyklės
             </h3>
             <p className="text-sm text-neutral-500 mt-1">General House Rules</p>
@@ -48,7 +48,7 @@ export default function HouseRulesClient({ introText, ezeroText, dupleksText }: 
         {jacuzziRules.length > 0 && (
           <div>
             <div className="mb-8 pb-4 border-b-2 border-[var(--color-secondary)]">
-              <h3 className="text-2xl font-serif text-[var(--color-primary-dark)]">
+              <h3 className="text-2xl  text-[var(--color-primary-dark)]">
                 Jacuzzi Taisyklės
               </h3>
               <p className="text-sm text-neutral-500 mt-1">Jacuzzi Usage Rules</p>
@@ -108,7 +108,7 @@ export default function HouseRulesClient({ introText, ezeroText, dupleksText }: 
       {/* Intro Text */}
       <div className="px-8 md:px-12 pt-10">
         <div className="border border-[var(--color-primary)]/30 bg-[var(--color-background-main)] rounded-xl p-8">
-          <h3 className="text-lg font-serif font-bold text-[var(--color-primary-dark)] mb-4 tracking-wide">
+          <h3 className="text-lg  font-bold text-[var(--color-primary-dark)] mb-4 tracking-wide">
             Svarbi Informacija
           </h3>
           <p className="text-neutral-700 leading-relaxed text-[15px]">
@@ -123,7 +123,7 @@ export default function HouseRulesClient({ introText, ezeroText, dupleksText }: 
         
         {/* Nota final */}
         <div className="mt-12 border-2 border-red-200 bg-red-50/50 rounded-xl p-8">
-          <h3 className="text-lg font-serif font-bold text-red-800 mb-4 tracking-wide">
+          <h3 className="text-lg  font-bold text-red-800 mb-4 tracking-wide">
             Įspėjimas
           </h3>
           <p className="text-red-800/90 leading-relaxed text-[15px]">

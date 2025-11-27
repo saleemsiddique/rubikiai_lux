@@ -257,7 +257,7 @@ export default function HousePage(props: HousePageProps) {
                 {/* Left: Title and Subtitle */}
                 <div className="text-white md:max-w-lg lg:max-w-2xl">
                   <h1
-                    className="text-4xl md:text-4xl lg:text-5xl font-bold font-header mb-2 md:mb-3 leading-tight tracking-tight"
+                    className="text-2xl md:text-4xl lg:text-5xl font-bold font-header mb-2 md:mb-3 leading-tight tracking-tight hidden md:block"
                     style={{
                       animation: 'fadeInUp 0.8s ease-out',
                       textShadow: '0 2px 20px rgba(0,0,0,0.4)'
@@ -285,6 +285,7 @@ export default function HousePage(props: HousePageProps) {
       />
 
       <AboutSection
+        title={title}
         description={description}
         startFriendly={startFriendly}
         endFriendly={endFriendly}

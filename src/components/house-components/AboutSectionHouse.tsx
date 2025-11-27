@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { FaUserFriends } from 'react-icons/fa';
 
 interface AboutSectionProps {
+  title?: string;
   description?: React.ReactNode;
   // Reservation props
   startFriendly?: string | null;
@@ -23,6 +24,7 @@ interface AboutSectionProps {
 }
 
 export default function AboutSection({
+  title,
   description,
   startFriendly,
   endFriendly,
@@ -75,16 +77,17 @@ export default function AboutSection({
               className={`transition-all duration-1000 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
                 }`}
             >
+
               {/* Title with decorative line */}
-              <div className="mb-8 md:mb-10 -mx-4 md:mx-0">
+              <div className="mb-3 md:mb-8 -mx-4 md:mx-0">
                 <div className="flex items-center gap-4 md:gap-6 px-4 py-4 md:px-0 md:py-0 bg-[#1b343b] md:bg-transparent backdrop-blur-md border-l-4 md:border-l-0 border-[#bfa58b] shadow-xl md:shadow-none">
                   <div className="h-1 w-12 md:w-20 bg-gradient-to-r from-[#bfa58b] to-[#214235] flex-shrink-0 shadow-lg md:shadow-none md:hidden" />
-                  <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold font-header text-[#f4efe9] md:text-[var(--color-secondary)] drop-shadow-lg md:drop-shadow-none">
-                    About this place
+                  <h2 className="text-xl md:text-4xl lg:text-5xl font-bold font-header text-[#f4efe9] md:text-[var(--color-secondary)] drop-shadow-lg md:drop-shadow-none">
+                    <span className="md:hidden">{title}</span>
+                    <span className="hidden md:inline">About this place</span>
                   </h2>
                 </div>
               </div>
-
 
               {/* Description content */}
               <div
@@ -108,7 +111,7 @@ export default function AboutSection({
           </div>
 
           {/* Right: Reservation Card - Desktop only */}
-          <div className="hidden lg:block lg:col-span-1">
+          <div className="hidden md:block lg:col-span-1">
             <div
               className={`sticky top-24 transition-all duration-1000 delay-600 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
                 }`}

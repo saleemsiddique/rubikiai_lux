@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
 @import "tailwindcss";
 
 @tailwind base;
@@ -29,16 +31,20 @@ body,
 }
 
 body {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: 'Inter', sans-serif;
   background-color: var(--color-background-main);
   color: var(--color-highlight);
 }
 
 .font-sans {
-  font-family: 'Montserrat', sans-serif;
+  font-family: 'Inter', sans-serif;
 }
 
 .font-header {
+  font-family: 'Inter', sans-serif;
+}
+
+.font-title {
   font-family: 'Cormorant Garamond', serif;
 }
 
@@ -70,7 +76,7 @@ body {
 }
 
 p {
-  @apply font-serif italic leading-relaxed;
+  font-family: 'Inter', sans-serif;
 }
 
 /* DatePicker z-indexfix */
@@ -98,8 +104,10 @@ p {
 .nav-link {
   color: var(--color-primary);
   transition: transform .18s ease, color .18s ease;
-  touch-action: manipulation;              /* importante para que el tap sea inmediato */
-  -webkit-tap-highlight-color: transparent;/* quita el brillo al tocar */
+  touch-action: manipulation;
+  /* importante para que el tap sea inmediato */
+  -webkit-tap-highlight-color: transparent;
+  /* quita el brillo al tocar */
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -118,6 +126,7 @@ p {
     transform: translateX(4px);
     color: white;
   }
+
   .nav-link:hover .nav-arrow {
     opacity: 1;
     transform: translateX(2px);

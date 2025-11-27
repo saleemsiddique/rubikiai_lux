@@ -12,6 +12,7 @@ export default function HomePage() {
   const [activeSection, setActiveSection] = useState(0);
   const [isMounted, setIsMounted] = useState(false);
   const [isImageVisible, setIsImageVisible] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const router = useRouter();
   const imageRef = useRef<HTMLDivElement>(null);
 
@@ -25,7 +26,9 @@ export default function HomePage() {
     const handleScroll = () => {
       if (!ticking) {
         window.requestAnimationFrame(() => {
-          setScrollY(window.scrollY);
+          const currentScrollY = window.scrollY;
+          setScrollY(currentScrollY);
+          setScrolled(currentScrollY > 50);
           ticking = false;
         });
         ticking = true;
@@ -105,16 +108,6 @@ export default function HomePage() {
           </video>
         </div>
 
-        {/* Dark Overlay */}
-        {/*<div
-          className="fixed md:absolute top-0 left-0 w-full h-screen md:h-[150vh] bg-black/50"
-          style={{
-            opacity: 0.35 * imageOpacity,
-            zIndex: 1,
-            transition: 'opacity 0.3s ease-out',
-          }}
-        />*/}
-
         {/* Content - Title - Sticky nativo simple */}
         <div 
           className="sticky top-[16vh] md:top-[20vh] left-0 right-0 w-full flex items-start md:items-center justify-center pt-1 md:pt-0"
@@ -128,7 +121,7 @@ export default function HomePage() {
               opacity: titleOpacity,
             }}
           >
-            <h1 className="text-5xl md:text-7xl lg:text-8xl font-extrabold tracking-tight md:tracking-widest text-[var(--color-background-soft)] drop-shadow-2xl">
+            <h1 className="font-title text-5xl md:text-7xl lg:text-8xl font-extrabold tracking-tight md:tracking-widest text-[var(--color-background-soft)] drop-shadow-2xl">
               RUBIKIAI LUX
             </h1>
           </div>
@@ -158,12 +151,27 @@ export default function HomePage() {
                 height: 'auto',
               }}
             />
-
-            {/* Dark Overlay */}
-            {/*<div className="absolute inset-0 bg-black/40" />*/}
           </div>
         </section>
       </div>
+
+      {/* Floating Reservations Button - Mobile Only - Solo cuando scrolled (header tiene background) */}
+      <button
+        onClick={() => router.push('/reservations')}
+        className={`md:hidden fixed bottom-6 right-6 z-40 bg-gradient-to-br from-[var(--color-secondary)] to-[var(--color-primary-dark)] text-white px-6 py-3 rounded-full shadow-2xl transition-all duration-500 flex items-center gap-2 font-semibold text-sm ${
+          scrolled 
+            ? 'opacity-100 translate-y-0 pointer-events-auto scale-100' 
+            : 'opacity-0 translate-y-4 pointer-events-none scale-95'
+        }`}
+        style={{
+          transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)'
+        }}
+      >
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+        <span>Reservations</span>
+      </button>
     </div>
   );
 }

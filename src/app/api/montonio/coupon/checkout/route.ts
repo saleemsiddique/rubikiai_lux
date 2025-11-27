@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import axios from "axios";
 import { NextResponse } from "next/server";
 import admin, { adminDb as db } from "@/lib/firebase-admin";
+import { nowInLithuania } from "@/app/utils/date-server";
 
 type CheckoutBody = {
   unitAmount: number;
@@ -125,10 +126,10 @@ export async function POST(req: Request) {
       quantity,
       currency: "EUR",
       buyerEmail,
-      createdAt: admin.firestore.Timestamp.now(),
+      createdAt: nowInLithuania(),
       montonioOrderUuid: montonioUuid,
       montonioResponse: response.data || null,
-      montonioResponseAt: admin.firestore.Timestamp.now(),
+      montonioResponseAt: nowInLithuania(),
       montonioPaymentUrl: paymentUrl,
     });
 

@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import admin, { adminDb as db } from "@/lib/firebase-admin";
 import { jwtVerify } from "jose";
+import { nowInLithuania } from "@/app/utils/date-server";
 
 const MONTONIO_SECRET_KEY = (
   process.env.MONTONIO_SECRET_KEY ??
@@ -55,7 +56,7 @@ async function applyCouponInTx(
       code: couponCode,
       amountApplied: amountNumber,
       deductionError: "coupon_not_found_at_webhook",
-      deductionErrorAt: admin.firestore.Timestamp.now(),
+      deductionErrorAt: nowInLithuania(),
     };
   }
 
@@ -68,7 +69,7 @@ async function applyCouponInTx(
       code: couponCode,
       amountApplied: amountNumber,
       deductionError: "invalid_amount_at_webhook",
-      deductionErrorAt: admin.firestore.Timestamp.now(),
+      deductionErrorAt: nowInLithuania(),
     };
   }
 
@@ -78,14 +79,14 @@ async function applyCouponInTx(
       code: couponCode,
       amountApplied: amountNumber,
       deductionError: "insufficient_remaining_at_webhook",
-      deductionErrorAt: admin.firestore.Timestamp.now(),
+      deductionErrorAt: nowInLithuania(),
     };
   }
 
   // restar saldo
   tx.update(couponRef, {
     remaining: remaining - amountNumber,
-    lastUsedAt: admin.firestore.Timestamp.now(),
+    lastUsedAt: nowInLithuania(),
   });
 
   // registrar movimiento
@@ -94,11 +95,11 @@ async function applyCouponInTx(
     type: "reservation",
     reservationId,
     amount: amountNumber,
-    createdAt: admin.firestore.Timestamp.now(),
+    createdAt: nowInLithuania(),
     checkoutSessionId,
   });
 
-  const now = admin.firestore.Timestamp.now();
+  const now = nowInLithuania();
   return {
     id: couponId,
     code: couponCode,
@@ -143,7 +144,7 @@ async function applyPercentDiscountInTx(
       percent: Number(percentValue),
       amountApplied: Number(percentAmountApplied) || 0,
       deductionError: "percent_not_found_at_webhook",
-      deductionErrorAt: admin.firestore.Timestamp.now(),
+      deductionErrorAt: nowInLithuania(),
     };
   }
 
@@ -151,8 +152,8 @@ async function applyPercentDiscountInTx(
 
   tx.update(percentRef, {
     used: true,
-    usedAt: admin.firestore.Timestamp.now(),
-    lastSentAt: pData?.lastSentAt || admin.firestore.Timestamp.now(),
+    usedAt: nowInLithuania(),
+    lastSentAt: pData?.lastSentAt || nowInLithuania(),
   });
 
   const movRef = percentRef.collection("movements").doc();
@@ -161,11 +162,11 @@ async function applyPercentDiscountInTx(
     reservationId,
     amountApplied: Number(percentAmountApplied) || 0,
     percentValue: Number(percentValue) || 0,
-    createdAt: admin.firestore.Timestamp.now(),
+    createdAt: nowInLithuania(),
     checkoutSessionId,
   });
 
-  const now = admin.firestore.Timestamp.now();
+  const now = nowInLithuania();
 
   // ESTRUCTURA IGUAL QUE COUPON:
   return {
@@ -601,7 +602,7 @@ export async function POST(req: Request) {
                 payload?.currency ||
                 "EUR"
               ).toUpperCase(),
-              createdAt: admin.firestore.Timestamp.now(),
+              createdAt: nowInLithuania(),
               montonioOrderUuid: paymentUuid,
               buyerEmail: buyerEmail || null,
             });
@@ -649,7 +650,7 @@ export async function POST(req: Request) {
         if (result.alreadyCompleted)
           return NextResponse.json({ received: true });
 
-        const purchasedAt = admin.firestore.Timestamp.now();
+        const purchasedAt = nowInLithuania();
         const expiresAt = admin.firestore.Timestamp.fromDate(
           addMonths(new Date(), 12)
         );
@@ -697,8 +698,8 @@ export async function POST(req: Request) {
         // cuando actualices el order doc, también puedes asegurar buyerEmail allí
         batch.update(orderRef, {
           status: "completed",
-          completedAt: admin.firestore.Timestamp.now(),
-          lastWebhookAt: admin.firestore.Timestamp.now(),
+          completedAt: nowInLithuania(),
+          lastWebhookAt: nowInLithuania(),
           montonioOrderUuid: paymentUuid || null,
           buyerEmail: buyerEmailFinal,
           unitAmount,
@@ -746,7 +747,7 @@ export async function POST(req: Request) {
               .collection("coupon_orders")
               .doc(orderId)
               .update({
-                emailSendErrorAt: admin.firestore.Timestamp.now(),
+                emailSendErrorAt: nowInLithuania(),
                 emailSendError: String(e?.message ?? e),
               });
           }
@@ -783,7 +784,7 @@ export async function POST(req: Request) {
             // marca ownerNotified en el order doc
             try {
               await db.collection("coupon_orders").doc(orderId).update({
-                ownerNotifiedAt: admin.firestore.Timestamp.now(),
+                ownerNotifiedAt: nowInLithuania(),
                 ownerNotifiedEmail: OWNER_EMAIL,
               });
             } catch (e) {
@@ -796,7 +797,7 @@ export async function POST(req: Request) {
           console.error("owner coupon email failed:", e);
           try {
             await db.collection("coupon_orders").doc(orderId).update({
-              ownerEmailNotifyErrorAt: admin.firestore.Timestamp.now(),
+              ownerEmailNotifyErrorAt: nowInLithuania(),
               ownerEmailNotifyError: String((e as any)?.message || e),
             });
           } catch { }
@@ -884,7 +885,7 @@ export async function POST(req: Request) {
       await db.runTransaction(async (tx) => {
         const snap = await tx.get(resRef);
         const existsAlready = snap.exists;
-        const nowTs = admin.firestore.Timestamp.now();
+        const nowTs = nowInLithuania();
 
         console.log("💾 Guardando reserva - existe?:", existsAlready);
 
@@ -933,7 +934,7 @@ export async function POST(req: Request) {
             comment: comment || null,
             userId: app_user_id || null,
           },
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: nowInLithuania(),
         };
 
         // APPLY COUPON OR PERCENT within same transaction
@@ -1022,9 +1023,9 @@ export async function POST(req: Request) {
         if (intentSnap.exists) {
           await intentRef.update({
             consumed: true,
-            consumedAt: admin.firestore.Timestamp.now(),
+            consumedAt: nowInLithuania(),
             montonioOrderUuid: montonioOrderUuid || null,
-            lastWebhookAt: admin.firestore.Timestamp.now(),
+            lastWebhookAt: nowInLithuania(),
           });
           console.log("🧹 checkout_intent marked consumed for", reservationId);
         }
@@ -1096,13 +1097,13 @@ export async function POST(req: Request) {
                   .collection("reservations")
                   .doc(reservationId)
                   .update({
-                    emailSendErrorAt: admin.firestore.Timestamp.now(),
+                    emailSendErrorAt: nowInLithuania(),
                     emailSendError: `status_${res.status}`,
                     lastEmailResponse: text,
                   });
               } else {
                 await db.collection("reservations").doc(reservationId).update({
-                  confirmationEmailSentAt: admin.firestore.Timestamp.now(),
+                  confirmationEmailSentAt: nowInLithuania(),
                 });
               }
             })
@@ -1112,7 +1113,7 @@ export async function POST(req: Request) {
                 .collection("reservations")
                 .doc(reservationId)
                 .update({
-                  emailSendErrorAt: admin.firestore.Timestamp.now(),
+                  emailSendErrorAt: nowInLithuania(),
                   emailSendError: String(e?.message ?? e),
                 });
             });
@@ -1184,7 +1185,7 @@ export async function POST(req: Request) {
           // marca ownerNotified en la reserva
           try {
             await db.collection("reservations").doc(reservationId).update({
-              ownerNotifiedAt: admin.firestore.Timestamp.now(),
+              ownerNotifiedAt: nowInLithuania(),
               ownerNotifiedEmail: OWNER_EMAIL,
             });
           } catch (e) {
@@ -1199,7 +1200,7 @@ export async function POST(req: Request) {
         console.error("owner reservation notification failed:", e);
         try {
           await db.collection("reservations").doc(reservationId).update({
-            ownerNotifyErrorAt: admin.firestore.Timestamp.now(),
+            ownerNotifyErrorAt: nowInLithuania(),
             ownerNotifyError: String((e as any)?.message || e),
           });
         } catch { }
@@ -1248,7 +1249,7 @@ export async function POST(req: Request) {
                 if (res.ok) {
                   console.log("✅ Email recordatorio enviado");
                   await db.collection("reservations").doc(reservationId).update({
-                    reminderEmailSentAt: admin.firestore.Timestamp.now(),
+                    reminderEmailSentAt: nowInLithuania(),
                   });
                 } else {
                   console.error("❌ Error enviando recordatorio:", res.status);
@@ -1283,11 +1284,11 @@ export async function POST(req: Request) {
           {
             status: "canceled",
             paymentRejectedReason: `montonio_${statusFromMontonio}`,
-            canceledAt: admin.firestore.Timestamp.now(),
+            canceledAt: nowInLithuania(),
             montonioNotification: payload,
             montonioStatus: statusFromMontonio,
             montonioOrderUuid: uuid || admin.firestore.FieldValue.delete(),
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: nowInLithuania(),
           },
           { merge: true }
         );
@@ -1306,7 +1307,7 @@ export async function POST(req: Request) {
           montonioNotification: payload,
           montonioStatus: statusFromMontonio ?? null,
           montonioOrderUuid: uuid ?? admin.firestore.FieldValue.delete(),
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: nowInLithuania(),
         });
       }
     }

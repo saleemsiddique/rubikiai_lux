@@ -6,6 +6,7 @@ import { Resend } from "resend";
 import fs from "fs/promises";
 import path from "path";
 import { DiscountCodeEmailHtml } from "@/app/emails/DiscountCodeEmailHtml";
+import { nowInLithuania } from "@/app/utils/date-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -68,7 +69,7 @@ export async function POST(req: Request) {
     const expiresAt = toIsoDateOnly(expires); // "YYYY-MM-DD"
 
     // timestamps Firestore
-    const nowTs = admin.firestore.Timestamp.now();
+    const nowTs = nowInLithuania();
 
     // guardamos en colección separada para NO mezclar con 'coupons'
     const ref = adminDb.collection("percentage_discounts").doc();
@@ -137,7 +138,7 @@ export async function POST(req: Request) {
       // anotamos error en el doc, pero NO deshacemos la creación
       await ref.update({
         emailSendError: String(error),
-        emailSendErrorAt: admin.firestore.Timestamp.now(),
+        emailSendErrorAt: nowInLithuania(),
       });
 
       return NextResponse.json({

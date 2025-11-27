@@ -1,6 +1,7 @@
 // app/api/admin/reservations/block/route.ts
 import admin, { adminDb } from "@/lib/firebase-admin";
 import { cookies } from "next/headers";
+import { nowInLithuania } from "@/app/utils/date-server";
 
 function isISO(s: string) {
   const d = new Date(s);
@@ -235,7 +236,7 @@ export async function POST(req: Request) {
     const payload: any = {
       status: "admin",
       createdBy: me.email || me.uid,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: nowInLithuania(),
       checkIn: String(checkIn),
       checkOut: String(checkOut),
       nights,
@@ -305,11 +306,11 @@ export async function POST(req: Request) {
             
             await couponDoc.ref.update({
               remaining: newRemaining,
-              lastUsedAt: admin.firestore.FieldValue.serverTimestamp(),
+              lastUsedAt: nowInLithuania(),
               usageHistory: admin.firestore.FieldValue.arrayUnion({
                 reservationId,
                 amount: amountApplied,
-                usedAt: admin.firestore.Timestamp.now(),
+                usedAt: nowInLithuania(),
                 usedBy: customerObj.email,
               }),
             });
@@ -326,7 +327,7 @@ export async function POST(req: Request) {
             
             await percentDoc.ref.update({
               used: true,
-              usedAt: admin.firestore.FieldValue.serverTimestamp(),
+              usedAt: nowInLithuania(),
               usedBy: customerObj.email,
               usedInReservation: reservationId,
             });
@@ -339,7 +340,7 @@ export async function POST(req: Request) {
         // Don't fail the reservation if discount update fails
         await ref.update({
           discountUpdateError: String(discountUpdateError),
-          discountUpdateErrorAt: admin.firestore.Timestamp.now(),
+          discountUpdateErrorAt: nowInLithuania(),
         });
       }
     }
@@ -380,20 +381,20 @@ export async function POST(req: Request) {
               const text = await res.text().catch(() => "");
               console.error("Confirmation email send failed:", res.status, text);
               await ref.update({
-                emailSendErrorAt: admin.firestore.Timestamp.now(),
+                emailSendErrorAt: nowInLithuania(),
                 emailSendError: `status_${res.status}`,
                 lastEmailResponse: text,
               });
             } else {
               await ref.update({
-                confirmationEmailSentAt: admin.firestore.Timestamp.now(),
+                confirmationEmailSentAt: nowInLithuania(),
               });
             }
           })
           .catch(async (e) => {
             console.error("Confirmation email send error:", e);
             await ref.update({
-              emailSendErrorAt: admin.firestore.Timestamp.now(),
+              emailSendErrorAt: nowInLithuania(),
               emailSendError: String(e?.message ?? e),
             });
           });
@@ -490,13 +491,13 @@ export async function POST(req: Request) {
           if (reminderRes.ok) {
             console.log("✅ Reminder email sent");
             await ref.update({
-              reminderEmailSentAt: admin.firestore.Timestamp.now(),
+              reminderEmailSentAt: nowInLithuania(),
             });
           } else {
             const errorText = await reminderRes.text().catch(() => "");
             console.error("❌ Error sending reminder:", reminderRes.status, errorText);
             await ref.update({
-              reminderEmailErrorAt: admin.firestore.Timestamp.now(),
+              reminderEmailErrorAt: nowInLithuania(),
               reminderEmailError: `status_${reminderRes.status}: ${errorText}`,
             });
           }

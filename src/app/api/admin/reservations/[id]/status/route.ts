@@ -2,6 +2,7 @@
 import admin, { adminDb } from "@/lib/firebase-admin";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { nowInLithuania } from "@/app/utils/date-server";
 
 // 🔄 estados válidos ahora
 const ALLOWED = new Set([
@@ -115,13 +116,13 @@ export async function POST(
 
     const data: any = {
       status: String(status),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: nowInLithuania(),
     };
 
     // si marcamos "complete" o paidInFull, dejamos constancia de que está pagado
     if (paidInFull === true || status === "complete") {
       data.paidInFull = true;
-      data.paidAt = admin.firestore.FieldValue.serverTimestamp();
+      data.paidAt = nowInLithuania();
     }
 
     if (typeof note === "string" && note.trim()) {

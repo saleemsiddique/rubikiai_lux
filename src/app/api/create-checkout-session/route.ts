@@ -9,6 +9,7 @@ import {
   calculateNightsCore,
   resolveHouseIds
 } from "@/lib/checkout-utils";
+import { nowInLithuania } from "@/app/utils/date-server";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY! as string);
 
@@ -154,7 +155,7 @@ async function getOrCreateStripeCustomer(input?: CheckoutBody["customer"]) {
 
     await mapRef.set({
       stripeCustomerId: customer.id,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: nowInLithuania(),
     });
 
     return customer.id;

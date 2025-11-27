@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import admin, { adminDb } from "@/lib/firebase-admin";
+import { nowInLithuania } from "@/app/utils/date-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,7 +24,7 @@ export async function POST(req: Request) {
 
     // Creamos orden 'pending'
     const orderRef = adminDb.collection("coupon_orders").doc();
-    const now = admin.firestore.Timestamp.now();
+    const now = nowInLithuania();
 
     await orderRef.set({
       status: "pending",

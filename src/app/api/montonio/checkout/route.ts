@@ -11,6 +11,7 @@ import {
   resolveHouseIds,
   dateIsoLocal,
 } from "@/lib/checkout-utils";
+import { nowInLithuania } from "@/app/utils/date-server";
 
 type CheckoutBody = {
   houseId?: string;
@@ -433,7 +434,7 @@ export async function POST(req: Request) {
     // The webhook will use this as fallback if Montonio doesn't echo all metadata.
     try {
       const intentRef = db.collection("checkout_intents").doc(reservationId);
-      const nowTs = admin.firestore.Timestamp.now();
+      const nowTs = nowInLithuania();
       await intentRef.set({
         reservationId,
         houseIds,
@@ -514,7 +515,7 @@ export async function POST(req: Request) {
         .doc(reservationId)
         .update({
           montonioResponse: response.data || null,
-          montonioResponseAt: admin.firestore.Timestamp.now(),
+          montonioResponseAt: nowInLithuania(),
         });
     } catch (e) {
       console.warn(
@@ -528,7 +529,7 @@ export async function POST(req: Request) {
 
     // If Reservation fee is free (discountedFirst <= 0) -> create reservation now and return successUrl
     if (Number(amountToPayNow) <= 0) {
-      const nowTs = admin.firestore.Timestamp.now();
+      const nowTs = nowInLithuania();
       const baseReservationPayload: any = {
         houseId: houseIds.length === 1 ? houseIds[0] : houseIds.join("__"),
         houseIds,

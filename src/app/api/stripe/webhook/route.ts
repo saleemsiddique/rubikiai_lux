@@ -2,6 +2,7 @@
 import Stripe from "stripe";
 import admin, { adminDb } from "@/lib/firebase-admin"; // <-- usa la ruta correcta según tu proyecto
 import { NextResponse } from "next/server";
+import { nowInLithuania } from "@/app/utils/date-server";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY! as string);
 
@@ -86,7 +87,7 @@ async function applyCouponInTx(
       code: couponCode,
       amountApplied: amountNumber,
       deductionError: "coupon_not_found_at_webhook",
-      deductionErrorAt: admin.firestore.Timestamp.now(),
+      deductionErrorAt: nowInLithuania(),
     };
   }
 
@@ -99,7 +100,7 @@ async function applyCouponInTx(
       code: couponCode,
       amountApplied: amountNumber,
       deductionError: "invalid_amount_at_webhook",
-      deductionErrorAt: admin.firestore.Timestamp.now(),
+      deductionErrorAt: nowInLithuania(),
     };
   }
 
@@ -109,14 +110,14 @@ async function applyCouponInTx(
       code: couponCode,
       amountApplied: amountNumber,
       deductionError: "insufficient_remaining_at_webhook",
-      deductionErrorAt: admin.firestore.Timestamp.now(),
+      deductionErrorAt: nowInLithuania(),
     };
   }
 
   // restar saldo
   tx.update(couponRef, {
     remaining: remaining - amountNumber,
-    lastUsedAt: admin.firestore.Timestamp.now(),
+    lastUsedAt: nowInLithuania(),
   });
 
   // registrar movimiento
@@ -125,11 +126,11 @@ async function applyCouponInTx(
     type: "reservation",
     reservationId,
     amount: amountNumber,
-    createdAt: admin.firestore.Timestamp.now(),
+    createdAt: nowInLithuania(),
     checkoutSessionId,
   });
 
-  const now = admin.firestore.Timestamp.now();
+  const now = nowInLithuania();
   return {
     id: couponId,
     code: couponCode,
@@ -175,7 +176,7 @@ async function applyPercentDiscountInTx(
       percent: Number(percentValue),
       amountApplied: Number(percentAmountApplied) || 0,
       deductionError: "percent_not_found_at_webhook",
-      deductionErrorAt: admin.firestore.Timestamp.now(),
+      deductionErrorAt: nowInLithuania(),
     };
   }
 
@@ -183,8 +184,8 @@ async function applyPercentDiscountInTx(
 
   tx.update(percentRef, {
     used: true,
-    usedAt: admin.firestore.Timestamp.now(),
-    lastSentAt: pData?.lastSentAt || admin.firestore.Timestamp.now(),
+    usedAt: nowInLithuania(),
+    lastSentAt: pData?.lastSentAt || nowInLithuania(),
   });
 
   const movRef = percentRef.collection("movements").doc();
@@ -193,11 +194,11 @@ async function applyPercentDiscountInTx(
     reservationId,
     amountApplied: Number(percentAmountApplied) || 0,
     percentValue: Number(percentValue) || 0,
-    createdAt: admin.firestore.Timestamp.now(),
+    createdAt: nowInLithuania(),
     checkoutSessionId,
   });
 
-  const now = admin.firestore.Timestamp.now();
+  const now = nowInLithuania();
 
   // ✅ ESTRUCTURA IGUAL QUE COUPON
   return {
@@ -260,7 +261,7 @@ export async function POST(req: Request) {
               unitAmountCents: Math.round(unitAmount * 100),
               quantity,
               currency: "EUR",
-              createdAt: admin.firestore.Timestamp.now(),
+              createdAt: nowInLithuania(),
               stripeSessionId: session.id,
               stripePaymentIntentId: paymentIntentId || null,
               buyerEmail: buyerEmail || null,
@@ -299,7 +300,7 @@ export async function POST(req: Request) {
           return NextResponse.json({ received: true });
         }
 
-        const purchasedAt = admin.firestore.Timestamp.now();
+        const purchasedAt = nowInLithuania();
         const expiresAt = admin.firestore.Timestamp.fromDate(
           addMonths(new Date(), 12)
         );
@@ -340,11 +341,11 @@ export async function POST(req: Request) {
 
         batch.update(orderRef, {
           status: "completed",
-          completedAt: admin.firestore.Timestamp.now(),
+          completedAt: nowInLithuania(),
           stripeSessionId: session.id,
           stripePaymentIntentId: paymentIntentId || null,
           buyerEmail: buyerEmail || null,
-          lastWebhookAt: admin.firestore.Timestamp.now(),
+          lastWebhookAt: nowInLithuania(),
         });
 
         await batch.commit();
@@ -369,7 +370,7 @@ export async function POST(req: Request) {
           } catch (e: any) {
             console.error("coupon email send failed:", e?.message || e);
             await orderRef.update({
-              emailSendErrorAt: admin.firestore.Timestamp.now(),
+              emailSendErrorAt: nowInLithuania(),
               emailSendError: String(e?.message ?? e),
             });
           }
@@ -471,7 +472,7 @@ export async function POST(req: Request) {
       await db.runTransaction(async (tx) => {
         const snap = await tx.get(resRef);
         const existsAlready = snap.exists;
-        const nowTs = admin.firestore.Timestamp.now();
+        const nowTs = nowInLithuania();
 
         const baseReservationPayload: any = {
           houseId: houseIds.length === 1 ? houseIds[0] : houseIds.join("__"),
@@ -605,20 +606,20 @@ export async function POST(req: Request) {
                   text
                 );
                 await resRef.update({
-                  emailSendErrorAt: admin.firestore.Timestamp.now(),
+                  emailSendErrorAt: nowInLithuania(),
                   emailSendError: `status_${res.status}`,
                   lastEmailResponse: text,
                 });
               } else {
                 await resRef.update({
-                  confirmationEmailSentAt: admin.firestore.Timestamp.now(),
+                  confirmationEmailSentAt: nowInLithuania(),
                 });
               }
             })
             .catch(async (e) => {
               console.error("Reservation confirmation email send error:", e);
               await resRef.update({
-                emailSendErrorAt: admin.firestore.Timestamp.now(),
+                emailSendErrorAt: nowInLithuania(),
                 emailSendError: String(e?.message ?? e),
               });
             });
@@ -724,13 +725,13 @@ export async function POST(req: Request) {
             if (reminderRes.ok) {
               console.log("✅ Email recordatorio enviado");
               await resRef.update({
-                reminderEmailSentAt: admin.firestore.Timestamp.now(),
+                reminderEmailSentAt: nowInLithuania(),
               });
             } else {
               const errorText = await reminderRes.text().catch(() => "");
               console.error("❌ Error enviando recordatorio:", reminderRes.status, errorText);
               await resRef.update({
-                reminderEmailErrorAt: admin.firestore.Timestamp.now(),
+                reminderEmailErrorAt: nowInLithuania(),
                 reminderEmailError: `status_${reminderRes.status}: ${errorText}`,
               });
             }
@@ -760,7 +761,7 @@ export async function POST(req: Request) {
           await db.collection("coupon_orders").doc(orderId).set(
             {
               status: "expired",
-              updatedAt: admin.firestore.Timestamp.now(),
+              updatedAt: nowInLithuania(),
             },
             { merge: true }
           );
@@ -776,7 +777,7 @@ export async function POST(req: Request) {
           {
             status: "canceled",
             paymentRejectedReason: "checkout_session_expired",
-            canceledAt: admin.firestore.Timestamp.now(),
+            canceledAt: nowInLithuania(),
           },
           { merge: true }
         );

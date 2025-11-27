@@ -135,7 +135,7 @@ const AboutSection: React.FC = () => {
 
                 {/* Title inside image - bottom */}
                 <div className="absolute bottom-0 left-0 right-0 p-3 md:p-4">
-                  <h3 className=" text-xl md:text-2xl lg:text-4xl text-white font-bold group-hover:text-[var(--color-primary)] transition-colors duration-300 drop-shadow-2xl">
+                  <h3 className="text-xl md:text-2xl lg:text-4xl text-white font-bold group-hover:text-[var(--color-primary)] transition-colors duration-300 drop-shadow-2xl">
                     Ežero Namelis →
                   </h3>
                 </div>
@@ -177,8 +177,8 @@ const AboutSection: React.FC = () => {
 
                 {/* Title inside image - bottom */}
                 <div className="absolute bottom-0 left-0 right-0 p-3 md:p-4">
-                  <h3 className="text-lg md:text-2xl lg:text-4xl text-white font-bold group-hover:text-[var(--color-primary)] transition-colors duration-300 drop-shadow-2xl">
-                    Duplekso apartamentai
+                  <h3 className="text-xl md:text-2xl lg:text-4xl text-white font-bold group-hover:text-[var(--color-primary)] transition-colors duration-300 drop-shadow-2xl">
+                    Duplekso apartamentai →
                   </h3>
                 </div>
               </div>

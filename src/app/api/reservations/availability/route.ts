@@ -2,20 +2,29 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 
-function dateOnlyIso(d: Date) { 
+function dateOnlyIso(d: Date) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`; 
+  return `${y}-${m}-${day}`;
 }
 
+// ✅ AHORA (sin bug)
 function toDateOnly(value: any): Date {
   if (!value) return new Date(0);
+
   if (typeof value?.toDate === "function") {
     const d = value.toDate();
     d.setHours(0, 0, 0, 0);
     return d;
   }
+
+  // ✅ Parsear YYYY-MM-DD manualmente
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [year, month, day] = value.split("-").map(Number);
+    return new Date(year, month - 1, day, 0, 0, 0, 0);
+  }
+
   const d = new Date(value);
   d.setHours(0, 0, 0, 0);
   return d;
@@ -27,7 +36,8 @@ export async function POST(req: NextRequest) {
     const { startDate: startISO, endDate: endISO, guests, propertyType } = body;
     const reqStart = toDateOnly(startISO);
     const reqEnd = toDateOnly(endISO);
-    if (!reqStart || !reqEnd) return NextResponse.json({ error: "Invalid dates" }, { status: 400 });
+    if (!reqStart || !reqEnd)
+      return NextResponse.json({ error: "Invalid dates" }, { status: 400 });
 
     let housesQuery = adminDb.collection("houses");
     if (propertyType && propertyType !== "todos") {
@@ -57,7 +67,9 @@ export async function POST(req: NextRequest) {
     const availabilityPromises = houses.map(async (house) => {
       // obtenemos reservas tanto por `houseId` como por `houseIds array-contains`
       const q1 = reservationsRef.where("houseId", "==", house.id).get();
-      const q2 = reservationsRef.where("houseIds", "array-contains", house.id).get();
+      const q2 = reservationsRef
+        .where("houseIds", "array-contains", house.id)
+        .get();
       const [snap1, snap2] = await Promise.all([q1, q2]);
 
       // merge unique docs

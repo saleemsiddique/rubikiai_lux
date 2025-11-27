@@ -90,7 +90,11 @@ const HOUSE_OPTIONS = [
     { id: "L0TeFf2LmrWGAaAyS8NY", alias: "Ezero namelis" },
     { id: "PZwbfMYlSXj61uYYJutg", alias: "Šalia Elnių Aptvaro" },
     { id: "oDzv9346CdaAsok162sX", alias: "Elnių Panorama" },
+    { id: "PZwbfMYlSXj61uYYJutg__oDzv9346CdaAsok162sX", alias: "Ambos Dupleksas (Dual)" },
 ];
+
+// IDs de los dupleksas para reservas duales
+const DUPLEKSA_IDS = ["PZwbfMYlSXj61uYYJutg", "oDzv9346CdaAsok162sX"];
 
 const PROPERTY_NAME_MAP: Record<string, string> = {
     "L0TeFf2LmrWGAaAyS8NY": "Ezero Namelis",
@@ -603,30 +607,43 @@ export default function AdminBookingsClient() {
         endISO: string,
         houseId: string
     ) {
-        const params = new URLSearchParams();
-        params.set("start", startISO);
-        params.set("end", endISO);
-        if (houseId) params.set("houseId", houseId);
+        // Si es una reserva dual (contiene "__"), verificar ambas casas
+        const isDual = houseId.includes("__");
+        const houseIdsToCheck = isDual ? houseId.split("__").filter(Boolean) : [houseId];
 
-        const res = await fetchWithTimeout(
-            `/api/admin/reservations/occupancy?${params.toString()}`,
-            {},
-            20000
-        );
-        if (!res.ok) {
-            const detail = await readError(res);
-            throw new Error(detail || "Could not check occupancy");
+        // Verificar conflictos para cada casa
+        for (const singleHouseId of houseIdsToCheck) {
+            const params = new URLSearchParams();
+            params.set("start", startISO);
+            params.set("end", endISO);
+            params.set("houseId", singleHouseId);
+
+            const res = await fetchWithTimeout(
+                `/api/admin/reservations/occupancy?${params.toString()}`,
+                {},
+                20000
+            );
+            if (!res.ok) {
+                const detail = await readError(res);
+                throw new Error(detail || "Could not check occupancy");
+            }
+            const json = await res.json();
+            const list: Reservation[] = json.results || [];
+
+            const blockers = list.filter((r) =>
+                BLOCKING_STATES.has(String(r.status || "").toLowerCase() as any)
+            );
+
+            const hasConflict = blockers.some((r) =>
+                rangesOverlap(startISO, endISO, r.checkIn, r.checkOut)
+            );
+
+            if (hasConflict) {
+                return true; // Si alguna casa tiene conflicto, retornar true
+            }
         }
-        const json = await res.json();
-        const list: Reservation[] = json.results || [];
 
-        const blockers = list.filter((r) =>
-            BLOCKING_STATES.has(String(r.status || "").toLowerCase() as any)
-        );
-
-        return blockers.some((r) =>
-            rangesOverlap(startISO, endISO, r.checkIn, r.checkOut)
-        );
+        return false; // Ninguna casa tiene conflicto
     }
 
     // Calculate nights between two dates
@@ -825,13 +842,22 @@ export default function AdminBookingsClient() {
                 customer.phone = blockCustomerPhone.trim();
             }
 
+            // Detectar si es una reserva dual (contiene "__")
+            const isDualBooking = blockHouseId.includes("__");
+
             const payload: any = {
                 checkIn: blockStart,
                 checkOut: blockEnd,
-                houseId: blockHouseId,
                 guests: blockGuests,
                 customer: customer,
             };
+
+            // Si es dual, enviar houseIds array; si no, enviar houseId
+            if (isDualBooking) {
+                payload.houseIds = blockHouseId.split("__").filter(Boolean);
+            } else {
+                payload.houseId = blockHouseId;
+            }
 
             if (blockArrivalTime.trim()) {
                 payload.arrivalTime = blockArrivalTime.trim();

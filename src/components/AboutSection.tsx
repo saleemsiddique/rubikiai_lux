@@ -120,8 +120,8 @@ const AboutSection: React.FC = () => {
               ref={card1Ref}
               href="/ezero-namelis"
               className={`group transition-all duration-1000 ease-out ${isCard1Visible
-                  ? 'opacity-100 translate-x-0'
-                  : 'opacity-0 -translate-x-12'
+                ? 'opacity-100 translate-x-0'
+                : 'opacity-0 -translate-x-12'
                 }`}
             >
               {/* Image Container */}
@@ -135,9 +135,26 @@ const AboutSection: React.FC = () => {
 
                 {/* Title inside image - bottom */}
                 <div className="absolute bottom-0 left-0 right-0 p-3 md:p-4">
-                  <h3 className="text-xl md:text-2xl lg:text-4xl text-white font-bold group-hover:text-[var(--color-primary)] transition-colors duration-300 drop-shadow-2xl">
+
+                  {/* Dark gradient overlay solo detrás del título y botón */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent pointer-events-none"></div>
+
+                  {/* DESKTOP/TABLET */}
+                  <h3 className="relative hidden md:flex text-xl md:text-2xl lg:text-4xl text-white font-bold group-hover:text-[var(--color-primary)] transition-colors duration-300 drop-shadow-2xl">
                     Ežero Namelis →
                   </h3>
+
+                  {/* MÓVIL: título izquierda + “More” derecha */}
+                  <div className="relative md:hidden flex items-center justify-between">
+                    <h3 className="text-xl text-white font-bold drop-shadow-2xl">
+                      Ežero Namelis
+                    </h3>
+
+                    <span className="px-2 py-[2px] text-xs font-semibold text-white bg-black/20 border border-white backdrop-blur-sm">
+                      More
+                    </span>
+                  </div>
+
                 </div>
               </div>
 
@@ -152,17 +169,18 @@ const AboutSection: React.FC = () => {
               </div>
             </Link>
 
+
             {/* DUPLEKSO APARTAMENTAI - slide from right */}
             <Link
               ref={card2Ref}
               href="/dupleksas"
               className={`group transition-all duration-1000 ease-out ${isCard2Visible
-                  ? 'opacity-100 translate-x-0'
-                  : 'opacity-0 -translate-x-15'
+                ? 'opacity-100 translate-x-0'
+                : 'opacity-0 -translate-x-15'
                 }`}
             >
               {/* Image Container */}
-              <div className="relative rounded-2xl shadow-lg overflow-hidden mb-4">
+              <div className="relative shadow-lg overflow-hidden mb-4">
                 {/* Background Image */}
                 <img
                   src="/dupleksas/1-dupleksas6.jpeg"
@@ -177,10 +195,29 @@ const AboutSection: React.FC = () => {
 
                 {/* Title inside image - bottom */}
                 <div className="absolute bottom-0 left-0 right-0 p-3 md:p-4">
-                  <h3 className="text-xl md:text-2xl lg:text-4xl text-white font-bold group-hover:text-[var(--color-primary)] transition-colors duration-300 drop-shadow-2xl">
+
+                  {/* Dark translucent overlay solo detrás del título y botón */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent pointer-events-none"></div>
+
+                  {/* DESKTOP/TABLET */}
+                  <h3 className="relative hidden md:flex text-xl md:text-2xl lg:text-4xl text-white font-bold group-hover:text-[var(--color-primary)] transition-colors duration-300 drop-shadow-2xl">
                     Duplekso apartamentai →
                   </h3>
+
+                  {/* MÓVIL: título izquierda + “More” derecha */}
+                  <div className="relative md:hidden flex items-center justify-between">
+                    <h3 className="text-xl text-white font-bold drop-shadow-2xl">
+                      Duplekso apartamentai
+                    </h3>
+
+                    <span className="px-2 py-[2px] text-xs font-semibold text-white bg-black/20 border border-white backdrop-blur-sm">
+                      More
+                    </span>
+                  </div>
                 </div>
+
+
+
               </div>
 
               {/* Description below with decoration */}

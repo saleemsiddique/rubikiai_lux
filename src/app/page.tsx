@@ -22,7 +22,7 @@ export default function HomePage() {
 
   useEffect(() => {
     let ticking = false;
-    
+
     const handleScroll = () => {
       if (!ticking) {
         window.requestAnimationFrame(() => {
@@ -34,7 +34,7 @@ export default function HomePage() {
         ticking = true;
       }
     };
-    
+
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
@@ -62,7 +62,7 @@ export default function HomePage() {
 
   const heroHeight = isMounted ? window.innerHeight * 1.3 : 1300;
   const isMobile = isMounted && window.innerWidth <= 768;
-  
+
   // Opacidad más rápida - desaparece en menos scroll
   const titleOpacity = Math.max(1 - scrollY / (heroHeight * 0.6), 0);
   const imageOpacity = scrollY < heroHeight ? 1 : Math.max(1 - (scrollY - heroHeight) / 200, 0);
@@ -109,13 +109,13 @@ export default function HomePage() {
         </div>
 
         {/* Content - Title - Sticky nativo simple */}
-        <div 
+        <div
           className="sticky top-[16vh] md:top-[20vh] left-0 right-0 w-full flex items-start md:items-center justify-center pt-1 md:pt-0"
-          style={{ 
+          style={{
             zIndex: 2,
           }}
         >
-          <div 
+          <div
             className="relative text-center px-4 pointer-events-auto w-full"
             style={{
               opacity: titleOpacity,
@@ -127,18 +127,17 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-      
+
       <div className="relative z-10 bg-[var(--color-background-soft)]">
         <AboutSection></AboutSection>
 
         {/* FULLSCREEN IMAGE WITH CTA - Slide up animation */}
-        <section 
+        <section
           ref={imageRef}
-          className={`relative w-full overflow-hidden transition-all duration-1000 ease-out ${
-            isImageVisible 
-              ? 'opacity-100 translate-y-0' 
+          className={`relative w-full overflow-hidden transition-all duration-1000 ease-out ${isImageVisible
+              ? 'opacity-100 translate-y-0'
               : 'opacity-0 translate-y-16'
-          }`}
+            }`}
         >
           <div className="relative w-full">
             <img
@@ -158,11 +157,10 @@ export default function HomePage() {
       {/* Floating Reservations Button - Mobile Only - Solo cuando scrolled (header tiene background) */}
       <button
         onClick={() => router.push('/reservations')}
-        className={`md:hidden fixed bottom-6 right-6 z-40 bg-gradient-to-br from-[var(--color-secondary)] to-[var(--color-primary-dark)] text-white px-6 py-3 rounded-full shadow-2xl transition-all duration-500 flex items-center gap-2 font-semibold text-sm ${
-          scrolled 
-            ? 'opacity-100 translate-y-0 pointer-events-auto scale-100' 
+        className={`md:hidden fixed bottom-6 right-6 z-40 bg-gradient-to-br from-[var(--color-secondary)] to-[var(--color-primary-dark)] text-white px-6 py-3 rounded-full shadow-2xl transition-all duration-500 flex items-center gap-2 font-semibold text-sm ${scrolled
+            ? 'opacity-100 translate-y-0 pointer-events-auto scale-100'
             : 'opacity-0 translate-y-4 pointer-events-none scale-95'
-        }`}
+          }`}
         style={{
           transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)'
         }}

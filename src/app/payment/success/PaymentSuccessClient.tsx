@@ -403,22 +403,6 @@ export default function PaymentSuccessClient() {
       </p>
 
       <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
-        <Link
-          href={`/reservations?reservationId=${encodeURIComponent(idToShow)}`}
-          className="block"
-        >
-          <button
-            className="w-full py-3 rounded-lg font-semibold"
-            style={{
-              background: "var(--color-primary)",
-              color: "white",
-              boxShadow: "0 6px 18px rgba(143,110,82,0.12)",
-            }}
-          >
-            Ver mis reservas
-          </button>
-        </Link>
-
         <Link href="/" className="block">
           <button
             className="w-full py-3 rounded-lg border font-semibold"
@@ -434,14 +418,14 @@ export default function PaymentSuccessClient() {
       </div>
 
       <div className="text-xs text-gray-500 mt-3">
-        <p style={{ color: "var(--color-text)" }}>
+        <p>
           ¿Necesitas ayuda?{" "}
-          <a
-            href="mailto:hello@rubikiai.com"
+          <Link
+            href="/contact"
             style={{ color: "var(--color-primary-dark)", fontWeight: 600 }}
           >
             Contáctanos
-          </a>
+          </Link>
         </p>
       </div>
 

@@ -146,15 +146,24 @@ export default function CheckoutDetailsClient() {
 
   // Normalizar fechas a YYYY-MM-DD usando UTC para evitar problemas de timezone
   // Esto asegura que 2025-11-26T23:00:00.000Z siempre sea "2025-11-26"
+  // ✅ DESPUÉS - Reemplaza la función completa por esta:
   const normalizeDate = (dateString: string): string => {
     if (!dateString) return "";
     try {
+      // Si ya viene en formato YYYY-MM-DD, devolverlo tal cual
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+        return dateString;
+      }
+
+      // Si viene como ISO string (con hora), extraer solo la fecha
       const d = new Date(dateString);
       if (isNaN(d.getTime())) return dateString;
-      // Usar métodos UTC para asegurar consistencia entre localhost y Vercel
-      const year = d.getUTCFullYear();
-      const month = String(d.getUTCMonth() + 1).padStart(2, "0");
-      const day = String(d.getUTCDate()).padStart(2, "0");
+
+      // Usar getFullYear(), getMonth(), getDate() en lugar de UTC
+      // para mantener consistencia con la fecha local seleccionada
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
       return `${year}-${month}-${day}`;
     } catch {
       return dateString;

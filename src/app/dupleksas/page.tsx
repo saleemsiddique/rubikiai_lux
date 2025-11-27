@@ -33,7 +33,7 @@ const DuplexSelectionPage: React.FC = () => {
           
           <div className="relative block">
             <Image
-              src="/dupleksas/1-dupleksas8.jpg"
+              src="/dupleksas/1-dupleksas6.jpeg"
               alt="Nr.1 - Šalia Elnių Aptvaro"
               width={800}
               height={600}
@@ -65,7 +65,7 @@ const DuplexSelectionPage: React.FC = () => {
             />
             {/* Desktop image */}
             <Image
-              src="/dupleksas/2-dupleksas8.jpeg"
+              src="/dupleksas/2-dupleksas9.jpeg"
               alt="Nr.2 - Elnių Panorama"
               width={800}
               height={600}

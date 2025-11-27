@@ -164,202 +164,202 @@ function fetchWithTimeout(
 }
 
 /* ---------------- Price Summary Component ---------------- */
-function PriceSummaryBlock({ 
-  houseId, 
-  startDate, 
-  endDate, 
-  guests, 
-  jacuzziEnabled, 
-  jacuzziDays,
-  discountApplied,
-  discountData,
-  appliedDiscount
-}: { 
-  houseId: string; 
-  startDate: string; 
-  endDate: string; 
-  guests: number;
-  jacuzziEnabled: boolean;
-  jacuzziDays: number;
-  discountApplied: boolean;
-  discountData: any;
-  appliedDiscount: number;
+function PriceSummaryBlock({
+    houseId,
+    startDate,
+    endDate,
+    guests,
+    jacuzziEnabled,
+    jacuzziDays,
+    discountApplied,
+    discountData,
+    appliedDiscount
+}: {
+    houseId: string;
+    startDate: string;
+    endDate: string;
+    guests: number;
+    jacuzziEnabled: boolean;
+    jacuzziDays: number;
+    discountApplied: boolean;
+    discountData: any;
+    appliedDiscount: number;
 }) {
-  const [priceData, setPriceData] = useState<any | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+    const [priceData, setPriceData] = useState<any | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchPrice = async () => {
-      // 🔍 Validar que tenemos todos los datos necesarios
-      if (!houseId || !startDate || !endDate) {
-        console.log('⏸️ [PriceSummary] Missing required data:', { houseId, startDate, endDate });
-        setPriceData(null);
-        return;
-      }
+    useEffect(() => {
+        const fetchPrice = async () => {
+            // 🔍 Validar que tenemos todos los datos necesarios
+            if (!houseId || !startDate || !endDate) {
+                console.log('⏸️ [PriceSummary] Missing required data:', { houseId, startDate, endDate });
+                setPriceData(null);
+                return;
+            }
 
-      // 🔍 Validar formato de fechas (YYYY-MM-DD)
-      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-      if (!dateRegex.test(startDate) || !dateRegex.test(endDate)) {
-        console.error('❌ [PriceSummary] Invalid date format:', { startDate, endDate });
-        setError('Invalid date format. Expected YYYY-MM-DD');
-        return;
-      }
+            // 🔍 Validar formato de fechas (YYYY-MM-DD)
+            const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+            if (!dateRegex.test(startDate) || !dateRegex.test(endDate)) {
+                console.error('❌ [PriceSummary] Invalid date format:', { startDate, endDate });
+                setError('Invalid date format. Expected YYYY-MM-DD');
+                return;
+            }
 
-      // 🔍 Validar que startDate < endDate
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      if (start >= end) {
-        console.error('❌ [PriceSummary] Start date must be before end date:', { startDate, endDate });
-        setError('Check-out date must be after check-in date');
-        return;
-      }
+            // 🔍 Validar que startDate < endDate
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            if (start >= end) {
+                console.error('❌ [PriceSummary] Start date must be before end date:', { startDate, endDate });
+                setError('Check-out date must be after check-in date');
+                return;
+            }
 
-      setLoading(true);
-      setError(null);
-      
-      try {
-        const body: any = {
-          houseId,
-          startDate,
-          endDate,
-          guests,
+            setLoading(true);
+            setError(null);
+
+            try {
+                const body: any = {
+                    houseId,
+                    startDate,
+                    endDate,
+                    guests,
+                };
+
+                if (jacuzziEnabled && jacuzziDays > 0) {
+                    body.jacuzzi = true;
+                    body.jacuzziDays = jacuzziDays;
+                }
+
+                console.log('🔵 [PriceSummary] Calling price API with:', body);
+
+                const res = await fetch('/api/reservations/price', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+
+                console.log('🔵 [PriceSummary] Response status:', res.status);
+
+                if (!res.ok) {
+                    const errorText = await res.text();
+                    console.error('🔴 [PriceSummary] Error response:', errorText);
+                    throw new Error(`Price fetch failed: ${res.status} - ${errorText}`);
+                }
+
+                const data = await res.json();
+                console.log('✅ [PriceSummary] Price data received:', data);
+                setPriceData(data);
+            } catch (err: any) {
+                console.error('🔴 [PriceSummary] Fetch error:', err);
+                setError(err?.message || 'Failed to fetch price');
+            } finally {
+                setLoading(false);
+            }
         };
 
-        if (jacuzziEnabled && jacuzziDays > 0) {
-          body.jacuzzi = true;
-          body.jacuzziDays = jacuzziDays;
-        }
+        fetchPrice();
+    }, [houseId, startDate, endDate, guests, jacuzziEnabled, jacuzziDays]);
 
-        console.log('🔵 [PriceSummary] Calling price API with:', body);
-
-        const res = await fetch('/api/reservations/price', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        });
-
-        console.log('🔵 [PriceSummary] Response status:', res.status);
-
-        if (!res.ok) {
-          const errorText = await res.text();
-          console.error('🔴 [PriceSummary] Error response:', errorText);
-          throw new Error(`Price fetch failed: ${res.status} - ${errorText}`);
-        }
-
-        const data = await res.json();
-        console.log('✅ [PriceSummary] Price data received:', data);
-        setPriceData(data);
-      } catch (err: any) {
-        console.error('🔴 [PriceSummary] Fetch error:', err);
-        setError(err?.message || 'Failed to fetch price');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchPrice();
-  }, [houseId, startDate, endDate, guests, jacuzziEnabled, jacuzziDays]);
-
-  if (loading) {
-    return (
-      <div className="border-t pt-3 mt-2 text-xs text-neutral-600">
-        Loading price summary...
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="border-t pt-3 mt-2">
-        <div className="bg-red-50 border border-red-200 rounded-md p-3 text-xs text-red-700">
-          <span className="font-semibold">Price calculation error:</span> {error}
-        </div>
-      </div>
-    );
-  }
-
-  if (!priceData) return null;
-
-  // Calculate discount amounts
-  let discountedFirst = priceData.first || 0;
-  let discountedGrandTotal = priceData.grandTotal || 0;
-  let discountAmount = 0;
-
-  if (discountApplied && discountData) {
-    if (discountData.kind === 'coupon') {
-      // Coupon: fixed euro amount off first night
-      discountAmount = Math.min(appliedDiscount, priceData.first || 0, priceData.grandTotal || 0);
-      discountedFirst = Math.max(0, (priceData.first || 0) - discountAmount);
-      discountedGrandTotal = Math.max(0, (priceData.grandTotal || 0) - discountAmount);
-    } else if (discountData.kind === 'percent') {
-      // Percentage: applies only to first night
-      const percentValue = appliedDiscount;
-      discountAmount = ((percentValue / 100) * (priceData.first || 0));
-      discountedFirst = Math.max(0, (priceData.first || 0) - discountAmount);
-      discountedGrandTotal = Math.max(0, (priceData.grandTotal || 0) - discountAmount);
+    if (loading) {
+        return (
+            <div className="border-t pt-3 mt-2 text-xs text-neutral-600">
+                Loading price summary...
+            </div>
+        );
     }
-  }
 
-  const nights = priceData.nights || 0;
-  const extraGuests = priceData.extraGuests || 0;
-
-  return (
-    <div className="border-t pt-3 mt-2">
-      <div className="text-xs font-semibold text-neutral-700 mb-2">
-        Reservation Summary
-      </div>
-      <div className="bg-gray-50 rounded-md p-3 text-xs space-y-2">
-        <div className="flex justify-between">
-          <span className="text-neutral-600">Accommodation ({nights} night{nights > 1 ? 's' : ''})</span>
-          <span className="font-medium">€{(priceData.total || 0).toFixed(2)}</span>
-        </div>
-
-        {extraGuests > 0 && (
-          <div className="flex justify-between text-neutral-600">
-            <span>Extra guests ({extraGuests})</span>
-            <span>Included in total</span>
-          </div>
-        )}
-
-        {jacuzziEnabled && (priceData.jacuzziFee || 0) > 0 && (
-          <div className="flex justify-between">
-            <span className="text-neutral-600">Jacuzzi ({jacuzziDays} day{jacuzziDays > 1 ? 's' : ''})</span>
-            <span className="font-medium">€{(priceData.jacuzziFee || 0).toFixed(2)}</span>
-          </div>
-        )}
-
-        <div className="border-t border-gray-300 pt-2 flex justify-between font-semibold">
-          <span>Total</span>
-          <span>€{(priceData.grandTotal || 0).toFixed(2)}</span>
-        </div>
-
-        {discountApplied && discountAmount > 0 && (
-          <>
-            <div className="flex justify-between text-green-600">
-              <span>Discount applied</span>
-              <span>-€{discountAmount.toFixed(2)}</span>
+    if (error) {
+        return (
+            <div className="border-t pt-3 mt-2">
+                <div className="bg-red-50 border border-red-200 rounded-md p-3 text-xs text-red-700">
+                    <span className="font-semibold">Price calculation error:</span> {error}
+                </div>
             </div>
-            <div className="border-t border-gray-300 pt-2 flex justify-between font-semibold text-[var(--color-primary)]">
-              <span>Total after discount</span>
-              <span>€{discountedGrandTotal.toFixed(2)}</span>
-            </div>
-          </>
-        )}
+        );
+    }
 
-        <div className="border-t border-gray-300 pt-2 mt-2">
-          <div className="flex justify-between text-[var(--color-primary-dark)]">
-            <span>Reservation fee (pay now)</span>
-            <span className="font-bold">€{discountedFirst.toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between text-neutral-600 mt-1">
-            <span>Pay at arrival</span>
-            <span>€{Math.max(0, discountedGrandTotal - discountedFirst).toFixed(2)}</span>
-          </div>
+    if (!priceData) return null;
+
+    // Calculate discount amounts
+    let discountedFirst = priceData.first || 0;
+    let discountedGrandTotal = priceData.grandTotal || 0;
+    let discountAmount = 0;
+
+    if (discountApplied && discountData) {
+        if (discountData.kind === 'coupon') {
+            // Coupon: fixed euro amount off first night
+            discountAmount = Math.min(appliedDiscount, priceData.first || 0, priceData.grandTotal || 0);
+            discountedFirst = Math.max(0, (priceData.first || 0) - discountAmount);
+            discountedGrandTotal = Math.max(0, (priceData.grandTotal || 0) - discountAmount);
+        } else if (discountData.kind === 'percent') {
+            // Percentage: applies only to first night
+            const percentValue = appliedDiscount;
+            discountAmount = ((percentValue / 100) * (priceData.first || 0));
+            discountedFirst = Math.max(0, (priceData.first || 0) - discountAmount);
+            discountedGrandTotal = Math.max(0, (priceData.grandTotal || 0) - discountAmount);
+        }
+    }
+
+    const nights = priceData.nights || 0;
+    const extraGuests = priceData.extraGuests || 0;
+
+    return (
+        <div className="border-t pt-3 mt-2">
+            <div className="text-xs font-semibold text-neutral-700 mb-2">
+                Reservation Summary
+            </div>
+            <div className="bg-gray-50 rounded-md p-3 text-xs space-y-2">
+                <div className="flex justify-between">
+                    <span className="text-neutral-600">Accommodation ({nights} night{nights > 1 ? 's' : ''})</span>
+                    <span className="font-medium">€{(priceData.total || 0).toFixed(2)}</span>
+                </div>
+
+                {extraGuests > 0 && (
+                    <div className="flex justify-between text-neutral-600">
+                        <span>Extra guests ({extraGuests})</span>
+                        <span>Included in total</span>
+                    </div>
+                )}
+
+                {jacuzziEnabled && (priceData.jacuzziFee || 0) > 0 && (
+                    <div className="flex justify-between">
+                        <span className="text-neutral-600">Jacuzzi ({jacuzziDays} day{jacuzziDays > 1 ? 's' : ''})</span>
+                        <span className="font-medium">€{(priceData.jacuzziFee || 0).toFixed(2)}</span>
+                    </div>
+                )}
+
+                <div className="border-t border-gray-300 pt-2 flex justify-between font-semibold">
+                    <span>Total</span>
+                    <span>€{(priceData.grandTotal || 0).toFixed(2)}</span>
+                </div>
+
+                {discountApplied && discountAmount > 0 && (
+                    <>
+                        <div className="flex justify-between text-green-600">
+                            <span>Discount applied</span>
+                            <span>-€{discountAmount.toFixed(2)}</span>
+                        </div>
+                        <div className="border-t border-gray-300 pt-2 flex justify-between font-semibold text-[var(--color-primary)]">
+                            <span>Total after discount</span>
+                            <span>€{discountedGrandTotal.toFixed(2)}</span>
+                        </div>
+                    </>
+                )}
+
+                <div className="border-t border-gray-300 pt-2 mt-2">
+                    <div className="flex justify-between text-[var(--color-primary-dark)]">
+                        <span>Reservation fee (pay now)</span>
+                        <span className="font-bold">€{discountedFirst.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-neutral-600 mt-1">
+                        <span>Pay at arrival</span>
+                        <span>€{Math.max(0, discountedGrandTotal - discountedFirst).toFixed(2)}</span>
+                    </div>
+                </div>
+            </div>
         </div>
-      </div>
-    </div>
-  );
+    );
 }
 
 export default function AdminBookingsClient() {
@@ -372,7 +372,7 @@ export default function AdminBookingsClient() {
     ]);
     const [rangeStart, setRangeStart] = useState<string>(toISO(new Date()));
     const [rangeEnd, setRangeEnd] = useState<string>(
-        addDaysISO(toISO(new Date()), 60)
+        addDaysISO(toISO(new Date()), 30)
     );
     const [houseId, setHouseId] = useState<string>("");
 
@@ -907,7 +907,10 @@ export default function AdminBookingsClient() {
             }
 
             setBlockMsg("Dates blocked successfully.");
-            
+            // Clear success message after 5 seconds
+            setTimeout(() => {
+                setBlockMsg(null);
+            }, 3000);
             // Reset form
             setBlockCustomerName("");
             setBlockCustomerEmail("");
@@ -926,6 +929,10 @@ export default function AdminBookingsClient() {
             await fetchMonthOccupancy();
         } catch (e: any) {
             setBlockMsg(`Error: ${e?.message || e}`);
+            // Clear success message after 5 seconds
+            setTimeout(() => {
+                setBlockMsg(null);
+            }, 3000);
         } finally {
             setBlockBusy(false);
         }
@@ -1133,8 +1140,11 @@ export default function AdminBookingsClient() {
                                                     )}
                                                 </td>
                                                 <td className="px-3 py-2">
-                                                    {r.houseId ??
-                                                        r.houseIds?.join(",")}
+                                                    {r.houseIds && r.houseIds.length > 1
+                                                        ? r.houseIds
+                                                            .map((id: string) => PROPERTY_NAME_MAP[id] || id)
+                                                            .join(" + ")
+                                                        : PROPERTY_NAME_MAP[r.houseId || r.houseIds?.[0] || ""] || r.houseId || r.houseIds?.[0] || "—"}
                                                 </td>
                                                 <td className="px-3 py-2">
                                                     {customerName}
@@ -1465,11 +1475,11 @@ export default function AdminBookingsClient() {
 
                                                 <div>
                                                     Stay:{" "}
-                                                    {r.houseId
-                                                        ? PROPERTY_NAME_MAP[r.houseId] || r.houseId
-                                                        : r.houseIds
-                                                            ?.map((id: string) => PROPERTY_NAME_MAP[id] || id)
-                                                            .join(", ")}
+                                                    {r.houseIds && r.houseIds.length > 1
+                                                        ? r.houseIds
+                                                            .map((id: string) => PROPERTY_NAME_MAP[id] || id)
+                                                            .join(" + ")
+                                                        : PROPERTY_NAME_MAP[r.houseId || r.houseIds?.[0] || ""] || r.houseId || r.houseIds?.[0] || "—"}
                                                 </div>
 
                                                 <div>Guest: {customerName}</div>
@@ -1918,25 +1928,25 @@ export default function AdminBookingsClient() {
                             </div>
 
                             {/* Price Summary Section */}
-                            {blockStart && 
-                             blockEnd && 
-                             blockHouseId && 
-                             /^\d{4}-\d{2}-\d{2}$/.test(blockStart) &&
-                             /^\d{4}-\d{2}-\d{2}$/.test(blockEnd) &&
-                             blockStart < blockEnd && 
-                             nights > 0 && (
-                                <PriceSummaryBlock 
-                                    houseId={blockHouseId}
-                                    startDate={blockStart}
-                                    endDate={blockEnd}
-                                    guests={blockGuests}
-                                    jacuzziEnabled={blockWithJacuzzi}
-                                    jacuzziDays={blockJacuzziDays}
-                                    discountApplied={blockDiscountApplied}
-                                    discountData={blockDiscountData}
-                                    appliedDiscount={blockAppliedEuroDiscount}
-                                />
-                            )}
+                            {blockStart &&
+                                blockEnd &&
+                                blockHouseId &&
+                                /^\d{4}-\d{2}-\d{2}$/.test(blockStart) &&
+                                /^\d{4}-\d{2}-\d{2}$/.test(blockEnd) &&
+                                blockStart < blockEnd &&
+                                nights > 0 && (
+                                    <PriceSummaryBlock
+                                        houseId={blockHouseId}
+                                        startDate={blockStart}
+                                        endDate={blockEnd}
+                                        guests={blockGuests}
+                                        jacuzziEnabled={blockWithJacuzzi}
+                                        jacuzziDays={blockJacuzziDays}
+                                        discountApplied={blockDiscountApplied}
+                                        discountData={blockDiscountData}
+                                        appliedDiscount={blockAppliedEuroDiscount}
+                                    />
+                                )}
 
                             <button
                                 onClick={createBlock}

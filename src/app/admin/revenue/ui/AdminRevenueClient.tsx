@@ -62,6 +62,12 @@ const HOUSE_OPTIONS = [
   { id: "oDzv9346CdaAsok162sX", alias: "Elnių Panorama" },
 ];
 
+const PROPERTY_NAME_MAP: Record<string, string> = {
+  "L0TeFf2LmrWGAaAyS8NY": "Ezero Namelis",
+  "PZwbfMYlSXj61uYYJutg": "Salia Elnių Aptvaro",
+  "oDzv9346CdaAsok162sX": "Salia Elnių Panorama",
+};
+
 function todayISO() {
   const d = new Date();
   const y = d.getFullYear();
@@ -381,11 +387,10 @@ export default function AdminRevenueClient() {
           <button
             key={t.key}
             onClick={() => setTab(t.key as any)}
-            className={`px-3 py-1 rounded-md border text-sm ${
-              tab === t.key
-                ? "bg-[var(--color-primary)] text-white"
-                : "bg-white hover:bg-neutral-50"
-            }`}
+            className={`px-3 py-1 rounded-md border text-sm ${tab === t.key
+              ? "bg-[var(--color-primary)] text-white"
+              : "bg-white hover:bg-neutral-50"
+              }`}
           >
             {t.label}
           </button>
@@ -466,8 +471,16 @@ export default function AdminRevenueClient() {
                     const paymentMethod = r.stripeSessionId
                       ? "Stripe"
                       : r.montonioOrderUuid
-                      ? "Montonio"
-                      : "—";
+                        ? "Montonio"
+                        : "—";
+
+                    // Añade esta nueva variable
+                    const houseName = r.houseIds && r.houseIds.length > 1
+                      ? r.houseIds
+                        .map((id: string) => PROPERTY_NAME_MAP[id] || id)
+                        .join(" + ")
+                      : PROPERTY_NAME_MAP[r.houseId || r.houseIds?.[0] || ""] || r.houseId || r.houseIds?.[0] || "—";
+
 
                     return (
                       <tr key={r.id} className="border-t">
@@ -481,7 +494,7 @@ export default function AdminRevenueClient() {
                           <StatusPill s={r.status} />
                         </td>
                         <td className="px-3 py-2">
-                          {r.houseId ?? (r.houseIds ? r.houseIds.join(",") : "—")}
+                          {houseName}
                         </td>
                         <td className="px-3 py-2">{r.guests ?? "—"}</td>
                         <td className="px-3 py-2">

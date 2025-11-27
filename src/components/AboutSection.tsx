@@ -165,12 +165,12 @@ const AboutSection: React.FC = () => {
               <div className="relative rounded-2xl shadow-lg overflow-hidden mb-4">
                 {/* Background Image */}
                 <img
-                  src="/home/dupleksas-inicio.jpeg"
+                  src="/dupleksas/1-dupleksas6.jpeg"
                   alt="Duplekso apartamentai"
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 md:hidden"
                 />
                 <img
-                  src="/home/dupleksas-inicio.jpeg"
+                  src="/dupleksas/1-dupleksas6.jpeg"
                   alt="Duplekso apartamentai"
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 hidden md:block"
                 />

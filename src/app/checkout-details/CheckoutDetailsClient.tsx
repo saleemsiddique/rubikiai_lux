@@ -143,8 +143,26 @@ export default function CheckoutDetailsClient() {
   const houseId = searchParams.get("houseId") || ""; // could be single or "a__b"
   const houseSlug = searchParams.get("houseSlug") || "";
   const houseTitle = searchParams.get("houseTitle") || ""; // <-- NUEVO
-  const startIso = searchParams.get("start") || "";
-  const endIso = searchParams.get("end") || "";
+
+  // Normalizar fechas a YYYY-MM-DD usando UTC para evitar problemas de timezone
+  // Esto asegura que 2025-11-26T23:00:00.000Z siempre sea "2025-11-26"
+  const normalizeDate = (dateString: string): string => {
+    if (!dateString) return "";
+    try {
+      const d = new Date(dateString);
+      if (isNaN(d.getTime())) return dateString;
+      // Usar métodos UTC para asegurar consistencia entre localhost y Vercel
+      const year = d.getUTCFullYear();
+      const month = String(d.getUTCMonth() + 1).padStart(2, "0");
+      const day = String(d.getUTCDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    } catch {
+      return dateString;
+    }
+  };
+
+  const startIso = normalizeDate(searchParams.get("start") || "");
+  const endIso = normalizeDate(searchParams.get("end") || "");
   const guestsParam = searchParams.get("guests") || "2";
   const guests = Number(guestsParam) || 2;
 

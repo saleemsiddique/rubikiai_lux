@@ -353,6 +353,13 @@ export default function CheckoutDetailsClient() {
     const savedData = loadFormData();
     if (savedData) {
       console.log("🔄 Restaurando datos del formulario:", savedData);
+
+      // Resetear priceData para forzar re-fetch con valores actualizados
+      if (typeof savedData.withJacuzzi === "boolean" || savedData.jacuzziDays) {
+        console.log("🔄 Jacuzzi data from localStorage, resetting priceData to force re-fetch");
+        setPriceData(null);
+      }
+
       if (savedData.firstName) setFirstName(savedData.firstName);
       if (savedData.lastName) setLastName(savedData.lastName);
       if (savedData.email) setEmail(savedData.email);
@@ -395,6 +402,12 @@ export default function CheckoutDetailsClient() {
           return;
         }
 
+        console.log("✅ Price data received:", {
+          houseId,
+          withJacuzzi,
+          jacuzziDays,
+          priceData: data
+        });
         setPriceData(data);
       } catch (err: any) {
         console.error("price network error", err);

@@ -402,10 +402,10 @@ export default function PaymentSuccessClient() {
         </span>
       </p>
 
-      <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+      <div className="w-full flex justify-center mt-2">
         <Link href="/" className="block">
           <button
-            className="w-full py-3 rounded-lg border font-semibold"
+            className="w-full py-3 px-4 rounded-lg border font-semibold"
             style={{
               borderColor: "var(--color-primary)",
               color: "var(--color-primary-dark)",

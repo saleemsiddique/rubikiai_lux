@@ -31,10 +31,10 @@ export default function Page({ searchParams }: { searchParams?: { reservationId?
             ) : null}
           </p>
 
-          <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+          <div className="w-full flex justify-center mt-2">
             <Link href="/reservations" className="block">
               <button
-                className="w-full py-3 rounded-lg font-semibold"
+                className="w-full py-3 px-4 rounded-lg font-semibold"
                 style={{
                   background: "var(--color-primary)",
                   color: "white",

@@ -27,7 +27,7 @@ export default function Page({ searchParams }: { searchParams?: { reservationId?
           <p className="max-w-xl text-sm md:text-base" style={{ color: "var(--color-text)" }}>
             Parece que no completaste el pago. Si quieres, puedes volver a intentarlo.
             {reservationId ? (
-              <><br/>ID de reserva: <span className="font-mono" style={{ color: "var(--color-highlight)" }}>{reservationId}</span></>
+              <><br />ID de reserva: <span className="font-mono" style={{ color: "var(--color-highlight)" }}>{reservationId}</span></>
             ) : null}
           </p>
 
@@ -44,14 +44,15 @@ export default function Page({ searchParams }: { searchParams?: { reservationId?
               </button>
             </Link>
 
-            <a href="mailto:hello@rubikiai.example?subject=Pago%20cancelado%20-%20Necesito%20ayuda" className="block">
-              <button
-                className="w-full py-3 rounded-lg border font-semibold"
-                style={{ borderColor: "var(--color-primary)", color: "var(--color-primary-dark)", background: "transparent" }}
+            <p>
+              ¿Necesitas ayuda?{" "}
+              <Link
+                href="/contact"
+                style={{ color: "var(--color-primary-dark)", fontWeight: 600 }}
               >
-                Contactar soporte
-              </button>
-            </a>
+                Contáctanos
+              </Link>
+            </p>
           </div>
 
           <div className="mt-4 text-xs text-gray-500">

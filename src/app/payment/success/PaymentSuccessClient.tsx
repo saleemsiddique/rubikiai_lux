@@ -256,7 +256,7 @@ export default function PaymentSuccessClient() {
       } else {
         // Payment failed/cancelled/abandoned - redirect to cancel page
         const redirectUrl = cancelUrl || "/cancel";
-        router.replace(`${redirectUrl}?reason=payment_not_completed`);
+        router.replace(`${redirectUrl}`);
       }
     } catch (error) {
       console.error("Order validation failed:", error);
@@ -304,10 +304,10 @@ export default function PaymentSuccessClient() {
 
         <p className="max-w-xl text-sm md:text-base text-gray-700">{error}</p>
 
-        <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+        <div className="w-full flex justify-center mt-2">
           <Link href="/">
             <button
-              className="w-full py-3 rounded-lg border font-semibold"
+              className="w-full py-3 px-4 rounded-lg border font-semibold"
               style={{
                 borderColor: "var(--color-primary)",
                 color: "var(--color-primary-dark)",

@@ -141,9 +141,8 @@ export default function Header() {
               style={{ willChange: "transform, opacity" }}
             >
               <svg
-                className={`w-7 h-7 md:w-5 md:h-5 transition-colors duration-300 ${
-                  scrolled ? "text-[var(--color-secondary)]" : "text-white md:text-[var(--color-secondary)]"
-                }`}
+                className={`w-7 h-7 md:w-6 md:h-6 transition-colors duration-300 ${scrolled ? "text-[var(--color-secondary)]" : "text-white md:text-[var(--color-secondary)]"
+                  }`}
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -162,22 +161,20 @@ export default function Header() {
             </button>
 
             <span
-              className={`hidden sm:inline-block text-[10px] md:text-[12px] font-light tracking-wide transition-colors duration-300 ${
-                scrolled ? "text-[var(--color-secondary)]" : "text-white/90 md:text-[var(--color-secondary)] drop-shadow-lg"
-              }`}
+              className={`hidden sm:inline-block text-[10px] md:text-[16px] font-bold tracking-wide transition-colors duration-300 ${scrolled ? "text-[var(--color-secondary)]" : "text-white/90 md:text-[var(--color-secondary)] drop-shadow-lg"
+                }`}
             >
               {pageTitles[pathname] || ""}
             </span>
           </div>
 
-{/* Logo: kept in DOM and positioned absolutely on small screens always (no layout toggles).
+          {/* Logo: kept in DOM and positioned absolutely on small screens always (no layout toggles).
     Visual changes (opacity/scale) handled via CSS transitions only. */}
-<div className="flex-1 flex justify-center items-center pointer-events-none">
-  <Link href="/" className="block pointer-events-auto">
-    <div
-      className={`transform transition-all duration-400 will-change-transform will-change-opacity ${
-        scrolled ? "opacity-100 scale-100" : "opacity-0 scale-95 md:opacity-90"
-      }`}
+          <div className="flex-1 flex justify-center items-center pointer-events-none">
+            <Link href="/" className="block pointer-events-auto">
+              <div
+                className={`transform transition-all duration-400 will-change-transform will-change-opacity ${scrolled ? "opacity-100 scale-100" : "opacity-0 scale-95"
+                  }`}
                 style={{
                   // keep transform/opacity animated; avoid switching between absolute/relative
                   transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
@@ -198,39 +195,35 @@ export default function Header() {
 
           {/* RIGHT BUTTON - BOOK
               Always in DOM; on mobile we toggle opacity/pointer-events so layout doesn't reflow. */}
-          <div className="flex justify-end items-center min-w-[120px] md:min-w-[100px]">
-            <Link
-              href="/reservations"
-              className={`uppercase tracking-wider text-[10px] md:text-[12px] px-4 py-2 rounded font-semibold transition-all duration-300 ease-in-out flex items-center justify-center min-w-[84px] md:flex`}
-            >
-              <span
-                // we animate the inner span for the look; pointer-events toggled so it won't be clickable when hidden on mobile
-                className={`transition-all duration-300 rounded px-4 py-1 ${
-                  scrolled
-                    ? "border-2 border-[var(--color-secondary)] text-[var(--color-secondary)] hover:bg-[var(--color-secondary)] hover:text-white"
-                    : "border-2 border-white/80 md:border-[var(--color-secondary)] text-white md:text-[var(--color-secondary)] hover:bg-white md:hover:bg-[var(--color-secondary)] hover:text-[var(--color-secondary)] md:hover:text-white backdrop-blur-sm"
+          <button
+            onClick={() => showMobileReservationButton && (window.location.href = '/reservations')}
+            disabled={!showMobileReservationButton}
+            className={`uppercase tracking-wider text-[10px] md:text-[14px] px-4 py-2 md:px-5 md:py-2.5 rounded font-semibold transition-all duration-300 ease-in-out flex items-center justify-center min-w-[84px] md:min-w-[100px] ${!showMobileReservationButton ? "cursor-default" : "cursor-pointer"
+              }`}
+          >
+            <span
+              className={`transition-all duration-300 rounded px-4 py-1 ${scrolled
+                  ? "border-2 border-[var(--color-secondary)] text-[var(--color-secondary)] hover:bg-[var(--color-secondary)] hover:text-white"
+                  : "border-2 border-white/80 md:border-[var(--color-secondary)] text-white md:text-[var(--color-secondary)] hover:bg-white md:hover:bg-[var(--color-secondary)] hover:text-[var(--color-secondary)] md:hover:text-white backdrop-blur-sm"
                 }`}
-                style={{
-                  // mobile visibility handled via opacity and pointer-events to avoid layout reflow
-                  opacity: showMobileReservationButton ? 1 : 0,
-                  pointerEvents: showMobileReservationButton ? "auto" : "none",
-                  transitionProperty: "opacity, transform",
-                }}
-              >
-                Reserve
-              </span>
-            </Link>
-          </div>
+              style={{
+                opacity: showMobileReservationButton ? 1 : 0,
+                pointerEvents: showMobileReservationButton ? "auto" : "none",
+                transitionProperty: "opacity, transform",
+              }}
+            >
+              Reserve
+            </span>
+          </button>
         </div>
 
         {/* Visual overlay that changes background + shadow based on scrolled (no layout changes) */}
         <div
           aria-hidden
-          className={`absolute inset-0 pointer-events-none transition-all duration-400 ${
-            scrolled
+          className={`absolute inset-0 pointer-events-none transition-all duration-400 ${scrolled
               ? "bg-[var(--color-background-main)]/97 backdrop-blur-md shadow-lg"
               : "bg-gradient-to-b from-black/50 to-transparent md:bg-[var(--color-background-main)]/20 md:backdrop-blur-sm"
-          }`}
+            }`}
           style={{ zIndex: -1 }}
         />
       </header>
@@ -243,9 +236,8 @@ export default function Header() {
       {/* DRAWER */}
       <aside
         ref={drawerRef}
-        className={`fixed top-0 left-0 z-[9999999] h-full w-[85vw] sm:w-3/4 md:w-1/2 lg:w-1/3 max-w-sm bg-[var(--color-background-main)] shadow-2xl transform transition-transform duration-300 ease-in-out overflow-y-auto ${
-          isOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
+        className={`fixed top-0 left-0 z-[9999999] h-full w-[85vw] sm:w-3/4 md:w-1/2 lg:w-1/3 max-w-sm bg-[var(--color-background-main)] shadow-2xl transform transition-transform duration-300 ease-in-out overflow-y-auto ${isOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
         aria-hidden={!isOpen}
       >
         <div className="relative p-6 md:p-10 min-h-full flex flex-col">
@@ -268,9 +260,8 @@ export default function Header() {
                 <Link
                   href={n.href}
                   onClick={close}
-                  className={`w-full text-center font-sans text-[var(--color-secondary)] text-lg md:text-xl font-light hover:text-[var(--color-primary-dark)] transition-colors duration-200 uppercase py-2 ${
-                    pathname === n.href ? "text-[var(--color-primary-dark)] font-medium" : ""
-                  }`}
+                  className={`w-full text-center font-sans text-[var(--color-secondary)] text-lg md:text-xl font-light hover:text-[var(--color-primary-dark)] transition-colors duration-200 uppercase py-2 ${pathname === n.href ? "text-[var(--color-primary-dark)] font-medium" : ""
+                    }`}
                 >
                   {n.name}
                 </Link>

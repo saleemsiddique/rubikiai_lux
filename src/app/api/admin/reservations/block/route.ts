@@ -6,6 +6,7 @@ function isISO(s: string) {
   const d = new Date(s);
   return !Number.isNaN(d.getTime());
 }
+
 function nightsBetween(a: string, b: string) {
   const A = new Date(a), B = new Date(b);
   const ms = B.getTime() - A.getTime();
@@ -44,12 +45,11 @@ export async function POST(req: Request) {
       houseIds,
       guests,
       customer,
-      coupon,
-      amountApplied,
-      code,
       arrivalTime,
       comment,
       userId,
+      jacuzzi,
+      discount,
     } = body || {};
 
     const guestsNum = Math.max(1, Number(guests || 2));
@@ -60,12 +60,12 @@ export async function POST(req: Request) {
 
     // Validate required customer information
     if (!customer || !customer.email || !customer.name) {
-      return Response.json({ 
-        error: "Customer information (name and email) is required" 
+      return Response.json({
+        error: "Customer information (name and email) is required"
       }, { status: 400 });
     }
 
-    // No permitir bloqueo en el pasado
+    // Don't allow blocking past dates
     const today = new Date();
     const todayISO = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
     if (checkOut <= todayISO) {
@@ -112,24 +112,33 @@ export async function POST(req: Request) {
 
     const conflictsArray = await Promise.all(conflictPromises);
     if (conflictsArray.some(Boolean)) {
-      return Response.json({ 
-        error: "Date range overlaps an existing reservation (reserved/complete/admin)" 
+      return Response.json({
+        error: "Date range overlaps an existing reservation (reserved/complete/admin)"
       }, { status: 409 });
     }
 
-    // Get pricing
+    // ✅ GET PRICING FROM PRICE API (usando la misma lógica que checkout)
     const origin = new URL(req.url).origin;
     const houseIdForPrice = targetHouseIds.join("__");
+
+    // Build pricing request with jacuzzi info
+    const priceRequestBody: any = {
+      houseId: houseIdForPrice,
+      startDate: checkIn,
+      endDate: checkOut,
+      guests: guestsNum,
+    };
+
+    // Add jacuzzi to pricing request if enabled
+    if (jacuzzi?.enabled) {
+      priceRequestBody.jacuzzi = true;
+      priceRequestBody.jacuzziDays = Math.max(1, Number(jacuzzi.days || 1));
+    }
 
     const priceRes = await fetch(`${origin}/api/reservations/price`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        houseId: houseIdForPrice,
-        startDate: checkIn,
-        endDate: checkOut,
-        guests: guestsNum,
-      }),
+      body: JSON.stringify(priceRequestBody),
     });
 
     if (!priceRes.ok) {
@@ -142,30 +151,75 @@ export async function POST(req: Request) {
       return Response.json({ error: `Price API: ${priceJson.error}` }, { status: 422 });
     }
 
-    // Extract pricing info
-    const total = Number(priceJson.total ?? 0);
-    const firstNight = Number(priceJson.first ?? 0);
+    // ✅ EXTRACT PRICING INFO FROM API RESPONSE
     const nights = Number(priceJson.nights ?? nightsBetween(checkIn, checkOut));
     const includedBase = Number(priceJson.includedBase ?? 2);
-    const grandTotal = Number(priceJson.grandTotal ?? total);
-    const discountedGrandTotal = Number(priceJson.discountedGrandTotal ?? priceJson.discountedTotal ?? total);
-    const amountAppliedFromPrice = Number(priceJson.amountApplied ?? 0);
-    const couponFromPrice = priceJson.coupon ?? null;
-    const codeFromPrice = couponFromPrice?.code ?? priceJson.code ?? null;
-    const totalNightsOnly = Number(priceJson.totalNightsOnly ?? total);
-    
-    const jacuzziInfo = priceJson.jacuzzi ?? { 
-      enabled: false, 
-      fee: Number(priceJson.jacuzziFee ?? 0),
-      days: 0
-    };
-    
-    const discountedFirst = Number(priceJson.discountedFirst ?? 0);
-    const currency = priceJson.currency ?? "EUR";
+    const extraGuests = Number(priceJson.extraGuests ?? Math.max(0, guestsNum - includedBase));
+    const currency = "EUR";
 
-    const payNow = Number(priceJson.payNow ?? discountedFirst);
-    const totalStay = Number(priceJson.totalStay ?? discountedGrandTotal);
-    const payAtArrival = Number(priceJson.payAtArrival ?? Math.max(0, totalStay - payNow));
+    // Precios base (sin descuento)
+    const firstNightBase = Number(priceJson.first ?? 0); // Reservation fee
+    const totalNightsOnly = Number(priceJson.total ?? 0); // Total de noches sin jacuzzi
+    const jacuzziFee = Number(priceJson.jacuzziFee ?? 0);
+    const jacuzziDays = Number(priceJson.jacuzziDays ?? 0);
+    const extrasTotal = Number(priceJson.extrasTotal ?? jacuzziFee);
+    const grandTotalBase = Number(priceJson.grandTotal ?? (totalNightsOnly + extrasTotal));
+
+    // Jacuzzi info estructurado
+    const jacuzziInfo = {
+      enabled: Boolean(jacuzzi?.enabled),
+      fee: jacuzziFee,
+      days: jacuzziDays,
+    };
+
+    // ✅ APPLY DISCOUNT IF PROVIDED
+    let discountedFirst = firstNightBase;
+    let discountedGrandTotal = grandTotalBase;
+    let amountApplied = 0;
+    let couponData: any = null;
+    let codeFromDiscount: string | null = null;
+
+    if (discount && discount.code && discount.type) {
+      const discountAmount = Number(discount.amount || 0);
+
+      if (discountAmount > 0) {
+        if (discount.type === "coupon") {
+          // Coupon: fixed euro amount off (applies to first night, limited by grandTotal)
+          amountApplied = Math.min(discountAmount, firstNightBase, grandTotalBase);
+          discountedFirst = Math.max(0, firstNightBase - amountApplied);
+          discountedGrandTotal = Math.max(0, grandTotalBase - amountApplied);
+
+          couponData = {
+            code: discount.code,
+            type: "coupon",
+            value: discountAmount,
+            applied: amountApplied,
+          };
+          codeFromDiscount = discount.code;
+        } else if (discount.type === "percent") {
+          // Percentage: applies only to first night
+          const percentValue = Math.min(100, Math.max(0, discountAmount));
+          const discountOnFirstNight = (percentValue / 100) * firstNightBase;
+
+          amountApplied = discountOnFirstNight;
+          discountedFirst = Math.max(0, firstNightBase - discountOnFirstNight);
+          discountedGrandTotal = Math.max(0, grandTotalBase - discountOnFirstNight);
+
+          couponData = {
+            code: discount.code,
+            type: "percent",
+            percent: percentValue,
+            applied: amountApplied,
+          };
+          codeFromDiscount = discount.code;
+        }
+      }
+    }
+
+    // ✅ CALCULATE PAYMENT BREAKDOWN
+    const payNow = discountedFirst; // Reservation fee (con descuento)
+    const totalStay = discountedGrandTotal; // Grand total (con descuento)
+    const payAtArrival = Math.max(0, totalStay - payNow);
 
     // Build customer object
     const customerObj: any = {
@@ -177,7 +231,7 @@ export async function POST(req: Request) {
       comment: customer.comment ? String(customer.comment) : (comment ? String(comment) : null),
     };
 
-    // Create reservation payload
+    // ✅ CREATE RESERVATION PAYLOAD
     const payload: any = {
       status: "admin",
       createdBy: me.email || me.uid,
@@ -186,32 +240,31 @@ export async function POST(req: Request) {
       checkOut: String(checkOut),
       nights,
 
-      payNow,
-      payAtArrival,
-      totalStay,
+      // ✅ SIMPLIFIED PRICING FIELDS (NEW STANDARD)
+      payNow,           // Reservation fee (con descuento si aplica)
+      payAtArrival,     // Resto a pagar
+      totalStay,        // Grand total (con descuento si aplica)
 
-      total: total,
-      grandTotal: grandTotal,
-      discountedTotal: discountedGrandTotal,
-      discountedGrandTotal: discountedGrandTotal,
-      discountedFirst: discountedFirst,
-      firstNightCharge: firstNight,
-      totalNightsOnly: totalNightsOnly,
-      amountApplied: typeof amountApplied === "number" ? Number(amountApplied) : amountAppliedFromPrice,
-      coupon: coupon ?? couponFromPrice ?? null,
-      code: code ?? codeFromPrice ?? null,
-      currency: currency,
-      
-      jacuzzi: {
-        enabled: Boolean(jacuzziInfo?.enabled),
-        fee: Number(jacuzziInfo?.fee ?? jacuzziInfo?.jacuzziFee ?? 0),
-        days: Number(jacuzziInfo?.days ?? 0),
-      },
-      jacuzziFee: Number(jacuzziInfo?.fee ?? jacuzziInfo?.jacuzziFee ?? 0),
+      // ✅ DETAILED PRICING FIELDS (for transparency & legacy compatibility)
+      firstNightBase,        // Reservation fee base (sin descuento)
+      totalNightsOnly,       // Total de noches sin extras
+      grandTotal: grandTotalBase, // Grand total base (sin descuento)
+      discountedFirst,       // Reservation fee con descuento
+      discountedGrandTotal,  // Grand total con descuento
+      amountApplied,         // Cantidad de descuento aplicada
+      coupon: couponData,    // Info del cupón/descuento
+      code: codeFromDiscount,
+      currency,
+
+      // Jacuzzi info (con días)
+      jacuzzi: jacuzziInfo,
+      jacuzziFee,
+      jacuzziDays,
+      extrasTotal, // Total de extras (jacuzzi, etc)
 
       guests: guestsNum,
-      includedBase: includedBase,
-      extraGuests: Math.max(0, guestsNum - includedBase),
+      includedBase,
+      extraGuests,
 
       customer: customerObj,
       customerEmail: customerObj.email,
@@ -237,15 +290,64 @@ export async function POST(req: Request) {
     const snap = await ref.get();
     const reservationId = snap.id;
 
+    // ✅ UPDATE DISCOUNT IN FIRESTORE (COUPON OR PERCENTAGE)
+    if (discount && discount.type && amountApplied > 0) {
+      try {
+        if (discount.type === "coupon" && discount.code) {
+          // Update coupon: subtract from remaining balance
+          const couponRef = adminDb.collection("coupons").where("code", "==", discount.code).limit(1);
+          const couponSnap = await couponRef.get();
+          
+          if (!couponSnap.empty) {
+            const couponDoc = couponSnap.docs[0];
+            const currentRemaining = Number(couponDoc.data().remaining ?? 0);
+            const newRemaining = Math.max(0, currentRemaining - amountApplied);
+            
+            await couponDoc.ref.update({
+              remaining: newRemaining,
+              lastUsedAt: admin.firestore.FieldValue.serverTimestamp(),
+              usageHistory: admin.firestore.FieldValue.arrayUnion({
+                reservationId,
+                amount: amountApplied,
+                usedAt: admin.firestore.Timestamp.now(),
+                usedBy: customerObj.email,
+              }),
+            });
+            
+            console.log(`✅ Coupon ${discount.code} updated: ${currentRemaining} → ${newRemaining}`);
+          }
+        } else if (discount.type === "percent" && discount.code) {
+          // Update percentage discount: mark as used
+          const percentRef = adminDb.collection("percentage_discounts").where("code", "==", discount.code).limit(1);
+          const percentSnap = await percentRef.get();
+          
+          if (!percentSnap.empty) {
+            const percentDoc = percentSnap.docs[0];
+            
+            await percentDoc.ref.update({
+              used: true,
+              usedAt: admin.firestore.FieldValue.serverTimestamp(),
+              usedBy: customerObj.email,
+              usedInReservation: reservationId,
+            });
+            
+            console.log(`✅ Percentage discount ${discount.code} marked as used`);
+          }
+        }
+      } catch (discountUpdateError) {
+        console.error("❌ Error updating discount in Firestore:", discountUpdateError);
+        // Don't fail the reservation if discount update fails
+        await ref.update({
+          discountUpdateError: String(discountUpdateError),
+          discountUpdateErrorAt: admin.firestore.Timestamp.now(),
+        });
+      }
+    }
+
     // ✅ SEND CONFIRMATION EMAIL
     try {
       const customerEmail = customerObj.email;
       if (customerEmail) {
-        let discountApplied = 0;
-        if (coupon && amountApplied) {
-          discountApplied = Number(amountApplied) || 0;
-        }
-
         await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -265,7 +367,7 @@ export async function POST(req: Request) {
               paidNow: payNow,
               payAtArrival: payAtArrival,
               totalStay: totalStay,
-              discountApplied: discountApplied,
+              discountApplied: amountApplied,
               currency,
               hotelName: "Rubikiai Lux",
               hotelContactEmail: "info@rubikiailux.lt",
@@ -273,28 +375,28 @@ export async function POST(req: Request) {
             },
           }),
         })
-        .then(async (res) => {
-          if (!res.ok) {
-            const text = await res.text().catch(() => "");
-            console.error("Confirmation email send failed:", res.status, text);
+          .then(async (res) => {
+            if (!res.ok) {
+              const text = await res.text().catch(() => "");
+              console.error("Confirmation email send failed:", res.status, text);
+              await ref.update({
+                emailSendErrorAt: admin.firestore.Timestamp.now(),
+                emailSendError: `status_${res.status}`,
+                lastEmailResponse: text,
+              });
+            } else {
+              await ref.update({
+                confirmationEmailSentAt: admin.firestore.Timestamp.now(),
+              });
+            }
+          })
+          .catch(async (e) => {
+            console.error("Confirmation email send error:", e);
             await ref.update({
               emailSendErrorAt: admin.firestore.Timestamp.now(),
-              emailSendError: `status_${res.status}`,
-              lastEmailResponse: text,
+              emailSendError: String(e?.message ?? e),
             });
-          } else {
-            await ref.update({
-              confirmationEmailSentAt: admin.firestore.Timestamp.now(),
-            });
-          }
-        })
-        .catch(async (e) => {
-          console.error("Confirmation email send error:", e);
-          await ref.update({
-            emailSendErrorAt: admin.firestore.Timestamp.now(),
-            emailSendError: String(e?.message ?? e),
           });
-        });
 
         // Wait 600ms before next email
         await new Promise(resolve => setTimeout(resolve, 600));
@@ -305,8 +407,8 @@ export async function POST(req: Request) {
 
     // ✅ SEND OWNER NOTIFICATION EMAIL
     try {
-      const OWNER_EMAIL = process.env.OWNER_EMAIL; // Replace with your owner email
-      
+      const OWNER_EMAIL = process.env.OWNER_EMAIL;
+
       await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -327,7 +429,7 @@ export async function POST(req: Request) {
             paidNow: payNow,
             payAtArrival: payAtArrival,
             totalStay: totalStay,
-            discountApplied: (coupon && amountApplied) ? Number(amountApplied || 0) : 0,
+            discountApplied: amountApplied,
             currency,
             propertyName: targetHouseIds.join(", ") || "Rubikiai Lux",
             propertyId: targetHouseIds.length === 1 ? targetHouseIds[0] : undefined,
@@ -337,7 +439,7 @@ export async function POST(req: Request) {
           },
         }),
       });
-      
+
       // Wait 600ms before next email
       await new Promise(resolve => setTimeout(resolve, 600));
     } catch (e) {
@@ -408,7 +510,7 @@ export async function POST(req: Request) {
       console.error("❌ Error in booking reminder:", e);
     }
 
-    // Normalize output
+    // ✅ NORMALIZE OUTPUT
     const raw = snap.data() as any;
     const normalized: any = { id: snap.id, ...raw };
 
@@ -420,36 +522,36 @@ export async function POST(req: Request) {
     normalized.checkIn = String(raw.checkIn);
     normalized.checkOut = String(raw.checkOut);
     normalized.guests = Number(raw.guests ?? guestsNum);
-    
+
     normalized.payNow = Number(raw.payNow ?? payNow);
     normalized.payAtArrival = Number(raw.payAtArrival ?? payAtArrival);
     normalized.totalStay = Number(raw.totalStay ?? totalStay);
-    
-    normalized.total = Number(raw.total ?? grandTotal);
-    normalized.grandTotal = Number(raw.grandTotal ?? normalized.total);
-    normalized.discountedGrandTotal = Number(raw.discountedGrandTotal ?? normalized.grandTotal);
-    normalized.amountApplied = Number(raw.amountApplied ?? 0);
-    normalized.totalNightsOnly = Number(raw.totalNightsOnly ?? normalized.total);
-    normalized.includedBase = Number(raw.includedBase ?? includedBase);
-    normalized.extraGuests = Number(raw.extraGuests ?? Math.max(0, guestsNum - includedBase));
-    
-    normalized.jacuzzi = raw.jacuzzi ?? { 
-      enabled: false, 
-      fee: Number(raw.jacuzziFee ?? 0),
-      days: 0
-    };
-    normalized.coupon = raw.coupon ?? null;
-    normalized.code = raw.code ?? (normalized.coupon?.code ?? null);
-    normalized.percentDiscount = raw.percentDiscount ?? null;
 
-    normalized.customer = raw.customer ?? null;
-    normalized.customerEmail = raw.customerEmail ?? normalized.email ?? null;
-    normalized.email = raw.email ?? null;
-    normalized.name = raw.name ?? (normalized.customer?.name ?? null);
-    normalized.phone = raw.phone ?? (normalized.customer?.phone ?? null);
-    normalized.userId = raw.userId ?? (normalized.customer?.userId ?? null);
-    normalized.arrivalTime = raw.arrivalTime ?? (normalized.customer?.arrivalTime ?? null);
-    normalized.comment = raw.comment ?? (normalized.customer?.comment ?? null);
+    normalized.firstNightBase = Number(raw.firstNightBase ?? firstNightBase);
+    normalized.totalNightsOnly = Number(raw.totalNightsOnly ?? totalNightsOnly);
+    normalized.grandTotal = Number(raw.grandTotal ?? grandTotalBase);
+    normalized.discountedFirst = Number(raw.discountedFirst ?? discountedFirst);
+    normalized.discountedGrandTotal = Number(raw.discountedGrandTotal ?? discountedGrandTotal);
+    normalized.amountApplied = Number(raw.amountApplied ?? amountApplied);
+    normalized.includedBase = Number(raw.includedBase ?? includedBase);
+    normalized.extraGuests = Number(raw.extraGuests ?? extraGuests);
+
+    normalized.jacuzzi = raw.jacuzzi ?? jacuzziInfo;
+    normalized.jacuzziFee = Number(raw.jacuzziFee ?? jacuzziFee);
+    normalized.jacuzziDays = Number(raw.jacuzziDays ?? jacuzziDays);
+    normalized.extrasTotal = Number(raw.extrasTotal ?? extrasTotal);
+    
+    normalized.coupon = raw.coupon ?? couponData;
+    normalized.code = raw.code ?? codeFromDiscount;
+
+    normalized.customer = raw.customer ?? customerObj;
+    normalized.customerEmail = raw.customerEmail ?? customerObj.email;
+    normalized.email = raw.email ?? customerObj.email;
+    normalized.name = raw.name ?? customerObj.name;
+    normalized.phone = raw.phone ?? customerObj.phone;
+    normalized.userId = raw.userId ?? customerObj.userId;
+    normalized.arrivalTime = raw.arrivalTime ?? customerObj.arrivalTime;
+    normalized.comment = raw.comment ?? customerObj.comment;
 
     return Response.json({ ok: true, reservation: normalized });
   } catch (e: any) {

@@ -30,12 +30,12 @@ type Reservation = {
     arrivalTime?: string;
     comment?: string;
 
-    // ✅ Pricing (NUEVOS CAMPOS SIMPLIFICADOS)
+    // Pricing (simplified fields)
     payNow?: number;
     payAtArrival?: number;
     totalStay?: number;
 
-    // Pricing (legacy - mantener para compatibilidad)
+    // Pricing (legacy - keep for compatibility)
     guests?: number;
     total?: number;
     grandTotal?: number;
@@ -50,7 +50,7 @@ type Reservation = {
     extraGuests?: number;
     currency?: string;
 
-    // ✅ Jacuzzi (ACTUALIZADO CON DAYS)
+    // Jacuzzi (updated with days)
     jacuzzi?: {
         enabled: boolean;
         fee?: number;
@@ -97,7 +97,6 @@ const PROPERTY_NAME_MAP: Record<string, string> = {
     "PZwbfMYlSXj61uYYJutg": "Salia Elnių Aptvaro",
     "oDzv9346CdaAsok162sX": "Salia Elnių Panorama",
 };
-
 
 /* ---------- Date helpers (LOCAL) ---------- */
 function pad2(n: number) {
@@ -160,6 +159,205 @@ function fetchWithTimeout(
     return fetch(input, merged).finally(() => clearTimeout(id));
 }
 
+/* ---------------- Price Summary Component ---------------- */
+function PriceSummaryBlock({ 
+  houseId, 
+  startDate, 
+  endDate, 
+  guests, 
+  jacuzziEnabled, 
+  jacuzziDays,
+  discountApplied,
+  discountData,
+  appliedDiscount
+}: { 
+  houseId: string; 
+  startDate: string; 
+  endDate: string; 
+  guests: number;
+  jacuzziEnabled: boolean;
+  jacuzziDays: number;
+  discountApplied: boolean;
+  discountData: any;
+  appliedDiscount: number;
+}) {
+  const [priceData, setPriceData] = useState<any | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchPrice = async () => {
+      // 🔍 Validar que tenemos todos los datos necesarios
+      if (!houseId || !startDate || !endDate) {
+        console.log('⏸️ [PriceSummary] Missing required data:', { houseId, startDate, endDate });
+        setPriceData(null);
+        return;
+      }
+
+      // 🔍 Validar formato de fechas (YYYY-MM-DD)
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(startDate) || !dateRegex.test(endDate)) {
+        console.error('❌ [PriceSummary] Invalid date format:', { startDate, endDate });
+        setError('Invalid date format. Expected YYYY-MM-DD');
+        return;
+      }
+
+      // 🔍 Validar que startDate < endDate
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      if (start >= end) {
+        console.error('❌ [PriceSummary] Start date must be before end date:', { startDate, endDate });
+        setError('Check-out date must be after check-in date');
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+      
+      try {
+        const body: any = {
+          houseId,
+          startDate,
+          endDate,
+          guests,
+        };
+
+        if (jacuzziEnabled && jacuzziDays > 0) {
+          body.jacuzzi = true;
+          body.jacuzziDays = jacuzziDays;
+        }
+
+        console.log('🔵 [PriceSummary] Calling price API with:', body);
+
+        const res = await fetch('/api/reservations/price', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+
+        console.log('🔵 [PriceSummary] Response status:', res.status);
+
+        if (!res.ok) {
+          const errorText = await res.text();
+          console.error('🔴 [PriceSummary] Error response:', errorText);
+          throw new Error(`Price fetch failed: ${res.status} - ${errorText}`);
+        }
+
+        const data = await res.json();
+        console.log('✅ [PriceSummary] Price data received:', data);
+        setPriceData(data);
+      } catch (err: any) {
+        console.error('🔴 [PriceSummary] Fetch error:', err);
+        setError(err?.message || 'Failed to fetch price');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPrice();
+  }, [houseId, startDate, endDate, guests, jacuzziEnabled, jacuzziDays]);
+
+  if (loading) {
+    return (
+      <div className="border-t pt-3 mt-2 text-xs text-neutral-600">
+        Loading price summary...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="border-t pt-3 mt-2">
+        <div className="bg-red-50 border border-red-200 rounded-md p-3 text-xs text-red-700">
+          <span className="font-semibold">Price calculation error:</span> {error}
+        </div>
+      </div>
+    );
+  }
+
+  if (!priceData) return null;
+
+  // Calculate discount amounts
+  let discountedFirst = priceData.first || 0;
+  let discountedGrandTotal = priceData.grandTotal || 0;
+  let discountAmount = 0;
+
+  if (discountApplied && discountData) {
+    if (discountData.kind === 'coupon') {
+      // Coupon: fixed euro amount off first night
+      discountAmount = Math.min(appliedDiscount, priceData.first || 0, priceData.grandTotal || 0);
+      discountedFirst = Math.max(0, (priceData.first || 0) - discountAmount);
+      discountedGrandTotal = Math.max(0, (priceData.grandTotal || 0) - discountAmount);
+    } else if (discountData.kind === 'percent') {
+      // Percentage: applies only to first night
+      const percentValue = appliedDiscount;
+      discountAmount = ((percentValue / 100) * (priceData.first || 0));
+      discountedFirst = Math.max(0, (priceData.first || 0) - discountAmount);
+      discountedGrandTotal = Math.max(0, (priceData.grandTotal || 0) - discountAmount);
+    }
+  }
+
+  const nights = priceData.nights || 0;
+  const extraGuests = priceData.extraGuests || 0;
+
+  return (
+    <div className="border-t pt-3 mt-2">
+      <div className="text-xs font-semibold text-neutral-700 mb-2">
+        Reservation Summary
+      </div>
+      <div className="bg-gray-50 rounded-md p-3 text-xs space-y-2">
+        <div className="flex justify-between">
+          <span className="text-neutral-600">Accommodation ({nights} night{nights > 1 ? 's' : ''})</span>
+          <span className="font-medium">€{(priceData.total || 0).toFixed(2)}</span>
+        </div>
+
+        {extraGuests > 0 && (
+          <div className="flex justify-between text-neutral-600">
+            <span>Extra guests ({extraGuests})</span>
+            <span>Included in total</span>
+          </div>
+        )}
+
+        {jacuzziEnabled && (priceData.jacuzziFee || 0) > 0 && (
+          <div className="flex justify-between">
+            <span className="text-neutral-600">Jacuzzi ({jacuzziDays} day{jacuzziDays > 1 ? 's' : ''})</span>
+            <span className="font-medium">€{(priceData.jacuzziFee || 0).toFixed(2)}</span>
+          </div>
+        )}
+
+        <div className="border-t border-gray-300 pt-2 flex justify-between font-semibold">
+          <span>Total</span>
+          <span>€{(priceData.grandTotal || 0).toFixed(2)}</span>
+        </div>
+
+        {discountApplied && discountAmount > 0 && (
+          <>
+            <div className="flex justify-between text-green-600">
+              <span>Discount applied</span>
+              <span>-€{discountAmount.toFixed(2)}</span>
+            </div>
+            <div className="border-t border-gray-300 pt-2 flex justify-between font-semibold text-[var(--color-primary)]">
+              <span>Total after discount</span>
+              <span>€{discountedGrandTotal.toFixed(2)}</span>
+            </div>
+          </>
+        )}
+
+        <div className="border-t border-gray-300 pt-2 mt-2">
+          <div className="flex justify-between text-[var(--color-primary-dark)]">
+            <span>Reservation fee (pay now)</span>
+            <span className="font-bold">€{discountedFirst.toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between text-neutral-600 mt-1">
+            <span>Pay at arrival</span>
+            <span>€{Math.max(0, discountedGrandTotal - discountedFirst).toFixed(2)}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminBookingsClient() {
     const router = useRouter();
 
@@ -202,7 +400,6 @@ export default function AdminBookingsClient() {
         addDaysISO(firstDayOfMonthISO, 1)
     );
     const [blockHouseId, setBlockHouseId] = useState<string>("");
-    const [blockNote, setBlockNote] = useState<string>("");
     const [blockGuests, setBlockGuests] = useState<number>(2);
 
     // Customer info for blocking
@@ -211,6 +408,18 @@ export default function AdminBookingsClient() {
     const [blockCustomerPhone, setBlockCustomerPhone] = useState<string>("");
     const [blockArrivalTime, setBlockArrivalTime] = useState<string>("");
     const [blockComment, setBlockComment] = useState<string>("");
+
+    // Jacuzzi options
+    const [blockWithJacuzzi, setBlockWithJacuzzi] = useState<boolean>(false);
+    const [blockJacuzziDays, setBlockJacuzziDays] = useState<number>(1);
+
+    // Discount options
+    const [blockDiscountCode, setBlockDiscountCode] = useState<string>("");
+    const [blockDiscountData, setBlockDiscountData] = useState<any | null>(null);
+    const [blockDiscountLookupLoading, setBlockDiscountLookupLoading] = useState(false);
+    const [blockDiscountError, setBlockDiscountError] = useState<string | null>(null);
+    const [blockDiscountApplied, setBlockDiscountApplied] = useState(false);
+    const [blockAppliedEuroDiscount, setBlockAppliedEuroDiscount] = useState<number>(0);
 
     const [blockBusy, setBlockBusy] = useState(false);
     const [blockMsg, setBlockMsg] = useState<string | null>(null);
@@ -367,7 +576,7 @@ export default function AdminBookingsClient() {
             }
             if (guard >= MAX_DAYS_SAFE) {
                 console.warn(
-                    "[calendar] Reserva acotada por seguridad:",
+                    "[calendar] Reservation truncated for safety:",
                     r.id,
                     ci,
                     "→",
@@ -406,7 +615,7 @@ export default function AdminBookingsClient() {
         );
         if (!res.ok) {
             const detail = await readError(res);
-            throw new Error(detail || "No se pudo comprobar ocupación");
+            throw new Error(detail || "Could not check occupancy");
         }
         const json = await res.json();
         const list: Reservation[] = json.results || [];
@@ -419,6 +628,121 @@ export default function AdminBookingsClient() {
             rangesOverlap(startISO, endISO, r.checkIn, r.checkOut)
         );
     }
+
+    // Calculate nights between two dates
+    const calculateNights = (start: string, end: string): number => {
+        if (!isISODate(start) || !isISODate(end)) return 0;
+        const startDate = parseISOToLocalDate(start);
+        const endDate = parseISOToLocalDate(end);
+        const ms = endDate.getTime() - startDate.getTime();
+        return Math.max(0, Math.round(ms / (1000 * 60 * 60 * 24)));
+    };
+
+    /* ---------- Discount Handlers ---------- */
+    const handleLookupDiscount = async () => {
+        if (!blockDiscountCode.trim()) return;
+
+        setBlockDiscountError(null);
+        setBlockDiscountLookupLoading(true);
+        setBlockDiscountApplied(false);
+        setBlockAppliedEuroDiscount(0);
+
+        try {
+            const res = await fetchWithTimeout(
+                `/api/coupons/lookup?code=${encodeURIComponent(blockDiscountCode)}`,
+                {},
+                20000
+            );
+
+            const json = await res.json().catch(() => ({}));
+
+            if (res.status === 404) {
+                setBlockDiscountError("No discount found with that code.");
+                setBlockDiscountData(null);
+                setBlockDiscountLookupLoading(false);
+                return;
+            }
+
+            if (!res.ok) {
+                const errMsg = json?.error || `Lookup failed: ${res.status}` || "Could not validate code.";
+                setBlockDiscountError(errMsg);
+                setBlockDiscountData(null);
+                setBlockDiscountLookupLoading(false);
+                return;
+            }
+
+            setBlockDiscountData(json);
+        } catch (err: any) {
+            setBlockDiscountError(err?.message ? String(err.message) : "Network error checking code.");
+            setBlockDiscountData(null);
+        } finally {
+            setBlockDiscountLookupLoading(false);
+        }
+    };
+
+    const handleApplyDiscount = () => {
+        if (!blockDiscountData) {
+            setBlockDiscountError("No discount loaded.");
+            return;
+        }
+
+        setBlockDiscountError(null);
+
+        // COUPON: fixed euro amount
+        if (blockDiscountData.kind === "coupon" && blockDiscountData.coupon) {
+            const remaining = Number(blockDiscountData.coupon.remaining ?? 0);
+            if (!Number.isFinite(remaining) || remaining <= 0) {
+                setBlockDiscountError("Coupon has no remaining balance.");
+                return;
+            }
+
+            // For admin blocks, we just mark the amount to apply
+            setBlockAppliedEuroDiscount(remaining);
+            setBlockDiscountApplied(true);
+            return;
+        }
+
+        // PERCENTAGE: applies only to first night
+        if (blockDiscountData.kind === "percent" && blockDiscountData.percentDoc) {
+            const p = Number(blockDiscountData.percentDoc.percent ?? 0);
+            const alreadyUsed = !!blockDiscountData.percentDoc.used;
+            const expiresAt = blockDiscountData.percentDoc.expiresAt;
+            const nowTs = Date.now();
+            const expTs = expiresAt ? new Date(expiresAt + "T23:59:59").getTime() : null;
+
+            if (!Number.isFinite(p) || p <= 0) {
+                setBlockDiscountError("Invalid percentage discount.");
+                return;
+            }
+            if (p > 100) {
+                setBlockDiscountError("Invalid percentage (>100%).");
+                return;
+            }
+            if (alreadyUsed) {
+                setBlockDiscountError("This code was already used.");
+                return;
+            }
+            if (expTs && expTs < nowTs) {
+                setBlockDiscountError("This code is expired.");
+                return;
+            }
+
+            // For percentage, we store the percentage value
+            setBlockAppliedEuroDiscount(p);
+            setBlockDiscountApplied(true);
+            return;
+        }
+
+        setBlockDiscountError("Unknown discount type.");
+    };
+
+    const handleClearDiscount = () => {
+        setBlockDiscountApplied(false);
+        setBlockAppliedEuroDiscount(0);
+        setBlockDiscountData(null);
+        setBlockDiscountError(null);
+        setBlockDiscountCode("");
+    };
 
     /* ---------- Actions ---------- */
     const updateStatus = async (
@@ -452,13 +776,13 @@ export default function AdminBookingsClient() {
         }
     };
 
-    // createBlock function with email validation
+    // Create block function with jacuzzi days and discount support
     const createBlock = async () => {
         setBlockBusy(true);
         setBlockMsg(null);
         try {
             if (!blockHouseId) {
-                throw new Error("You must indicate a House ID to block.");
+                throw new Error("You must select a House to block.");
             }
             if (
                 !(isISODate(blockStart) && isISODate(blockEnd)) ||
@@ -516,6 +840,31 @@ export default function AdminBookingsClient() {
                 payload.comment = blockComment.trim();
             }
 
+            // Add jacuzzi info if enabled
+            if (blockWithJacuzzi) {
+                payload.jacuzzi = {
+                    enabled: true,
+                    days: blockJacuzziDays,
+                };
+            }
+
+            // Add discount info if applied
+            if (blockDiscountApplied && blockDiscountData) {
+                if (blockDiscountData.kind === "coupon" && blockDiscountData.coupon) {
+                    payload.discount = {
+                        code: blockDiscountData.coupon.code || blockDiscountCode.trim(),
+                        amount: blockAppliedEuroDiscount,
+                        type: "coupon",
+                    };
+                } else if (blockDiscountData.kind === "percent" && blockDiscountData.percentDoc) {
+                    payload.discount = {
+                        code: blockDiscountData.percentDoc.code || blockDiscountCode.trim(),
+                        amount: blockAppliedEuroDiscount, // This is the percentage value
+                        type: "percent",
+                    };
+                }
+            }
+
             const res = await fetchWithTimeout(
                 "/api/admin/reservations/block",
                 {
@@ -532,11 +881,20 @@ export default function AdminBookingsClient() {
             }
 
             setBlockMsg("Dates blocked successfully.");
+            
+            // Reset form
             setBlockCustomerName("");
             setBlockCustomerEmail("");
             setBlockCustomerPhone("");
             setBlockArrivalTime("");
             setBlockComment("");
+            setBlockWithJacuzzi(false);
+            setBlockJacuzziDays(1);
+            setBlockDiscountCode("");
+            setBlockDiscountData(null);
+            setBlockDiscountApplied(false);
+            setBlockAppliedEuroDiscount(0);
+            setBlockDiscountError(null);
 
             await fetchList();
             await fetchMonthOccupancy();
@@ -546,6 +904,8 @@ export default function AdminBookingsClient() {
             setBlockBusy(false);
         }
     };
+
+    const nights = calculateNights(blockStart, blockEnd);
 
     /* ---------- UI ---------- */
     return (
@@ -566,15 +926,15 @@ export default function AdminBookingsClient() {
                                 }
                             }}
                             className="inline-flex items-center gap-1 rounded-md border px-3 py-2 text-sm hover:bg-neutral-50"
-                            aria-label="Volver"
-                            title="Volver"
+                            aria-label="Back"
+                            title="Back"
                         >
                             <span aria-hidden>←</span>
-                            <span>Volver</span>
+                            <span>Back</span>
                         </button>
 
                         <h1 className="text-xl md:text-2xl font-bold text-[var(--color-primary-dark)]">
-                            Reservas
+                            Reservations
                         </h1>
                     </div>
 
@@ -583,7 +943,7 @@ export default function AdminBookingsClient() {
                         disabled={loading}
                         className="rounded-md border px-3 py-2 text-sm hover:bg-neutral-50 disabled:opacity-60"
                     >
-                        {loading ? "Cargando…" : "Refrescar"}
+                        {loading ? "Loading…" : "Refresh"}
                     </button>
                 </div>
 
@@ -591,7 +951,7 @@ export default function AdminBookingsClient() {
                 <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-3 bg-white border rounded-xl p-4">
                     <div className="flex flex-col">
                         <label className="text-xs text-neutral-600">
-                            Estado
+                            Status
                         </label>
                         <select
                             multiple
@@ -612,13 +972,13 @@ export default function AdminBookingsClient() {
                             ))}
                         </select>
                         <div className="text-[11px] text-neutral-500 mt-1">
-                            Ctrl/Cmd para multiselección
+                            Ctrl/Cmd for multi-selection
                         </div>
                     </div>
 
                     <div className="flex flex-col">
                         <label className="text-xs text-neutral-600">
-                            Desde
+                            From
                         </label>
                         <input
                             type="date"
@@ -630,7 +990,7 @@ export default function AdminBookingsClient() {
 
                     <div className="flex flex-col">
                         <label className="text-xs text-neutral-600">
-                            Hasta
+                            To
                         </label>
                         <input
                             type="date"
@@ -649,7 +1009,7 @@ export default function AdminBookingsClient() {
                             onChange={(e) => setHouseId(e.target.value)}
                             className="mt-1 border rounded-md p-2"
                         >
-                            <option value="">(Todas)</option>
+                            <option value="">(All)</option>
                             {HOUSE_OPTIONS.map((h) => (
                                 <option key={h.id} value={h.id}>
                                     {h.alias}
@@ -663,7 +1023,7 @@ export default function AdminBookingsClient() {
                             onClick={fetchList}
                             className="rounded-md bg-[var(--color-primary)] text-white px-4 py-2 text-sm font-semibold hover:opacity-95"
                         >
-                            Buscar
+                            Search
                         </button>
                     </div>
                 </div>
@@ -671,11 +1031,11 @@ export default function AdminBookingsClient() {
                 {/* Table */}
                 <div className="mt-6 bg-white border rounded-xl overflow-hidden">
                     <div className="px-4 py-3 border-b text-sm font-semibold">
-                        Resultados
+                        Results
                     </div>
                     {loading ? (
                         <div className="p-4 text-sm text-neutral-600">
-                            Cargando…
+                            Loading…
                         </div>
                     ) : err ? (
                         <div className="p-4 text-sm text-red-600 whitespace-pre-wrap">
@@ -683,7 +1043,7 @@ export default function AdminBookingsClient() {
                         </div>
                     ) : rows.length === 0 ? (
                         <div className="p-4 text-sm text-neutral-600">
-                            Sin resultados
+                            No results
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
@@ -691,31 +1051,31 @@ export default function AdminBookingsClient() {
                                 <thead className="bg-neutral-50 text-neutral-700">
                                     <tr>
                                         <th className="px-3 py-2 text-left">
-                                            Fechas
+                                            Dates
                                         </th>
                                         <th className="px-3 py-2 text-left">
-                                            Estado
+                                            Status
                                         </th>
                                         <th className="px-3 py-2 text-left">
                                             House
                                         </th>
                                         <th className="px-3 py-2 text-left">
-                                            Cliente
+                                            Customer
                                         </th>
                                         <th className="px-3 py-2 text-left">
                                             Email
                                         </th>
                                         <th className="px-3 py-2 text-left">
-                                            Huésp.
+                                            Guests
                                         </th>
                                         <th className="px-3 py-2 text-right">
                                             Total
                                         </th>
                                         <th className="px-3 py-2 text-right">
-                                            Pagado
+                                            Paid
                                         </th>
                                         <th className="px-3 py-2">
-                                            Acciones
+                                            Actions
                                         </th>
                                     </tr>
                                 </thead>
@@ -724,7 +1084,6 @@ export default function AdminBookingsClient() {
                                         const customerName = r.name || r.customer?.name || "—";
                                         const customerEmail = r.customerEmail || r.email || r.customer?.email || "—";
 
-                                        // ✅ Usar campos simplificados con fallback a legacy
                                         const totalStay = r.totalStay ?? r.discountedGrandTotal ?? r.discountedTotal ?? r.grandTotal ?? r.total ?? 0;
                                         const payNow = r.payNow ?? r.discountedFirst ?? r.firstNightCharge ?? 0;
                                         const jacuzziDays = r.jacuzzi?.days ?? 0;
@@ -743,7 +1102,7 @@ export default function AdminBookingsClient() {
                                                     </span>
                                                     {r.paidInFull && (
                                                         <span className="ml-1 text-[10px] text-green-600">
-                                                            ✓ Pagado
+                                                            ✓ Paid
                                                         </span>
                                                     )}
                                                 </td>
@@ -832,7 +1191,7 @@ export default function AdminBookingsClient() {
                                                                     return;
                                                                 if (
                                                                     !confirm(
-                                                                        "¿Marcar pago completo y completar?"
+                                                                        "Mark as fully paid and complete?"
                                                                     )
                                                                 )
                                                                     return;
@@ -862,19 +1221,19 @@ export default function AdminBookingsClient() {
                                                             title={
                                                                 r.status ===
                                                                     "admin"
-                                                                    ? "Bloqueos de admin no pueden completarse"
+                                                                    ? "Admin blocks cannot be completed"
                                                                     : undefined
                                                             }
                                                             className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                                         >
-                                                            Pago completo
+                                                            Fully Paid
                                                         </button>
 
                                                         <button
                                                             onClick={async () => {
                                                                 if (
                                                                     !confirm(
-                                                                        "¿Cancelar reserva?"
+                                                                        "Cancel reservation?"
                                                                     )
                                                                 )
                                                                     return;
@@ -902,7 +1261,7 @@ export default function AdminBookingsClient() {
                                                                 "canceled"
                                                             }
                                                         >
-                                                            Cancelar
+                                                            Cancel
                                                         </button>
                                                     </div>
                                                 </td>
@@ -1033,7 +1392,8 @@ export default function AdminBookingsClient() {
                                         </div>
                                         {onlyAdmin ? (
                                             <div className="text-[10px] text-neutral-700">
-                                                Reservation <br> </br> by admin
+                                                Reservation <br />
+                                                by admin
                                             </div>
                                         ) : (
                                             busy && (
@@ -1169,7 +1529,6 @@ export default function AdminBookingsClient() {
                                 </div>
                             </div>
                         )}
-
                     </div>
 
                     {/* Block form */}
@@ -1330,6 +1689,228 @@ export default function AdminBookingsClient() {
                                     />
                                 </div>
                             </div>
+
+                            {/* Jacuzzi section */}
+                            <div className="border-t pt-3 mt-2">
+                                <div className="text-xs font-semibold text-neutral-700 mb-2">
+                                    Extras
+                                </div>
+
+                                <label className="flex items-start gap-3 cursor-pointer mb-2">
+                                    <input
+                                        type="checkbox"
+                                        className="mt-1 w-4 h-4 rounded border-gray-400 text-[var(--color-primary)] focus:ring-[var(--color-primary)]"
+                                        checked={blockWithJacuzzi}
+                                        onChange={(e) => {
+                                            setBlockWithJacuzzi(e.target.checked);
+                                            if (!e.target.checked) setBlockJacuzziDays(1);
+                                        }}
+                                    />
+                                    <div className="flex-1">
+                                        <div className="text-sm font-medium text-gray-900">
+                                            Private jacuzzi
+                                        </div>
+                                        <div className="text-xs text-gray-600">
+                                            First day: 65€ (up to 2 guests, +10€/extra). Additional days: 45€/day (+10€/extra)
+                                        </div>
+                                    </div>
+                                </label>
+
+                                {blockWithJacuzzi && nights > 0 && (
+                                    <div className="mt-2 flex items-center gap-3 pl-7">
+                                        <label className="text-xs font-medium text-gray-700">
+                                            Number of days:
+                                        </label>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    setBlockJacuzziDays(Math.max(1, blockJacuzziDays - 1))
+                                                }
+                                                disabled={blockJacuzziDays <= 1}
+                                                className="w-7 h-7 rounded-md border border-gray-300 flex items-center justify-center hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                                            >
+                                                −
+                                            </button>
+                                            <span className="w-10 text-center font-semibold">
+                                                {blockJacuzziDays}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    setBlockJacuzziDays(
+                                                        Math.min(nights, blockJacuzziDays + 1)
+                                                    )
+                                                }
+                                                disabled={blockJacuzziDays >= nights}
+                                                className="w-7 h-7 rounded-md border border-gray-300 flex items-center justify-center hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                                            >
+                                                +
+                                            </button>
+                                        </div>
+                                        <span className="text-xs text-gray-500">
+                                            (max: {nights} {nights === 1 ? "night" : "nights"})
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Discount section */}
+                            <div className="border-t pt-3 mt-2">
+                                <div className="text-xs font-semibold text-neutral-700 mb-2">
+                                    Discount (optional)
+                                </div>
+
+                                <div className="flex flex-col gap-2">
+                                    <input
+                                        type="text"
+                                        className="w-full border rounded-md p-2"
+                                        placeholder="Enter discount code"
+                                        value={blockDiscountCode}
+                                        onChange={(e) => setBlockDiscountCode(e.target.value)}
+                                    />
+
+                                    <div className="flex gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={handleLookupDiscount}
+                                            disabled={!blockDiscountCode.trim() || blockDiscountLookupLoading}
+                                            className="flex-1 px-3 py-2 rounded-md bg-[var(--color-primary)] text-white text-xs font-semibold disabled:opacity-60"
+                                        >
+                                            {blockDiscountLookupLoading ? "Checking…" : "Lookup"}
+                                        </button>
+
+                                        {blockDiscountData && (
+                                            <button
+                                                type="button"
+                                                onClick={handleClearDiscount}
+                                                className="px-3 py-2 rounded-md border text-xs font-semibold"
+                                            >
+                                                Clear
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {blockDiscountError && (
+                                    <div className="text-xs text-red-600 mt-2">{blockDiscountError}</div>
+                                )}
+
+                                {blockDiscountData && (
+                                    <div className="mt-3 text-xs text-gray-700 space-y-2 bg-gray-50 p-3 rounded-md">
+                                        {blockDiscountData.kind === "coupon" && blockDiscountData.coupon && (
+                                            <>
+                                                <div className="font-medium">
+                                                    Code: {blockDiscountData.coupon.code}{" "}
+                                                    <span className="text-gray-500">
+                                                        ({blockDiscountData.state})
+                                                    </span>
+                                                </div>
+                                                <div>
+                                                    Remaining balance:{" "}
+                                                    <span className="font-semibold">
+                                                        €{Number(blockDiscountData.coupon.remaining ?? 0).toFixed(2)}
+                                                    </span>
+                                                </div>
+
+                                                {!blockDiscountApplied ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleApplyDiscount}
+                                                        className="mt-2 px-3 py-1.5 rounded-md bg-[var(--color-primary)] text-white text-xs font-semibold"
+                                                    >
+                                                        Apply discount
+                                                    </button>
+                                                ) : (
+                                                    <div className="mt-2 p-2 rounded-md bg-green-50 border border-green-200">
+                                                        Discount applied: €{blockAppliedEuroDiscount.toFixed(2)}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setBlockDiscountApplied(false);
+                                                                setBlockAppliedEuroDiscount(0);
+                                                            }}
+                                                            className="ml-2 underline"
+                                                        >
+                                                            Undo
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </>
+                                        )}
+
+                                        {blockDiscountData.kind === "percent" && blockDiscountData.percentDoc && (
+                                            <>
+                                                <div className="font-medium">
+                                                    Code: {blockDiscountData.percentDoc.code}{" "}
+                                                    <span className="text-gray-500">
+                                                        ({blockDiscountData.state})
+                                                    </span>
+                                                </div>
+                                                <div>
+                                                    Discount:{" "}
+                                                    <span className="font-semibold">
+                                                        {blockDiscountData.percentDoc.percent}% off (Reservation fee only)
+                                                    </span>
+                                                </div>
+                                                {blockDiscountData.percentDoc.expiresAt && (
+                                                    <div className="text-gray-500">
+                                                        Expires: {blockDiscountData.percentDoc.expiresAt}
+                                                    </div>
+                                                )}
+                                                {blockDiscountData.percentDoc.used && (
+                                                    <div className="text-red-600">(Already used)</div>
+                                                )}
+
+                                                {!blockDiscountApplied ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleApplyDiscount}
+                                                        className="mt-2 px-3 py-1.5 rounded-md bg-[var(--color-primary)] text-white text-xs font-semibold"
+                                                    >
+                                                        Apply discount
+                                                    </button>
+                                                ) : (
+                                                    <div className="mt-2 p-2 rounded-md bg-green-50 border border-green-200">
+                                                        Discount applied: {blockAppliedEuroDiscount}%
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setBlockDiscountApplied(false);
+                                                                setBlockAppliedEuroDiscount(0);
+                                                            }}
+                                                            className="ml-2 underline"
+                                                        >
+                                                            Undo
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Price Summary Section */}
+                            {blockStart && 
+                             blockEnd && 
+                             blockHouseId && 
+                             /^\d{4}-\d{2}-\d{2}$/.test(blockStart) &&
+                             /^\d{4}-\d{2}-\d{2}$/.test(blockEnd) &&
+                             blockStart < blockEnd && 
+                             nights > 0 && (
+                                <PriceSummaryBlock 
+                                    houseId={blockHouseId}
+                                    startDate={blockStart}
+                                    endDate={blockEnd}
+                                    guests={blockGuests}
+                                    jacuzziEnabled={blockWithJacuzzi}
+                                    jacuzziDays={blockJacuzziDays}
+                                    discountApplied={blockDiscountApplied}
+                                    discountData={blockDiscountData}
+                                    appliedDiscount={blockAppliedEuroDiscount}
+                                />
+                            )}
 
                             <button
                                 onClick={createBlock}

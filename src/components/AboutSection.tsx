@@ -119,17 +119,16 @@ const AboutSection: React.FC = () => {
             <Link
               ref={card1Ref}
               href="/ezero-namelis"
-              className={`group transition-all duration-1000 ease-out ${
-                isCard1Visible
+              className={`group transition-all duration-1000 ease-out ${isCard1Visible
                   ? 'opacity-100 translate-x-0'
                   : 'opacity-0 -translate-x-12'
-              }`}
+                }`}
             >
               {/* Image Container */}
               <div className="relative rounded-2xl shadow-lg overflow-hidden min-h-[300px] md:min-h-[350px] mb-4">
                 {/* Background Image */}
                 <img
-                  src="/ezero-namelis/ezero-namelis (19).jpg"
+                  src="/ezero-namelis/ezero-namelis (14).jpeg"
                   alt="Ežero Namelis"
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                 />
@@ -146,7 +145,7 @@ const AboutSection: React.FC = () => {
               <div className="px-2">
                 {/* Decorative line */}
                 <div className="w-16 h-1 bg-[var(--color-primary)] mb-3 transition-all duration-300 group-hover:w-24"></div>
-                
+
                 <p className="text-base text-[var(--color-text)] leading-relaxed">
                   Žavingas, atskiras poilsio namelis ant ežero kranto – Tai tobulas pabėgimas su nuostabiausiais saulėlydžiais, žvaigždėtomis naktimis ir tyliais rytais...
                 </p>
@@ -157,21 +156,25 @@ const AboutSection: React.FC = () => {
             <Link
               ref={card2Ref}
               href="/dupleksas"
-              className={`group transition-all duration-1000 ease-out ${
-                isCard2Visible
+              className={`group transition-all duration-1000 ease-out ${isCard2Visible
                   ? 'opacity-100 translate-x-0'
                   : 'opacity-0 -translate-x-15'
-              }`}
+                }`}
             >
               {/* Image Container */}
               <div className="relative rounded-2xl shadow-lg overflow-hidden mb-4">
                 {/* Background Image */}
                 <img
-                  src="/dupleksas/2-dupleksas11.jpeg"
+                  src="/home/dupleksas-inicio.jpeg"
                   alt="Duplekso apartamentai"
-                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 md:hidden"
                 />
-                
+                <img
+                  src="/home/dupleksas-inicio.jpeg"
+                  alt="Duplekso apartamentai"
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 hidden md:block"
+                />
+
                 {/* Title inside image - bottom */}
                 <div className="absolute bottom-0 left-0 right-0 p-3 md:p-4">
                   <h3 className="text-lg md:text-2xl lg:text-4xl text-white font-bold group-hover:text-[var(--color-primary)] transition-colors duration-300 drop-shadow-2xl">
@@ -184,7 +187,7 @@ const AboutSection: React.FC = () => {
               <div className="px-2">
                 {/* Decorative line */}
                 <div className="w-16 h-1 bg-[var(--color-primary)] mb-3 transition-all duration-300 group-hover:w-24"></div>
-                
+
                 <p className="text-base text-[var(--color-text)] leading-relaxed">
                   Du stilingi apartamentai, siūlantys skandinavišką komfortą ir modernius patogumus elniukų draugijoje…
                 </p>

@@ -88,8 +88,8 @@ const CALENDAR_STATUSES = new Set(["reserved", "admin", "complete"]);
 
 const HOUSE_OPTIONS = [
     { id: "L0TeFf2LmrWGAaAyS8NY", alias: "Ezero namelis" },
-    { id: "PZwbfMYlSXj61uYYJutg", alias: "Šalia Elnių Aptvaro" },
-    { id: "oDzv9346CdaAsok162sX", alias: "Elnių Panorama" },
+    { id: "PZwbfMYlSXj61uYYJutg", alias: "Salia Elnić Aptvaro" },
+    { id: "oDzv9346CdaAsok162sX", alias: "Elnić Panorama" },
     { id: "PZwbfMYlSXj61uYYJutg__oDzv9346CdaAsok162sX", alias: "Ambos Dupleksas (Dual)" },
 ];
 
@@ -98,8 +98,8 @@ const DUPLEKSA_IDS = ["PZwbfMYlSXj61uYYJutg", "oDzv9346CdaAsok162sX"];
 
 const PROPERTY_NAME_MAP: Record<string, string> = {
     "L0TeFf2LmrWGAaAyS8NY": "Ezero Namelis",
-    "PZwbfMYlSXj61uYYJutg": "Salia Elnių Aptvaro",
-    "oDzv9346CdaAsok162sX": "Salia Elnių Panorama",
+    "PZwbfMYlSXj61uYYJutg": "Salia Elnić Aptvaro",
+    "oDzv9346CdaAsok162sX": "Salia Elnić Panorama",
 };
 
 /* ---------- Date helpers (LOCAL) ---------- */
@@ -191,26 +191,26 @@ function PriceSummaryBlock({
 
     useEffect(() => {
         const fetchPrice = async () => {
-            // 🔍 Validar que tenemos todos los datos necesarios
+            // ?? Validar que tenemos todos los datos necesarios
             if (!houseId || !startDate || !endDate) {
-                console.log('⏸️ [PriceSummary] Missing required data:', { houseId, startDate, endDate });
+                console.log('?? [PriceSummary] Missing required data:', { houseId, startDate, endDate });
                 setPriceData(null);
                 return;
             }
 
-            // 🔍 Validar formato de fechas (YYYY-MM-DD)
+            // ?? Validar formato de fechas (YYYY-MM-DD)
             const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
             if (!dateRegex.test(startDate) || !dateRegex.test(endDate)) {
-                console.error('❌ [PriceSummary] Invalid date format:', { startDate, endDate });
+                console.error('? [PriceSummary] Invalid date format:', { startDate, endDate });
                 setError('Invalid date format. Expected YYYY-MM-DD');
                 return;
             }
 
-            // 🔍 Validar que startDate < endDate
+            // ?? Validar que startDate < endDate
             const start = new Date(startDate);
             const end = new Date(endDate);
             if (start >= end) {
-                console.error('❌ [PriceSummary] Start date must be before end date:', { startDate, endDate });
+                console.error('? [PriceSummary] Start date must be before end date:', { startDate, endDate });
                 setError('Check-out date must be after check-in date');
                 return;
             }
@@ -231,7 +231,7 @@ function PriceSummaryBlock({
                     body.jacuzziDays = jacuzziDays;
                 }
 
-                console.log('🔵 [PriceSummary] Calling price API with:', body);
+                console.log('?? [PriceSummary] Calling price API with:', body);
 
                 const res = await fetch('/api/reservations/price', {
                     method: 'POST',
@@ -239,19 +239,19 @@ function PriceSummaryBlock({
                     body: JSON.stringify(body),
                 });
 
-                console.log('🔵 [PriceSummary] Response status:', res.status);
+                console.log('?? [PriceSummary] Response status:', res.status);
 
                 if (!res.ok) {
                     const errorText = await res.text();
-                    console.error('🔴 [PriceSummary] Error response:', errorText);
+                    console.error('?? [PriceSummary] Error response:', errorText);
                     throw new Error(`Price fetch failed: ${res.status} - ${errorText}`);
                 }
 
                 const data = await res.json();
-                console.log('✅ [PriceSummary] Price data received:', data);
+                console.log('? [PriceSummary] Price data received:', data);
                 setPriceData(data);
             } catch (err: any) {
-                console.error('🔴 [PriceSummary] Fetch error:', err);
+                console.error('?? [PriceSummary] Fetch error:', err);
                 setError(err?.message || 'Failed to fetch price');
             } finally {
                 setLoading(false);
@@ -583,7 +583,7 @@ export default function AdminBookingsClient() {
                     "[calendar] Reservation truncated for safety:",
                     r.id,
                     ci,
-                    "→",
+                    "->",
                     co
                 );
             }
@@ -943,9 +943,9 @@ export default function AdminBookingsClient() {
     /* ---------- UI ---------- */
     return (
         <main className="min-h-screen pt-24 bg-[var(--color-background-main)]">
-            <section className="max-w-6xl mx-auto px-6 py-10">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-6">
+            <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 w-full sm:w-auto">
                         <button
                             type="button"
                             onClick={() => {
@@ -958,7 +958,7 @@ export default function AdminBookingsClient() {
                                     router.push("/admin/menu");
                                 }
                             }}
-                            className="inline-flex items-center gap-1 rounded-md border px-3 py-2 text-sm hover:bg-neutral-50"
+                            className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-neutral-50"
                             aria-label="Back"
                             title="Back"
                         >
@@ -966,18 +966,20 @@ export default function AdminBookingsClient() {
                             <span>Back</span>
                         </button>
 
-                        <h1 className="text-xl md:text-2xl font-bold text-[var(--color-primary-dark)]">
+                        <h1 className="text-lg sm:text-2xl font-bold text-[var(--color-primary-dark)]">
                             Reservations
                         </h1>
                     </div>
 
-                    <button
-                        onClick={fetchList}
-                        disabled={loading}
-                        className="rounded-md border px-3 py-2 text-sm hover:bg-neutral-50 disabled:opacity-60"
-                    >
-                        {loading ? "Loading…" : "Refresh"}
-                    </button>
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                        <button
+                            onClick={fetchList}
+                            disabled={loading}
+                            className="rounded-md border px-3 py-2 text-sm hover:bg-neutral-50 disabled:opacity-60 w-full sm:w-auto text-center"
+                        >
+                            {loading ? "Loading…" : "Refresh"}
+                        </button>
+                    </div>
                 </div>
 
                 {/* Filters */}
@@ -997,6 +999,7 @@ export default function AdminBookingsClient() {
                                 )
                             }
                             className="mt-1 border rounded-md p-2 h-[96px]"
+                            aria-label="Filter by status (use Ctrl/Cmd to multi-select)"
                         >
                             {STATUSES.map((s) => (
                                 <option key={s} value={s}>
@@ -1054,17 +1057,20 @@ export default function AdminBookingsClient() {
                     <div className="md:col-span-4 flex gap-2">
                         <button
                             onClick={fetchList}
-                            className="rounded-md bg-[var(--color-primary)] text-white px-4 py-2 text-sm font-semibold hover:opacity-95"
+                            className="rounded-md bg-[var(--color-primary)] text-white px-4 py-2 text-sm font-semibold hover:opacity-95 w-full md:w-auto"
                         >
                             Search
                         </button>
                     </div>
                 </div>
 
-                {/* Table */}
+                {/* Table / Mobile Cards */}
                 <div className="mt-6 bg-white border rounded-xl overflow-hidden">
-                    <div className="px-4 py-3 border-b text-sm font-semibold">
-                        Results
+                    <div className="px-4 py-3 border-b text-sm font-semibold flex items-center justify-between">
+                        <div>Results</div>
+                        <div className="text-xs text-neutral-500">
+                            {rows.length} total
+                        </div>
                     </div>
                     {loading ? (
                         <div className="p-4 text-sm text-neutral-600">
@@ -1079,234 +1085,264 @@ export default function AdminBookingsClient() {
                             No results
                         </div>
                     ) : (
-                        <div className="overflow-x-auto">
-                            <table className="min-w-full text-sm">
-                                <thead className="bg-neutral-50 text-neutral-700">
-                                    <tr>
-                                        <th className="px-3 py-2 text-left">
-                                            Dates
-                                        </th>
-                                        <th className="px-3 py-2 text-left">
-                                            Status
-                                        </th>
-                                        <th className="px-3 py-2 text-left">
-                                            House
-                                        </th>
-                                        <th className="px-3 py-2 text-left">
-                                            Customer
-                                        </th>
-                                        <th className="px-3 py-2 text-left">
-                                            Email
-                                        </th>
-                                        <th className="px-3 py-2 text-left">
-                                            Guests
-                                        </th>
-                                        <th className="px-3 py-2 text-right">
-                                            Total
-                                        </th>
-                                        <th className="px-3 py-2 text-right">
-                                            Paid
-                                        </th>
-                                        <th className="px-3 py-2">
-                                            Actions
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {rows.map((r) => {
-                                        const customerName = r.name || r.customer?.name || "—";
-                                        const customerEmail = r.customerEmail || r.email || r.customer?.email || "—";
+                        <>
+                            {/* MOBILE: Card list */}
+                            <div className="md:hidden divide-y">
+                                {rows.map((r) => {
+                                    const customerName = r.name || r.customer?.name || "—";
+                                    const customerEmail = r.customerEmail || r.email || r.customer?.email || "—";
 
-                                        const totalStay = r.totalStay ?? r.discountedGrandTotal ?? r.discountedTotal ?? r.grandTotal ?? r.total ?? 0;
-                                        const payNow = r.payNow ?? r.discountedFirst ?? r.firstNightCharge ?? 0;
-                                        const jacuzziDays = r.jacuzzi?.days ?? 0;
+                                    const totalStay = r.totalStay ?? r.discountedGrandTotal ?? r.discountedTotal ?? r.grandTotal ?? r.total ?? 0;
+                                    const payNow = r.payNow ?? r.discountedFirst ?? r.firstNightCharge ?? 0;
+                                    const jacuzziDays = r.jacuzzi?.days ?? 0;
 
-                                        return (
-                                            <tr key={r.id} className="border-t">
-                                                <td className="px-3 py-2">
-                                                    {r.checkIn} → {r.checkOut}{" "}
-                                                    <span className="text-[10px] text-neutral-500">
-                                                        ({r.nights ?? "?"}n)
-                                                    </span>
-                                                </td>
-                                                <td className="px-3 py-2">
-                                                    <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px]">
-                                                        {r.status}
-                                                    </span>
-                                                    {r.paidInFull && (
-                                                        <span className="ml-1 text-[10px] text-green-600">
-                                                            ✓ Paid
-                                                        </span>
-                                                    )}
-                                                </td>
-                                                <td className="px-3 py-2">
-                                                    {r.houseIds && r.houseIds.length > 1
-                                                        ? r.houseIds
-                                                            .map((id: string) => PROPERTY_NAME_MAP[id] || id)
-                                                            .join(" + ")
-                                                        : PROPERTY_NAME_MAP[r.houseId || r.houseIds?.[0] || ""] || r.houseId || r.houseIds?.[0] || "—"}
-                                                </td>
-                                                <td className="px-3 py-2">
-                                                    {customerName}
-                                                    {r.phone || r.customer?.phone ? (
-                                                        <div className="text-[10px] text-neutral-500">
-                                                            {r.phone || r.customer?.phone}
+                                    return (
+                                        <div key={r.id} className="p-4">
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div className="flex-1">
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <div className="text-sm font-semibold">
+                                                            {r.checkIn} → {r.checkOut}
                                                         </div>
-                                                    ) : null}
-                                                </td>
-                                                <td className="px-3 py-2">
-                                                    {customerEmail}
-                                                </td>
-                                                <td className="px-3 py-2">
-                                                    {r.guests ?? "—"}
-                                                    {r.extraGuests ? (
+                                                        <div className="text-xs text-neutral-500">
+                                                            {r.nights ?? "?"}n
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="mt-1 text-xs text-neutral-600">
+                                                        <div className="font-medium">{PROPERTY_NAME_MAP[r.houseId || r.houseIds?.[0] || ""] || r.houseId || (r.houseIds && r.houseIds.length > 1 ? (r.houseIds.map((id: string) => PROPERTY_NAME_MAP[id] || id).join(" + ")) : "—")}</div>
+                                                        <div className="mt-1">{customerName} {r.phone || r.customer?.phone ? <span className="block text-[12px] text-neutral-500">{r.phone || r.customer?.phone}</span> : null}</div>
+                                                        <div className="mt-1">{customerEmail}</div>
+                                                    </div>
+
+                                                    <div className="mt-2 text-xs flex flex-wrap gap-2 items-center">
+                                                        <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px]">
+                                                            {r.status}
+                                                        </span>
+                                                        {r.paidInFull && (
+                                                            <span className="text-[11px] text-green-600">✓ Paid</span>
+                                                        )}
+                                                        {r.extraGuests ? (
+                                                            <span className="text-[11px] text-neutral-500">+{r.extraGuests} extra</span>
+                                                        ) : null}
+                                                        {r.jacuzzi?.enabled && (
+                                                            <span className="text-[11px] text-neutral-500">Jacuzzi {jacuzziDays > 0 ? `(${jacuzziDays}d)` : ''}</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                <div className="w-32 text-right">
+                                                    <div className="text-sm font-semibold">{totalStay.toFixed(2)}€</div>
+                                                    <div className="text-xs text-neutral-600 mt-1">Now: {payNow.toFixed(2)}€</div>
+                                                </div>
+                                            </div>
+
+                                            <div className="mt-3 flex gap-2">
+                                                <select
+                                                    className="border rounded-md p-2 text-xs flex-1"
+                                                    value={r.status}
+                                                    onChange={async (e) => {
+                                                        try {
+                                                            await updateStatus(r.id, e.target.value);
+                                                        } catch (er: any) {
+                                                            alert(er?.message || "Error");
+                                                        }
+                                                    }}
+                                                >
+                                                    {STATUSES.map((s) => (
+                                                        <option key={s} value={s}>{s}</option>
+                                                    ))}
+                                                </select>
+
+                                                <button
+                                                    onClick={async () => {
+                                                        if (r.status === "admin") return;
+                                                        if (!confirm("Mark as fully paid and complete?")) return;
+                                                        try {
+                                                            await updateStatus(r.id, "complete", true);
+                                                        } catch (er: any) {
+                                                            alert(er?.message || "Error");
+                                                        }
+                                                    }}
+                                                    disabled={r.status === "admin" || r.status === "complete" || r.status === "canceled"}
+                                                    className="rounded-md border px-3 py-2 text-xs hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                >
+                                                    Fully Paid
+                                                </button>
+
+                                                <button
+                                                    onClick={async () => {
+                                                        if (!confirm("Cancel reservation?")) return;
+                                                        try {
+                                                            await updateStatus(r.id, "canceled");
+                                                        } catch (er: any) {
+                                                            alert(er?.message || "Error");
+                                                        }
+                                                    }}
+                                                    className="rounded-md border px-3 py-2 text-xs hover:bg-neutral-50"
+                                                    disabled={r.status === "admin" || r.status === "complete" || r.status === "canceled"}
+                                                >
+                                                    Cancel
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            {/* DESKTOP / TABLET */}
+                            <div className="hidden md:block overflow-x-auto">
+                                <table className="min-w-full text-sm">
+                                    <thead className="bg-neutral-50 text-neutral-700">
+                                        <tr>
+                                            <th className="px-3 py-2 text-left">Dates</th>
+                                            <th className="px-3 py-2 text-left">Status</th>
+                                            <th className="px-3 py-2 text-left">House</th>
+                                            <th className="px-3 py-2 text-left">Customer</th>
+                                            <th className="px-3 py-2 text-left">Email</th>
+                                            <th className="px-3 py-2 text-left">Guests</th>
+                                            <th className="px-3 py-2 text-right">Total</th>
+                                            <th className="px-3 py-2 text-right">Paid</th>
+                                            <th className="px-3 py-2">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {rows.map((r) => {
+                                            const customerName = r.name || r.customer?.name || "—";
+                                            const customerEmail = r.customerEmail || r.email || r.customer?.email || "—";
+
+                                            const totalStay = r.totalStay ?? r.discountedGrandTotal ?? r.discountedTotal ?? r.grandTotal ?? r.total ?? 0;
+                                            const payNow = r.payNow ?? r.discountedFirst ?? r.firstNightCharge ?? 0;
+                                            const jacuzziDays = r.jacuzzi?.days ?? 0;
+
+                                            return (
+                                                <tr key={r.id} className="border-t">
+                                                    <td className="px-3 py-2">
+                                                        {r.checkIn} → {r.checkOut}{" "}
                                                         <span className="text-[10px] text-neutral-500">
-                                                            {" "}(+{r.extraGuests})
+                                                            ({r.nights ?? "?"}n)
                                                         </span>
-                                                    ) : null}
-                                                </td>
-                                                <td className="px-3 py-2 text-right">
-                                                    {totalStay.toFixed(2)}€
-                                                    {r.jacuzzi?.enabled && (
-                                                        <div className="text-[10px] text-neutral-500">
-                                                            +{r.jacuzziFee ?? 0}€ jacuzzi
-                                                            {jacuzziDays > 0 && ` (${jacuzziDays}d)`}
-                                                        </div>
-                                                    )}
-                                                </td>
-                                                <td className="px-3 py-2 text-right">
-                                                    {payNow.toFixed(2)}€
-                                                    {r.amountApplied ? (
-                                                        <div className="text-[10px] text-green-600">
-                                                            -{r.amountApplied}€
-                                                        </div>
-                                                    ) : null}
-                                                </td>
-                                                <td className="px-3 py-2">
-                                                    <div className="flex flex-wrap gap-2 justify-end">
-                                                        <select
-                                                            className="border rounded-md p-1 text-xs"
-                                                            value={r.status}
-                                                            onChange={async (
-                                                                e
-                                                            ) => {
-                                                                try {
-                                                                    await updateStatus(
-                                                                        r.id,
-                                                                        e.target
-                                                                            .value
-                                                                    );
-                                                                } catch (
-                                                                er: any
-                                                                ) {
-                                                                    alert(
-                                                                        er?.message ||
-                                                                        "Error"
-                                                                    );
-                                                                }
-                                                            }}
-                                                        >
-                                                            {STATUSES.map(
-                                                                (s) => (
-                                                                    <option
-                                                                        key={s}
-                                                                        value={s}
-                                                                    >
+                                                    </td>
+                                                    <td className="px-3 py-2">
+                                                        <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px]">
+                                                            {r.status}
+                                                        </span>
+                                                        {r.paidInFull && (
+                                                            <span className="ml-1 text-[10px] text-green-600">✓ Paid</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-3 py-2">
+                                                        {r.houseIds && r.houseIds.length > 1
+                                                            ? r.houseIds
+                                                                .map((id: string) => PROPERTY_NAME_MAP[id] || id)
+                                                                .join(" + ")
+                                                            : PROPERTY_NAME_MAP[r.houseId || r.houseIds?.[0] || ""] || r.houseId || r.houseIds?.[0] || "—"}
+                                                    </td>
+                                                    <td className="px-3 py-2">
+                                                        {customerName}
+                                                        {r.phone || r.customer?.phone ? (
+                                                            <div className="text-[10px] text-neutral-500">
+                                                                {r.phone || r.customer?.phone}
+                                                            </div>
+                                                        ) : null}
+                                                    </td>
+                                                    <td className="px-3 py-2">{customerEmail}</td>
+                                                    <td className="px-3 py-2">
+                                                        {r.guests ?? "—"}
+                                                        {r.extraGuests ? (
+                                                            <span className="text-[10px] text-neutral-500">
+                                                                {" "}(+{r.extraGuests})
+                                                            </span>
+                                                        ) : null}
+                                                    </td>
+                                                    <td className="px-3 py-2 text-right">
+                                                        {totalStay.toFixed(2)}€
+                                                        {r.jacuzzi?.enabled && (
+                                                            <div className="text-[10px] text-neutral-500">
+                                                                +{r.jacuzziFee ?? 0}€ jacuzzi
+                                                                {jacuzziDays > 0 && ` (${jacuzziDays}d)`}
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-3 py-2 text-right">
+                                                        {payNow.toFixed(2)}€
+                                                        {r.amountApplied ? (
+                                                            <div className="text-[10px] text-green-600">
+                                                                -{r.amountApplied}€
+                                                            </div>
+                                                        ) : null}
+                                                    </td>
+                                                    <td className="px-3 py-2">
+                                                        <div className="flex flex-wrap gap-2 justify-end">
+                                                            <select
+                                                                className="border rounded-md p-1 text-xs"
+                                                                value={r.status}
+                                                                onChange={async (e) => {
+                                                                    try {
+                                                                        await updateStatus(
+                                                                            r.id,
+                                                                            e.target.value
+                                                                        );
+                                                                    } catch (er: any) {
+                                                                        alert(er?.message || "Error");
+                                                                    }
+                                                                }}
+                                                            >
+                                                                {STATUSES.map((s) => (
+                                                                    <option key={s} value={s}>
                                                                         {s}
                                                                     </option>
-                                                                )
-                                                            )}
-                                                        </select>
+                                                                ))}
+                                                            </select>
 
-                                                        <button
-                                                            onClick={async () => {
-                                                                if (
-                                                                    r.status ===
-                                                                    "admin"
-                                                                )
-                                                                    return;
-                                                                if (
-                                                                    !confirm(
-                                                                        "Mark as fully paid and complete?"
-                                                                    )
-                                                                )
-                                                                    return;
-                                                                try {
-                                                                    await updateStatus(
-                                                                        r.id,
-                                                                        "complete",
-                                                                        true
-                                                                    );
-                                                                } catch (
-                                                                er: any
-                                                                ) {
-                                                                    alert(
-                                                                        er?.message ||
-                                                                        "Error"
-                                                                    );
+                                                            <button
+                                                                onClick={async () => {
+                                                                    if (r.status === "admin") return;
+                                                                    if (!confirm("Mark as fully paid and complete?")) return;
+                                                                    try {
+                                                                        await updateStatus(r.id, "complete", true);
+                                                                    } catch (er: any) {
+                                                                        alert(er?.message || "Error");
+                                                                    }
+                                                                }}
+                                                                disabled={
+                                                                    r.status === "admin" ||
+                                                                    r.status === "complete" ||
+                                                                    r.status === "canceled"
                                                                 }
-                                                            }}
-                                                            disabled={
-                                                                r.status ===
-                                                                "admin" ||
-                                                                r.status ===
-                                                                "complete" ||
-                                                                r.status ===
-                                                                "canceled"
-                                                            }
-                                                            title={
-                                                                r.status ===
-                                                                    "admin"
-                                                                    ? "Admin blocks cannot be completed"
-                                                                    : undefined
-                                                            }
-                                                            className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                        >
-                                                            Fully Paid
-                                                        </button>
+                                                                title={r.status === "admin" ? "Admin blocks cannot be completed" : undefined}
+                                                                className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                            >
+                                                                Fully Paid
+                                                            </button>
 
-                                                        <button
-                                                            onClick={async () => {
-                                                                if (
-                                                                    !confirm(
-                                                                        "Cancel reservation?"
-                                                                    )
-                                                                )
-                                                                    return;
-                                                                try {
-                                                                    await updateStatus(
-                                                                        r.id,
-                                                                        "canceled"
-                                                                    );
-                                                                } catch (
-                                                                er: any
-                                                                ) {
-                                                                    alert(
-                                                                        er?.message ||
-                                                                        "Error"
-                                                                    );
+                                                            <button
+                                                                onClick={async () => {
+                                                                    if (!confirm("Cancel reservation?")) return;
+                                                                    try {
+                                                                        await updateStatus(r.id, "canceled");
+                                                                    } catch (er: any) {
+                                                                        alert(er?.message || "Error");
+                                                                    }
+                                                                }}
+                                                                className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                                disabled={
+                                                                    r.status === "admin" ||
+                                                                    r.status === "complete" ||
+                                                                    r.status === "canceled"
                                                                 }
-                                                            }}
-                                                            className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                            disabled={
-                                                                r.status ===
-                                                                "admin" ||
-                                                                r.status ===
-                                                                "complete" ||
-                                                                r.status ===
-                                                                "canceled"
-                                                            }
-                                                        >
-                                                            Cancel
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
+                                                            >
+                                                                Cancel
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </>
                     )}
                 </div>
 
@@ -1315,31 +1351,22 @@ export default function AdminBookingsClient() {
                     {/* Calendar */}
                     <div className="lg:col-span-2 bg-white border rounded-xl p-4">
                         <div className="flex items-center justify-between mb-3">
-                            <div className="font-semibold">
-                                Global Calendar
-                            </div>
+                            <div className="font-semibold">Global Calendar</div>
                             <div className="flex items-center gap-2">
                                 <button
                                     className="rounded-md border px-2 py-1 text-xs"
                                     onClick={() => {
-                                        const d = new Date(
-                                            calYear,
-                                            calMonth,
-                                            1
-                                        );
+                                        const d = new Date(calYear, calMonth, 1);
                                         d.setMonth(d.getMonth() - 1);
                                         setCalYear(d.getFullYear());
                                         setCalMonth(d.getMonth());
                                     }}
+                                    aria-label="Previous month"
                                 >
-                                    ◀
+                                    ←
                                 </button>
                                 <div className="text-sm">
-                                    {new Date(
-                                        calYear,
-                                        calMonth,
-                                        1
-                                    ).toLocaleString(undefined, {
+                                    {new Date(calYear, calMonth, 1).toLocaleString(undefined, {
                                         month: "long",
                                         year: "numeric",
                                     })}
@@ -1347,34 +1374,21 @@ export default function AdminBookingsClient() {
                                 <button
                                     className="rounded-md border px-2 py-1 text-xs"
                                     onClick={() => {
-                                        const d = new Date(
-                                            calYear,
-                                            calMonth,
-                                            1
-                                        );
+                                        const d = new Date(calYear, calMonth, 1);
                                         d.setMonth(d.getMonth() + 1);
                                         setCalYear(d.getFullYear());
                                         setCalMonth(d.getMonth());
                                     }}
+                                    aria-label="Next month"
                                 >
-                                    ▶
+                                    →
                                 </button>
                             </div>
                         </div>
 
                         <div className="grid grid-cols-7 gap-2 text-xs text-neutral-600 mb-1">
-                            {[
-                                "Mon",
-                                "Tue",
-                                "Wed",
-                                "Thu",
-                                "Fri",
-                                "Sat",
-                                "Sun",
-                            ].map((d) => (
-                                <div key={d} className="text-center">
-                                    {d}
-                                </div>
+                            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
+                                <div key={d} className="text-center">{d}</div>
                             ))}
                         </div>
 
@@ -1395,92 +1409,59 @@ export default function AdminBookingsClient() {
                                     return (
                                         <div
                                             key={cell.key}
-                                            className="h-16 rounded-md border bg-neutral-50/50"
+                                            className="h-12 md:h-16 rounded-md border bg-neutral-50/50"
                                             aria-hidden
                                         />
                                     );
                                 }
 
                                 const list = dayMap.get(cell.iso) || [];
-                                const hasAdmin = list.some(
-                                    (r) => r.status === "admin"
-                                );
-                                const onlyAdmin =
-                                    hasAdmin &&
-                                    list.every((r) => r.status === "admin");
+                                const hasAdmin = list.some((r) => r.status === "admin");
+                                const onlyAdmin = hasAdmin && list.every((r) => r.status === "admin");
                                 const busy = list.length > 0;
 
                                 return (
                                     <button
                                         key={cell.key}
-                                        onClick={() =>
-                                            setSelectedDay(cell.iso!)
-                                        }
-                                        className={`h-16 rounded-md border text-xs flex flex-col items-center justify-center ${onlyAdmin
-                                            ? "bg-neutral-200 border-neutral-300 text-neutral-700"
-                                            : busy
-                                                ? "bg-[var(--color-primary)]/10 border-[var(--color-primary)]/40"
-                                                : "bg-white"
+                                        onClick={() => setSelectedDay(cell.iso!)}
+                                        className={`h-12 md:h-16 rounded-md border text-xs flex flex-col items-center justify-center ${onlyAdmin
+                                                ? "bg-neutral-200 border-neutral-300 text-neutral-700"
+                                                : busy
+                                                    ? "bg-[var(--color-primary)]/10 border-[var(--color-primary)]/40"
+                                                    : "bg-white"
                                             } hover:bg-neutral-50`}
+                                        aria-label={`Day ${cell.dayNum}`}
                                     >
-                                        <div className="font-semibold">
-                                            {cell.dayNum}
-                                        </div>
-                                        {onlyAdmin ? (
-                                            <div className="text-[10px] text-neutral-700">
-                                                Reservation <br />
-                                                by admin
+                                        <div className="font-semibold">{cell.dayNum}</div>
+
+                                        {!onlyAdmin && busy && (
+                                            <div className="text-[10px] text-[var(--color-primary-dark)]">
+                                                {list.length} ●
                                             </div>
-                                        ) : (
-                                            busy && (
-                                                <div className="text-[10px] text-[var(--color-primary-dark)]">
-                                                    {list.length} Reservation
-                                                    {list.length > 1 ? "s" : ""}
-                                                </div>
-                                            )
                                         )}
+
                                     </button>
+
                                 );
                             })}
                         </div>
 
                         {selectedDay && (
                             <div className="mt-4 border-t pt-3">
-                                <div className="text-sm font-semibold">
-                                    Reservations on {selectedDay}
-                                </div>
+                                <div className="text-sm font-semibold">Reservations on {selectedDay}</div>
 
                                 <div className="mt-2 grid gap-2">
                                     {(dayMap.get(selectedDay) || []).map((r) => {
                                         const customerName = r.name || r.customer?.name || "—";
                                         const customerEmail = r.customerEmail || r.email || r.customer?.email || "—";
-                                        const totalStay =
-                                            r.totalStay ??
-                                            r.discountedGrandTotal ??
-                                            r.discountedTotal ??
-                                            r.grandTotal ??
-                                            r.total ??
-                                            0;
+                                        const totalStay = r.totalStay ?? r.discountedGrandTotal ?? r.discountedTotal ?? r.grandTotal ?? r.total ?? 0;
                                         const jacuzziDays = r.jacuzzi?.days ?? 0;
 
                                         return (
-                                            <div
-                                                key={r.id}
-                                                className="rounded-md border p-2 text-xs bg-white"
-                                            >
-                                                <div className="font-semibold">
-                                                    {r.checkIn} → {r.checkOut}{" "}
-                                                    <span className="ml-1">({r.status})</span>
-                                                </div>
+                                            <div key={r.id} className="rounded-md border p-2 text-xs bg-white">
+                                                <div className="font-semibold">{r.checkIn} → {r.checkOut} <span className="ml-1">({r.status})</span></div>
 
-                                                <div>
-                                                    Stay:{" "}
-                                                    {r.houseIds && r.houseIds.length > 1
-                                                        ? r.houseIds
-                                                            .map((id: string) => PROPERTY_NAME_MAP[id] || id)
-                                                            .join(" + ")
-                                                        : PROPERTY_NAME_MAP[r.houseId || r.houseIds?.[0] || ""] || r.houseId || r.houseIds?.[0] || "—"}
-                                                </div>
+                                                <div>Stay: {r.houseIds && r.houseIds.length > 1 ? r.houseIds.map((id: string) => PROPERTY_NAME_MAP[id] || id).join(" + ") : (PROPERTY_NAME_MAP[r.houseId || r.houseIds?.[0] || ""] || r.houseId || r.houseIds?.[0] || "—")}</div>
 
                                                 <div>Guest: {customerName}</div>
                                                 <div>Email: {customerEmail}</div>
@@ -1490,37 +1471,26 @@ export default function AdminBookingsClient() {
                                                 )}
 
                                                 <div>
-                                                    Guests: {r.guests ?? "—"}
-                                                    {r.extraGuests ? ` (+${r.extraGuests} extra)` : ""}
+                                                    Guests: {r.guests ?? "—"}{r.extraGuests ? ` (+${r.extraGuests} extra)` : ""}
                                                 </div>
 
                                                 <div>
                                                     Total: {totalStay.toFixed(2)}€
                                                     {r.jacuzzi?.enabled && (
-                                                        <span>
-                                                            {" "}
-                                                            (+{r.jacuzziFee ?? 0}€ jacuzzi
-                                                            {jacuzziDays > 0 && ` ${jacuzziDays}d`})
-                                                        </span>
+                                                        <span> (+{r.jacuzziFee ?? 0}€ jacuzzi{jacuzziDays > 0 && ` ${jacuzziDays}d`})</span>
                                                     )}
                                                 </div>
 
                                                 {(r.arrivalTime || r.customer?.arrivalTime) && (
-                                                    <div>
-                                                        Arrival time: {r.arrivalTime || r.customer?.arrivalTime}
-                                                    </div>
+                                                    <div>Arrival time: {r.arrivalTime || r.customer?.arrivalTime}</div>
                                                 )}
 
                                                 {(r.comment || r.customer?.comment) && (
-                                                    <div className="mt-1 text-neutral-600">
-                                                        Comment: {r.comment || r.customer?.comment}
-                                                    </div>
+                                                    <div className="mt-1 text-neutral-600">Comment: {r.comment || r.customer?.comment}</div>
                                                 )}
 
                                                 {r.adminNote && (
-                                                    <div className="mt-1 text-neutral-600">
-                                                        Admin note: {r.adminNote}
-                                                    </div>
+                                                    <div className="mt-1 text-neutral-600">Admin note: {r.adminNote}</div>
                                                 )}
 
                                                 <div className="mt-2 flex gap-2">
@@ -1536,11 +1506,7 @@ export default function AdminBookingsClient() {
                                                             }
                                                         }}
                                                         disabled={r.status === "admin"}
-                                                        title={
-                                                            r.status === "admin"
-                                                                ? "Admin blocks cannot be completed"
-                                                                : undefined
-                                                        }
+                                                        title={r.status === "admin" ? "Admin blocks cannot be completed" : undefined}
                                                         className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                                     >
                                                         Fully Paid
@@ -1554,7 +1520,7 @@ export default function AdminBookingsClient() {
                                                                 alert(e?.message || "Error");
                                                             }
                                                         }}
-                                                        className="rounded-md border px-2 py-1 hover:bg-neutral-50"
+                                                        className="rounded-md border px-2 py-1 hover:bg-neutral-50 text-xs"
                                                     >
                                                         Cancel
                                                     </button>
@@ -1569,47 +1535,33 @@ export default function AdminBookingsClient() {
 
                     {/* Block form */}
                     <div className="bg-white border rounded-xl p-4">
-                        <div className="font-semibold mb-2">
-                            Block dates
-                        </div>
+                        <div className="font-semibold mb-2">Block dates</div>
                         <div className="grid gap-3 text-sm">
                             <div>
-                                <label className="text-xs text-neutral-600">
-                                    From
-                                </label>
+                                <label className="text-xs text-neutral-600">From</label>
                                 <input
                                     type="date"
                                     value={blockStart}
-                                    onChange={(e) =>
-                                        setBlockStart(e.target.value)
-                                    }
+                                    onChange={(e) => setBlockStart(e.target.value)}
                                     className="w-full border rounded-md p-2 mt-1"
                                 />
                             </div>
 
                             <div>
-                                <label className="text-xs text-neutral-600">
-                                    To
-                                </label>
+                                <label className="text-xs text-neutral-600">To</label>
                                 <input
                                     type="date"
                                     value={blockEnd}
-                                    onChange={(e) =>
-                                        setBlockEnd(e.target.value)
-                                    }
+                                    onChange={(e) => setBlockEnd(e.target.value)}
                                     className="w-full border rounded-md p-2 mt-1"
                                 />
                             </div>
 
                             <div>
-                                <label className="text-xs text-neutral-600">
-                                    House *
-                                </label>
+                                <label className="text-xs text-neutral-600">House *</label>
                                 <select
                                     value={blockHouseId}
-                                    onChange={(e) =>
-                                        setBlockHouseId(e.target.value)
-                                    }
+                                    onChange={(e) => setBlockHouseId(e.target.value)}
                                     className="w-full border rounded-md p-2 mt-1"
                                 >
                                     <option value="">— Select —</option>
@@ -1622,9 +1574,7 @@ export default function AdminBookingsClient() {
                             </div>
 
                             <div>
-                                <label className="text-xs text-neutral-600">
-                                    Guests
-                                </label>
+                                <label className="text-xs text-neutral-600">Guests</label>
                                 <input
                                     type="number"
                                     min={1}
@@ -1632,14 +1582,8 @@ export default function AdminBookingsClient() {
                                     step={1}
                                     value={blockGuests}
                                     onChange={(e) => {
-                                        const n = parseInt(
-                                            e.target.value || "1",
-                                            10
-                                        );
-                                        const clamped = Math.min(
-                                            8,
-                                            Math.max(1, isNaN(n) ? 1 : n)
-                                        );
+                                        const n = parseInt(e.target.value || "1", 10);
+                                        const clamped = Math.min(8, Math.max(1, isNaN(n) ? 1 : n));
                                         setBlockGuests(clamped);
                                     }}
                                     className="w-full border rounded-md p-2 mt-1"
@@ -1647,78 +1591,56 @@ export default function AdminBookingsClient() {
                             </div>
 
                             <div className="border-t pt-3 mt-2">
-                                <div className="text-xs font-semibold text-neutral-700 mb-2">
-                                    Customer information *
-                                </div>
+                                <div className="text-xs font-semibold text-neutral-700 mb-2">Customer information *</div>
 
                                 <div className="mb-2">
-                                    <label className="text-xs text-neutral-600">
-                                        Name *
-                                    </label>
+                                    <label className="text-xs text-neutral-600">Name *</label>
                                     <input
                                         type="text"
                                         value={blockCustomerName}
-                                        onChange={(e) =>
-                                            setBlockCustomerName(e.target.value)
-                                        }
+                                        onChange={(e) => setBlockCustomerName(e.target.value)}
                                         placeholder="Customer name"
                                         className="w-full border rounded-md p-2 mt-1"
                                     />
                                 </div>
 
                                 <div className="mb-2">
-                                    <label className="text-xs text-neutral-600">
-                                        Email *
-                                    </label>
+                                    <label className="text-xs text-neutral-600">Email *</label>
                                     <input
                                         type="email"
                                         value={blockCustomerEmail}
-                                        onChange={(e) =>
-                                            setBlockCustomerEmail(e.target.value)
-                                        }
+                                        onChange={(e) => setBlockCustomerEmail(e.target.value)}
                                         placeholder="email@example.com"
                                         className="w-full border rounded-md p-2 mt-1"
                                     />
                                 </div>
 
                                 <div className="mb-2">
-                                    <label className="text-xs text-neutral-600">
-                                        Phone
-                                    </label>
+                                    <label className="text-xs text-neutral-600">Phone</label>
                                     <input
                                         type="tel"
                                         value={blockCustomerPhone}
-                                        onChange={(e) =>
-                                            setBlockCustomerPhone(e.target.value)
-                                        }
+                                        onChange={(e) => setBlockCustomerPhone(e.target.value)}
                                         placeholder="+34 600 000 000"
                                         className="w-full border rounded-md p-2 mt-1"
                                     />
                                 </div>
 
                                 <div className="mb-2">
-                                    <label className="text-xs text-neutral-600">
-                                        Arrival time
-                                    </label>
+                                    <label className="text-xs text-neutral-600">Arrival time</label>
                                     <input
                                         type="time"
                                         value={blockArrivalTime}
-                                        onChange={(e) =>
-                                            setBlockArrivalTime(e.target.value)
-                                        }
+                                        onChange={(e) => setBlockArrivalTime(e.target.value)}
                                         className="w-full border rounded-md p-2 mt-1"
                                     />
                                 </div>
 
                                 <div>
-                                    <label className="text-xs text-neutral-600">
-                                        Comment
-                                    </label>
+                                    <label className="text-xs text-neutral-600">Comment</label>
                                     <textarea
                                         value={blockComment}
-                                        onChange={(e) =>
-                                            setBlockComment(e.target.value)
-                                        }
+                                        onChange={(e) => setBlockComment(e.target.value)}
                                         rows={2}
                                         placeholder="Additional comments"
                                         className="w-full border rounded-md p-2 mt-1"
@@ -1728,9 +1650,7 @@ export default function AdminBookingsClient() {
 
                             {/* Jacuzzi section */}
                             <div className="border-t pt-3 mt-2">
-                                <div className="text-xs font-semibold text-neutral-700 mb-2">
-                                    Extras
-                                </div>
+                                <div className="text-xs font-semibold text-neutral-700 mb-2">Extras</div>
 
                                 <label className="flex items-start gap-3 cursor-pointer mb-2">
                                     <input
@@ -1743,59 +1663,41 @@ export default function AdminBookingsClient() {
                                         }}
                                     />
                                     <div className="flex-1">
-                                        <div className="text-sm font-medium text-gray-900">
-                                            Private jacuzzi
-                                        </div>
-                                        <div className="text-xs text-gray-600">
-                                            First day: 65€ (up to 2 guests, +10€/extra). Additional days: 45€/day (+10€/extra)
-                                        </div>
+                                        <div className="text-sm font-medium text-gray-900">Private jacuzzi</div>
+                                        <div className="text-xs text-gray-600">First day: 65€ (up to 2 guests, +10€/extra). Additional days: 45€/day (+10€/extra)</div>
                                     </div>
                                 </label>
 
                                 {blockWithJacuzzi && nights > 0 && (
                                     <div className="mt-2 flex items-center gap-3 pl-7">
-                                        <label className="text-xs font-medium text-gray-700">
-                                            Number of days:
-                                        </label>
+                                        <label className="text-xs font-medium text-gray-700">Number of days:</label>
                                         <div className="flex items-center gap-2">
                                             <button
                                                 type="button"
-                                                onClick={() =>
-                                                    setBlockJacuzziDays(Math.max(1, blockJacuzziDays - 1))
-                                                }
+                                                onClick={() => setBlockJacuzziDays(Math.max(1, blockJacuzziDays - 1))}
                                                 disabled={blockJacuzziDays <= 1}
                                                 className="w-7 h-7 rounded-md border border-gray-300 flex items-center justify-center hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                                             >
                                                 −
                                             </button>
-                                            <span className="w-10 text-center font-semibold">
-                                                {blockJacuzziDays}
-                                            </span>
+                                            <span className="w-10 text-center font-semibold">{blockJacuzziDays}</span>
                                             <button
                                                 type="button"
-                                                onClick={() =>
-                                                    setBlockJacuzziDays(
-                                                        Math.min(nights, blockJacuzziDays + 1)
-                                                    )
-                                                }
+                                                onClick={() => setBlockJacuzziDays(Math.min(nights, blockJacuzziDays + 1))}
                                                 disabled={blockJacuzziDays >= nights}
                                                 className="w-7 h-7 rounded-md border border-gray-300 flex items-center justify-center hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                                             >
                                                 +
                                             </button>
                                         </div>
-                                        <span className="text-xs text-gray-500">
-                                            (max: {nights} {nights === 1 ? "night" : "nights"})
-                                        </span>
+                                        <span className="text-xs text-gray-500">(max: {nights} {nights === 1 ? "night" : "nights"})</span>
                                     </div>
                                 )}
                             </div>
 
                             {/* Discount section */}
                             <div className="border-t pt-3 mt-2">
-                                <div className="text-xs font-semibold text-neutral-700 mb-2">
-                                    Discount (optional)
-                                </div>
+                                <div className="text-xs font-semibold text-neutral-700 mb-2">Discount (optional)</div>
 
                                 <div className="flex flex-col gap-2">
                                     <input
@@ -1837,16 +1739,10 @@ export default function AdminBookingsClient() {
                                         {blockDiscountData.kind === "coupon" && blockDiscountData.coupon && (
                                             <>
                                                 <div className="font-medium">
-                                                    Code: {blockDiscountData.coupon.code}{" "}
-                                                    <span className="text-gray-500">
-                                                        ({blockDiscountData.state})
-                                                    </span>
+                                                    Code: {blockDiscountData.coupon.code} <span className="text-gray-500">({blockDiscountData.state})</span>
                                                 </div>
                                                 <div>
-                                                    Remaining balance:{" "}
-                                                    <span className="font-semibold">
-                                                        €{Number(blockDiscountData.coupon.remaining ?? 0).toFixed(2)}
-                                                    </span>
+                                                    Remaining balance: <span className="font-semibold">€{Number(blockDiscountData.coupon.remaining ?? 0).toFixed(2)}</span>
                                                 </div>
 
                                                 {!blockDiscountApplied ? (
@@ -1878,21 +1774,13 @@ export default function AdminBookingsClient() {
                                         {blockDiscountData.kind === "percent" && blockDiscountData.percentDoc && (
                                             <>
                                                 <div className="font-medium">
-                                                    Code: {blockDiscountData.percentDoc.code}{" "}
-                                                    <span className="text-gray-500">
-                                                        ({blockDiscountData.state})
-                                                    </span>
+                                                    Code: {blockDiscountData.percentDoc.code} <span className="text-gray-500">({blockDiscountData.state})</span>
                                                 </div>
                                                 <div>
-                                                    Discount:{" "}
-                                                    <span className="font-semibold">
-                                                        {blockDiscountData.percentDoc.percent}% off (Reservation fee only)
-                                                    </span>
+                                                    Discount: <span className="font-semibold">{blockDiscountData.percentDoc.percent}% off (Reservation fee only)</span>
                                                 </div>
                                                 {blockDiscountData.percentDoc.expiresAt && (
-                                                    <div className="text-gray-500">
-                                                        Expires: {blockDiscountData.percentDoc.expiresAt}
-                                                    </div>
+                                                    <div className="text-gray-500">Expires: {blockDiscountData.percentDoc.expiresAt}</div>
                                                 )}
                                                 {blockDiscountData.percentDoc.used && (
                                                     <div className="text-red-600">(Already used)</div>
@@ -1951,18 +1839,13 @@ export default function AdminBookingsClient() {
                             <button
                                 onClick={createBlock}
                                 disabled={blockBusy}
-                                className="mt-2 rounded-md bg-[var(--color-primary)] text-white px-4 py-2 text-sm font-semibold hover:opacity-95 disabled:opacity-60"
+                                className="mt-2 rounded-md bg-[var(--color-primary)] text-white px-4 py-2 text-sm font-semibold hover:opacity-95 disabled:opacity-60 w-full"
                             >
                                 {blockBusy ? "Creating…" : "Block"}
                             </button>
 
                             {blockMsg && (
-                                <div
-                                    className={`text-xs mt-1 whitespace-pre-wrap ${blockMsg.startsWith("Error")
-                                        ? "text-red-600"
-                                        : "text-green-600"
-                                        }`}
-                                >
+                                <div className={`text-xs mt-1 whitespace-pre-wrap ${blockMsg.startsWith("Error") ? "text-red-600" : "text-green-600"}`}>
                                     {blockMsg}
                                 </div>
                             )}

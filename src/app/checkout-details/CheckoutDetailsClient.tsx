@@ -236,23 +236,33 @@ export default function CheckoutDetailsClient() {
     : "-";
   const endPretty = endIso ? new Date(endIso).toLocaleDateString("en-GB") : "-";
 
-  // derive jacuzzi fee shown
+  // Helper: contar cuántas unidades/casas se reservan (houseId puede ser "id" o "a__b")
+  function countDualHouses(houseId: string) {
+    if (!houseId) return 1;
+    return houseId.split("__").filter(Boolean).length || 1;
+  }
+
   const jacuzziFeeShown = useMemo(() => {
     if (!withJacuzzi || !priceData) return 0;
 
     const nights = priceData.nights || 0;
-    const extraGuestsForJacuzzi = Math.max(0, guests - 2);
+    const numHouses = countDualHouses(houseId); // detecta si es dual/multiple
 
-    // Primer día: 65€ + 10€ por guest extra
-    const firstDayFee = 65 + extraGuestsForJacuzzi * 10;
+    // Capacidad base de jacuzzi = 2 personas por unidad
+    const baseCapacity = numHouses * 2;
+    const extraGuestsForJacuzzi = Math.max(0, guests - baseCapacity);
 
-    // Días adicionales (si jacuzziDays > 1): 45€ + 10€ por guest extra cada día
+    // Primer día: 65€ por cada casa + 10€ por cada huésped extra (total extras respecto a la capacidad combinada)
+    const firstDayFee = numHouses * 65 + extraGuestsForJacuzzi * 10;
+
+    // Días adicionales (si jacuzziDays > 1): 45€ por cada casa + 10€ por extra guest por día
     const additionalDays = Math.max(0, Math.min(jacuzziDays, nights) - 1);
     const additionalDaysFee =
-      additionalDays * (45 + extraGuestsForJacuzzi * 10);
+      additionalDays * (numHouses * 45 + extraGuestsForJacuzzi * 10);
 
     return firstDayFee + additionalDaysFee;
-  }, [withJacuzzi, jacuzziDays, guests, priceData]);
+  }, [withJacuzzi, jacuzziDays, guests, priceData, houseId]);
+
   /**
    * computedBreakdown:
    * - payNowAfterDiscount: what Stripe will try to charge now

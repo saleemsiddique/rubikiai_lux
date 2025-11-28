@@ -345,10 +345,18 @@ export async function POST(req: Request) {
 
     let jacuzziFee = 0;
     if (jacuzzi && jacuzziDays > 0) {
-      const jacuzziExtraGuests = Math.max(0, guestsNum - 2);
-      const firstDayFee = JACUZZI_BASE_PRICE + jacuzziExtraGuests * JACUZZI_EXTRA_PRICE;
+      // --- FIX: calcular base por unidad (2 personas por jacuzzi/house)
+      const jacuzziUnits = housesData.length; // número de jacuzzis/unidades reservadas
+      const jacuzziBaseCapacity = jacuzziUnits * 2;
+      const jacuzziExtraGuests = Math.max(0, guestsNum - jacuzziBaseCapacity);
+
+      const firstDayBase = jacuzziUnits * JACUZZI_BASE_PRICE;
+      const additionalPerDayBase = jacuzziUnits * 45;
+
+      const firstDayFee = firstDayBase + jacuzziExtraGuests * JACUZZI_EXTRA_PRICE;
       const additionalDays = Math.max(0, jacuzziDays - 1);
-      const additionalDaysFee = additionalDays * (45 + jacuzziExtraGuests * JACUZZI_EXTRA_PRICE);
+      const additionalDaysFee = additionalDays * (additionalPerDayBase + jacuzziExtraGuests * JACUZZI_EXTRA_PRICE);
+
       jacuzziFee = firstDayFee + additionalDaysFee;
     }
 

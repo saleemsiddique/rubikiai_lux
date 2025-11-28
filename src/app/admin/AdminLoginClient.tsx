@@ -17,29 +17,39 @@ async function readErrorResponse(res: Response) {
   }
 }
 
+function friendly(r?: string | null) {
+  if (r === "login") return "Inicia sesión para continuar.";
+  if (r === "forbidden") return "Acceso denegado. Tu usuario no es administrador.";
+  if (r === "expired") return "Sesión expirada. Vuelve a iniciar sesión.";
+  return null;
+}
+
 export default function AdminLoginClient() {
   const router = useRouter();
   const search = useSearchParams();
-  const reason = search?.get("reason");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(true);
-  const [err, setErr] = useState<string | null>(reason ? friendly(reason) : null);
+  const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  function friendly(r?: string | null) {
-    if (r === "login") return "Inicia sesión para continuar.";
-    if (r === "forbidden") return "Acceso denegado. Tu usuario no es administrador.";
-    if (r === "expired") return "Sesión expirada. Vuelve a iniciar sesión.";
-    return null;
-  }
+  // Mover la lógica del reason a useEffect para evitar hidratación
+  useEffect(() => {
+    const reason = search?.get("reason");
+    if (reason) {
+      setErr(friendly(reason));
+    }
+  }, [search]);
 
   useEffect(() => {
     let abort = false;
     const check = async () => {
       try {
-        const res = await fetch("/api/auth/session-check", { method: "GET", credentials: "same-origin" });
+        const res = await fetch("/api/auth/session-check", { 
+          method: "GET", 
+          credentials: "same-origin" 
+        });
         if (!res.ok) return;
         const data = await res.json().catch(() => ({}));
         if (!abort && data?.isAuthenticated && data?.isAdmin) {

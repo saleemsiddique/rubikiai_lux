@@ -77,6 +77,9 @@ export default function AdminHousesClient() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // ===== MOBILE: mostrar selector o editor =====
+  const [showEditor, setShowEditor] = useState(false);
+
   // ===== FORM PRECIOS SEMANALES BASE =====
   const [form, setForm] = useState<Record<Weekday, string>>({
     monday: "",
@@ -209,7 +212,7 @@ export default function AdminHousesClient() {
       setSpecialDate("");
       setSpecialPrice("");
       setSpecialMsg(null);
-      
+
       // limpiar temporadas
       setSeasonName("");
       setSeasonStart("");
@@ -225,6 +228,9 @@ export default function AdminHousesClient() {
       });
       setSeasonMsg(null);
       setEditingSeasonIndex(null);
+
+      // En móvil, cambiar a vista de editor
+      setShowEditor(true);
     } catch (e: any) {
       console.error("[admin/houses] lookup error:", e);
       setLoadError(e?.message || "No se pudo cargar la casa.");
@@ -364,7 +370,7 @@ export default function AdminHousesClient() {
           ? "Temporada actualizada correctamente."
           : "Temporada creada correctamente."
       );
-      
+
       // Limpiar el formulario
       setSeasonName("");
       setSeasonStart("");
@@ -581,359 +587,446 @@ export default function AdminHousesClient() {
   }, [house, specialDate, postSpecialPrices]);
 
   return (
-    <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-4">
-      {/* === Columna izquierda: selector de casas === */}
-      <aside className="bg-white border rounded-xl p-4 lg:col-span-1">
-        <div className="text-sm font-semibold">Selecciona una casa</div>
+    <div className="mt-4 md:mt-6">
+      {/* Botón flotante en móvil para cambiar entre vistas */}
+      {house && (
+        <button
+          onClick={() => setShowEditor(!showEditor)}
+          className="lg:hidden fixed bottom-4 right-4 z-50 bg-[var(--color-primary)] text-white rounded-full p-4 shadow-lg hover:opacity-95"
+          aria-label={showEditor ? "Ver lista de casas" : "Ver editor"}
+        >
+          <svg
+            className="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            {showEditor ? (
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 6h16M4 12h16M4 18h16"
+              />
+            ) : (
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+              />
+            )}
+          </svg>
+        </button>
+      )}
 
-        <div className="mt-2">
-          <label className="block text-xs text-neutral-600">Filtrar</label>
-          <input
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            placeholder="Nombre, alias, id…"
-            className="w-full mt-1 p-2 rounded-md border"
-          />
-        </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* === Columna izquierda: selector de casas === */}
+        <aside
+          className={`bg-white border rounded-xl p-4 lg:col-span-1 ${showEditor && house ? "hidden lg:block" : "block"
+            }`}
+        >
+          <div className="text-sm font-semibold">Selecciona una casa</div>
 
-        {listError && (
-          <div className="mt-3 text-sm text-red-600 whitespace-pre-wrap">
-            {listError}
+          <div className="mt-2">
+            <label className="block text-xs text-neutral-600">Filtrar</label>
+            <input
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Nombre, alias, id…"
+              className="w-full mt-1 p-2 rounded-md border text-base"
+            />
           </div>
-        )}
 
-        <div className="mt-3 max-h-[28rem] overflow-auto divide-y">
-          {listLoading && (
-            <div className="text-sm text-neutral-500">
-              Cargando casas…
+          {listError && (
+            <div className="mt-3 text-sm text-red-600 whitespace-pre-wrap">
+              {listError}
             </div>
           )}
-          {!listLoading && filtered.length === 0 && (
-            <div className="text-sm text-neutral-500">
-              No hay casas que coincidan.
-            </div>
-          )}
-          {filtered.map((h) => {
-            const selected = house?.id === h.id;
-            return (
-              <button
-                key={h.id}
-                onClick={() => loadHouseById(h.id)}
-                className={`w-full text-left px-3 py-2 hover:bg-neutral-50 ${
-                  selected
-                    ? "bg-neutral-50 border-l-4 border-[var(--color-primary)]"
-                    : ""
-                }`}
-                title={h.alias}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">
-                    {h.name || "(Sin nombre)"}
-                  </span>
-                  {typeof h.maxGuests === "number" && (
-                    <span className="text-xs text-neutral-500">
-                      {h.maxGuests} pax
+
+          <div className="mt-3 max-h-[calc(100vh-16rem)] lg:max-h-[28rem] overflow-auto divide-y">
+            {listLoading && (
+              <div className="text-sm text-neutral-500">Cargando casas…</div>
+            )}
+            {!listLoading && filtered.length === 0 && (
+              <div className="text-sm text-neutral-500">
+                No hay casas que coincidan.
+              </div>
+            )}
+            {filtered.map((h) => {
+              const selected = house?.id === h.id;
+              return (
+                <button
+                  key={h.id}
+                  onClick={() => loadHouseById(h.id)}
+                  className={`w-full text-left px-3 py-3 hover:bg-neutral-50 ${selected
+                      ? "bg-neutral-50 border-l-4 border-[var(--color-primary)]"
+                      : ""
+                    }`}
+                  title={h.alias}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium text-sm md:text-base">
+                      {h.name || "(Sin nombre)"}
                     </span>
-                  )}
-                </div>
-                <div className="text-xs text-neutral-500">
-                  <span className="font-mono">{h.alias}</span>
-                  {h.type ? <> · {h.type}</> : null}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </aside>
-
-      {/* === Columna derecha: editor === */}
-      <section className="lg:col-span-2">
-        <div className="bg-white border rounded-xl p-4">
-          {!house && !loading && (
-            <div className="text-neutral-600 text-sm">
-              Selecciona una casa en la lista para editar sus precios.
-            </div>
-          )}
-          {loading && (
-            <div className="text-neutral-600 text-sm">
-              Cargando casa…
-            </div>
-          )}
-          {loadError && (
-            <div className="text-sm text-red-600 whitespace-pre-wrap mt-1">
-              {loadError}
-            </div>
-          )}
-
-          {house && (
-            <div className="grid grid-cols-1 gap-4">
-              {/* === Info básica === */}
-              <div className="p-4 rounded-xl border bg-white grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <div className="text-xs uppercase tracking-wider text-neutral-600">
-                    Nombre
-                  </div>
-                  <div className="mt-1 font-semibold">{house.name}</div>
-                  {house.type && (
-                    <div className="text-xs text-neutral-500 mt-1">
-                      Tipo: {house.type}
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <div className="text-xs uppercase tracking-wider text-neutral-600">
-                    Alias / ID
-                  </div>
-                  <div className="mt-1 text-sm">
-                    <span className="font-mono">{house.alias}</span>
+                    {typeof h.maxGuests === "number" && (
+                      <span className="text-xs text-neutral-500 whitespace-nowrap">
+                        {h.maxGuests} pax
+                      </span>
+                    )}
                   </div>
                   <div className="text-xs text-neutral-500 mt-1">
-                    ID: <span className="font-mono">{house.id}</span>
+                    <span className="font-mono break-all">{h.alias}</span>
+                    {h.type ? <> · {h.type}</> : null}
                   </div>
-                </div>
+                </button>
+              );
+            })}
+          </div>
+        </aside>
 
-                <div>
-                  <div className="text-xs uppercase tracking-wider text-neutral-600">
-                    Aforo
-                  </div>
-                  <div className="mt-1">{house.maxGuests ?? "—"}</div>
-                </div>
+        {/* === Columna derecha: editor === */}
+        <section
+          className={`lg:col-span-2 ${!showEditor && house ? "hidden lg:block" : "block"
+            }`}
+        >
+          <div className="bg-white border rounded-xl p-3 md:p-4">
+            {!house && !loading && (
+              <div className="text-neutral-600 text-sm">
+                Selecciona una casa en la lista para editar sus precios.
               </div>
+            )}
+            {loading && (
+              <div className="text-neutral-600 text-sm">Cargando casa…</div>
+            )}
+            {loadError && (
+              <div className="text-sm text-red-600 whitespace-pre-wrap mt-1">
+                {loadError}
+              </div>
+            )}
 
-              {/* === Editor de precios semanales BASE === */}
-              <div className="p-4 rounded-xl border bg-white">
-                <div className="text-sm font-semibold">
-                  Precios base por día de la semana
-                </div>
-                <div className="text-xs text-neutral-500 mt-1">
-                  Estos precios se usan cuando no hay temporada activa
-                </div>
+            {house && (
+              <div className="grid grid-cols-1 gap-3 md:gap-4">
+                {/* Botón volver en móvil */}
+                <button
+                  onClick={() => setShowEditor(false)}
+                  className="lg:hidden flex items-center gap-2 text-sm text-neutral-600 hover:text-neutral-900 mb-2"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 19l-7-7 7-7"
+                    />
+                  </svg>
+                  Volver a la lista
+                </button>
 
-                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {(Object.keys(WEEK_LABEL) as Weekday[]).map((key) => (
-                    <div key={key}>
-                      <label className="block text-xs text-neutral-600">
-                        {WEEK_LABEL[key]}
-                      </label>
-                      <input
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        inputMode="decimal"
-                        value={form[key]}
-                        onChange={(e) =>
-                          setForm((s) => ({
-                            ...s,
-                            [key]: e.target.value,
-                          }))
-                        }
-                        className="mt-1 w-full rounded-md border p-2"
-                      />
+                {/* === Info básica === */}
+                <div className="p-3 md:p-4 rounded-xl border bg-white grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+                  <div>
+                    <div className="text-xs uppercase tracking-wider text-neutral-600">
+                      Nombre
                     </div>
-                  ))}
-                </div>
-
-                <div className="mt-3 flex gap-2">
-                  <button
-                    onClick={savePrices}
-                    disabled={saving}
-                    className="rounded-md bg-[var(--color-primary)] text-white px-4 py-2 text-sm font-semibold hover:opacity-95 disabled:opacity-60"
-                  >
-                    {saving ? "Guardando…" : "Guardar cambios"}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!house) return;
-                      setForm({
-                        monday:
-                          house.pricePerNight.monday !== undefined
-                            ? String(house.pricePerNight.monday)
-                            : "",
-                        tuesday:
-                          house.pricePerNight.tuesday !== undefined
-                            ? String(house.pricePerNight.tuesday)
-                            : "",
-                        wednesday:
-                          house.pricePerNight.wednesday !== undefined
-                            ? String(house.pricePerNight.wednesday)
-                            : "",
-                        thursday:
-                          house.pricePerNight.thursday !== undefined
-                            ? String(house.pricePerNight.thursday)
-                            : "",
-                        friday:
-                          house.pricePerNight.friday !== undefined
-                            ? String(house.pricePerNight.friday)
-                            : "",
-                        saturday:
-                          house.pricePerNight.saturday !== undefined
-                            ? String(house.pricePerNight.saturday)
-                            : "",
-                        sunday:
-                          house.pricePerNight.sunday !== undefined
-                            ? String(house.pricePerNight.sunday)
-                            : "",
-                      });
-                      setSaveMsg(null);
-                    }}
-                    className="rounded-md border px-4 py-2 text-sm hover:bg-neutral-50"
-                  >
-                    Deshacer cambios
-                  </button>
-                </div>
-
-                {saveMsg && (
-                  <div className="mt-2 text-xs whitespace-pre-wrap">
-                    {saveMsg}
+                    <div className="mt-1 font-semibold text-sm md:text-base break-words">
+                      {house.name}
+                    </div>
+                    {house.type && (
+                      <div className="text-xs text-neutral-500 mt-1">
+                        Tipo: {house.type}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
 
-              {/* === TEMPORADAS === */}
-              <div className="p-4 rounded-xl border bg-white">
-                <div className="text-sm font-semibold">
-                  Temporadas (Seasons)
-                </div>
-                <div className="text-xs text-neutral-500 mt-1">
-                  Define periodos con precios específicos. Las fechas que no caigan en ninguna temporada usarán los precios base.
+                  <div>
+                    <div className="text-xs uppercase tracking-wider text-neutral-600">
+                      Alias / ID
+                    </div>
+                    <div className="mt-1 text-sm">
+                      <span className="font-mono break-all">{house.alias}</span>
+                    </div>
+                    <div className="text-xs text-neutral-500 mt-1">
+                      ID: <span className="font-mono break-all">{house.id}</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-xs uppercase tracking-wider text-neutral-600">
+                      Aforo
+                    </div>
+                    <div className="mt-1">{house.maxGuests ?? "—"}</div>
+                  </div>
                 </div>
 
-                {/* Lista de temporadas existentes */}
-                {house.seasons && house.seasons.length > 0 && (
-                  <div className="mt-4 border rounded-md divide-y max-h-64 overflow-auto">
-                    {house.seasons.map((season, index) => (
-                      <div
-                        key={index}
-                        className="p-3 flex items-start justify-between gap-3"
-                      >
-                        <div className="flex-1">
-                          <div className="font-medium text-sm">{season.name}</div>
-                          <div className="text-xs text-neutral-600 mt-1">
-                            {formatDateToDisplay(season.start)} → {formatDateToDisplay(season.end)}
-                          </div>
-                          <div className="text-xs text-neutral-500 mt-1">
-                            Precios:{" "}
-                            {Object.entries(season.weekdayPrices)
-                              .filter(([_, v]) => v !== undefined)
-                              .map(([k, v]) => `${WEEK_LABEL[k as Weekday]}: ${v}€`)
-                              .join(", ") || "No definidos"}
-                          </div>
-                        </div>
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            className="text-xs rounded-md border px-3 py-1 hover:bg-neutral-50"
-                            onClick={() => handleEditSeason(index, season)}
-                          >
-                            Editar
-                          </button>
-                          <button
-                            type="button"
-                            className="text-xs rounded-md border px-3 py-1 hover:bg-red-50 text-red-700"
-                            onClick={() => handleDeleteSeason(index)}
-                            disabled={seasonSaving}
-                          >
-                            Eliminar
-                          </button>
-                        </div>
+                {/* === Editor de precios semanales BASE === */}
+                <div className="p-3 md:p-4 rounded-xl border bg-white">
+                  <div className="text-sm font-semibold">
+                    Precios base por día de la semana
+                  </div>
+                  <div className="text-xs text-neutral-500 mt-1">
+                    Estos precios se usan cuando no hay temporada activa
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3">
+                    {(Object.keys(WEEK_LABEL) as Weekday[]).map((key) => (
+                      <div key={key}>
+                        <label className="block text-xs text-neutral-600">
+                          {WEEK_LABEL[key]}
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          inputMode="decimal"
+                          value={form[key]}
+                          onChange={(e) =>
+                            setForm((s) => ({
+                              ...s,
+                              [key]: e.target.value,
+                            }))
+                          }
+                          className="mt-1 w-full rounded-md border p-2 text-base"
+                        />
                       </div>
                     ))}
                   </div>
-                )}
 
-                {/* Formulario para crear/editar temporada */}
-                <div className="mt-4 border rounded-md p-3 bg-neutral-50">
-                  <div className="text-xs uppercase tracking-wider text-neutral-600 mb-3">
-                    {editingSeasonIndex !== null ? `Editando temporada` : "Nueva temporada"}
+                  <div className="mt-3 flex flex-col sm:flex-row gap-2">
+                    <button
+                      onClick={savePrices}
+                      disabled={saving}
+                      className="rounded-md bg-[var(--color-primary)] text-white px-4 py-2 text-sm font-semibold hover:opacity-95 disabled:opacity-60"
+                    >
+                      {saving ? "Guardando…" : "Guardar cambios"}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!house) return;
+                        setForm({
+                          monday:
+                            house.pricePerNight.monday !== undefined
+                              ? String(house.pricePerNight.monday)
+                              : "",
+                          tuesday:
+                            house.pricePerNight.tuesday !== undefined
+                              ? String(house.pricePerNight.tuesday)
+                              : "",
+                          wednesday:
+                            house.pricePerNight.wednesday !== undefined
+                              ? String(house.pricePerNight.wednesday)
+                              : "",
+                          thursday:
+                            house.pricePerNight.thursday !== undefined
+                              ? String(house.pricePerNight.thursday)
+                              : "",
+                          friday:
+                            house.pricePerNight.friday !== undefined
+                              ? String(house.pricePerNight.friday)
+                              : "",
+                          saturday:
+                            house.pricePerNight.saturday !== undefined
+                              ? String(house.pricePerNight.saturday)
+                              : "",
+                          sunday: house.pricePerNight.sunday !== undefined
+                            ? String(house.pricePerNight.sunday)
+                            : "",
+                        });
+                        setSaveMsg(null);
+                      }}
+                      className="rounded-md border px-4 py-2 text-sm hover:bg-neutral-50"
+                    >
+                      Deshacer cambios
+                    </button>
+                  </div>{saveMsg && (
+                    <div className="mt-2 text-xs whitespace-pre-wrap">
+                      {saveMsg}
+                    </div>
+                  )}
+                </div>
+
+                {/* === TEMPORADAS === */}
+                <div className="p-3 md:p-4 rounded-xl border bg-white">
+                  <div className="text-sm font-semibold">
+                    Temporadas (Seasons)
+                  </div>
+                  <div className="text-xs text-neutral-500 mt-1">
+                    Define periodos con precios específicos. Las fechas que no
+                    caigan en ninguna temporada usarán los precios base.
                   </div>
 
-                  <div className="grid grid-cols-1 gap-3">
-                    <div>
-                      <label className="block text-xs text-neutral-600">
-                        Nombre *
-                      </label>
-                      <input
-                        type="text"
-                        value={seasonName}
-                        onChange={(e) => setSeasonName(e.target.value)}
-                        placeholder="ej: Temporada Alta"
-                        className="mt-1 w-full rounded-md border p-2"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs text-neutral-600">
-                          Fecha inicio *
-                        </label>
-                        <input
-                          type="date"
-                          value={seasonStart}
-                          onChange={(e) => setSeasonStart(e.target.value)}
-                          className="mt-1 w-full rounded-md border p-2"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs text-neutral-600">
-                          Fecha fin *
-                        </label>
-                        <input
-                          type="date"
-                          value={seasonEnd}
-                          onChange={(e) => setSeasonEnd(e.target.value)}
-                          className="mt-1 w-full rounded-md border p-2"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-3">
-                    <div className="text-xs text-neutral-600 mb-2">
-                      Precios por día de la semana
-                    </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-                      {(Object.keys(WEEK_LABEL) as Weekday[]).map((key) => (
-                        <div key={key}>
-                          <label className="block text-xs text-neutral-600">
-                            {WEEK_LABEL[key]}
-                          </label>
-                          <input
-                            type="number"
-                            min={0}
-                            step="0.01"
-                            inputMode="decimal"
-                            value={seasonPrices[key]}
-                            onChange={(e) =>
-                              setSeasonPrices((s) => ({
-                                ...s,
-                                [key]: e.target.value,
-                              }))
-                            }
-                            className="mt-1 w-full rounded-md border p-1.5 text-sm"
-                          />
+                  {/* Lista de temporadas existentes */}
+                  {house.seasons && house.seasons.length > 0 && (
+                    <div className="mt-4 border rounded-md divide-y max-h-64 overflow-auto">
+                      {house.seasons.map((season, index) => (
+                        <div
+                          key={index}
+                          className="p-3 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm break-words">
+                              {season.name}
+                            </div>
+                            <div className="text-xs text-neutral-600 mt-1">
+                              {formatDateToDisplay(season.start)} →{" "}
+                              {formatDateToDisplay(season.end)}
+                            </div>
+                            <div className="text-xs text-neutral-500 mt-1 break-words">
+                              Precios:{" "}
+                              {Object.entries(season.weekdayPrices)
+                                .filter(([_, v]) => v !== undefined)
+                                .map(
+                                  ([k, v]) =>
+                                    `${WEEK_LABEL[k as Weekday]}: ${v}€`
+                                )
+                                .join(", ") || "No definidos"}
+                            </div>
+                          </div>
+                          <div className="flex gap-2 self-end sm:self-start">
+                            <button
+                              type="button"
+                              className="text-xs rounded-md border px-3 py-1 hover:bg-neutral-50 whitespace-nowrap"
+                              onClick={() => handleEditSeason(index, season)}
+                            >
+                              Editar
+                            </button>
+                            <button
+                              type="button"
+                              className="text-xs rounded-md border px-3 py-1 hover:bg-red-50 text-red-700 whitespace-nowrap"
+                              onClick={() => handleDeleteSeason(index)}
+                              disabled={seasonSaving}
+                            >
+                              Eliminar
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
-                  </div>
+                  )}
 
-                  <div className="mt-3 flex gap-2">
-                    <button
-                      onClick={handleSaveSeason}
-                      disabled={seasonSaving}
-                      className="rounded-md bg-[var(--color-primary)] text-white px-4 py-2 text-sm font-semibold hover:opacity-95 disabled:opacity-60"
-                    >
-                      {seasonSaving
-                        ? "Guardando…"
-                        : editingSeasonIndex !== null
-                        ? "Actualizar temporada"
-                        : "Crear temporada"}
-                    </button>
+                  {/* Formulario para crear/editar temporada */}
+                  <div className="mt-4 border rounded-md p-3 bg-neutral-50">
+                    <div className="text-xs uppercase tracking-wider text-neutral-600 mb-3">
+                      {editingSeasonIndex !== null
+                        ? `Editando temporada`
+                        : "Nueva temporada"}
+                    </div>
 
-                    {editingSeasonIndex !== null && (
+                    <div className="grid grid-cols-1 gap-3">
+                      <div>
+                        <label className="block text-xs text-neutral-600">
+                          Nombre *
+                        </label>
+                        <input
+                          type="text"
+                          value={seasonName}
+                          onChange={(e) => setSeasonName(e.target.value)}
+                          placeholder="ej: Temporada Alta"
+                          className="mt-1 w-full rounded-md border p-2 text-base"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs text-neutral-600">
+                            Fecha inicio *
+                          </label>
+                          <input
+                            type="date"
+                            value={seasonStart}
+                            onChange={(e) => setSeasonStart(e.target.value)}
+                            className="mt-1 w-full rounded-md border p-2 text-base"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs text-neutral-600">
+                            Fecha fin *
+                          </label>
+                          <input
+                            type="date"
+                            value={seasonEnd}
+                            onChange={(e) => setSeasonEnd(e.target.value)}
+                            className="mt-1 w-full rounded-md border p-2 text-base"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-3">
+                      <div className="text-xs text-neutral-600 mb-2">
+                        Precios por día de la semana
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                        {(Object.keys(WEEK_LABEL) as Weekday[]).map((key) => (
+                          <div key={key}>
+                            <label className="block text-xs text-neutral-600">
+                              {WEEK_LABEL[key]}
+                            </label>
+                            <input
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              inputMode="decimal"
+                              value={seasonPrices[key]}
+                              onChange={(e) =>
+                                setSeasonPrices((s) => ({
+                                  ...s,
+                                  [key]: e.target.value,
+                                }))
+                              }
+                              className="mt-1 w-full rounded-md border p-1.5 text-sm"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="mt-3 flex flex-col sm:flex-row gap-2">
+                      <button
+                        onClick={handleSaveSeason}
+                        disabled={seasonSaving}
+                        className="rounded-md bg-[var(--color-primary)] text-white px-4 py-2 text-sm font-semibold hover:opacity-95 disabled:opacity-60"
+                      >
+                        {seasonSaving
+                          ? "Guardando…"
+                          : editingSeasonIndex !== null
+                            ? "Actualizar temporada"
+                            : "Crear temporada"}
+                      </button>
+
+                      {editingSeasonIndex !== null && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSeasonName("");
+                            setSeasonStart("");
+                            setSeasonEnd("");
+                            setSeasonPrices({
+                              monday: "",
+                              tuesday: "",
+                              wednesday: "",
+                              thursday: "",
+                              friday: "",
+                              saturday: "",
+                              sunday: "",
+                            });
+                            setEditingSeasonIndex(null);
+                            setSeasonMsg(null);
+                          }}
+                          className="rounded-md border px-4 py-2 text-sm hover:bg-neutral-50"
+                        >
+                          Cancelar edición
+                        </button>
+                      )}
+
                       <button
                         type="button"
                         onClick={() => {
@@ -954,270 +1047,253 @@ export default function AdminHousesClient() {
                         }}
                         className="rounded-md border px-4 py-2 text-sm hover:bg-neutral-50"
                       >
-                        Cancelar edición
+                        Limpiar
                       </button>
+                    </div>
+
+                    {seasonMsg && (
+                      <div className="mt-2 text-xs whitespace-pre-wrap">
+                        {seasonMsg}
+                      </div>
                     )}
+                  </div>
+                </div>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSeasonName("");
-                        setSeasonStart("");
-                        setSeasonEnd("");
-                        setSeasonPrices({
-                          monday: "",
-                          tuesday: "",
-                          wednesday: "",
-                          thursday: "",
-                          friday: "",
-                          saturday: "",
-                          sunday: "",
-                        });
-                        setEditingSeasonIndex(null);
-                        setSeasonMsg(null);
-                      }}
-                      className="rounded-md border px-4 py-2 text-sm hover:bg-neutral-50"
-                    >
-                      Limpiar
-                    </button>
+                {/* === Precios especiales (rango + día) === */}
+                <div className="p-3 md:p-4 rounded-xl border bg-white">
+                  <div className="text-sm font-semibold">
+                    Precios especiales
+                  </div>
+                  <div className="text-xs text-neutral-500 mt-1">
+                    Sobrescriben los precios de temporadas y base para días
+                    específicos
                   </div>
 
-                  {seasonMsg && (
+                  {/* ---- RANGO ---- */}
+                  <div className="mt-4 border rounded-md p-3">
+                    <div className="text-xs uppercase tracking-wider text-neutral-600 mb-2">
+                      Aplicar a un rango de fechas
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs text-neutral-600">
+                            Desde
+                          </label>
+                          <input
+                            type="date"
+                            value={rangeStart}
+                            onChange={(e) => setRangeStart(e.target.value)}
+                            className="mt-1 w-full rounded-md border p-2 text-base"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs text-neutral-600">
+                            Hasta
+                          </label>
+                          <input
+                            type="date"
+                            value={rangeEnd}
+                            onChange={(e) => setRangeEnd(e.target.value)}
+                            className="mt-1 w-full rounded-md border p-2 text-base"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs text-neutral-600">
+                          Precio €/noche
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          inputMode="decimal"
+                          placeholder="0.00"
+                          value={rangePrice}
+                          onChange={(e) => setRangePrice(e.target.value)}
+                          className="mt-1 w-full rounded-md border p-2 text-base"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="mt-3 flex flex-col sm:flex-row flex-wrap gap-2">
+                      <button
+                        onClick={handleApplyRange}
+                        disabled={specialSaving}
+                        className="rounded-md bg-[var(--color-primary)] text-white px-4 py-2 text-sm font-semibold hover:opacity-95 disabled:opacity-60"
+                      >
+                        {specialSaving ? "Guardando…" : "Aplicar rango"}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRangeStart("");
+                          setRangeEnd("");
+                          setRangePrice("");
+                          setSpecialMsg(null);
+                        }}
+                        className="rounded-md border px-4 py-2 text-sm hover:bg-neutral-50"
+                      >
+                        Limpiar
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* ---- DÍA INDIVIDUAL ---- */}
+                  <div className="mt-6 border rounded-md p-3">
+                    <div className="text-xs uppercase tracking-wider text-neutral-600 mb-2">
+                      Ajustar un día concreto
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs text-neutral-600">
+                          Fecha
+                        </label>
+                        <input
+                          type="date"
+                          value={specialDate}
+                          onChange={(e) => setSpecialDate(e.target.value)}
+                          className="mt-1 w-full rounded-md border p-2 text-base"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs text-neutral-600">
+                          Precio €/noche
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          inputMode="decimal"
+                          placeholder="0.00"
+                          value={specialPrice}
+                          onChange={(e) => setSpecialPrice(e.target.value)}
+                          className="mt-1 w-full rounded-md border p-2 text-base"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="mt-3 flex flex-col sm:flex-row flex-wrap gap-2">
+                      <button
+                        onClick={handleSaveSingleDay}
+                        disabled={specialSaving}
+                        className="rounded-md bg-[var(--color-primary)] text-white px-4 py-2 text-sm font-semibold hover:opacity-95 disabled:opacity-60"
+                      >
+                        {specialSaving ? "Guardando…" : "Guardar día"}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSpecialDate("");
+                          setSpecialPrice("");
+                          setSpecialMsg(null);
+                        }}
+                        className="rounded-md border px-4 py-2 text-sm hover:bg-neutral-50"
+                      >
+                        Limpiar
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* ---- LISTA DE OVERRIDES EXISTENTES ---- */}
+                  <div className="mt-6">
+                    <div className="text-xs uppercase tracking-wider text-neutral-600 mb-1">
+                      Fechas configuradas
+                    </div>
+
+                    {!house?.specialPrices ||
+                      Object.keys(house.specialPrices).length === 0 ? (
+                      <div className="text-sm text-neutral-500">
+                        No hay precios especiales.
+                      </div>
+                    ) : (
+                      <div className="border rounded-md divide-y max-h-64 overflow-auto">
+                        {Object.entries(house.specialPrices)
+                          .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+                          .map(([iso, price]) => (
+                            <div
+                              key={iso}
+                              className="p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"
+                            >
+                              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 min-w-0">
+                                <span className="font-mono text-sm break-all">
+                                  {iso}
+                                </span>
+                                <span className="text-sm whitespace-nowrap">
+                                  — {price} €
+                                </span>
+                              </div>
+                              <div className="flex gap-2 self-end sm:self-auto">
+                                <button
+                                  type="button"
+                                  className="text-xs rounded-md border px-3 py-1 hover:bg-neutral-50 whitespace-nowrap"
+                                  onClick={() => {
+                                    setSpecialDate(iso);
+                                    setSpecialPrice(String(price));
+                                  }}
+                                >
+                                  Editar
+                                </button>
+                                <button
+                                  type="button"
+                                  className="text-xs rounded-md border px-3 py-1 hover:bg-red-50 text-red-700 whitespace-nowrap"
+                                  onClick={() => {
+                                    setSpecialDate(iso);
+                                    postSpecialPrices(
+                                      { delete: [iso] },
+                                      "Precio(s) especial(es) eliminado(s).",
+                                      "No se pudo eliminar el día"
+                                    );
+                                  }}
+                                >
+                                  Eliminar
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {specialMsg && (
                     <div className="mt-2 text-xs whitespace-pre-wrap">
-                      {seasonMsg}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* === Precios especiales (rango + día) === */}
-              <div className="p-4 rounded-xl border bg-white">
-                <div className="text-sm font-semibold">
-                  Precios especiales
-                </div>
-                <div className="text-xs text-neutral-500 mt-1">
-                  Sobrescriben los precios de temporadas y base para días específicos
-                </div>
-
-                {/* ---- RANGO ---- */}
-                <div className="mt-4 border rounded-md p-3">
-                  <div className="text-xs uppercase tracking-wider text-neutral-600 mb-2">
-                    Aplicar a un rango de fechas
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-[auto_auto_auto] gap-3 items-end">
-                    <div>
-                      <label className="block text-xs text-neutral-600">
-                        Desde
-                      </label>
-                      <input
-                        type="date"
-                        value={rangeStart}
-                        onChange={(e) => setRangeStart(e.target.value)}
-                        className="mt-1 w-full rounded-md border p-2"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs text-neutral-600">
-                        Hasta
-                      </label>
-                      <input
-                        type="date"
-                        value={rangeEnd}
-                        onChange={(e) => setRangeEnd(e.target.value)}
-                        className="mt-1 w-full rounded-md border p-2"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs text-neutral-600">
-                        Precio €/noche
-                      </label>
-                      <input
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        inputMode="decimal"
-                        placeholder="0.00"
-                        value={rangePrice}
-                        onChange={(e) => setRangePrice(e.target.value)}
-                        className="mt-1 w-full rounded-md border p-2"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <button
-                      onClick={handleApplyRange}
-                      disabled={specialSaving}
-                      className="rounded-md bg-[var(--color-primary)] text-white px-4 py-2 text-sm font-semibold hover:opacity-95 disabled:opacity-60"
-                    >
-                      {specialSaving ? "Guardando…" : "Aplicar rango"}
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setRangeStart("");
-                        setRangeEnd("");
-                        setRangePrice("");
-                        setSpecialMsg(null);
-                      }}
-                      className="rounded-md border px-4 py-2 text-sm hover:bg-neutral-50"
-                    >
-                      Limpiar
-                    </button>
-                  </div>
-                </div>
-
-                {/* ---- DÍA INDIVIDUAL ---- */}
-                <div className="mt-6 border rounded-md p-3">
-                  <div className="text-xs uppercase tracking-wider text-neutral-600 mb-2">
-                    Ajustar un día concreto
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-[auto_auto] gap-3 items-end">
-                    <div>
-                      <label className="block text-xs text-neutral-600">
-                        Fecha
-                      </label>
-                      <input
-                        type="date"
-                        value={specialDate}
-                        onChange={(e) => setSpecialDate(e.target.value)}
-                        className="mt-1 w-full rounded-md border p-2"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs text-neutral-600">
-                        Precio €/noche
-                      </label>
-                      <input
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        inputMode="decimal"
-                        placeholder="0.00"
-                        value={specialPrice}
-                        onChange={(e) => setSpecialPrice(e.target.value)}
-                        className="mt-1 w-full rounded-md border p-2"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <button
-                      onClick={handleSaveSingleDay}
-                      disabled={specialSaving}
-                      className="rounded-md bg-[var(--color-primary)] text-white px-4 py-2 text-sm font-semibold hover:opacity-95 disabled:opacity-60"
-                    >
-                      {specialSaving ? "Guardando…" : "Guardar día"}
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSpecialDate("");
-                        setSpecialPrice("");
-                        setSpecialMsg(null);
-                      }}
-                      className="rounded-md border px-4 py-2 text-sm hover:bg-neutral-50"
-                    >
-                      Limpiar
-                    </button>
-                  </div>
-                </div>
-
-                {/* ---- LISTA DE OVERRIDES EXISTENTES ---- */}
-                <div className="mt-6">
-                  <div className="text-xs uppercase tracking-wider text-neutral-600 mb-1">
-                    Fechas configuradas
-                  </div>
-
-                  {!house?.specialPrices ||
-                  Object.keys(house.specialPrices).length === 0 ? (
-                    <div className="text-sm text-neutral-500">
-                      No hay precios especiales.
-                    </div>
-                  ) : (
-                    <div className="border rounded-md divide-y max-h-64 overflow-auto">
-                      {Object.entries(house.specialPrices)
-                        .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-                        .map(([iso, price]) => (
-                          <div
-                            key={iso}
-                            className="p-2 flex items-center justify-between gap-2"
-                          >
-                            <div className="flex items-center gap-3">
-                              <span className="font-mono text-sm">{iso}</span>
-                              <span className="text-sm">— {price} €</span>
-                            </div>
-                            <div className="flex gap-2">
-                              <button
-                                type="button"
-                                className="text-xs rounded-md border px-3 py-1 hover:bg-neutral-50"
-                                onClick={() => {
-                                  setSpecialDate(iso);
-                                  setSpecialPrice(String(price));
-                                }}
-                              >
-                                Editar
-                              </button>
-                              <button
-                                type="button"
-                                className="text-xs rounded-md border px-3 py-1 hover:bg-red-50 text-red-700"
-                                onClick={() => {
-                                  setSpecialDate(iso);
-                                  postSpecialPrices(
-                                    { delete: [iso] },
-                                    "Precio(s) especial(es) eliminado(s).",
-                                    "No se pudo eliminar el día"
-                                  );
-                                }}
-                              >
-                                Eliminar
-                              </button>
-                            </div>
-                          </div>
-                        ))}
+                      {specialMsg}
                     </div>
                   )}
                 </div>
 
-                {specialMsg && (
-                  <div className="mt-2 text-xs whitespace-pre-wrap">
-                    {specialMsg}
+                {/* === Imágenes === */}
+                {!!house.images?.length && (
+                  <div className="p-3 md:p-4 rounded-xl border bg-white">
+                    <div className="text-sm font-semibold">Imágenes</div>
+                    <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 md:gap-3">
+                      {house.images!.map((src, i) => (
+                        <div
+                          key={i}
+                          className="aspect-video overflow-hidden rounded-lg border"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={src}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
-
-              {/* === Imágenes === */}
-              {!!house.images?.length && (
-                <div className="p-4 rounded-xl border bg-white">
-                  <div className="text-sm font-semibold">Imágenes</div>
-                  <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                    {house.images!.map((src, i) => (
-                      <div
-                        key={i}
-                        className="aspect-video overflow-hidden rounded-lg border"
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={src}
-                          alt=""
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </section>
-    </div>
-  );
+            )}
+          </div>
+        </section>
+      </div>
+    </div>);
 }

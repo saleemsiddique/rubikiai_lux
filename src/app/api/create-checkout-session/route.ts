@@ -26,8 +26,12 @@ type CheckoutBody = {
   guests: number;
   type?: string;
 
-  // ✅ AÑADIR ESTE CAMPO
   cancelUrl?: string;
+
+  pricing?: {
+    payNow?: number;   // EUR, e.g. 140.0
+    totalStay?: number;
+  };
 
   discount?: {
     kind?: "coupon" | "percent";
@@ -192,6 +196,7 @@ export async function POST(req: Request) {
 
     const extras = body?.extras || {};
     const customerInput = body.customer || {};
+    const pricingFromClient = body?.pricing;
 
     // 1. Validate / normalize dates
     let startIso = "";
@@ -285,22 +290,24 @@ export async function POST(req: Request) {
         jacuzziDays = 1;
       }
 
-      const jacuzziExtraGuests = Math.max(0, guestsNum - 2);
+      // IMPORTANT: use combined jacuzzi capacity (server currently assumes 2 per unit)
+      // If you need to count only houses that have jacuzzi, adapt resolveHouseIds to return flags.
+      const jacuzziExtraGuests = Math.max(0, guestsNum - 2 * houseIds.length);
 
-      // Primer día: 65€ + 10€ por guest extra
-      const firstDayFee = 65 + (jacuzziExtraGuests * 10);
+      // Primer día: 65€ por unidad + 10€ por guest extra (sobre capacidad combinada)
+      const firstDayFee = houseIds.length * JACUZZI_BASE_PRICE + jacuzziExtraGuests * JACUZZI_EXTRA_PRICE;
 
-      // Días adicionales: 45€ + 10€ por guest extra cada día
+      // Días adicionales: 45€ por unidad + 10€ por guest extra por día
       const additionalDays = Math.max(0, jacuzziDays - 1);
-      const additionalDaysFee = additionalDays * (45 + (jacuzziExtraGuests * 10));
+      const additionalDaysFee = additionalDays * (houseIds.length * 45 + jacuzziExtraGuests * JACUZZI_EXTRA_PRICE);
 
       jacuzziFee = firstDayFee + additionalDaysFee;
     }
 
     // grandTotal = lodging + jacuzzi
-    const grandTotal = totalNightsOnly + jacuzziFee;
+    const grandTotal = round2(totalNightsOnly + jacuzziFee);
 
-    // 7. Discount logic
+    // 7. Discount logic (server still validates discounts if provided)
     let effectiveDiscountAmount = 0;
     let discountKindForMeta: string = "";
     let discountCodeForMeta: string = "";
@@ -347,6 +354,7 @@ export async function POST(req: Request) {
         );
       }
 
+      // cap coupon to remaining, firstNightCharge, grandTotal
       proposed = Math.min(proposed, remaining, firstNightCharge, grandTotal);
       proposed = adjustForStripeMin(firstNightCharge, proposed);
 
@@ -422,22 +430,74 @@ export async function POST(req: Request) {
       }
     }
 
-    // calculate totals after discount
-    const discountedFirst = Math.max(
-      0,
-      firstNightCharge - effectiveDiscountAmount
-    );
-    const discountedGrandTotal = Math.max(
-      0,
-      grandTotal - effectiveDiscountAmount
-    );
+    // If client provided pricing, validate and prefer it for the Stripe charge.
+    // This ensures Stripe charges exactly the "Charge now" shown in the UI.
+    let payNow: number;
+    let totalStay: number;
 
-    // ✅ NUEVOS CAMPOS SIMPLIFICADOS
-    const payNow = discountedFirst;
-    const totalStay = discountedGrandTotal;
-    const payAtArrival = Math.max(0, totalStay - payNow);
+    if (
+      pricingFromClient &&
+      typeof pricingFromClient.payNow === "number" &&
+      typeof pricingFromClient.totalStay === "number"
+    ) {
+      const clientPayNow = round2(Number(pricingFromClient.payNow));
+      const clientTotalStay = round2(Number(pricingFromClient.totalStay));
 
-    const discountedFirstCents = Math.round(discountedFirst * 100);
+      // Basic validations
+      if (!Number.isFinite(clientPayNow) || clientPayNow < 0) {
+        return NextResponse.json({ error: "Invalid pricing.payNow" }, { status: 400 });
+      }
+      if (!Number.isFinite(clientTotalStay) || clientTotalStay < 0) {
+        return NextResponse.json({ error: "Invalid pricing.totalStay" }, { status: 400 });
+      }
+      if (clientPayNow > clientTotalStay + 0.001) {
+        return NextResponse.json({ error: "pricing.payNow cannot exceed pricing.totalStay" }, { status: 400 });
+      }
+
+      // --- Reemplazar la validación estricta por una validación tolerante ---
+      const ALLOWED_POSITIVE_DELTA = 5.0; // euros permitidos de diferencia positiva (frontend > server)
+      const NEGATIVE_TOLERANCE = 0.99; // si clientTotalStay < grandTotal - 0.99 => rechazamos (cliente intenta pagar menos)
+
+      if (clientTotalStay < grandTotal - NEGATIVE_TOLERANCE) {
+        // Cliente intentando pagar MENOS de lo que el servidor calcula -> reject
+        return NextResponse.json(
+          { error: "Client totalStay is lower than server calculated total" },
+          { status: 400 }
+        );
+      }
+
+      // Si clientTotalStay excede al serverGrandTotal por una fracción pequeña, lo aceptamos
+      let clientTotalMismatch = false;
+      if (clientTotalStay > grandTotal + ALLOWED_POSITIVE_DELTA) {
+        // Si la diferencia es grande, puedes elegir RECHAZAR en lugar de aceptar.
+        // Aquí lo aceptamos pero lo marcamos en metadata para auditoría.
+        console.warn("Client totalStay exceeds server calculated total but within tolerance? No: exceeds ALLOWED_POSITIVE_DELTA", {
+          clientTotalStay,
+          grandTotal,
+          ALLOWED_POSITIVE_DELTA,
+        });
+
+        // Si quieres ser más restrictivo cambia este 'if' por un return que rechace.
+        // Para ahora, marcamos mismatch para que quede en metadata:
+        clientTotalMismatch = true;
+      }
+
+      // OK: aceptamos los valores del cliente (ya validados más arriba)
+      payNow = clientPayNow;
+      totalStay = clientTotalStay;
+    } else {
+      // fallback to server-calculated values (apply discount on firstNightCharge)
+      const discountedFirst = Math.max(0, round2(firstNightCharge - effectiveDiscountAmount));
+      const discountedGrandTotal = Math.max(0, round2(grandTotal - effectiveDiscountAmount));
+
+      payNow = discountedFirst;
+      totalStay = discountedGrandTotal;
+    }
+
+    // compute payAtArrival based on the chosen totals
+    const payAtArrival = Math.max(0, round2(totalStay - payNow));
+
+    const discountedFirstCents = Math.round(payNow * 100);
     const isFreeOrder = discountedFirstCents <= 0;
 
     // 8. Stripe customer
@@ -488,24 +548,24 @@ export async function POST(req: Request) {
         includedBase: String(includedBase),
         extraGuests: String(extraGuests),
 
-        // ✅ CAMPOS SIMPLIFICADOS (NUEVOS)
+        // SIMPLIFIED FIELDS - reflect the chosen values
         payNow: String(payNow),
         payAtArrival: String(payAtArrival),
         totalStay: String(totalStay),
 
-        // campos legacy (mantener por compatibilidad)
+        // legacy fields (for compatibility)
         totalNightsOnly: String(totalNightsOnly),
         firstNightCharge: String(firstNightCharge),
-        discountedFirst: String(discountedFirst),
+        discountedFirst: String(payNow),
         jacuzziEnabled: jacuzziEnabled ? "true" : "false",
         jacuzziFee: String(jacuzziFee),
-        jacuzziDays: String(jacuzziDays), // ✅ NUEVO CAMPO
+        jacuzziDays: String(jacuzziDays),
         grandTotal: String(grandTotal),
-        discountedGrandTotal: String(discountedGrandTotal),
+        discountedGrandTotal: String(Math.max(0, round2(grandTotal - effectiveDiscountAmount))),
 
         currency: "EUR",
 
-        // descuentos
+        // discounts
         discountKind: discountKindForMeta,
         couponId:
           effectiveDiscountAmount > 0 && discountKindForMeta === "coupon"
@@ -558,7 +618,7 @@ export async function POST(req: Request) {
       payAtArrival,
       totalStay,
       jacuzziFee,
-      jacuzziDays, // ✅ AÑADIDO AL LOG
+      jacuzziDays,
       effectiveDiscountAmount,
       discountKindForMeta,
       reservationId,

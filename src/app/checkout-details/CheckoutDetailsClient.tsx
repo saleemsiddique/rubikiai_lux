@@ -391,12 +391,6 @@ export default function CheckoutDetailsClient() {
     if (savedData) {
       console.log("🔄 Restaurando datos del formulario:", savedData);
 
-      // Resetear priceData para forzar re-fetch con valores actualizados
-      if (typeof savedData.withJacuzzi === "boolean" || savedData.jacuzziDays) {
-        console.log("🔄 Jacuzzi data from localStorage, resetting priceData to force re-fetch");
-        setPriceData(null);
-      }
-
       if (savedData.firstName) setFirstName(savedData.firstName);
       if (savedData.lastName) setLastName(savedData.lastName);
       if (savedData.email) setEmail(savedData.email);
@@ -404,12 +398,21 @@ export default function CheckoutDetailsClient() {
       if (savedData.phone) setPhone(savedData.phone);
       if (savedData.arrivalTime) setArrivalTime(savedData.arrivalTime);
       if (savedData.comment) setComment(savedData.comment);
+
+      // Cargar jacuzzi ANTES de resetear priceData
       if (typeof savedData.withJacuzzi === "boolean") setWithJacuzzi(savedData.withJacuzzi);
       if (savedData.jacuzziDays) setJacuzziDays(savedData.jacuzziDays);
       if (savedData.discountCode) setDiscountCode(savedData.discountCode);
+
+      // Forzar loading state para que se muestre "..." mientras recalcula
+      if (typeof savedData.withJacuzzi === "boolean" && savedData.withJacuzzi) {
+        console.log("🔄 Jacuzzi enabled from localStorage, forcing price recalculation");
+        setLoadingPrice(true);
+        setPriceData(null);
+      }
     }
   }, []); // ← Array vacío = solo se ejecuta al montar
-
+  
   // Fetch price (with or without jacuzzi AND jacuzzi days)
   useEffect(() => {
     const fetchPrice = async () => {

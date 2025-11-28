@@ -399,9 +399,9 @@ export default function AdminBookingsClient() {
     const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
     // Block form
-    const [blockStart, setBlockStart] = useState<string>(firstDayOfMonthISO);
+    const [blockStart, setBlockStart] = useState<string>(toISO(new Date()));
     const [blockEnd, setBlockEnd] = useState<string>(
-        addDaysISO(firstDayOfMonthISO, 1)
+        addDaysISO(toISO(new Date()), 1)
     );
     const [blockHouseId, setBlockHouseId] = useState<string>("");
     const [blockGuests, setBlockGuests] = useState<number>(2);
@@ -811,6 +811,11 @@ export default function AdminBookingsClient() {
             const todayISO = toISO(new Date());
             if (blockEnd <= todayISO) {
                 throw new Error("You cannot block dates in the past.");
+            }
+
+            // Validate guests
+            if (!blockGuests || blockGuests < 1) {
+                throw new Error("Number of guests is required (minimum 1).");
             }
 
             // Validate required customer fields
@@ -1425,10 +1430,10 @@ export default function AdminBookingsClient() {
                                         key={cell.key}
                                         onClick={() => setSelectedDay(cell.iso!)}
                                         className={`h-12 md:h-16 rounded-md border text-xs flex flex-col items-center justify-center ${onlyAdmin
-                                                ? "bg-neutral-200 border-neutral-300 text-neutral-700"
-                                                : busy
-                                                    ? "bg-[var(--color-primary)]/10 border-[var(--color-primary)]/40"
-                                                    : "bg-white"
+                                            ? "bg-neutral-200 border-neutral-300 text-neutral-700"
+                                            : busy
+                                                ? "bg-[var(--color-primary)]/10 border-[var(--color-primary)]/40"
+                                                : "bg-white"
                                             } hover:bg-neutral-50`}
                                         aria-label={`Day ${cell.dayNum}`}
                                     >
@@ -1538,20 +1543,28 @@ export default function AdminBookingsClient() {
                         <div className="font-semibold mb-2">Block dates</div>
                         <div className="grid gap-3 text-sm">
                             <div>
-                                <label className="text-xs text-neutral-600">From</label>
+                                <label className="text-xs text-neutral-600">From *</label>
                                 <input
                                     type="date"
                                     value={blockStart}
-                                    onChange={(e) => setBlockStart(e.target.value)}
+                                    min={toISO(new Date())}
+                                    onChange={(e) => {
+                                        setBlockStart(e.target.value);
+                                        // Automatically set checkout to next day if it's before or equal to new checkin
+                                        if (blockEnd <= e.target.value) {
+                                            setBlockEnd(addDaysISO(e.target.value, 1));
+                                        }
+                                    }}
                                     className="w-full border rounded-md p-2 mt-1"
                                 />
                             </div>
 
                             <div>
-                                <label className="text-xs text-neutral-600">To</label>
+                                <label className="text-xs text-neutral-600">To *</label>
                                 <input
                                     type="date"
                                     value={blockEnd}
+                                    min={addDaysISO(blockStart, 1)}
                                     onChange={(e) => setBlockEnd(e.target.value)}
                                     className="w-full border rounded-md p-2 mt-1"
                                 />
@@ -1565,27 +1578,69 @@ export default function AdminBookingsClient() {
                                     className="w-full border rounded-md p-2 mt-1"
                                 >
                                     <option value="">— Select —</option>
-                                    {HOUSE_OPTIONS.map((h) => (
-                                        <option key={h.id} value={h.id}>
-                                            {h.alias}
-                                        </option>
-                                    ))}
+                                    {HOUSE_OPTIONS.map((h) => {
+                                        // Only show dual option if 5+ guests
+                                        if (h.id === "PZwbfMYlSXj61uYYJutg__oDzv9346CdaAsok162sX" && blockGuests < 5) {
+                                            return null;
+                                        }
+                                        // Disable individual dupleks AND Ezero Namelis if 5+ guests
+                                        const isDupleksIndividual = DUPLEKSA_IDS.includes(h.id);
+                                        const isEzeroNamelis = h.id === "L0TeFf2LmrWGAaAyS8NY";
+                                        const shouldDisable = (isDupleksIndividual || isEzeroNamelis) && blockGuests >= 5;
+
+                                        return (
+                                            <option
+                                                key={h.id}
+                                                value={h.id}
+                                                disabled={shouldDisable}
+                                            >
+                                                {h.alias}
+                                                {shouldDisable ? " (5+ guests require dual booking)" : ""}
+                                            </option>
+                                        );
+                                    })}
                                 </select>
+                                {blockGuests >= 5 && (
+                                    <div className="text-xs text-[var(--color-primary)] mt-1">
+                                        ℹ️ For 5+ guests, both dupleks must be booked together
+                                    </div>
+                                )}
                             </div>
 
                             <div>
-                                <label className="text-xs text-neutral-600">Guests</label>
+                                <label className="text-xs text-neutral-600">Guests *</label>
                                 <input
                                     type="number"
                                     min={1}
                                     max={8}
                                     step={1}
-                                    value={blockGuests}
+                                    value={blockGuests || ""}
                                     onChange={(e) => {
-                                        const n = parseInt(e.target.value || "1", 10);
+                                        const value = e.target.value;
+
+                                        // Allow empty value
+                                        if (value === "") {
+                                            setBlockGuests(0);
+                                            // Reset house selection if it was dual
+                                            if (blockHouseId === "PZwbfMYlSXj61uYYJutg__oDzv9346CdaAsok162sX") {
+                                                setBlockHouseId("");
+                                            }
+                                            return;
+                                        }
+
+                                        const n = parseInt(value, 10);
                                         const clamped = Math.min(8, Math.max(1, isNaN(n) ? 1 : n));
                                         setBlockGuests(clamped);
+
+                                        // Auto-select dual dupleks when 5+ guests
+                                        if (clamped >= 5) {
+                                            setBlockHouseId("PZwbfMYlSXj61uYYJutg__oDzv9346CdaAsok162sX");
+                                        } else if (blockHouseId === "PZwbfMYlSXj61uYYJutg__oDzv9346CdaAsok162sX") {
+                                            // Reset selection if dual was selected but guests < 5
+                                            setBlockHouseId("");
+                                        }
                                     }}
+                                    placeholder="Enter number of guests"
                                     className="w-full border rounded-md p-2 mt-1"
                                 />
                             </div>

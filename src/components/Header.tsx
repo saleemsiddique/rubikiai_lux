@@ -190,7 +190,7 @@ const showMobileReservationButton = isHomePage && (isDesktop || !scrolled);
 
           {/* Logo: kept in DOM and positioned absolutely on small screens always (no layout toggles).
     Visual changes (opacity/scale) handled via CSS transitions only. */}
-          <div className="flex-1 flex justify-center items-center pointer-events-none">
+          <div className="flex-1 flex justify-center items-center pointer-events-none p-1">
             <Link href="/" className="block pointer-events-auto">
               <div
                 className={`transform transition-all duration-400 will-change-transform will-change-opacity ${scrolled ? "opacity-100 scale-100" : "opacity-0 scale-95"
@@ -201,12 +201,12 @@ const showMobileReservationButton = isHomePage && (isDesktop || !scrolled);
                 }}
               >
                 <Image
-                  src="/rubikiai-logo.png"
+                  src="/rubikiai-logo (1).png"
                   alt="Rubikiai Lux Logo"
                   width={120}
                   height={40}
                   priority
-                  className="h-auto drop-shadow-2xl w-26 md:w-32"
+                  className="h-auto drop-shadow-2xl w-22 md:w-28"
                   style={{ transition: "all 400ms cubic-bezier(0.4,0,0.2,1)" }}
                 />
               </div>

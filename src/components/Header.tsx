@@ -93,6 +93,25 @@ export default function Header() {
     return () => document.body.classList.remove("overflow-hidden");
   }, [isOpen]);
 
+  // detecta si estamos en pantallas "desktop" (md = 768px en Tailwind)
+const [isDesktop, setIsDesktop] = useState<boolean>(false);
+
+useEffect(() => {
+  if (typeof window === "undefined") return;
+  const mq = window.matchMedia("(min-width: 768px)");
+  const handler = (e: MediaQueryListEvent | MediaQueryList) => setIsDesktop(e.matches);
+  // set initial
+  setIsDesktop(mq.matches);
+  // compat: addEventListener en la spec moderna, addListener en navegadores viejos
+  if (typeof mq.addEventListener === "function") mq.addEventListener("change", handler);
+  else mq.addListener(handler);
+  return () => {
+    if (typeof mq.removeEventListener === "function") mq.removeEventListener("change", handler);
+    else mq.removeListener(handler);
+  };
+}, []);
+
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") close();
@@ -111,9 +130,10 @@ export default function Header() {
     };
   }, [isOpen, close]);
 
-  // Decide if mobile reservation button should appear (visual only)
-  // We will NOT remove it from DOM; only animate opacity/pointer-events to avoid layout shifts
-  const showMobileReservationButton = isHomePage && !scrolled;
+// mostrar si estamos en home y (es escritorio OR no está scrolleado)
+// -> en desktop lo mostramos siempre; en móviles solo si no está scrolleado
+const showMobileReservationButton = isHomePage && (isDesktop || !scrolled);
+
 
   return (
     <>

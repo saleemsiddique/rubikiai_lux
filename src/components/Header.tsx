@@ -4,11 +4,14 @@ import React, { useEffect, useRef, useCallback, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { useTranslations, useLocale } from 'next-intl';
 
 export default function Header() {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
+  const locale = useLocale();
+  const t = useTranslations('nav');
   const drawerRef = useRef<HTMLDivElement | null>(null);
 
   // Refs for rAF scroll handling + hysteresis
@@ -20,30 +23,30 @@ export default function Header() {
   const SCROLL_UP_THRESHOLD = 40; // sale de scrolled
 
   const pageTitles: Record<string, string> = {
-    "/": "INICIO",
-    "/dupleksas": "DUPLEKSAS",
-    "/ezero-namelis": "EŽERO NAMELIS",
-    "/reservations": "RESERVATIONS",
-    "/coupons": "COUPONS",
-    "/faq": "FAQ",
-    "/contact": "CONTACT",
+    [`/${locale}`]: t('inicio'),
+    [`/${locale}/dupleksas`]: t('dupleksas'),
+    [`/${locale}/ezero-namelis`]: t('ezeroNamelis'),
+    [`/${locale}/reservations`]: t('reservations').toUpperCase(),
+    [`/${locale}/coupons`]: t('coupons').toUpperCase(),
+    [`/${locale}/faq`]: t('faq').toUpperCase(),
+    [`/${locale}/contact`]: t('contact').toUpperCase(),
   };
 
   const navLinks = [
-    { name: "Home", href: "/" },
-    { name: "Dupleksas", href: "/dupleksas" },
-    { name: "EŽERO NAMELIS", href: "/ezero-namelis" },
-    { name: "Reservations", href: "/reservations" },
-    { name: "Coupons", href: "/coupons" },
-    { name: "FAQ", href: "/faq" },
-    { name: "Contact", href: "/contact" },
+    { name: t('home'), href: `/${locale}` },
+    { name: t('dupleksas'), href: `/${locale}/dupleksas` },
+    { name: t('ezeroNamelis'), href: `/${locale}/ezero-namelis` },
+    { name: t('reservations'), href: `/${locale}/reservations` },
+    { name: t('coupons'), href: `/${locale}/coupons` },
+    { name: t('faq'), href: `/${locale}/faq` },
+    { name: t('contact'), href: `/${locale}/contact` },
   ];
 
   const toggle = useCallback(() => setIsOpen((v) => !v), []);
   const close = useCallback(() => setIsOpen(false), []);
 
   // Check if we're on home page
-  const isHomePage = pathname === "/";
+  const isHomePage = pathname === `/${locale}`;
 
   // --- Smooth rAF-based scroll handling with hysteresis ---
   useEffect(() => {
@@ -135,7 +138,7 @@ export default function Header() {
           <div className="flex items-center gap-2 md:gap-2 min-w-[120px] md:min-w-[80px]">
             <button
               aria-expanded={isOpen}
-              aria-label={isOpen ? "Close navigation" : "Open navigation"}
+              aria-label={isOpen ? t('closeNavigation') : t('openNavigation')}
               onClick={toggle}
               className={`p-2.5 md:p-2 rounded focus:outline-none focus:ring-2 hover:scale-105 transition-all duration-300 flex items-center justify-center flex-shrink-0 min-w-[40px] min-h-[40px]`}
               style={{ willChange: "transform, opacity" }}
@@ -171,7 +174,7 @@ export default function Header() {
           {/* Logo: kept in DOM and positioned absolutely on small screens always (no layout toggles).
     Visual changes (opacity/scale) handled via CSS transitions only. */}
           <div className="flex-1 flex justify-center items-center pointer-events-none">
-            <Link href="/" className="block pointer-events-auto">
+            <Link href={`/${locale}`} className="block pointer-events-auto">
               <div
                 className={`transform transition-all duration-400 will-change-transform will-change-opacity ${scrolled ? "opacity-100 scale-100" : "opacity-0 scale-95"
                   }`}
@@ -196,7 +199,7 @@ export default function Header() {
           {/* RIGHT BUTTON - BOOK
               Always in DOM; on mobile we toggle opacity/pointer-events so layout doesn't reflow. */}
           <button
-            onClick={() => showMobileReservationButton && (window.location.href = '/reservations')}
+            onClick={() => showMobileReservationButton && (window.location.href = `/${locale}/reservations`)}
             disabled={!showMobileReservationButton}
             className={`uppercase tracking-wider text-[10px] md:text-[14px] px-4 py-2 md:px-5 md:py-2.5 rounded font-semibold transition-all duration-300 ease-in-out flex items-center justify-center min-w-[84px] md:min-w-[100px] ${!showMobileReservationButton ? "cursor-default" : "cursor-pointer"
               }`}
@@ -212,7 +215,7 @@ export default function Header() {
                 transitionProperty: "opacity, transform",
               }}
             >
-              Reserve
+              {t('reserve')}
             </span>
           </button>
         </div>
@@ -245,7 +248,7 @@ export default function Header() {
             <div />
             <button
               onClick={close}
-              aria-label="Close menu"
+              aria-label={t('closeMenu')}
               className="p-2 rounded focus:outline-none focus:ring-2 focus:ring-[var(--color-secondary)] hover:scale-105 transition-transform"
             >
               <svg className="w-6 h-6 text-[var(--color-secondary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor">

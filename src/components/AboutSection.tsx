@@ -3,11 +3,15 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useTranslations, useLocale } from 'next-intl';
 
 const AboutSection: React.FC = () => {
   const [isTextVisible, setIsTextVisible] = useState(false);
   const [isCard1Visible, setIsCard1Visible] = useState(false);
   const [isCard2Visible, setIsCard2Visible] = useState(false);
+  const locale = useLocale();
+  const t = useTranslations('about');
+  const tCommon = useTranslations('common');
 
   const textRef = useRef<HTMLDivElement>(null);
   const card1Ref = useRef<HTMLAnchorElement>(null);
@@ -47,7 +51,7 @@ const AboutSection: React.FC = () => {
         <div className="container mx-auto px-6 max-w-7xl">
           {/* Title - Mobile only */}
           <h2 className="lg:hidden  text-xl md:text-3xl text-white font-bold leading-tight pb-3 md:pb-6 text-center">
-            Šiaurietiškas poilsis kūnui <span className="md:inline block"> ir sielai visais metų laikais…</span>
+            {t('title')}
           </h2>
 
           {/* HERO IMAGE + INTRO TEXT */}
@@ -67,7 +71,7 @@ const AboutSection: React.FC = () => {
             >
               {/* Title - visible on desktop only, centered on mobile */}
               <h2 className="hidden lg:block  text-3xl lg:text-4xl text-white text-center font-bold leading-tight">
-                Šiaurietiškas poilsis kūnui <br /> ir sielai visais metų laikais…
+                {t('title')}
               </h2>
 
               <p
@@ -79,8 +83,7 @@ const AboutSection: React.FC = () => {
                   transitionDelay: isTextVisible ? '0ms' : '0ms'
                 }}
               >
-                Kviečiame atvykti pailsėti į skandinaviško stiliaus duplekso apartamentus šalia Rubikių ežero Anykščių rajone. Čia mėgausitės privačia sūkurine vonia - Jacuzzi, iš jos stebėsite vietovės gyventojus elnius – danielius. Jais galėsite grožėtis bei
-                pamaitinti, o jie apdovanos Jus nepamirštamomis akimirkomis, sielos terapija ir ramybe...
+                {t('paragraph1')}
               </p>
               <p
                 className={`text-base md:text-lg lg:text-xl font-bolder text-white leading-relaxed text-center transition-all duration-700 ease-out ${isTextVisible
@@ -91,7 +94,7 @@ const AboutSection: React.FC = () => {
                   transitionDelay: isTextVisible ? '200ms' : '0ms'
                 }}
               >
-                Norintiems visiško privatumo - prabangus Ežero Namelis dviems gamtos glėbyje, tik 10 žingsnių iki ežero ir miško…
+                {t('paragraph2')}
               </p>
               <p
                 className={`text-base md:text-lg lg:text-xl font-bolder text-white leading-relaxed text-center transition-all duration-700 ease-out ${isTextVisible
@@ -102,7 +105,7 @@ const AboutSection: React.FC = () => {
                   transitionDelay: isTextVisible ? '400ms' : '0ms'
                 }}
               >
-                Papildykite savo viešnagę ežero pramogomis – ramiais pasiplaukiojimais valtimi ar vandens dviračiu, o gal įsimintinais baidarių nuotykiais...
+                {t('paragraph3')}
               </p>
             </div>
           </div>
@@ -118,7 +121,7 @@ const AboutSection: React.FC = () => {
             {/* EŽERO NAMELIS - slide from left */}
             <Link
               ref={card1Ref}
-              href="/ezero-namelis"
+              href={`/${locale}/ezero-namelis`}
               className={`group transition-all duration-1000 ease-out ${isCard1Visible
                 ? 'opacity-100 translate-x-0'
                 : 'opacity-0 -translate-x-12'
@@ -141,17 +144,17 @@ const AboutSection: React.FC = () => {
 
                   {/* DESKTOP/TABLET */}
                   <h3 className="relative hidden md:flex text-xl md:text-2xl lg:text-4xl text-white font-bold group-hover:text-[var(--color-primary)] transition-colors duration-300 drop-shadow-2xl">
-                    Ežero Namelis →
+                    {t('ezeroNamelis')} →
                   </h3>
 
-                  {/* MÓVIL: título izquierda + “More” derecha */}
+                  {/* MÓVIL: título izquierda + "More" derecha */}
                   <div className="relative md:hidden flex items-center justify-between">
                     <h3 className="text-xl text-white font-bold drop-shadow-2xl">
-                      Ežero Namelis
+                      {t('ezeroNamelis')}
                     </h3>
 
                     <span className="px-2 py-[2px] text-xs font-semibold text-white bg-black/20 border border-white backdrop-blur-sm">
-                      More
+                      {tCommon('more')}
                     </span>
                   </div>
 
@@ -164,7 +167,7 @@ const AboutSection: React.FC = () => {
                 <div className="w-16 h-1 bg-[var(--color-primary)] mb-3 transition-all duration-300 group-hover:w-24"></div>
 
                 <p className="text-base text-[var(--color-text)] leading-relaxed">
-                  Žavingas, atskiras poilsio namelis ant ežero kranto – Tai tobulas pabėgimas su nuostabiausiais saulėlydžiais, žvaigždėtomis naktimis ir tyliais rytais...
+                  {t('ezeroNamelisDesc')}
                 </p>
               </div>
             </Link>
@@ -173,7 +176,7 @@ const AboutSection: React.FC = () => {
             {/* DUPLEKSO APARTAMENTAI - slide from right */}
             <Link
               ref={card2Ref}
-              href="/dupleksas"
+              href={`/${locale}/dupleksas`}
               className={`group transition-all duration-1000 ease-out ${isCard2Visible
                 ? 'opacity-100 translate-x-0'
                 : 'opacity-0 -translate-x-15'
@@ -201,17 +204,17 @@ const AboutSection: React.FC = () => {
 
                   {/* DESKTOP/TABLET */}
                   <h3 className="relative hidden md:flex text-xl md:text-2xl lg:text-4xl text-white font-bold group-hover:text-[var(--color-primary)] transition-colors duration-300 drop-shadow-2xl">
-                    Duplekso apartamentai →
+                    {t('dupleksoApartamentai')} →
                   </h3>
 
-                  {/* MÓVIL: título izquierda + “More” derecha */}
+                  {/* MÓVIL: título izquierda + "More" derecha */}
                   <div className="relative md:hidden flex items-center justify-between">
                     <h3 className="text-xl text-white font-bold drop-shadow-2xl">
-                      Duplekso apartamentai
+                      {t('dupleksoApartamentai')}
                     </h3>
 
                     <span className="px-2 py-[2px] text-xs font-semibold text-white bg-black/20 border border-white backdrop-blur-sm">
-                      More
+                      {tCommon('more')}
                     </span>
                   </div>
                 </div>
@@ -226,7 +229,7 @@ const AboutSection: React.FC = () => {
                 <div className="w-16 h-1 bg-[var(--color-primary)] mb-3 transition-all duration-300 group-hover:w-24"></div>
 
                 <p className="text-base text-[var(--color-text)] leading-relaxed">
-                  Du stilingi apartamentai, siūlantys skandinavišką komfortą ir modernius patogumus elniukų draugijoje…
+                  {t('dupleksoApartamentaiDesc')}
                 </p>
               </div>
             </Link>

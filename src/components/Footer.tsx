@@ -1,10 +1,31 @@
 // components/Footer.tsx
+"use client";
+
 import React from "react";
 import Link from "next/link";
-import { PhoneIcon, InboxIcon } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { PhoneIcon, InboxIcon, Globe } from "lucide-react";
+import { useTranslations, useLocale } from 'next-intl';
+import { locales, localeNames } from "@/i18n/config";
 
 const Footer: React.FC = () => {
   const year = new Date().getFullYear();
+  const t = useTranslations('nav');
+  const tCommon = useTranslations('common');
+  const locale = useLocale();
+  const pathname = usePathname();
+
+  // Get current path without locale prefix
+  const getPathWithoutLocale = () => {
+    const pathWithoutLocale = pathname.replace(`/${locale}`, '') || '/';
+    return pathWithoutLocale;
+  };
+
+  const switchLanguage = (newLocale: string) => {
+    const pathWithoutLocale = getPathWithoutLocale();
+    const newPath = pathWithoutLocale === '/' ? `/${newLocale}` : `/${newLocale}${pathWithoutLocale}`;
+    window.location.href = newPath;
+  };
 
   return (
     <footer className="w-full border-t border-[#2a4850] bg-[var(--color-secondary)] text-white">
@@ -15,59 +36,59 @@ const Footer: React.FC = () => {
           {/* Quick Links - Destacado */}
           <div className="lg:col-span-2 text-center">
             <h3 className="text-sm font-bold text-white mb-6 uppercase tracking-wider border-b border-[var(--color-primary)] pb-2 inline-block">
-              Navigate
+              {t('navigate')}
             </h3>
             <nav className="grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-3 mt-6 text-lg">
               <Link
-                href="/"
+                href={`/${locale}`}
                 className="text-[var(--color-primary)] hover:text-white hover:translate-x-1 transition-all duration-200 font-normal flex items-center group"
               >
                 <span className="opacity-0 group-hover:opacity-100 transition-opacity mr-1">→</span>
-                Home
+                {t('home')}
               </Link>
               <Link
-                href="/reservations"
+                href={`/${locale}/reservations`}
                 className="text-[var(--color-primary)] hover:text-white hover:translate-x-1 transition-all duration-200 font-normal flex items-center group"
               >
                 <span className="opacity-0 group-hover:opacity-100 transition-opacity mr-1">→</span>
-                Reservation
+                {t('reservations')}
               </Link>
               <Link
-                href="/coupons"
+                href={`/${locale}/coupons`}
                 className="text-[var(--color-primary)] hover:text-white hover:translate-x-1 transition-all duration-200 font-normal flex items-center group"
               >
                 <span className="opacity-0 group-hover:opacity-100 transition-opacity mr-1">→</span>
-                Coupons
+                {t('coupons')}
               </Link>
               <Link
-                href="/house-rules"
+                href={`/${locale}/house-rules`}
                 className="text-[var(--color-primary)] hover:text-white hover:translate-x-1 transition-all duration-200 font-normal flex items-center group"
               >
                 <span className="opacity-0 group-hover:opacity-100 transition-opacity mr-1">→</span>
-                House Rules
+                {t('houseRules')}
               </Link>
               <Link
-                href="/privacy-policy"
+                href={`/${locale}/privacy-policy`}
                 className="text-[var(--color-primary)] hover:text-white hover:translate-x-1 transition-all duration-200 font-normal flex items-center group"
               >
                 <span className="opacity-0 group-hover:opacity-100 transition-opacity mr-1">→</span>
-                Privacy Policy
+                {t('privacyPolicy')}
               </Link>
               <Link
-                href="/faq"
+                href={`/${locale}/faq`}
                 className="text-[var(--color-primary)] hover:text-white hover:translate-x-1 transition-all duration-200 font-normal flex items-center group"
               >
                 <span className="opacity-0 group-hover:opacity-100 transition-opacity mr-1">→</span>
-                FAQ
+                {t('faq')}
               </Link>
             </nav>
           </div>
 
           {/* Información de contacto */}
           <div className="text-center">
-            <Link href="/contact">
+            <Link href={`/${locale}/contact`}>
               <h3 className="text-sm font-bold text-white mb-6 uppercase tracking-wider border-b border-[var(--color-primary)] pb-2 inline-block cursor-pointer hover:text-[var(--color-primary)] transition-colors">
-                Contact
+                {t('contact')}
               </h3>
             </Link>
             <div className="space-y-5 text-sm mt-2">
@@ -101,14 +122,35 @@ const Footer: React.FC = () => {
           </div>
         </div>
 
+        {/* Language Selector */}
+        <div className="flex justify-center mb-8">
+          <div className="inline-flex items-center gap-2 bg-[var(--color-primary-dark)]/20 rounded-full p-1 backdrop-blur-sm">
+            <Globe className="w-4 h-4 text-[var(--color-primary)] ml-2" />
+            {locales.map((loc) => (
+              <button
+                key={loc}
+                onClick={() => switchLanguage(loc)}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                  locale === loc
+                    ? 'bg-[var(--color-primary)] text-white shadow-lg'
+                    : 'text-gray-300 hover:text-white hover:bg-white/10'
+                }`}
+                aria-label={`Switch to ${localeNames[loc as keyof typeof localeNames]}`}
+              >
+                {localeNames[loc as keyof typeof localeNames]}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Línea divisoria */}
         <div className="border-t border-[#2a4850] pt-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-2 text-xs text-gray-400">
             <div className="text-center md:text-left">
-              <span className="text-white">© {year} Rubikiai Lux.</span> All rights reserved.
+              <span className="text-white">© {year} Rubikiai Lux.</span> {tCommon('allRightsReserved')}.
             </div>
             <div className="text-center md:text-right">
-              Veikla pagal verslo liudijimą · Licencija Nr. AP-3287
+              {tCommon('businessLicense')}
             </div>
           </div>
         </div>

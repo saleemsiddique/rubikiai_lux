@@ -96,6 +96,25 @@ export default function Header() {
     return () => document.body.classList.remove("overflow-hidden");
   }, [isOpen]);
 
+  // detecta si estamos en pantallas "desktop" (md = 768px en Tailwind)
+const [isDesktop, setIsDesktop] = useState<boolean>(false);
+
+useEffect(() => {
+  if (typeof window === "undefined") return;
+  const mq = window.matchMedia("(min-width: 768px)");
+  const handler = (e: MediaQueryListEvent | MediaQueryList) => setIsDesktop(e.matches);
+  // set initial
+  setIsDesktop(mq.matches);
+  // compat: addEventListener en la spec moderna, addListener en navegadores viejos
+  if (typeof mq.addEventListener === "function") mq.addEventListener("change", handler);
+  else mq.addListener(handler);
+  return () => {
+    if (typeof mq.removeEventListener === "function") mq.removeEventListener("change", handler);
+    else mq.removeListener(handler);
+  };
+}, []);
+
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") close();
@@ -114,9 +133,10 @@ export default function Header() {
     };
   }, [isOpen, close]);
 
-  // Decide if mobile reservation button should appear (visual only)
-  // We will NOT remove it from DOM; only animate opacity/pointer-events to avoid layout shifts
-  const showMobileReservationButton = isHomePage && !scrolled;
+// mostrar si estamos en home y (es escritorio OR no está scrolleado)
+// -> en desktop lo mostramos siempre; en móviles solo si no está scrolleado
+const showMobileReservationButton = isHomePage && (isDesktop || !scrolled);
+
 
   return (
     <>
@@ -173,7 +193,7 @@ export default function Header() {
 
           {/* Logo: kept in DOM and positioned absolutely on small screens always (no layout toggles).
     Visual changes (opacity/scale) handled via CSS transitions only. */}
-          <div className="flex-1 flex justify-center items-center pointer-events-none">
+          <div className="flex-1 flex justify-center items-center pointer-events-none p-1">
             <Link href={`/${locale}`} className="block pointer-events-auto">
               <div
                 className={`transform transition-all duration-400 will-change-transform will-change-opacity ${scrolled ? "opacity-100 scale-100" : "opacity-0 scale-95"
@@ -184,12 +204,12 @@ export default function Header() {
                 }}
               >
                 <Image
-                  src="/rubikiai-logo.png"
+                  src="/rubikiai-logo (1).png"
                   alt="Rubikiai Lux Logo"
                   width={120}
                   height={40}
                   priority
-                  className="h-auto drop-shadow-2xl w-26 md:w-32"
+                  className="h-auto drop-shadow-2xl w-22 md:w-28"
                   style={{ transition: "all 400ms cubic-bezier(0.4,0,0.2,1)" }}
                 />
               </div>

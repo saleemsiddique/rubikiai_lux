@@ -183,7 +183,7 @@ const AboutSection: React.FC = () => {
                 }`}
             >
               {/* Image Container */}
-              <div className="relative shadow-lg overflow-hidden mb-4">
+              <div className="relative rounded-2xl shadow-lg overflow-hidden mb-4">
                 {/* Background Image */}
                 <img
                   src="/dupleksas/1-dupleksas6.jpeg"

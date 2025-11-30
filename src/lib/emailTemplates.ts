@@ -6,6 +6,7 @@ export type EmailLocale = 'lt' | 'en' | 'ru';
 export type EmailType = 'booking-reminder' | 'coupon-purchase' | 'reservation-confirmation';
 
 export interface BookingReminderParams {
+    reservationId?: string;
   guestName: string;
   houseName: string;
   checkIn: string;

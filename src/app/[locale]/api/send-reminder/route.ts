@@ -154,15 +154,15 @@ async function sendReminderViaResend(params: {
   const templateFn = await getBookingReminderTemplate(locale);
 
   // Call the template with the required parameters
-  const html = templateFn({
-    guestName: params.data.guestName,
-    reservationId: "", // Not needed for reminder
-    houseName: params.data.houseName,
-    startDate: params.data.checkIn,
-    endDate: params.data.checkOut || "",
-    guests: params.data.nGuests || 2,
-    totalPrice: 0, // Not shown in reminder
-  });
+const html = templateFn({
+  guestName: params.data.guestName,
+  reservationId: "",
+  houseName: params.data.houseName,
+  checkIn: params.data.checkIn,
+  checkOut: params.data.checkOut,
+  nGuests: params.data.nGuests,
+});
+
 
   // Get subject line for this locale
   const subject = getEmailSubject('booking-reminder', locale, { houseName: params.data.houseName });

@@ -23,8 +23,9 @@ const Footer: React.FC = () => {
 
   const switchLanguage = (newLocale: string) => {
     const pathWithoutLocale = getPathWithoutLocale();
+    const searchParams = window.location.search; // Preserve URL parameters
     const newPath = pathWithoutLocale === '/' ? `/${newLocale}` : `/${newLocale}${pathWithoutLocale}`;
-    window.location.href = newPath;
+    window.location.href = newPath + searchParams;
   };
 
   return (
@@ -69,7 +70,7 @@ const Footer: React.FC = () => {
               </Link>
               <Link
                 href={`/${locale}/privacy-policy`}
-                className="text-[var(--color-primary)] hover:text-white hover:translate-x-1 transition-all duration-200 font-normal flex items-center group"
+                className={`text-[var(--color-primary)] hover:text-white hover:translate-x-1 transition-all duration-200 font-normal flex items-center group ${locale === 'ru' ? 'text-sm' : ''}`}
               >
                 <span className="opacity-0 group-hover:opacity-100 transition-opacity mr-1">→</span>
                 {t('privacyPolicy')}

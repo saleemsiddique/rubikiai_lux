@@ -3,6 +3,7 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations, useLocale } from 'next-intl';
 // IMPORTA el mapping centralizado que creaste en lib/houseRoutes.ts
 import { HOUSE_ROUTE_OVERRIDES_BY_ID } from "@/lib/houseRoutes";
 // IMPORTA el helper que convierte a YYYY-MM-DD local
@@ -22,6 +23,8 @@ const ReservationForm = dynamic(() => import("@/components/ReservationForm"), { 
  */
 
 export default function ReservationPage() {
+  const t = useTranslations('reservations');
+  const locale = useLocale();
   const router = useRouter();
 
   const isDuoId = (id?: string) => !!id && id.includes("__");
@@ -100,45 +103,27 @@ export default function ReservationPage() {
                   id="rules-title"
                   className="text-lg font-semibold text-[var(--color-primary-dark)]"
                 >
-                  House rules
+                  {t('houseRulesTitle')}
                 </h2>
               </div>
 
               <ul className="mt-2 space-y-2 text-sm text-neutral-700">
-                <li>• Apartments are rented for quiet relaxation only.</li>
-
-                <li>
-                  • Minors are accepted only from <strong>16 years of age</strong>, or by prior
-                  arrangement when booking <strong>both duplex apartments</strong>.
-                </li>
-
-                <li>
-                  • For the safety and peace of the fallow deer —{" "}
-                  <strong className="uppercase tracking-wide">
-                    bringing pets to the duplex is strictly prohibited
-                  </strong>
-                  .
-                </li>
-
-                <li>
-                  • By making a reservation, you confirm that you have read our{" "}
-                  <strong>house rules</strong> and <strong>reservation terms</strong>.
-                </li>
-
-                <li>
-                  • <strong>Check-in</strong> time is from <strong>16:00</strong>. <strong>Check-out</strong> time is until <strong>12:00</strong> in Ezero Namelis and <strong>11:00</strong> in Duplexes.
-                </li>
+                <li>• {t('rule1')}</li>
+                <li>• {t('rule2')}</li>
+                <li>• {t('rule3')}</li>
+                <li>• {t('rule4')}</li>
+                <li>• {t('rule5')}</li>
               </ul>
 
               <p className="mt-4 text-sm text-neutral-600">
-                You can view all rules on our{" "}
+                {t('viewAllRules')}{" "}
                 <a
-                  href="/house-rules"
+                  href={`/${locale}/house-rules`}
                   className="font-semibold text-[var(--color-primary)] hover:underline"
                 >
-                  House Rules
+                  {t('houseRulesLink')}
                 </a>{" "}
-                page.
+                {t('houseRulesPage')}
               </p>
             </div>
 
@@ -147,22 +132,12 @@ export default function ReservationPage() {
             <div className="rounded-2xl border border-neutral-200 bg-white shadow-sm p-5">
               <div className="flex items-center gap-2 mb-2">
                 <FaInfoCircle className="text-[var(--color-primary)]" />
-                <h2 className="text-lg font-semibold text-[var(--color-primary-dark)]">Payment & booking terms</h2>
+                <h2 className="text-lg font-semibold text-[var(--color-primary-dark)]">{t('paymentTitle')}</h2>
               </div>
               <div className="mt-2 space-y-3 text-sm text-neutral-700">
-                <p>
-                  When reserving, you pay a booking deposit equal to <strong>one night’s stay</strong>. The remaining amount is paid upon
-                  arrival.
-                </p>
-                <p className="text-neutral-700">
-                  If an error occurs in the booking system that makes the service unavailable or results in an unreasonably low price,{" "}
-                  we will inform you as soon as possible and the reservation will be{" "}
-                  <strong>canceled</strong>, <strong>rescheduled</strong>, or your <strong>deposit will be refunded</strong>.
-                </p>
-                <p>
-                  You may change the reservation date once free of charge no later than 7 days before arrival. The reservation deposit is
-                  non-refundable. Multiple date changes cost €20.
-                </p>
+                <p>{t('payment1')}</p>
+                <p className="text-neutral-700">{t('payment2')}</p>
+                <p>{t('payment3')}</p>
               </div>
             </div>
           </div>

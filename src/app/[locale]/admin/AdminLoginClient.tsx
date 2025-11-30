@@ -5,6 +5,7 @@ import React, { useEffect, useState } from "react";
 import { clientAuth } from "@/lib/firebase-auth";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useLocale } from 'next-intl';
 
 async function readErrorResponse(res: Response) {
   const text = await res.text();
@@ -25,6 +26,7 @@ function friendly(r?: string | null) {
 }
 
 export default function AdminLoginClient() {
+  const locale = useLocale();
   const router = useRouter();
   const search = useSearchParams();
 
@@ -46,7 +48,7 @@ export default function AdminLoginClient() {
     let abort = false;
     const check = async () => {
       try {
-        const res = await fetch("/api/auth/session-check", { 
+        const res = await fetch(`/${locale}/api/auth/session-check`, { 
           method: "GET", 
           credentials: "same-origin" 
         });
@@ -73,7 +75,7 @@ export default function AdminLoginClient() {
       const cred = await signInWithEmailAndPassword(clientAuth, email, password);
       const idToken = await cred.user.getIdToken(true);
 
-      const resp = await fetch("/api/auth/session-login", {
+      const resp = await fetch(`/${locale}/api/auth/session-login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ idToken, remember }),

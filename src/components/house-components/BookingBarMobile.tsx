@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Calendar, CreditCard } from 'lucide-react';
 
 interface BookingBarMobileProps {
@@ -27,6 +28,7 @@ export default function BookingBarMobile({
   handleReserveNow,
   formatCurrency,
 }: BookingBarMobileProps) {
+  const t = useTranslations('housePage');
   const router = useRouter();
 
   const showPrice = totalFromServer !== null || firstFromServer !== null;
@@ -43,18 +45,18 @@ export default function BookingBarMobile({
             {loadingPrice ? (
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 border-2 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />
-                <span className="text-sm text-gray-600 font-medium">Calculating...</span>
+                <span className="text-sm text-gray-600 font-medium">{t('calculating')}</span>
               </div>
             ) : priceError ? (
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-red-500" />
-                <span className="text-sm text-red-600 font-medium">Price unavailable</span>
+                <span className="text-sm text-red-600 font-medium">{t('priceUnavailable')}</span>
               </div>
             ) : showPrice ? (
               <div className="space-y-1">
                 <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-[var(--color-secondary)]/70 font-semibold">
                   <CreditCard className="w-3 h-3" />
-                  <span>Total / Charge now</span>
+                  <span>{t('totalChargeNow')}</span>
                 </div>
                 <div className="flex items-baseline gap-2">
                   <div className="text-xl font-bold text-[var(--color-secondary)] tracking-tight">
@@ -70,7 +72,7 @@ export default function BookingBarMobile({
             ) : (
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-[var(--color-primary)]" />
-                <span className="text-sm text-gray-700 font-medium">Select dates to see price</span>
+                <span className="text-sm text-gray-700 font-medium">{t('selectDatesToSeePrice')}</span>
               </div>
             )}
           </div>
@@ -92,12 +94,12 @@ export default function BookingBarMobile({
             <span className="relative z-10 flex items-center gap-2">
               {startParam && endParam ? (
                 <>
-                  Reserve now
+                  {t('reserveNow')}
                   <span className="text-xs">→</span>
                 </>
               ) : (
                 <>
-                  Select dates
+                  {t('selectDates')}
                   <Calendar className="w-3.5 h-3.5" />
                 </>
               )}

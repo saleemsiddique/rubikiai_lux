@@ -4,23 +4,25 @@
 import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useTranslations } from 'next-intl';
 
 const DuplexSelectionPage: React.FC = () => {
+  const t = useTranslations('houses.dupleksas');
   return (
     <div className="min-h-screen bg-[var(--color-background-soft)] pt-20 md:pt-32 px-4 pb-8 flex flex-col">
       {/* Simple Header */}
       <div className="text-center mb-6 md:mb-8">
         <h1 className="text-2xl md:text-4xl font-bold text-[var(--color-text)] font-header mb-2">
-          Duplekso Apartamentai
+          {t('title')}
         </h1>
         <div className="w-20 h-1 bg-[var(--color-primary)] mx-auto"></div>
       </div>
 
       {/* Two Options - Side by Side on Desktop, Stacked on Mobile */}
       <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 max-w-7xl mx-auto w-full">
-        
+
         {/* Option 1 */}
-        <Link 
+        <Link
           href="/dupleksas/salia-elniu-aptvaro"
           className="group relative overflow-hidden rounded-xl block"
         >
@@ -30,7 +32,7 @@ const DuplexSelectionPage: React.FC = () => {
               Nr.1 - Šalia Elnių Aptvaro
             </h2>
           </div>
-          
+
           <div className="relative block">
             <Image
               src="/dupleksas/1-dupleksas6.jpeg"
@@ -43,7 +45,7 @@ const DuplexSelectionPage: React.FC = () => {
         </Link>
 
         {/* Option 2 */}
-        <Link 
+        <Link
           href="/dupleksas/salia-elniu-panorama"
           className="group relative overflow-hidden rounded-xl"
         >
@@ -53,7 +55,7 @@ const DuplexSelectionPage: React.FC = () => {
               Nr.2 - Elnių Panorama
             </h2>
           </div>
-          
+
           <div className="relative">
             {/* Mobile image */}
             <Image

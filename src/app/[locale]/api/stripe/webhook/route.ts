@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import admin, { adminDb } from "@/lib/firebase-admin"; // <-- usa la ruta correcta según tu proyecto
 import { NextResponse } from "next/server";
 import { nowInLithuania } from "@/app/[locale]/utils/date-server";
+import { getHouseDisplayName } from "@/lib/houseNames";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY! as string);
 
@@ -306,6 +307,7 @@ export async function POST(req: Request) {
         );
         const quantity = result.quantity;
         const unitAmount = result.unitAmount;
+        const couponLocale = session.metadata?.locale || "lt";
 
         const batch = db.batch();
         const createdCodes: Array<{ code: string; remaining: number }> = [];
@@ -352,12 +354,13 @@ export async function POST(req: Request) {
 
         if (buyerEmail) {
           try {
-            await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
+            await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/${couponLocale}/api/send-email`, {
               method: "POST",
               headers: { "content-type": "application/json" },
               body: JSON.stringify({
                 type: "coupon_purchase",
                 to: buyerEmail,
+                locale: couponLocale,
                 data: {
                   unitAmount,
                   quantity,
@@ -378,12 +381,13 @@ export async function POST(req: Request) {
 
         // Notify owner about coupon purchase
         try {
-          await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
+          await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/${couponLocale}/api/send-email`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({
               type: "owner_coupon_notification",
               to: OWNER_EMAIL, // <- sustituir por email real
+              locale: couponLocale,
               data: {
                 orderId,
                 buyerEmail: buyerEmail || null,
@@ -461,6 +465,7 @@ export async function POST(req: Request) {
       const customerPhoneFromMeta = session.metadata?.customerPhone || "";
       const arrivalTime = session.metadata?.arrivalTime || "";
       const comment = session.metadata?.comment || "";
+      const localeFromMeta = session.metadata?.locale || "lt";
 
       const stripePaymentIntentId = getSessionPaymentIntentId(session);
       const stripeCustomerId =
@@ -558,6 +563,8 @@ export async function POST(req: Request) {
         const customerEmail =
           stripeCheckoutEmail || customerEmailFromMeta || null;
         if (customerEmail) {
+          console.log(`📧 Stripe webhook: sending confirmation email in locale: ${localeFromMeta}`);
+
           // Calcular descuento aplicado (si hay cupón o porcentaje)
           let discountApplied = 0;
           if (discountKind === "coupon" && couponAmountApplied) {
@@ -566,13 +573,13 @@ export async function POST(req: Request) {
             discountApplied = Number(percentAmountApplied) || 0;
           }
 
-          await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
+          await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/${localeFromMeta}/api/send-email`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({
               type: "reservation_confirmation",
               to: customerEmail,
-              lang: "en",
+              locale: localeFromMeta,
               data: {
                 reservationId,
                 guestName: customerNameFromMeta || customerEmail,
@@ -580,10 +587,7 @@ export async function POST(req: Request) {
                 checkIn,
                 checkOut,
                 nights,
-                roomType:
-                  (houseIds.length === 1
-                    ? houseIds[0]
-                    : rawValue || houseIds.join(", ")) || "Accommodation",
+                roomType: getHouseDisplayName(houseIds),
                 guests: guestsNum,
                 // ✅ NUEVOS CAMPOS SIMPLIFICADOS:
                 paidNow: payNow,
@@ -637,12 +641,13 @@ export async function POST(req: Request) {
       // after sending customer confirmation...
       try {
         // Notify owner
-        await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
+        await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/${localeFromMeta}/api/send-email`, {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
             type: "owner_reservation_notification",
             to: OWNER_EMAIL, // <- sustituye por owner/email dinámico si lo tienes
+            locale: localeFromMeta,
             data: {
               reservationId,
               guestName: customerNameFromMeta || stripeCheckoutEmail || "Guest",
@@ -652,9 +657,7 @@ export async function POST(req: Request) {
               checkIn,
               checkOut,
               nights,
-              roomType:
-                (houseIds.length === 1 ? houseIds[0] : rawValue) ||
-                "Accommodation",
+              roomType: getHouseDisplayName(houseIds),
               guests: guestsNum,
               paidNow: payNow,
               payAtArrival: payAtArrival,
@@ -702,10 +705,10 @@ export async function POST(req: Request) {
             const reminderPayload = {
               type: "booking_reminder",
               to: customerEmail,
-              lang: "en",
+              locale: localeFromMeta,
               data: {
                 guestName: customerNameFromMeta || customerEmail.split("@")[0],
-                houseName: houseIds.length === 1 ? houseIds[0] : (houseIds.join(", ") || "Rubikiai Lux"),
+                houseName: getHouseDisplayName(houseIds),
                 checkIn,
                 checkOut: checkOut || undefined,
                 nGuests: guestsNum || 2,
@@ -716,7 +719,7 @@ export async function POST(req: Request) {
 
             console.log("📤 Payload del reminder:", JSON.stringify(reminderPayload, null, 2));
 
-            const reminderRes = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
+            const reminderRes = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/${localeFromMeta}/api/send-email`, {
               method: "POST",
               headers: { "content-type": "application/json" },
               body: JSON.stringify(reminderPayload),

@@ -5,7 +5,7 @@ import admin, { adminDb } from "@/lib/firebase-admin";
 import { Resend } from "resend";
 import fs from "fs/promises";
 import path from "path";
-import { DiscountCodeEmailHtml } from "@/app/emails/DiscountCodeEmailHtml";
+import { DiscountCodeEmailHtml } from "@/app/[locale]/emails/DiscountCodeEmailHtml";
 import { nowInLithuania } from "@/app/[locale]/utils/date-server";
 
 export const runtime = "nodejs";

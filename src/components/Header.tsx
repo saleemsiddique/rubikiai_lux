@@ -35,7 +35,7 @@ export default function Header() {
   const navLinks = [
     { name: t('home'), href: `/${locale}` },
     { name: t('dupleksas'), href: `/${locale}/dupleksas` },
-    { name: t('ezeroNamelis'), href: `/${locale}/ezero-namelis` },
+    { name: 'Ežero Namelis', href: `/${locale}/ezero-namelis` },
     { name: t('reservations'), href: `/${locale}/reservations` },
     { name: t('coupons'), href: `/${locale}/coupons` },
     { name: t('faq'), href: `/${locale}/faq` },

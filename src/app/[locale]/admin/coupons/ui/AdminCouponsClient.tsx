@@ -2,6 +2,7 @@
 
 import React, { useCallback, useState } from "react";
 import { formatLithuaniaTime } from "@/app/[locale]/utils/date";
+import { useLocale } from 'next-intl';
 
 /** Tipos del lookup existente (/api/coupons/lookup) */
 type CouponLookup = {
@@ -46,6 +47,7 @@ async function readError(res: Response) {
 }
 
 export default function AdminCouponsClient() {
+  const locale = useLocale();
   const [codeInput, setCodeInput] = useState("");
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupError, setLookupError] = useState<string | null>(null);
@@ -93,7 +95,7 @@ export default function AdminCouponsClient() {
       setLookupError(null);
       setLookup(null);
 
-      const res = await fetch(`/api/coupons/lookup?code=${encodeURIComponent(raw)}`, { cache: "no-store" });
+      const res = await fetch(`/${locale}/api/coupons/lookup?code=${encodeURIComponent(raw)}`, { cache: "no-store" });
       if (res.status === 404) {
         setLookupError("Cupón no encontrado");
         return;
@@ -131,7 +133,7 @@ export default function AdminCouponsClient() {
     try {
       setSaving(true);
       setSaveMsg(null);
-      const res = await fetch(`/api/admin/coupons/${encodeURIComponent(lookup.coupon.id)}/remaining`, {
+      const res = await fetch(`/${locale}/api/admin/coupons/${encodeURIComponent(lookup.coupon.id)}/remaining`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ remaining: num }),

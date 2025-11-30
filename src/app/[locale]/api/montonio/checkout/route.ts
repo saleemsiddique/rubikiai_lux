@@ -12,6 +12,7 @@ import {
   dateIsoLocal,
 } from "@/lib/checkout-utils";
 import { nowInLithuania } from "@/app/[locale]/utils/date-server";
+import { getTranslations } from 'next-intl/server';
 
 type CheckoutBody = {
   houseId?: string;
@@ -76,8 +77,13 @@ function adjustForStripeMin(firstNightBefore: number, discountTry: number) {
   return round2(adjusted);
 }
 
-export async function POST(req: Request) {
+export async function POST(
+  req: Request,
+  { params }: { params: Promise<{ locale: string }> }
+) {
   try {
+    const { locale } = await params;
+    const t = await getTranslations({ locale, namespace: 'api.errors' });
     const body = (await req.json()) as CheckoutBody;
     console.debug("montonio/checkout body:", body);
 
@@ -95,7 +101,7 @@ export async function POST(req: Request) {
       endIso = dateIsoLocal(e);
       if (e.getTime() <= s.getTime()) {
         return NextResponse.json(
-          { error: "Invalid date range: end must be after start" },
+          { error: t('invalidDateRange') },
           { status: 400 }
         );
       }
@@ -112,7 +118,7 @@ export async function POST(req: Request) {
 
     if (!houseId && !houseSlug) {
       return NextResponse.json(
-        { error: "Missing params: houseId or houseSlug required" },
+        { error: t('missingParams') },
         { status: 400 }
       );
     }
@@ -150,7 +156,7 @@ export async function POST(req: Request) {
         const coIso = dateIsoLocal(co);
         if (!(coIso <= startIso || ciIso >= endIso)) {
           return NextResponse.json(
-            { error: "Dates already booked" },
+            { error: t('datesAlreadyBooked') },
             { status: 409 }
           );
         }
@@ -162,7 +168,7 @@ export async function POST(req: Request) {
       : 2;
     if (!Number.isFinite(guestsNum) || guestsNum <= 0) {
       return NextResponse.json(
-        { error: "Invalid guests number" },
+        { error: t('invalidGuestsNumber') },
         { status: 400 }
       );
     }
@@ -218,30 +224,30 @@ export async function POST(req: Request) {
       const couponDocId = discount.id || "";
       if (!couponDocId)
         return NextResponse.json(
-          { error: "Missing coupon id" },
+          { error: t('missingCouponId') },
           { status: 400 }
         );
       const snap = await db.collection("coupons").doc(couponDocId).get();
       if (!snap.exists)
         return NextResponse.json(
-          { error: "Coupon not found" },
+          { error: t('couponNotFound') },
           { status: 400 }
         );
       const cData: any = snap.data();
       const remaining = Number(cData?.remaining ?? 0);
       const status = String(cData?.status || "active").toLowerCase();
       if (status !== "active")
-        return NextResponse.json({ error: "Coupon inactive" }, { status: 400 });
+        return NextResponse.json({ error: t('couponInactive') }, { status: 400 });
       if (!Number.isFinite(remaining) || remaining <= 0)
         return NextResponse.json(
-          { error: "Coupon has no remaining balance" },
+          { error: t('couponNoBalance') },
           { status: 400 }
         );
 
       let proposed = Number(discount.value || 0);
       if (!Number.isFinite(proposed) || proposed <= 0)
         return NextResponse.json(
-          { error: "Invalid coupon value" },
+          { error: t('invalidCouponValue') },
           { status: 400 }
         );
 
@@ -259,7 +265,7 @@ export async function POST(req: Request) {
       const percentDocId = discount.id || "";
       if (!percentDocId)
         return NextResponse.json(
-          { error: "Missing percent discount id" },
+          { error: t('missingDiscountId') },
           { status: 400 }
         );
       const snap = await db
@@ -268,7 +274,7 @@ export async function POST(req: Request) {
         .get();
       if (!snap.exists)
         return NextResponse.json(
-          { error: "Percent discount not found" },
+          { error: t('discountNotFound') },
           { status: 400 }
         );
       const pData: any = snap.data();
@@ -277,12 +283,12 @@ export async function POST(req: Request) {
       const pct = pctRaw / 100;
       if (used)
         return NextResponse.json(
-          { error: "Discount already used" },
+          { error: t('discountAlreadyUsed') },
           { status: 400 }
         );
       if (!Number.isFinite(pctRaw) || pctRaw <= 0 || pctRaw > 100)
         return NextResponse.json(
-          { error: "Invalid percent value" },
+          { error: t('invalidPercentValue') },
           { status: 400 }
         );
 
@@ -378,6 +384,7 @@ export async function POST(req: Request) {
       customerPhone: customerInput?.phone || "",
       arrivalTime: customerInput?.arrivalTime || "",
       comment: customerInput?.comment || "",
+      locale: locale || "lt", // locale from route param
     };
 
     // MONTONIO PAY ONLY Reservation fee: set grandTotal/payment.amount to discountedFirst (lo que debe cobrarse ahora)
@@ -385,12 +392,12 @@ export async function POST(req: Request) {
     const montonioPayload: any = {
       accessKey: process.env.MONTONIO_ACCESS_KEY || "",
       merchantReference: reservationId,
-      returnUrl: `${process.env.NEXT_PUBLIC_APP_URL}/payment/success?ref=${reservationId}&cancelUrl=${encodeURIComponent(cancelUrl || `${process.env.NEXT_PUBLIC_APP_URL}`)}`,
-      cancelUrl: cancelUrl || `${process.env.NEXT_PUBLIC_APP_URL}`,
+      returnUrl: `${process.env.NEXT_PUBLIC_APP_URL}/${locale}/payment/success?ref=${reservationId}&cancelUrl=${encodeURIComponent(cancelUrl || `${process.env.NEXT_PUBLIC_APP_URL}/${locale}`)}`,
+      cancelUrl: cancelUrl || `${process.env.NEXT_PUBLIC_APP_URL}/${locale}`,
       notificationUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/montonio/webhook`,
       currency: "EUR",
       grandTotal: amountToPayNow, // IMPORTANT: only Reservation fee
-      locale: "lt",
+      locale: locale || "lt", // Use locale from route parameter instead of hardcoded "lt"
       billingAddress: {
         firstName: (customerInput?.name || "Guest").split(" ")[0] || "Guest",
         lastName:
@@ -586,7 +593,7 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         error:
-          error.response?.data?.message || error.message || "Checkout failed",
+          error.response?.data?.message || error.message || t('checkoutFailed'),
       },
       { status: error.response?.status || 500 }
     );

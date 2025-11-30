@@ -6,8 +6,11 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useLocale, useTranslations } from 'next-intl';
 
 export default function PaymentSuccessClient() {
+  const locale = useLocale();
+  const t = useTranslations('paymentPages');
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -28,13 +31,13 @@ export default function PaymentSuccessClient() {
 
     const checkReservationStatus = async () => {
       if (!merchantRef) {
-        router.replace(`/cancel?reason=missing_reservation`);
+        router.replace(`/${locale}/cancel?reason=missing_reservation`);
         return;
       }
 
       try {
         const res = await fetch(
-          `/api/reservation-status?reservationId=${encodeURIComponent(merchantRef)}`
+          `/${locale}/api/reservation-status?reservationId=${encodeURIComponent(merchantRef)}`
         );
 
         if (!res.ok) {
@@ -44,7 +47,7 @@ export default function PaymentSuccessClient() {
             return; // continuar polling
           }
 
-          setError("No se pudo verificar el estado de la reserva");
+          setError(t('couldNotVerifyReservation'));
           setLoading(false);
           if (pollInterval) clearInterval(pollInterval);
           return;
@@ -68,10 +71,9 @@ export default function PaymentSuccessClient() {
 
           if (reservation.status === "canceled") {
             router.replace(
-              `/cancel?reservationId=${merchantRef}&reason=payment_failed`
+              `/${locale}/cancel?reservationId=${merchantRef}&reason=payment_failed`
             );
           } else if (reservation.status === "reserved") {
-            // 🔹 AÑADIR ESTAS 3 LÍNEAS AQUÍ
             localStorage.removeItem("checkout-form-data");
             console.log("✅ Pago exitoso - datos del formulario eliminados");
           }
@@ -82,7 +84,7 @@ export default function PaymentSuccessClient() {
         if (reservation.status === "expired") {
           setLoading(false);
           if (pollInterval) clearInterval(pollInterval);
-          router.replace(`/cancel?reservationId=${merchantRef}&reason=expired`);
+          router.replace(`/${locale}/cancel?reservationId=${merchantRef}&reason=expired`);
           return;
         }
 
@@ -93,7 +95,7 @@ export default function PaymentSuccessClient() {
             setLoading(false);
             if (pollInterval) clearInterval(pollInterval);
             router.replace(
-              `/cancel?reservationId=${merchantRef}&reason=expired`
+              `/${locale}/cancel?reservationId=${merchantRef}&reason=expired`
             );
             return;
           }
@@ -103,7 +105,7 @@ export default function PaymentSuccessClient() {
         if (attempts >= MAX_ATTEMPTS) {
           setLoading(false);
           if (pollInterval) clearInterval(pollInterval);
-          setError("La confirmación está tardando más de lo esperado");
+          setError(t('confirmationTakingLonger'));
         }
 
         attempts++;
@@ -113,7 +115,7 @@ export default function PaymentSuccessClient() {
         if (attempts >= MAX_ATTEMPTS) {
           setLoading(false);
           if (pollInterval) clearInterval(pollInterval);
-          setError("Error al verificar el estado de la reserva");
+          setError(t('errorVerifyingReservation'));
         } else {
           attempts++;
         }
@@ -133,115 +135,21 @@ export default function PaymentSuccessClient() {
   }, [merchantRef, router]);
 
   useEffect(() => {
-    const pollInterval: NodeJS.Timeout | null = null;
-    let attempts = 0;
-    const MAX_ATTEMPTS = 5; // 20 intentos = ~40 segundos
-    const checkReservationStatus = async () => {
-      if (!merchantRef) {
-        router.replace(`/cancel?reason=missing_reservation`);
-        return;
-      }
-
-      try {
-        const res = await fetch(
-          `/api/reservation-status?reservationId=${encodeURIComponent(merchantRef)}`
-        );
-
-        if (!res.ok) {
-          // Si no existe aún, seguir esperando
-          if (res.status === 404 && attempts < MAX_ATTEMPTS) {
-            attempts++;
-            return; // continuar polling
-          }
-
-          setError("No se pudo verificar el estado de la reserva");
-          setLoading(false);
-          if (pollInterval) clearInterval(pollInterval);
-          return;
-        }
-
-        const json = await res.json();
-        const reservation = json.reservation as {
-          status: "pending" | "reserved" | "expired" | "canceled";
-          expiresAtIso?: string;
-        };
-
-        setReservationStatus(reservation.status);
-
-        // Estados finales que detienen el polling
-        if (
-          reservation.status === "reserved" ||
-          reservation.status === "canceled"
-        ) {
-          setLoading(false);
-          if (pollInterval) clearInterval(pollInterval);
-
-          if (reservation.status === "canceled") {
-            router.replace(
-              `/cancel?reservationId=${merchantRef}&reason=payment_failed`
-            );
-          }
-          return;
-        }
-
-        // Si está expirado
-        if (reservation.status === "expired") {
-          setLoading(false);
-          if (pollInterval) clearInterval(pollInterval);
-          router.replace(`/cancel?reservationId=${merchantRef}&reason=expired`);
-          return;
-        }
-
-        // Verificar expiración por fecha
-        if (reservation.expiresAtIso) {
-          const expMs = new Date(reservation.expiresAtIso).getTime();
-          if (expMs <= Date.now()) {
-            setLoading(false);
-            if (pollInterval) clearInterval(pollInterval);
-            router.replace(
-              `/cancel?reservationId=${merchantRef}&reason=expired`
-            );
-            return;
-          }
-        }
-
-        // Si llegamos al máximo de intentos sin confirmación
-        if (attempts >= MAX_ATTEMPTS) {
-          setLoading(false);
-          if (pollInterval) clearInterval(pollInterval);
-          setError("La confirmación está tardando más de lo esperado");
-        }
-
-        attempts++;
-      } catch (err) {
-        console.error("Error checking reservation status:", err);
-
-        if (attempts >= MAX_ATTEMPTS) {
-          setLoading(false);
-          if (pollInterval) clearInterval(pollInterval);
-          setError("Error al verificar el estado de la reserva");
-        } else {
-          attempts++;
-        }
-      }
-    };
     if (orderToken) {
       // User came back from Montonio - validate payment status
       validateOrderToken(orderToken, cancelUrlParam);
-    } else if (merchantRef) {
-      // Direct access - use existing polling
-      checkReservationStatus();
-    } else {
-      router.replace(`/cancel?reason=missing_reservation`);
+    } else if (!merchantRef) {
+      router.replace(`/${locale}/cancel?reason=missing_reservation`);
     }
-  }, [orderToken, cancelUrlParam, merchantRef, router]);
+    // Note: polling is handled by the first useEffect
+  }, [orderToken, cancelUrlParam, merchantRef, router, locale]);
 
   const validateOrderToken = async (
     token: string,
     cancelUrl?: string | null
   ) => {
     try {
-      const res = await fetch(`/api/montonio/validate-order`, {
+      const res = await fetch(`/${locale}/api/montonio/validate-order`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ orderToken: token }),
@@ -255,12 +163,12 @@ export default function PaymentSuccessClient() {
         localStorage.removeItem("checkout-form-data");
       } else {
         // Payment failed/cancelled/abandoned - redirect to cancel page
-        const redirectUrl = cancelUrl || "/cancel";
-        router.replace(`${redirectUrl}`);
+        const redirectUrl = cancelUrl || `/${locale}/cancel`;
+        router.replace(redirectUrl);
       }
     } catch (error) {
       console.error("Order validation failed:", error);
-      setError("Error validating payment");
+      setError(t('errorValidatingPayment'));
       setLoading(false);
     }
   };
@@ -299,13 +207,13 @@ export default function PaymentSuccessClient() {
         </div>
 
         <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900">
-          Problema con la verificación
+          {t('verificationProblem')}
         </h1>
 
         <p className="max-w-xl text-sm md:text-base text-gray-700">{error}</p>
 
         <div className="w-full flex justify-center mt-2">
-          <Link href="/">
+          <Link href={`/${locale}`}>
             <button
               className="w-full py-3 px-4 rounded-lg border font-semibold"
               style={{
@@ -313,19 +221,19 @@ export default function PaymentSuccessClient() {
                 color: "var(--color-primary-dark)",
               }}
             >
-              Volver al inicio
+              {t('backToHome')}
             </button>
           </Link>
         </div>
 
         <div className="text-xs text-gray-500 mt-3">
           <p>
-            ¿Necesitas ayuda?{" "}
+            {t('needHelp')}{" "}
             <Link
-              href="/contact"
+              href={`/${locale}/contact`}
               style={{ color: "var(--color-primary-dark)", fontWeight: 600 }}
             >
-              Contáctanos
+              {t('contactUs')}
             </Link>
           </p>
         </div>
@@ -338,10 +246,10 @@ export default function PaymentSuccessClient() {
       <div className="flex flex-col items-center text-center gap-6">
         <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-[var(--color-primary)]"></div>
         <div className="text-lg font-medium text-gray-700">
-          Verificando el pago con Montonio…
+          {t('verifyingPayment')}
         </div>
         <div className="text-sm text-gray-500">
-          Esto puede tardar unos segundos
+          {t('mayTakeSeconds')}
         </div>
       </div>
     );
@@ -382,8 +290,8 @@ export default function PaymentSuccessClient() {
         style={{ color: "var(--color-text)" }}
       >
         {reservationStatus === "reserved"
-          ? "¡Reserva confirmada!"
-          : "Reserva en proceso"}
+          ? t('reservationConfirmed')
+          : t('reservationInProgress')}
       </h1>
 
       <p
@@ -391,9 +299,9 @@ export default function PaymentSuccessClient() {
         style={{ color: "var(--color-text)" }}
       >
         {reservationStatus === "reserved"
-          ? `Gracias por tu reserva en Rubikiai. Hemos recibido tu pago y tu reserva está confirmada.`
-          : `Tu pago está siendo procesado. Recibirás un e-mail cuando la reserva esté confirmada.`}
-        {idToShow ? " — ID: " : ""}
+          ? t('thanksForReservation')
+          : t('paymentBeingProcessed')}
+        {idToShow ? ` — ${t('id')} ` : ""}
         <span
           className="font-mono ml-1"
           style={{ color: "var(--color-highlight)" }}
@@ -403,7 +311,7 @@ export default function PaymentSuccessClient() {
       </p>
 
       <div className="w-full flex justify-center mt-2">
-        <Link href="/" className="block">
+        <Link href={`/${locale}`} className="block">
           <button
             className="w-full py-3 px-4 rounded-lg border font-semibold"
             style={{
@@ -412,27 +320,26 @@ export default function PaymentSuccessClient() {
               background: "transparent",
             }}
           >
-            Volver al inicio
+            {t('backToHome')}
           </button>
         </Link>
       </div>
 
       <div className="text-xs text-gray-500 mt-3">
         <p>
-          ¿Necesitas ayuda?{" "}
+          {t('needHelp')}{" "}
           <Link
-            href="/contact"
+            href={`/${locale}/contact`}
             style={{ color: "var(--color-primary-dark)", fontWeight: 600 }}
           >
-            Contáctanos
+            {t('contactUs')}
           </Link>
         </p>
       </div>
 
       <div className="mt-4 w-full text-center text-xs text-gray-400">
         <p>
-          Recibirás un e-mail con los detalles. Guarda el ID de reserva para
-          cualquier incidencia.
+          {t('emailWithDetails')}
         </p>
       </div>
     </div>

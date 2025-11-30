@@ -4,8 +4,11 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useLocale, useTranslations } from 'next-intl';
 
 export default function SuccessClient() {
+  const locale = useLocale();
+  const t = useTranslations('paymentPages');
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -17,14 +20,14 @@ export default function SuccessClient() {
   useEffect(() => {
     (async () => {
       if (!orderId) {
-        router.replace(`/coupons/cancel?reason=missing_order`);
+        router.replace(`/${locale}/coupons/cancel?reason=missing_order`);
         return;
       }
       try {
         // Try coupon-specific endpoint first, then fallback to montonio order-status
         const endpoints = [
-          `/api/coupon-order-status?orderId=${encodeURIComponent(orderId)}`,
-          `/api/montonio/order-status?orderId=${encodeURIComponent(orderId)}`,
+          `/${locale}/api/coupon-order-status?orderId=${encodeURIComponent(orderId)}`,
+          `/${locale}/api/montonio/order-status?orderId=${encodeURIComponent(orderId)}`,
         ];
 
         let res: Response | null = null;
@@ -43,7 +46,7 @@ export default function SuccessClient() {
         }
 
         if (!res || !res.ok || !json) {
-          router.replace(`/coupons/cancel?orderId=${orderId}&reason=not_found`);
+          router.replace(`/${locale}/coupons/cancel?orderId=${orderId}&reason=not_found`);
           return;
         }
 
@@ -53,27 +56,27 @@ export default function SuccessClient() {
         setOrderStatus(status);
 
         if (status === "expired") {
-          router.replace(`/coupons/cancel?orderId=${orderId}&reason=expired`);
+          router.replace(`/${locale}/coupons/cancel?orderId=${orderId}&reason=expired`);
           return;
         }
         if (status === "error") {
-          router.replace(`/coupons/cancel?orderId=${orderId}&reason=error`);
+          router.replace(`/${locale}/coupons/cancel?orderId=${orderId}&reason=error`);
           return;
         }
 
         setLoading(false);
       } catch (err) {
         console.error("Error checking order status:", err);
-        router.replace(`/coupons/cancel?orderId=${orderId}&reason=server_error`);
+        router.replace(`/${locale}/coupons/cancel?orderId=${orderId}&reason=server_error`);
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orderId, router]);
+  }, [orderId, router, locale]);
 
   if (loading) {
     return (
       <div className="flex flex-col items-center text-center gap-6">
-        <div>Checking order status…</div>
+        <div>{t('checkingOrderStatus')}</div>
       </div>
     );
   }
@@ -93,21 +96,21 @@ export default function SuccessClient() {
       </div>
 
       <h1 className="text-3xl md:text-4xl font-extrabold" style={{ color: "var(--color-text)" }}>
-        {orderStatus === "completed" ? "Purchase confirmed!" : "Purchase in progress"}
+        {orderStatus === "completed" ? t('purchaseConfirmed') : t('purchaseInProgress')}
       </h1>
 
       <p className="max-w-xl text-sm md:text-base" style={{ color: "var(--color-text)" }}>
         {orderStatus === "completed"
-          ? `Thanks for your purchase at Rubikiai. We have received your payment and your coupon(s) are ready.`
-          : `Your payment is being processed. You will receive an email as soon as your coupon(s) are ready.`}
-        {idToShow ? " — Order ID: " : ""}
+          ? t('thanksForPurchase')
+          : t('paymentBeingProcessedCoupon')}
+        {idToShow ? ` — ${t('orderId')} ` : ""}
         <span className="font-mono ml-1" style={{ color: "var(--color-highlight)" }}>
           {idToShow}
         </span>
       </p>
 
       <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
-        <Link href={`/coupons?orderId=${encodeURIComponent(idToShow)}`} className="block">
+        <Link href={`/${locale}/coupons?orderId=${encodeURIComponent(idToShow)}`} className="block">
           <button
             className="w-full py-3 rounded-lg font-semibold"
             style={{
@@ -116,31 +119,31 @@ export default function SuccessClient() {
               boxShadow: "0 6px 18px rgba(143,110,82,0.12)",
             }}
           >
-            View my coupons
+            {t('viewMyCoupons')}
           </button>
         </Link>
 
-        <Link href="/" className="block">
+        <Link href={`/${locale}`} className="block">
           <button
             className="w-full py-3 rounded-lg border font-semibold"
             style={{ borderColor: "var(--color-primary)", color: "var(--color-primary-dark)", background: "transparent" }}
           >
-            Back to home
+            {t('backToHome')}
           </button>
         </Link>
       </div>
 
       <div className="text-xs text-gray-500 mt-3">
         <p style={{ color: "var(--color-text)" }}>
-          Need help?{" "}
-          <Link href="/contact" className="inline-block" style={{ color: "var(--color-primary-dark)", fontWeight: 600 }}>
-            Contact us
+          {t('needHelp')}{" "}
+          <Link href={`/${locale}/contact`} className="inline-block" style={{ color: "var(--color-primary-dark)", fontWeight: 600 }}>
+            {t('contactUs')}
           </Link>
         </p>
       </div>
 
       <div className="mt-4 w-full text-center text-xs text-gray-400">
-        <p>You will receive an email with your coupon codes. Please keep your Order ID for any support request.</p>
+        <p>{t('emailWithCoupons')}</p>
       </div>
     </div>
   );

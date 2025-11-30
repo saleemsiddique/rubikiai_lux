@@ -2,8 +2,10 @@
 "use client";
 
 import React, { useState } from "react";
+import { useLocale } from 'next-intl';
 
 export default function AdminBootstrapPage() {
+  const locale = useLocale();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [token, setToken] = useState("");
@@ -15,7 +17,7 @@ export default function AdminBootstrapPage() {
     setMsg(null);
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/bootstrap", {
+      const res = await fetch(`/${locale}/api/admin/bootstrap`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password, token }),

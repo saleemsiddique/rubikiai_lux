@@ -4,6 +4,7 @@ import axios from "axios";
 import { NextResponse } from "next/server";
 import admin, { adminDb as db } from "@/lib/firebase-admin";
 import { nowInLithuania } from "@/app/[locale]/utils/date-server";
+import { getTranslations } from 'next-intl/server';
 
 type CheckoutBody = {
   unitAmount: number;
@@ -15,19 +16,24 @@ if (!process.env.MONTONIO_ACCESS_KEY || !process.env.MONTONIO_SECRET_KEY) {
   console.warn("Montonio keys not configured");
 }
 
-export async function POST(req: Request) {
+export async function POST(
+  req: Request,
+  { params }: { params: Promise<{ locale: string }> }
+) {
   try {
+    const { locale } = await params;
+    const t = await getTranslations({ locale, namespace: 'api.errors' });
     const body = (await req.json()) as CheckoutBody;
     console.debug("montonio/coupon/checkout body:", body);
 
     const { unitAmount, quantity, buyerEmail } = body;
 
     if (!unitAmount || !quantity) {
-      return NextResponse.json({ error: "Missing unitAmount or quantity" }, { status: 400 });
+      return NextResponse.json({ error: t('missingParams') }, { status: 400 });
     }
 
     if (!buyerEmail || !buyerEmail.includes("@")) {
-      return NextResponse.json({ error: "Valid email required" }, { status: 400 });
+      return NextResponse.json({ error: t('invalidEmail') }, { status: 400 });
     }
 
     // Create order document ID
@@ -40,7 +46,7 @@ export async function POST(req: Request) {
     const montonioPayload: any = {
       accessKey: process.env.MONTONIO_ACCESS_KEY || "",
       merchantReference: orderId,
-      returnUrl: `${process.env.NEXT_PUBLIC_APP_URL}/coupons/montonio/return?orderId=${orderId}`,
+      returnUrl: `${process.env.NEXT_PUBLIC_APP_URL}/${locale}/coupons/montonio/return?orderId=${orderId}`,
       notificationUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/montonio/webhook`,
       currency: "EUR",
       grandTotal: parseFloat(grandTotal.toFixed(2)),
@@ -80,6 +86,7 @@ export async function POST(req: Request) {
         quantity: String(quantity),
         currency: "EUR",
         buyerEmail: buyerEmail,
+        locale: locale || "lt",
       },
     };
 
@@ -146,9 +153,18 @@ export async function POST(req: Request) {
       console.error("Error response data:", error.response.data);
       console.error("Error response status:", error.response.status);
     }
-    return NextResponse.json(
-      { error: error.response?.data?.message || error.message || "Checkout failed" },
-      { status: error.response?.status || 500 }
-    );
+    try {
+      const { locale } = await params;
+      const t = await getTranslations({ locale, namespace: 'api.errors' });
+      return NextResponse.json(
+        { error: error.response?.data?.message || error.message || t('checkoutFailed') },
+        { status: error.response?.status || 500 }
+      );
+    } catch {
+      return NextResponse.json(
+        { error: error.response?.data?.message || error.message || "Checkout failed" },
+        { status: error.response?.status || 500 }
+      );
+    }
   }
 }

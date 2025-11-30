@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "@/lib/firestore";
 import { useHouse } from "@/context/HouseContext";
+import { useTranslations, useLocale } from 'next-intl';
 import { es } from 'date-fns/locale/es';
 
 registerLocale('es', es);
@@ -203,7 +204,7 @@ function shouldIncludeReservation(res: any) {
 type HouseImage = { key: string; url: string; alt?: string };
 
 const HOUSE_IMAGES: Record<string | number, HouseImage> = {
-  "L0TeFf2LmrWGAaAyS8NY": { key: "L0TeFf2LmrWGAaAyS8NY", url: "./ezero-namelis/ezero-namelis (19).jpg", alt: "Accommodation 1" },
+  "L0TeFf2LmrWGAaAyS8NY": { key: "L0TeFf2LmrWGAaAyS8NY", url: "/ezero-namelis/ezero-namelis (19).jpg", alt: "Accommodation 1" },
   "PZwbfMYlSXj61uYYJutg": { key: "PZwbfMYlSXj61uYYJutg", url: "/dupleksas/1-dupleksas10.jpeg", alt: "Accommodation 2" },
   "oDzv9346CdaAsok162sX": { key: "oDzv9346CdaAsok162sX", url: "/dupleksas/2-dupleksas8.jpeg", alt: "Accommodation 3" },
 };
@@ -220,13 +221,15 @@ function getHouseImage(houseId: string | number): HouseImage {
 
 /* ---------------- Component ---------------- */
 export default function ReservationForm({ onReserve, showResults = true }: ReservationFormProps) {
+  const t = useTranslations('reservations.form');
+  const locale = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
 
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
-  const [guests, setGuests] = useState<number>(2);
+  const [guests, setGuests] = useState<number>(1);
   const [propertyType, setPropertyType] = useState<"todos" | "dupleksas" | "ezero namelis">("todos");
   const [openPicker, setOpenPicker] = useState<"arrival" | "departure" | null>(null);
   const [loading, setLoading] = useState(false);
@@ -345,7 +348,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       const eDate = new Date(e);
       if (!Number.isNaN(sDate.getTime())) setStartDate(sDate);
       if (!Number.isNaN(eDate.getTime())) setEndDate(eDate);
-      if (g) setGuests(parseInt(g, 10) || 2);
+      if (g) setGuests(parseInt(g, 10) || 1);
       if (t === "dupleksas" || t === "ezero namelis" || t === "todos") setPropertyType(t as any);
       didAutoSearchRef.current = true;
       setTimeout(() => searchHouses(sDate, eDate, g ? parseInt(g, 10) : undefined, t ? t : undefined), 0);
@@ -456,7 +459,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
 
     setLoading(true);
     try {
-      const res = await fetch("/api/reservations/availability", {
+      const res = await fetch(`/${locale}/api/reservations/availability`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ startDate: sDate.toISOString(), endDate: eDate.toISOString(), guests: effectiveGuests, propertyType: effectiveType }),
@@ -882,7 +885,6 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
 
       setTimeout(() => {
         recomputeHousesAvailability(localStartDate, date);
-        close();
       }, 0);
     };
 
@@ -911,13 +913,13 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
               className={`px-3 py-1 rounded-full transition-all ${mode === 'arrival' ? 'bg-[var(--color-primary)] text-white' : 'bg-gray-200'}`}
               onClick={() => switchMode('arrival')}
             >
-              Check-in {localStartDate && `(${formatDateDDMMYYYY(localStartDate)})`}
+              {t('checkIn')} {localStartDate && `(${formatDateDDMMYYYY(localStartDate)})`}
             </button>
             <button
               className={`px-3 py-1 rounded-full transition-all ${mode === 'departure' ? 'bg-[var(--color-primary)] text-white' : 'bg-gray-200'}`}
               onClick={() => switchMode('departure')}
             >
-              Check-out {localEndDate && `(${formatDateDDMMYYYY(localEndDate)})`}
+              {t('checkOut')} {localEndDate && `(${formatDateDDMMYYYY(localEndDate)})`}
             </button>
           </div>
 
@@ -1118,12 +1120,12 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                 let labelPosition = "-top-3"; // Posición por defecto
 
                 if (isOurCheckin && isCheckinAvailable) {
-                  selectionLabel = "Check-in";
+                  selectionLabel = t('checkIn');
                   if (localEndDate && dateIso(addDays(d, 1)) === dateIso(localEndDate)) {
                     labelPosition = mode === 'arrival' ? "-top-3" : "bottom-7";
                   }
                 } else if (isOurCheckout && isCheckinAvailable && isCheckoutValidInDepartureMode) {
-                  selectionLabel = "Check-out";
+                  selectionLabel = t('checkOut');
                   if (localStartDate && dateIso(addDays(d, -1)) === dateIso(localStartDate)) {
                     labelPosition = mode === 'arrival' ? "bottom-7" : "-top-3";
                   }
@@ -1189,22 +1191,33 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
             <div className="flex flex-wrap gap-3 justify-center text-xs">
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-white border-2 border-gray-200 rounded"></div>
-                <span className="text-gray-600">Available</span>
+                <span className="text-gray-600">{t('available')}</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-[var(--color-primary)]/20 border-2 border-[var(--color-primary)]/40 rounded"></div>
-                <span className="text-gray-600">Selected</span>
+                <span className="text-gray-600">{t('selected')}</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-gray-100 border-2 border-gray-300 rounded"></div>
-                <span className="text-gray-600">Not available</span>
+                <span className="text-gray-600">{t('notAvailable')}</span>
               </div>
             </div>
           </div>
 
           {/* Botones de acción */}
           <div className="flex justify-center items-center mt-4">
-            <button onClick={close} className="px-3 py-1 border rounded-full hover:bg-gray-100">Close</button>
+            <button
+              onClick={() => {
+                if (mode === 'arrival') {
+                  switchMode('departure');
+                } else {
+                  close();
+                }
+              }}
+              className="px-6 py-2 bg-[var(--color-primary)] text-white rounded-full hover:bg-[var(--color-primary-dark)] transition-colors"
+            >
+              {t('next')}
+            </button>
           </div>
         </div>
       </div>
@@ -1415,8 +1428,8 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     const houseB: any = useHouseMerged(idB);
 
     if (!sd || !ed) return null;
-    if ((idA && houseA === undefined) || (idB && houseB === undefined)) return <div className="text-sm opacity-60">Loading price…</div>;
-    if ((idA && houseA === null) || (idB && houseB === null)) return <div className="text-sm opacity-60">Price not available</div>;
+    if ((idA && houseA === undefined) || (idB && houseB === undefined)) return <div className="text-sm opacity-60">{t('loadingPrice')}</div>;
+    if ((idA && houseA === null) || (idB && houseB === null)) return <div className="text-sm opacity-60">{t('priceNotAvailable')}</div>;
 
     const nights = Math.max(0, Math.round((ed.getTime() - sd.getTime()) / (1000 * 60 * 60 * 24)));
     if (nights <= 0) return null;
@@ -1442,9 +1455,9 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
         return (
           <div className="mt-2 text-sm">
             <div className="font-medium">
-              Price for {nights} night{nights > 1 ? "s" : ""}: <span className="font-semibold">Price varies</span>
+              {t('priceForNights', { nights })}: <span className="font-semibold">{t('priceVaries')}</span>
             </div>
-            <div className="mt-1 text-xs text-gray-600">Contact us for exact pricing or check the price for each night above.</div>
+            <div className="mt-1 text-xs text-gray-600">{t('contactForPricing')}</div>
           </div>
         );
       }
@@ -1452,27 +1465,27 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       return (
         <div className="mt-3">
           <div className="text-sm font-medium">
-            Total for {nights} night{nights > 1 ? "s" : ""}: <span className="font-semibold">{total}€</span>
+            {t('totalForNights', { nights })}: <span className="font-semibold">{total}€</span>
           </div>
         </div>
       );
     }
 
     const house = houseA;
-    if (!house) return <div className="text-sm opacity-60">Price not available</div>;
+    if (!house) return <div className="text-sm opacity-60">{t('priceNotAvailable')}</div>;
     const totalSingle = getTotalPriceForRangeLocal(house, sd, ed, guests);
     if (totalSingle === null) {
       return (
         <div className="mt-2 text-sm">
-          <div className="font-medium">Price for {nights} night{nights > 1 ? "s" : ""}: <span className="font-semibold">Price varies</span></div>
-          <div className="mt-1 text-xs text-gray-600">Contact us for exact pricing or check the price for each night above.</div>
+          <div className="font-medium">{t('priceForNights', { nights })}: <span className="font-semibold">{t('priceVaries')}</span></div>
+          <div className="mt-1 text-xs text-gray-600">{t('contactForPricing')}</div>
         </div>
       );
     }
 
     return (
       <div className="mt-3">
-        <div className="text-sm font-medium">Total for {nights} night{nights > 1 ? "s" : ""}: <span className="font-semibold">{totalSingle}€</span></div>
+        <div className="text-sm font-medium">{t('totalForNights', { nights })}: <span className="font-semibold">{totalSingle}€</span></div>
       </div>
     );
   }
@@ -1551,12 +1564,12 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            <span className="hidden sm:inline">Previous</span>
+            <span className="hidden sm:inline">{t('previous')}</span>
           </button>
 
           <div className="flex flex-col items-center">
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              {mode === "arrival" ? "Check-in dates from" : "Check-out dates from"}
+              {mode === "arrival" ? t('checkInDatesFrom') : t('checkOutDatesFrom')}
             </span>
             <span className="text-sm font-bold text-gray-700 mt-1">{formatDateDDMMYYYY(finalBase)}</span>
           </div>
@@ -1570,7 +1583,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
               }`}
             aria-label="View next dates"
           >
-            <span className="hidden sm:inline">Next</span>
+            <span className="hidden sm:inline">{t('next')}</span>
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
@@ -1807,9 +1820,9 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
             // Determinar el label de selección - SOLO si está seleccionado y válido
             let selectionLabel = "";
             if (isOurCheckin && isCheckinAvailable) {
-              selectionLabel = "Check-in";
+              selectionLabel = t('checkIn');
             } else if (isOurCheckout && isCheckinAvailable && isCheckoutValidInDepartureMode) {
-              selectionLabel = "Check-out";
+              selectionLabel = t('checkOut');
             }
 
             return (
@@ -1863,7 +1876,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
 
                 {/* Label de Check-in/Check-out en la parte inferior */}
                 {selectionLabel && (
-                  <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-[var(--color-primary)] text-white text-xs font-bold px-3 py-1 rounded-full shadow-md whitespace-nowrap z-10">
+                  <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-[var(--color-primary)] text-white text-xs font-bold px-4 py-1 rounded-full shadow-md whitespace-nowrap z-10">
                     {selectionLabel}
                   </div>
                 )}
@@ -1900,15 +1913,15 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
           <div className="flex flex-wrap gap-4 justify-center text-xs">
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-white border-2 border-gray-200 rounded"></div>
-              <span className="text-gray-600">Available</span>
+              <span className="text-gray-600">{t('available')}</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-[var(--color-primary)]/20 border-2 border-[var(--color-primary)]/40 rounded"></div>
-              <span className="text-gray-600">Selected</span>
+              <span className="text-gray-600">{t('selected')}</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-gray-100 border-2 border-gray-300 rounded"></div>
-              <span className="text-gray-600">Not available</span>
+              <span className="text-gray-600">{t('notAvailable')}</span>
             </div>
           </div>
         </div>
@@ -1943,9 +1956,9 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setPropertyType(e.target.value as "todos" | "dupleksas" | "ezero namelis")}
                 className="appearance-none w-full px-5 py-2 pr-10 rounded-full font-sans uppercase text-sm font-bold tracking-wide transition-colors border-2 border-[var(--color-primary)] bg-white text-[var(--color-secondary)] shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-opacity-25"
               >
-                <option value="todos">All</option>
-                <option value="dupleksas">Duplex</option>
-                <option value="ezero namelis">Lake House</option>
+                <option value="todos">{t('all')}</option>
+                <option value="dupleksas">{t('duplex')}</option>
+                <option value="ezero namelis">{t('lakeHouse')}</option>
               </select>
               <svg
                 className="pointer-events-none absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4"
@@ -1967,7 +1980,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                 : 'border-2 border-[var(--color-primary)] text-[var(--color-primary)] bg-white hover:bg-[var(--color-primary-dark)] hover:text-white'
                 }`}
             >
-              All
+              {t('all')}
             </button>
             <button
               onClick={() => setPropertyType('dupleksas')}
@@ -1976,7 +1989,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                 : 'border-2 border-[var(--color-primary)] text-[var(--color-primary)] bg-white hover:bg-[var(--color-primary-dark)] hover:text-white'
                 }`}
             >
-              Duplex
+              {t('duplex')}
             </button>
             <button
               onClick={() => setPropertyType('ezero namelis')}
@@ -1985,14 +1998,14 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                 : 'border-2 border-[var(--color-primary)] text-[var(--color-primary)] bg-white hover:bg-[var(--color-primary-dark)] hover:text-white'
                 }`}
             >
-              Lake House
+              {t('lakeHouse')}
             </button>
           </div>
         </div>
 
         <div className="relative z-20 flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 w-full justify-center items-center">
           <div className="flex flex-col text-left flex-1 border-r border-[var(--color-primary)]/40 pr-4 w-full">
-            <label className="text-[var(--color-primary)] text-sm mb-1 font-sans uppercase font-bold drop-shadow-sm">Check-in</label>
+            <label className="text-[var(--color-primary)] text-sm mb-1 font-sans uppercase font-bold drop-shadow-sm">{t('checkIn')}</label>
             <DatePicker
               selected={startDate}
               onChange={onChangeArrival}
@@ -2011,7 +2024,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
           </div>
 
           <div className="flex flex-col text-left flex-1 border-r border-[var(--color-primary)]/40 pr-4 w-full">
-            <label className="text-[var(--color-primary)] text-sm mb-1 font-sans uppercase font-bold drop-shadow-sm">Check-out</label>
+            <label className="text-[var(--color-primary)] text-sm mb-1 font-sans uppercase font-bold drop-shadow-sm">{t('checkOut')}</label>
             <DatePicker
               selected={endDate}
               onChange={onChangeDeparture}
@@ -2031,7 +2044,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
           </div>
 
           <div className="flex flex-col text-left flex-1 w-full">
-            <label className="text-[var(--color-primary)] text-sm mb-1 font-sans uppercase font-bold drop-shadow-sm">Guests</label>
+            <label className="text-[var(--color-primary)] text-sm mb-1 font-sans uppercase font-bold drop-shadow-sm">{t('guests')}</label>
             <div className="flex items-center justify-center p-2 bg-transparent text-white font-sans text-xl">
               <button onClick={() => handleGuestsChange(-1)} className="px-2 text-3xl leading-none hover:text-[var(--color-primary)] text-white transition-colors drop-shadow-md">-</button>
               <div className="w-12 text-center text-white drop-shadow-md">{guests}</div>
@@ -2052,13 +2065,13 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
           }}
           className="relative z-10 bg-[var(--color-primary-dark)] hover:bg-[var(--color-highlight)] text-white font-bold py-3 px-8 rounded-md transition-colors w-full md:w-auto mt-4 md:mt-0 font-sans shadow-md hover:shadow-lg"
         >
-          {loading ? 'Searching...' : 'Search'}
+          {loading ? t('searching') : t('search')}
         </button>
       </div>
 
       <div className="mt-3 space-y-5">
         {showResults && houses.length === 0 && (
-          <div className="text-center text-gray-600">No results. Select dates or change amount of guests and click &quot;Search&quot;.</div>
+          <div className="text-center text-gray-600">{t('noResults')}</div>
         )}
 
         {houses.map((house) => {
@@ -2117,7 +2130,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                       {house.name}
                     </h3>
                     <p className="text-base font-medium text-gray-500 mb-4">
-                      Maximum Guests: {house.maxGuests}
+                      {t('pricingForGuests', { guests: guests })}
                     </p>
                   </div>
 
@@ -2131,7 +2144,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                               </svg>
                               <span className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">
-                                Selected dates
+                                {t('selectedDates')}
                               </span>
                             </div>
                             <div className="text-sm text-gray-700 font-medium">
@@ -2142,7 +2155,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                         <div>
                           <div className="flex items-center gap-2 mb-1">
                             <span className="text-gray-500 font-semibold text-base">€</span>
-                            <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Reservation fee</span>
+                            <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">{t('reservationFee')}</span>
                           </div>
                           <PriceBadgeLocal houseId={house.id} date={startDate} />
                         </div>
@@ -2155,7 +2168,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                                 <svg className="w-4 h-4 text-[var(--color-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                                 </svg>
-                                <span className="text-xs font-bold text-[var(--color-primary)] uppercase tracking-wide">Total stay</span>
+                                <span className="text-xs font-bold text-[var(--color-primary)] uppercase tracking-wide">{t('totalStay')}</span>
                               </div>
                               <div className="text-2xl font-bold text-[var(--color-primary-dark)]">
                                 <RangePriceLocal houseId={house.id} startDate={startDate} endDate={endDate} />
@@ -2169,7 +2182,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                         <svg className="w-8 h-8 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
-                        <span className="text-sm text-gray-500">Select dates to see prices</span>
+                        <span className="text-sm text-gray-500">{t('selectDatesSeePrices')}</span>
                       </div>
                     )}
 
@@ -2185,12 +2198,12 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
-                            Processing
+                            {t('processing')}
                           </span>
                         ) : isAvailable ? (
-                          "Select"
+                          t('select')
                         ) : (
-                          "Not Available"
+                          t('notAvailable')
                         )}
                       </button>
 
@@ -2201,7 +2214,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
-                        {(isMobile ? (mobileCalendarHouseId === house.id ? "Close" : "View Calendar") : (openHouseId === house.id ? "Close" : "View Calendar"))}
+                        {(isMobile ? (mobileCalendarHouseId === house.id ? t('close') : t('viewCalendar')) : (openHouseId === house.id ? t('close') : t('viewCalendar')))}
                       </button>
                     </div>
                   </div>
@@ -2229,7 +2242,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
                         </svg>
                         <div className="text-center sm:text-left">
-                          <div className="leading-tight">Check-in</div>
+                          <div className="leading-tight">{t('checkIn')}</div>
                           {startDate && (
                             <div className="text-[10px] sm:text-xs font-normal mt-0.5 sm:mt-1 opacity-90 whitespace-nowrap">
                               {formatDateDDMMYYYY(startDate)}
@@ -2254,7 +2267,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                         </svg>
                         <div className="text-center sm:text-left">
-                          <div className="leading-tight">Check-out</div>
+                          <div className="leading-tight">{t('checkOut')}</div>
                           {endDate && (
                             <div className="text-[10px] sm:text-xs font-normal mt-0.5 sm:mt-1 opacity-90 whitespace-nowrap">
                               {formatDateDDMMYYYY(endDate)}
@@ -2272,7 +2285,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                       <svg className="w-5 h-5 inline-block mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
-                      <strong>Tip:</strong> Navigate dates using &quot;Previous&quot; and &quot;Next&quot; buttons. Days marked with ✓ are available to book.
+                      {t('calendarTip')}
                     </div>
                   </div>
                 </div>

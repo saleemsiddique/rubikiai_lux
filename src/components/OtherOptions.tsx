@@ -5,14 +5,18 @@ import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
+import { useTranslations, useLocale } from 'next-intl';
 import { FaArrowLeft, FaArrowRight } from 'react-icons/fa';
 
 const OtherOptions: React.FC = () => {
+  const t = useTranslations('housePage');
+  const tHouses = useTranslations('houses.dupleksas');
+  const tLake = useTranslations('houses.ezeroNamelis');
   const pathname = usePathname();
+  const locale = useLocale();
 
   const otherProperties = [
     {
-
       name: 'N°1 Šalia Elnių Aptvaro',
       path: '/dupleksas/salia-elniu-aptvaro',
       image: '/dupleksas/1-dupleksas10.jpeg',
@@ -30,7 +34,7 @@ const OtherOptions: React.FC = () => {
   ];
 
   const filteredProperties = otherProperties.filter(
-    (prop) => prop.path !== pathname
+    (prop) => !pathname.includes(prop.path.split('/').pop() || '')
   );
 
   return (
@@ -39,7 +43,7 @@ const OtherOptions: React.FC = () => {
         {/* Título - Centrado en móvil, izquierda en desktop */}
         <div className="flex justify-center justify-between items-center mb-6 sm:mb-6">
           <h3 className="text-3xl md:text-3xl font-bold font-header text-[var(--color-secondary)]">
-            Other options
+            {t('otherOptions')}
           </h3>
         </div>
 

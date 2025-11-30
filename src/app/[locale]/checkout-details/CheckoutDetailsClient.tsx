@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useEffect, useState, useMemo } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { useLocale, useTranslations } from 'next-intl';
 
 interface PriceResponse {
   total: number | null; // lodging + extra guests per night, no jacuzzi
@@ -136,7 +137,8 @@ function applyCreditToFirstNight(firstNight: number, availableCredit: number) {
 }
 
 export default function CheckoutDetailsClient() {
-  const router = useRouter();
+  const locale = useLocale();
+  const t = useTranslations('checkoutDetails');
   const searchParams = useSearchParams();
 
   // Params from HousePage
@@ -399,28 +401,23 @@ export default function CheckoutDetailsClient() {
       if (savedData.arrivalTime) setArrivalTime(savedData.arrivalTime);
       if (savedData.comment) setComment(savedData.comment);
 
-      // Cargar jacuzzi ANTES de resetear priceData
+      // Cargar jacuzzi (el useEffect de fetch se triggereará automáticamente)
       if (typeof savedData.withJacuzzi === "boolean") setWithJacuzzi(savedData.withJacuzzi);
       if (savedData.jacuzziDays) setJacuzziDays(savedData.jacuzziDays);
       if (savedData.discountCode) setDiscountCode(savedData.discountCode);
-
-      // Forzar loading state para que se muestre "..." mientras recalcula
-      if (typeof savedData.withJacuzzi === "boolean" && savedData.withJacuzzi) {
-        console.log("🔄 Jacuzzi enabled from localStorage, forcing price recalculation");
-        setLoadingPrice(true);
-        setPriceData(null);
-      }
     }
   }, []); // ← Array vacío = solo se ejecuta al montar
   
   // Fetch price (with or without jacuzzi AND jacuzzi days)
   useEffect(() => {
+    let isActive = true; // Flag para prevenir actualizaciones de estado si el efecto se limpia
+
     const fetchPrice = async () => {
       setLoadingPrice(true);
       setPriceError(null);
 
       try {
-        const res = await fetch("/api/reservations/price", {
+        const res = await fetch(`/${locale}/api/reservations/price`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -429,14 +426,18 @@ export default function CheckoutDetailsClient() {
             endDate: endIso,
             guests,
             jacuzzi: withJacuzzi,
-            jacuzziDays: withJacuzzi ? jacuzziDays : 0, // AÑADIR ESTE CAMPO
+            jacuzziDays: withJacuzzi ? jacuzziDays : 0,
           }),
         });
 
         const data = await res.json();
+
+        // Solo actualizar estado si este efecto todavía es activo
+        if (!isActive) return;
+
         if (!res.ok) {
           console.error("price error", data);
-          setPriceError(data.error || "Could not calculate the price.");
+          setPriceError(data.error || t('couldNotCalculatePrice'));
           setPriceData(null);
           setLoadingPrice(false);
           return;
@@ -451,10 +452,14 @@ export default function CheckoutDetailsClient() {
         setPriceData(data);
       } catch (err: any) {
         console.error("price network error", err);
-        setPriceError("Network error while calculating price.");
-        setPriceData(null);
+        if (isActive) {
+          setPriceError(t('networkErrorCalculatingPrice'));
+          setPriceData(null);
+        }
       } finally {
-        setLoadingPrice(false);
+        if (isActive) {
+          setLoadingPrice(false);
+        }
       }
     };
 
@@ -462,9 +467,14 @@ export default function CheckoutDetailsClient() {
       fetchPrice();
     } else {
       setLoadingPrice(false);
-      setPriceError("Missing reservation parameters.");
+      setPriceError(t('missingReservationParameters'));
     }
-  }, [houseId, startIso, endIso, guests, withJacuzzi, jacuzziDays]); // AÑADIR jacuzziDays AQUÍ
+
+    // Cleanup function: marcar como inactivo para ignorar respuestas obsoletas
+    return () => {
+      isActive = false;
+    };
+  }, [houseId, startIso, endIso, guests, withJacuzzi, jacuzziDays, locale, t]);
 
   // Guardar datos del formulario automáticamente cuando cambien
   useEffect(() => {
@@ -501,9 +511,10 @@ export default function CheckoutDetailsClient() {
     // Bloquear lookup si los cupones no están permitidos por importe inicial demasiado bajo
     if (!couponsAllowed) {
       setDiscountError(
-        `Cupones no disponibles: el importe inicial a cobrar (Reservation fee) es de ${formatCurrency(
-          initialPayNow
-        )}. Se requiere al menos ${formatCurrency(COUPON_MIN_EUROS)} para usar cupones.`
+        t('couponsNotAvailable', {
+          current: formatCurrency(initialPayNow),
+          minimum: formatCurrency(COUPON_MIN_EUROS)
+        })
       );
       return;
     }
@@ -515,7 +526,7 @@ export default function CheckoutDetailsClient() {
 
     try {
       const res = await fetch(
-        `/api/coupons/lookup?code=${encodeURIComponent(discountCode)}`
+        `/${locale}/api/coupons/lookup?code=${encodeURIComponent(discountCode)}`
       );
 
       // Intentar leer JSON siempre (aunque sea error)
@@ -523,9 +534,7 @@ export default function CheckoutDetailsClient() {
 
       // Caso especial: 404 = no encontrado
       if (res.status === 404) {
-        setDiscountError(
-          "No hemos encontrado ningún descuento con ese código."
-        );
+        setDiscountError(t('noDiscountFound'));
         setDiscountData(null);
         setDiscountLookupLoading(false);
         return;
@@ -533,10 +542,7 @@ export default function CheckoutDetailsClient() {
 
       // Otros errores (500, 400, etc.)
       if (!res.ok) {
-        const errMsg =
-          json?.error ||
-          `Lookup failed: ${res.status}` ||
-          "No hemos podido validar el código.";
+        const errMsg = json?.error || t('couldNotValidateCode');
         setDiscountError(errMsg);
         setDiscountData(null);
         setDiscountLookupLoading(false);
@@ -549,7 +555,7 @@ export default function CheckoutDetailsClient() {
       setDiscountError(
         err?.message
           ? String(err.message)
-          : "Error de red al comprobar el código."
+          : t('networkErrorCheckingCode')
       );
       setDiscountData(null);
     } finally {
@@ -560,11 +566,11 @@ export default function CheckoutDetailsClient() {
   // Apply discount
   const handleApplyDiscount = () => {
     if (!priceData) {
-      setDiscountError("Select dates first.");
+      setDiscountError(t('selectDatesFirst'));
       return;
     }
     if (!discountData) {
-      setDiscountError("No discount loaded.");
+      setDiscountError(t('noDiscountLoaded'));
       return;
     }
 
@@ -579,9 +585,10 @@ export default function CheckoutDetailsClient() {
 
     if (!couponsAllowed) {
       setDiscountError(
-        `No se puede aplicar este cupón: los cupones están disponibles sólo para pagos inmediatos de al menos ${formatCurrency(
-          COUPON_MIN_EUROS
-        )} (importe inicial: ${formatCurrency(initialPayNow)}).`
+        t('couponsNotAvailable', {
+          current: formatCurrency(initialPayNow),
+          minimum: formatCurrency(COUPON_MIN_EUROS)
+        })
       );
       return;
     }
@@ -592,21 +599,21 @@ export default function CheckoutDetailsClient() {
     if (discountData.kind === "coupon" && discountData.coupon) {
       const remaining = Number(discountData.coupon.remaining ?? 0);
       if (!Number.isFinite(remaining) || remaining <= 0) {
-        setDiscountError("Coupon has no remaining balance.");
+        setDiscountError(t('couponNoBalance'));
         return;
       }
 
       // raw max we can try to use
       const rawToUse = Math.min(remaining, firstNightBefore, totalBefore);
       if (rawToUse <= 0) {
-        setDiscountError("Nothing to apply.");
+        setDiscountError(t('nothingToApply'));
         return;
       }
 
       // enforce Stripe min rule on what's charged now
       const { used } = applyCreditToFirstNight(firstNightBefore, rawToUse);
       if (used <= 0) {
-        setDiscountError("Nothing to apply after Stripe minimum charge rule.");
+        setDiscountError(t('nothingToApplyStripe'));
         return;
       }
 
@@ -630,24 +637,24 @@ export default function CheckoutDetailsClient() {
 
       // % inválido
       if (!Number.isFinite(p) || p <= 0) {
-        setDiscountError("Invalid percentage discount.");
+        setDiscountError(t('invalidPercentageDiscount'));
         return;
       }
       if (p > 100) {
-        setDiscountError("Invalid percentage (>100%).");
+        setDiscountError(t('invalidPercentageOver100'));
         return;
       }
 
       // 🔴 NUEVA COMPROBACIÓN IMPORTANTE:
       // si ya está usado en Firestore -> lo bloqueamos
       if (alreadyUsed) {
-        setDiscountError("This code was already used.");
+        setDiscountError(t('codeAlreadyUsed'));
         return;
       }
 
       // caducado
       if (expTs && expTs < nowTs) {
-        setDiscountError("This code is expired.");
+        setDiscountError(t('codeExpired'));
         return;
       }
 
@@ -663,7 +670,7 @@ export default function CheckoutDetailsClient() {
     // ─────────────────────────────
     // 3) fallback si no coincide ningún tipo esperado
     // ─────────────────────────────
-    setDiscountError("Unknown discount type.");
+    setDiscountError(t('unknownDiscountType'));
   };
 
   const handleClearDiscount = () => {
@@ -742,7 +749,7 @@ export default function CheckoutDetailsClient() {
         discount: discountPayload || undefined,
       };
 
-      const res = await fetch("/api/create-checkout-session", {
+      const res = await fetch(`/${locale}/api/create-checkout-session`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -752,7 +759,7 @@ export default function CheckoutDetailsClient() {
 
       if (!res.ok) {
         console.error("create-checkout-session failed", data);
-        alert(data.error || "Error creating checkout session");
+        alert(data.error || t('errorCreatingCheckout'));
         return;
       }
 
@@ -761,10 +768,10 @@ export default function CheckoutDetailsClient() {
         return;
       }
 
-      alert("No checkout URL returned");
+      alert(t('noCheckoutUrl'));
     } catch (err) {
       console.error("handleGoToCheckout error:", err);
-      alert("Network error creating checkout session");
+      alert(t('networkErrorCreatingCheckout'));
     }
   };
 
@@ -822,7 +829,7 @@ export default function CheckoutDetailsClient() {
         discount: discountPayload || undefined,
       };
 
-      const res = await fetch("/api/montonio/checkout", {
+      const res = await fetch(`/${locale}/api/montonio/checkout`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -835,7 +842,7 @@ export default function CheckoutDetailsClient() {
 
       if (!res.ok) {
         console.error("montonio checkout failed", data);
-        alert(data.error || "Error creating Montonio checkout");
+        alert(data.error || t('errorCreatingMontonio'));
         return;
       }
 
@@ -851,10 +858,10 @@ export default function CheckoutDetailsClient() {
         return;
       }
 
-      alert("No checkout URL returned");
+      alert(t('noCheckoutUrl'));
     } catch (err) {
       console.error("handleMontonioCheckout error:", err);
-      alert("Network error creating Montonio checkout");
+      alert(t('networkErrorCreatingMontonio'));
     }
   };
 
@@ -897,7 +904,7 @@ export default function CheckoutDetailsClient() {
   return (
     <main className="max-w-5xl mx-auto px-4 py-8 mt-18 md:py-12">
       <h1 className="text-3xl font-extrabold text-[var(--color-primary-dark)] mb-6 leading-tight">
-        Reservation information
+        {t('title')}
       </h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -906,54 +913,54 @@ export default function CheckoutDetailsClient() {
           {/* Guest details */}
           <div className="bg-white rounded-2xl border border-gray-200 shadow-xl p-6 md:p-8">
             <h2 className="text-xl font-bold text-[var(--color-primary-dark)] mb-4">
-              Your details
+              {t('yourDetails')}
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* First name */}
               <div className="flex flex-col">
                 <label className="text-sm font-semibold text-gray-700 mb-1">
-                  First name
+                  {t('firstName')}
                 </label>
                 <input
                   className="border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-[var(--color-primary)]"
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
-                  placeholder="Your first name"
+                  placeholder={t('firstNamePlaceholder')}
                 />
               </div>
 
               {/* Last name */}
               <div className="flex flex-col">
                 <label className="text-sm font-semibold text-gray-700 mb-1">
-                  Last name
+                  {t('lastName')}
                 </label>
                 <input
                   className="border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-[var(--color-primary)]"
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
-                  placeholder="Your last name"
+                  placeholder={t('lastNamePlaceholder')}
                 />
               </div>
 
               {/* Email */}
               <div className="flex flex-col">
                 <label className="text-sm font-semibold text-gray-700 mb-1">
-                  Email
+                  {t('email')}
                 </label>
                 <input
                   type="email"
                   className="border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-[var(--color-primary)]"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@email.com"
+                  placeholder={t('emailPlaceholder')}
                 />
               </div>
 
               {/* Email confirm */}
               <div className="flex flex-col">
                 <label className="text-sm font-semibold text-gray-700 mb-1">
-                  Confirm email
+                  {t('confirmEmail')}
                 </label>
                 <input
                   type="email"
@@ -963,11 +970,11 @@ export default function CheckoutDetailsClient() {
                     }`}
                   value={email2}
                   onChange={(e) => setEmail2(e.target.value)}
-                  placeholder="Repeat your email"
+                  placeholder={t('confirmEmailPlaceholder')}
                 />
                 {email2 && !emailsMatch && (
                   <span className="text-xs text-red-600 mt-1">
-                    Emails do not match
+                    {t('emailsDoNotMatch')}
                   </span>
                 )}
               </div>
@@ -975,21 +982,21 @@ export default function CheckoutDetailsClient() {
               {/* Phone */}
               <div className="flex flex-col">
                 <label className="text-sm font-semibold text-gray-700 mb-1">
-                  Phone
+                  {t('phone')}
                 </label>
                 <input
                   type="tel"
                   className="border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-[var(--color-primary)]"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+34 ..."
+                  placeholder={t('phonePlaceholder')}
                 />
               </div>
 
               {/* Arrival time (select) */}
               <div className="flex flex-col">
                 <label className="text-sm font-semibold text-gray-700 mb-1" htmlFor="arrivalTimeSelect">
-                  Estimated arrival time
+                  {t('estimatedArrivalTime')}
                 </label>
 
                 <select
@@ -999,7 +1006,7 @@ export default function CheckoutDetailsClient() {
                   onChange={(e) => setArrivalTime(e.target.value)}
                   aria-describedby="arrivalTimeHelp"
                 >
-                  <option value="">Select time</option>
+                  <option value="">{t('selectTime')}</option>
                   {generateTimeOptions("16:00", "20:00", 15).map((t) => (
                     <option key={t} value={t}>
                       {t}
@@ -1008,7 +1015,7 @@ export default function CheckoutDetailsClient() {
                 </select>
 
                 <div id="arrivalTimeHelp" className="text-xs text-gray-500 mt-1">
-                  Choose a time between 16:00 and 20:00.
+                  {t('arrivalTimeHelp')}
                 </div>
               </div>
             </div>
@@ -1016,13 +1023,13 @@ export default function CheckoutDetailsClient() {
             {/* Comment */}
             <div className="mt-4 flex flex-col">
               <label className="text-sm font-semibold text-gray-700 mb-1">
-                Additional notes
+                {t('additionalNotes')}
               </label>
               <textarea
                 className="border border-gray-300 rounded-lg px-3 py-2 text-gray-900 min-h-[80px] resize-y focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-[var(--color-primary)]"
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
-                placeholder="Allergies, birthday surprise, etc."
+                placeholder={t('additionalNotesPlaceholder')}
               />
             </div>
           </div>
@@ -1030,7 +1037,7 @@ export default function CheckoutDetailsClient() {
           {/* Extras */}
           <div className="bg-white rounded-2xl border border-gray-200 shadow-xl p-6 md:p-8">
             <h2 className="text-xl font-bold text-[var(--color-primary-dark)] mb-4">
-              Extras
+              {t('extras')}
             </h2>
 
             <label className="flex items-start gap-4 cursor-pointer">
@@ -1045,7 +1052,7 @@ export default function CheckoutDetailsClient() {
               />
               <div className="flex-1">
                 <div className="text-base font-semibold text-gray-900 flex flex-wrap items-baseline gap-2">
-                  Private jacuzzi
+                  {t('privateJacuzzi')}
 
                   {/* Horario elegante al lado del título */}
                   <span className="flex items-center gap-1 text-[15px] font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md">
@@ -1063,7 +1070,7 @@ export default function CheckoutDetailsClient() {
                         d="M12 6v6l4 2m6-2A10 10 0 11 2 12a10 10 0 0120 0z"
                       />
                     </svg>
-                    Available from 18:00 – 24:00
+                    {t('jacuzziAvailableTime')}
                   </span>
 
                   {priceData && withJacuzzi && (
@@ -1075,14 +1082,13 @@ export default function CheckoutDetailsClient() {
 
 
                 <div className="text-sm text-gray-600 leading-relaxed mb-3">
-                  First day: 65€ (up to 2 guests, +10€/extra guest). Additional
-                  days: 45€/day (+10€/extra guest).
+                  {t('jacuzziPricing')}
                 </div>
 
                 {withJacuzzi && priceData && priceData.nights > 0 && (
                   <div className="mt-3 flex items-center gap-3">
                     <label className="text-sm font-medium text-gray-700">
-                      Number of days:
+                      {t('numberOfDays')}
                     </label>
                     <div className="flex items-center gap-2">
                       <button
@@ -1112,8 +1118,10 @@ export default function CheckoutDetailsClient() {
                       </button>
                     </div>
                     <span className="text-xs text-gray-500">
-                      (max: {priceData.nights}{" "}
-                      {priceData.nights === 1 ? "night" : "nights"})
+                      {t('maxNights', {
+                        nights: priceData.nights,
+                        nightsLabel: priceData.nights === 1 ? t('night') : t('nights')
+                      })}
                     </span>
                   </div>
                 )}
@@ -1124,13 +1132,13 @@ export default function CheckoutDetailsClient() {
           {/* Discount code */}
           <div className="bg-white rounded-2xl border border-gray-200 shadow-xl p-6 md:p-8">
             <h2 className="text-xl font-bold text-[var(--color-primary-dark)] mb-4">
-              Discount / Coupon
+              {t('discountCoupon')}
             </h2>
 
             <div className="flex flex-col sm:flex-row gap-3 items-stretch">
               <input
                 className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-[var(--color-primary)]"
-                placeholder="Enter your code"
+                placeholder={t('enterCodePlaceholder')}
                 value={discountCode}
                 onChange={(e) => setDiscountCode(e.target.value)}
               />
@@ -1141,7 +1149,7 @@ export default function CheckoutDetailsClient() {
                   disabled={!discountCode || discountLookupLoading}
                   className="px-4 py-2 rounded-lg bg-[var(--color-primary)] text-white text-sm font-semibold disabled:opacity-60 min-w-[90px]"
                 >
-                  {discountLookupLoading ? "Checking…" : "Lookup"}
+                  {discountLookupLoading ? t('checking') : t('lookup')}
                 </button>
 
                 {discountData && (
@@ -1149,7 +1157,7 @@ export default function CheckoutDetailsClient() {
                     onClick={handleClearDiscount}
                     className="px-4 py-2 rounded-lg border text-sm font-semibold min-w-[90px]"
                   >
-                    Clear
+                    {t('clear')}
                   </button>
                 )}
               </div>
@@ -1158,19 +1166,12 @@ export default function CheckoutDetailsClient() {
             {/* quick note when initial pay-now is below coupon threshold */}
             {initialPayNow < COUPON_MIN_EUROS && (
               <div className="mt-2 text-xs text-gray-500">
-                Coupons require an initial charge now
-                (Reservation fee) of at least{" "}
-                <span className="font-medium">
-                  {formatCurrency(COUPON_MIN_EUROS)}
-                </span>
-                . Current initial charge:{" "}
-                <span className="font-medium">
-                  {formatCurrency(initialPayNow)}
-                </span>
-                .
+                {t('couponsRequireMinimum', {
+                  minimum: formatCurrency(COUPON_MIN_EUROS),
+                  current: formatCurrency(initialPayNow)
+                })}
                 <br />
-                Percentage discounts (if available) still apply to the first
-                night.
+                {t('percentageDiscountsStillApply')}
               </div>
             )}
 
@@ -1183,13 +1184,13 @@ export default function CheckoutDetailsClient() {
                 {discountData.kind === "coupon" && discountData.coupon && (
                   <>
                     <div className="font-medium">
-                      Code: {discountData.coupon.code}{" "}
+                      {t('code')} {discountData.coupon.code}{" "}
                       <span className="text-xs text-gray-500">
                         ({discountData.state})
                       </span>
                     </div>
                     <div>
-                      Remaining balance:{" "}
+                      {t('remainingBalance')}{" "}
                       <span className="font-semibold">
                         {formatCurrency(
                           Number(discountData.coupon.remaining ?? 0)
@@ -1208,33 +1209,29 @@ export default function CheckoutDetailsClient() {
                             : "bg-gray-200 text-gray-400 cursor-not-allowed"
                             }`}
                         >
-                          Apply discount
+                          {t('applyDiscount')}
                         </button>
 
                         {!couponsAllowed && (
                           <div className="text-xs text-gray-500 mt-2">
-                            This coupon cannot be applied because the initial
-                            first-night charge is{" "}
-                            {formatCurrency(initialPayNow)} — coupons require at
-                            least{" "}
-                            <span className="font-semibold">
-                              {formatCurrency(COUPON_MIN_EUROS)}
-                            </span>
-                            .
+                            {t('couponCannotBeApplied', {
+                              current: formatCurrency(initialPayNow),
+                              minimum: formatCurrency(COUPON_MIN_EUROS)
+                            })}
                           </div>
                         )}
                       </div>
                     ) : (
                       <div className="mt-3 p-3 rounded-md bg-green-50 border border-green-200 text-sm">
-                        Discount applied.
+                        {t('discountApplied')}
                         {appliedEuroDiscount > 0 && (
                           <>
                             {" "}
-                            Using{" "}
+                            {t('using')}{" "}
                             <span className="font-semibold">
                               {formatCurrency(appliedEuroDiscount)}
                             </span>{" "}
-                            now.
+                            {t('now')}
                           </>
                         )}
                         <button
@@ -1244,7 +1241,7 @@ export default function CheckoutDetailsClient() {
                           }}
                           className="ml-3 underline"
                         >
-                          Undo
+                          {t('undo')}
                         </button>
                       </div>
                     )}
@@ -1254,25 +1251,24 @@ export default function CheckoutDetailsClient() {
                 {discountData.kind === "percent" && discountData.percentDoc && (
                   <>
                     <div className="font-medium">
-                      Code: {discountData.percentDoc.code}{" "}
+                      {t('code')} {discountData.percentDoc.code}{" "}
                       <span className="text-xs text-gray-500">
                         ({discountData.state})
                       </span>
                     </div>
                     <div>
-                      Discount:{" "}
+                      {t('discount')}{" "}
                       <span className="font-semibold">
-                        {discountData.percentDoc.percent}% off (Reservation fee
-                        only)
+                        {t('percentOff', { percent: discountData.percentDoc.percent })}
                       </span>
                     </div>
                     {discountData.percentDoc.expiresAt && (
                       <div className="text-xs text-gray-500">
-                        Expires: {discountData.percentDoc.expiresAt}
+                        {t('expires')} {discountData.percentDoc.expiresAt}
                       </div>
                     )}
                     {discountData.percentDoc.used && (
-                      <div className="text-xs text-red-600">(Already used)</div>
+                      <div className="text-xs text-red-600">{t('alreadyUsed')}</div>
                     )}
 
                     {/* Percentage discounts can be applied regardless of initialPayNow */}
@@ -1281,19 +1277,19 @@ export default function CheckoutDetailsClient() {
                         onClick={handleApplyDiscount}
                         className="mt-3 inline-block px-4 py-2 rounded-lg bg-[var(--color-primary)] text-white text-sm font-semibold"
                       >
-                        Apply discount
+                        {t('applyDiscount')}
                       </button>
                     ) : (
                       <div className="mt-3 p-3 rounded-md bg-green-50 border border-green-200 text-sm">
-                        Discount applied.
+                        {t('discountApplied')}
                         {appliedEuroDiscount > 0 && (
                           <>
                             {" "}
-                            Using{" "}
+                            {t('using')}{" "}
                             <span className="font-semibold">
                               {formatCurrency(appliedEuroDiscount)}
                             </span>{" "}
-                            now.
+                            {t('now')}
                           </>
                         )}
                         <button
@@ -1303,7 +1299,7 @@ export default function CheckoutDetailsClient() {
                           }}
                           className="ml-3 underline"
                         >
-                          Undo
+                          {t('undo')}
                         </button>
                       </div>
                     )}
@@ -1331,7 +1327,7 @@ export default function CheckoutDetailsClient() {
                   d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
                 />
               </svg>
-              Your stay
+              {t('yourStay')}
             </h2>
 
             {houseTitle && (
@@ -1342,28 +1338,28 @@ export default function CheckoutDetailsClient() {
 
             <div className="text-sm text-gray-700 space-y-2">
               <div className="flex justify-between">
-                <span>Check-in:</span>
+                <span>{t('checkIn')}</span>
                 <span className="font-medium">{startPretty}</span>
               </div>
 
               <div className="flex justify-between">
-                <span>Check-out:</span>
+                <span>{t('checkOut')}</span>
                 <span className="font-medium">{endPretty}</span>
               </div>
 
               <div className="flex justify-between">
-                <span>Nights:</span>
+                <span>{t('nightsLabel')}</span>
                 <span className="font-medium">{nights}</span>
               </div>
 
               <div className="flex justify-between">
-                <span>Guests:</span>
+                <span>{t('guestsLabel')}</span>
                 <span className="font-medium">{guests}</span>
               </div>
 
               {withJacuzzi && priceData && (
                 <div className="flex justify-between text-[var(--color-primary-dark)] font-semibold">
-                  <span>Jacuzzi</span>
+                  <span>{t('jacuzzi')}</span>
                   <span>+{formatCurrency(jacuzziFeeShown)}</span>
                 </div>
               )}
@@ -1372,7 +1368,7 @@ export default function CheckoutDetailsClient() {
 
               {/* 1. Final total for the stay (after discount) */}
               <div className="flex justify-between text-base font-bold text-gray-900">
-                <span>Total for the stay</span>
+                <span>{t('totalForStay')}</span>
                 <span>
                   {loadingPrice
                     ? "..."
@@ -1393,7 +1389,7 @@ export default function CheckoutDetailsClient() {
 
               {/* 2. Charge now (highlighted) */}
               <div className="mt-4 p-3 rounded-md bg-[var(--color-primary)]/10 border-l-4 border-[var(--color-primary)]">
-                <div className="text-xs text-gray-600">Charge now</div>
+                <div className="text-xs text-gray-600">{t('chargeNow')}</div>
 
                 <div className="text-2xl font-bold text-[var(--color-primary)-dark]">
                   {loadingPrice
@@ -1415,16 +1411,14 @@ export default function CheckoutDetailsClient() {
                   effectiveDiscountUsedNow > 0 && (
                     <div className="mt-2 text-xs text-gray-600 leading-relaxed">
                       {discountData.kind === "percent"
-                        ? `A ${discountData.percentDoc?.percent}% discount has been applied to the Reservation fee.`
-                        : `A coupon has been applied (${discountData.coupon?.code || ""
-                        }).`}{" "}
-                      You pay now {formatCurrency(payNowAfterDiscount ?? 0)}.
+                        ? t('percentDiscountAppliedMessage', { percent: discountData.percentDoc?.percent })
+                        : t('couponAppliedMessage', { code: discountData.coupon?.code || "" })}{" "}
+                      {t('youPayNow', { amount: formatCurrency(payNowAfterDiscount ?? 0) })}
                     </div>
                   )}
 
                 <div className="mt-2 text-[11px] text-gray-600 leading-relaxed">
-                  The rest (and jacuzzi fee if selected) will be settled at
-                  arrival.
+                  {t('restSettledAtArrival')}
                 </div>
               </div>
 
@@ -1444,7 +1438,7 @@ export default function CheckoutDetailsClient() {
                 : "bg-gray-300 text-gray-500 cursor-not-allowed"
                 }`}
             >
-              {canSubmit ? "Continue to checkout" : "Fill your details"}
+              {canSubmit ? t('continueToCheckout') : t('fillYourDetails')}
             </button>
           ) : (
             <>
@@ -1456,14 +1450,7 @@ export default function CheckoutDetailsClient() {
                   : "bg-gray-300 text-gray-500 cursor-not-allowed"
                   }`}
               >
-                {canSubmit ? (
-                  <>
-                    Pay by Card,<br />
-                    AP, GP or Paypal
-                  </>
-                ) : (
-                  "Fill your details"
-                )}
+                {canSubmit ? t('payByCard') : t('fillYourDetails')}
               </button>
               <button
                 onClick={handleMontonioCheckout}
@@ -1474,7 +1461,7 @@ export default function CheckoutDetailsClient() {
                   : "bg-gray-200 text-gray-400 cursor-not-allowed"
                   }`}
               >
-                Pay with Bank Transfer
+                {t('payWithBankTransfer')}
               </button>
             </>
           )}

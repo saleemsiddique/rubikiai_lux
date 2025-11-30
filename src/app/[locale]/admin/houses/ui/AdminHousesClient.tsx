@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useLocale } from 'next-intl';
 
 type Weekday =
   | "monday"
@@ -66,6 +67,7 @@ function formatDateToDisplay(isoDate: string): string {
 }
 
 export default function AdminHousesClient() {
+  const locale = useLocale();
   // ===== LISTA Y FILTRO =====
   const [list, setList] = useState<HouseListItem[]>([]);
   const [listLoading, setListLoading] = useState(false);
@@ -129,7 +131,7 @@ export default function AdminHousesClient() {
       try {
         setListLoading(true);
         setListError(null);
-        const res = await fetch("/api/admin/houses/list", {
+        const res = await fetch(`/${locale}/api/admin/houses/list`, {
           cache: "no-store",
         });
         if (!res.ok) throw new Error(await readError(res));

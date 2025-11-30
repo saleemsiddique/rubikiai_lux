@@ -3,6 +3,7 @@
 
 import { useRouter } from "next/navigation";
 import React, { useEffect, useMemo, useState } from "react";
+import { useLocale } from 'next-intl';
 
 type Reservation = {
     id: string;
@@ -233,7 +234,7 @@ function PriceSummaryBlock({
 
                 console.log('?? [PriceSummary] Calling price API with:', body);
 
-                const res = await fetch('/api/reservations/price', {
+                const res = await fetch(`/${locale}/api/reservations/price`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(body),
@@ -363,6 +364,7 @@ function PriceSummaryBlock({
 }
 
 export default function AdminBookingsClient() {
+    const locale = useLocale();
     const router = useRouter();
 
     // Filters
@@ -443,7 +445,7 @@ export default function AdminBookingsClient() {
 
             console.time("[UI] list fetch");
             const res = await fetchWithTimeout(
-                `/api/admin/reservations/list?${params.toString()}`,
+                `/${locale}/api/admin/reservations/list?${params.toString()}`,
                 {},
                 20000
             );
@@ -511,7 +513,7 @@ export default function AdminBookingsClient() {
 
             console.time("[UI] occupancy fetch");
             const res = await fetchWithTimeout(
-                `/api/admin/reservations/occupancy?${params.toString()}`,
+                `/${locale}/api/admin/reservations/occupancy?${params.toString()}`,
                 {},
                 20000
             );
@@ -619,7 +621,7 @@ export default function AdminBookingsClient() {
             params.set("houseId", singleHouseId);
 
             const res = await fetchWithTimeout(
-                `/api/admin/reservations/occupancy?${params.toString()}`,
+                `/${locale}/api/admin/reservations/occupancy?${params.toString()}`,
                 {},
                 20000
             );
@@ -666,7 +668,7 @@ export default function AdminBookingsClient() {
 
         try {
             const res = await fetchWithTimeout(
-                `/api/coupons/lookup?code=${encodeURIComponent(blockDiscountCode)}`,
+                `/${locale}/api/coupons/lookup?code=${encodeURIComponent(blockDiscountCode)}`,
                 {},
                 20000
             );
@@ -772,7 +774,7 @@ export default function AdminBookingsClient() {
             if (paidInFull) body.paidInFull = true;
 
             const res = await fetchWithTimeout(
-                `/api/admin/reservations/${encodeURIComponent(id)}/status`,
+                `/${locale}/api/admin/reservations/${encodeURIComponent(id)}/status`,
                 {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -897,7 +899,7 @@ export default function AdminBookingsClient() {
             }
 
             const res = await fetchWithTimeout(
-                "/api/admin/reservations/block",
+                `/${locale}/api/admin/reservations/block`,
                 {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },

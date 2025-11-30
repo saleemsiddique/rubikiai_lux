@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations, useLocale } from 'next-intl';
 import ImageGallery from "@/components/ImageGallery";
 import OtherOptions from "@/components/OtherOptions";
 import BookingBarMobile from "@/components/house-components/BookingBarMobile";
@@ -81,6 +82,8 @@ export default function HousePage(props: HousePageProps) {
     description,
   } = props;
 
+  const t = useTranslations('housePage');
+  const locale = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -91,6 +94,13 @@ export default function HousePage(props: HousePageProps) {
   const endParam = searchParams?.get("end") ?? null;
   const guestsParam = searchParams?.get("guests") ?? defaultGuests;
   const typeParam = searchParams?.get("type") ?? defaultType;
+
+  const hasQueryParams = Boolean(
+    searchParams?.has("start") ||
+    searchParams?.has("end") ||
+    searchParams?.has("guests") ||
+    searchParams?.has("type")
+  );
 
   const startFriendly = formatDateFriendly(startParam);
   const endFriendly = formatDateFriendly(endParam);
@@ -120,7 +130,7 @@ export default function HousePage(props: HousePageProps) {
 
   useEffect(() => {
     if (!houseIdFromMapping) {
-      setPriceError("House mapping not found.");
+      setPriceError(t('houseMappingNotFound'));
       setTotalFromServer(null);
       setFirstFromServer(null);
       return;
@@ -149,7 +159,7 @@ export default function HousePage(props: HousePageProps) {
         type: typeParam,
       };
 
-      const endpoints = ["/api/reservations/price", "/api/reservation/price"];
+      const endpoints = [`/${locale}/api/reservations/price`, `/${locale}/api/reservation/price`];
       let lastErr: string | null = null;
 
       for (const ep of endpoints) {
@@ -182,7 +192,7 @@ export default function HousePage(props: HousePageProps) {
       }
 
       if (mounted) {
-        setPriceError(lastErr ?? "Could not fetch price");
+        setPriceError(lastErr ?? t('couldNotFetchPrice'));
         setTotalFromServer(null);
         setFirstFromServer(null);
         setLoadingPrice(false);
@@ -211,7 +221,7 @@ export default function HousePage(props: HousePageProps) {
     }
 
     if (!houseIdFromMapping) {
-      alert("Could not identify the accommodation. Please try again.");
+      alert(t('couldNotIdentifyAccommodation'));
       return;
     }
 
@@ -272,17 +282,29 @@ export default function HousePage(props: HousePageProps) {
         </div>
       </section>
 
-      <BookingBarMobile
-        showHeroButton={showHeroButton}
-        loadingPrice={loadingPrice}
-        priceError={priceError}
-        totalFromServer={totalFromServer}
-        firstFromServer={firstFromServer}
-        startParam={startParam}
-        endParam={endParam}
-        handleReserveNow={handleReserveNow}
-        formatCurrency={formatCurrency}
-      />
+      {/* ✅ Si NO hay params y estamos en mobile, mostramos botón flotante, si HAY params mostramos la barra */}
+      {hasQueryParams ? (
+        <BookingBarMobile
+          showHeroButton={showHeroButton}
+          loadingPrice={loadingPrice}
+          priceError={priceError}
+          totalFromServer={totalFromServer}
+          firstFromServer={firstFromServer}
+          startParam={startParam}
+          endParam={endParam}
+          handleReserveNow={handleReserveNow}
+          formatCurrency={formatCurrency}
+        />
+      ) : (
+        // botón flotante solo cuando NO hay params (mobile)
+        <button
+          onClick={() => router.push(`/${locale}/reservations`)}
+          className="md:hidden fixed bottom-6 right-6 z-40 bg-gradient-to-br from-[var(--color-secondary)] to-[var(--color-primary-dark)] text-white px-6 py-3 rounded-full shadow-2xl transition-all duration-500 flex items-center gap-2 font-semibold text-sm"
+        >
+          {t('reserveNow')}
+        </button>
+      )}
+
 
       <AboutSection
         title={title}
@@ -326,18 +348,18 @@ export default function HousePage(props: HousePageProps) {
             <div className="inline-block">
               <div className="h-1 w-20 bg-[#bfa58b] mx-auto mb-4" />
               <h2 className="text-3xl md:text-5xl font-bold font-header text-[#f4efe9]">
-                Location
+                {t('location')}
               </h2>
             </div>
             <p className="text-[#f4efe9]/80 text-lg mt-4 max-w-2xl mx-auto">
-              Find us on Google Maps to plan your trip
+              {t('findOnMaps')}
             </p>
           </div>
           <div className="relative w-full h-96 md:h-[500px] rounded-2xl overflow-hidden shadow-2xl border-2 border-[#bfa58b]/30">
             <iframe
               src={
                 mapSrc ??
-                "https://www.google.com/maps?q=Rubikiai%20LUX%20SPA%20Apartments%2C%20Piliakalnio%20vs%201%2C%20Anykščiai%2029203%2C%20Lituania&hl=lt&z=15&output=embed"
+                `https://www.google.com/maps?q=Rubikiai%20LUX%20SPA%20Apartments%2C%20Piliakalnio%20vs%201%2C%20Anykščiai%2029203%2C%20Lituania&hl=${locale}&z=15&output=embed`
               }
               width="100%"
               height="100%"

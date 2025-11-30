@@ -4,13 +4,9 @@
 
 
 // app/ezero-namelis/page.tsx
-"use client";
-
-
 import React from "react";
-import dynamic from "next/dynamic";
-
-const HousePageClient = dynamic(() => import("@/components/HousePage"), { ssr: false });
+import { getTranslations } from 'next-intl/server';
+import HousePage from "@/components/HousePage";
 
 const images = [
   "/ezero-namelis/ezero-namelis (19).jpg",
@@ -36,60 +32,74 @@ const images = [
 
 
 
-export default function EzeroNamelisPage() {
+export default async function EzeroNamelisPage() {
+  const t = await getTranslations('houses.ezeroNamelis');
+  const tAmenities = await getTranslations('amenities');
+
   return (
-    <HousePageClient
+    <HousePage
       heroSrc="/ezero-namelis/ezero-namelis (19).jpg"
       title="EŽERO NAMELIS"
-      subtitle="A private and romantic cottage for two."
+      subtitle={t('subtitle')}
       accommodates={2}
-      beds="1 Double"
+      size={t('size')}
+      beds={t('beds')}
       images={images}
       houseSlug="lake-house"
       defaultGuests="2"
       defaultType="ezero namelis"
       description={
         <>
-          <p>
-            Privatus ir Romantiškas Ežero Namelis dviems - tik 10 žingsnių iki ežero ir miško.
-          </p>
+          <p>{t('description.p1')}</p>
           <br />
-          <p>
-            Klasikinis - Retro stilius.
-          </p>
+          <p>{t('description.p2')}</p>
           <br />
-          <p>
-            Prabangus  jacuzzi terasoje su vaizdu į Rubikių ežerą ir nepakartojamus saulėlydžius...
-          </p>
+          <p>{t('description.p3')}</p>
           <br />
-          <p>
-            Čia laikas sustoja...
-          </p>
+          <p>{t('description.p4')}</p>
           <br />
-          <p>
-            Apartamentuose rasite viską ko gali prireikti: pilnai įrengtą virtuvę, poilsio zoną, vonios kambarį, miegamąjį su patogia ir didele dvigule lova, wifi, tv, Kamado Picnic kepsninę terasoje, rankšluosčius, patalynę, chalatus ir t.t....
-          </p>
+          <p>{t('description.p5')}</p>
           <br />
-          <p>
-            Šildomos grindys Jūsų komfortui, šilumos siurblys šiltiems vakarams užtikrinti, kondicionierius - atvėsti karštą vasarą...
-          </p>
+          <p>{t('description.p6')}</p>
           <br />
-          <p>
-            Šiltuoju laikotarpiu taip pat galėsite mėgautis netoliese esančiu dideliu privačiu paplūdimiu. Siūlome išsinuomuoti baidares, vandens dviratį ar valtį, kuriomis galite apiplaukti bei pažinti net 16 Rubikių ežero salų ar palydėti nuostabiausius raudonus saulėlydžius.           </p>
+          <p>{t('description.p7')}</p>
         </>
       }
       amenitiesSections={[
         {
-          title: "Kitchen",
-          items: ["Refrigerator", "Microwave", "Electric stove", "Oven", "Coffee machine", "Electric kettle", "Dishes and cutlery"],
+          title: tAmenities('kitchen'),
+          items: [
+            tAmenities('refrigerator'),
+            tAmenities('microwave'),
+            tAmenities('electricStove'),
+            tAmenities('dishwasher'),
+            tAmenities('coffeeMachine'),
+            tAmenities('kettle'),
+            tAmenities('dishes')
+          ],
         },
         {
-          title: "Bathroom",
-          items: ["Bathtub", "Shower", "Toilet", "Electric towel dryer", "Towels", "Hair dryer", "Shampoo, shower gel, bathrobes"],
+          title: tAmenities('bathroom'),
+          items: [
+            tAmenities('bathtub'),
+            tAmenities('shower'),
+            tAmenities('toilet'),
+            tAmenities('towels'),
+            tAmenities('hairDryer'),
+            tAmenities('toiletries')
+          ],
         },
         {
-          title: "Features",
-          items: ["Wi-Fi", "TV", "Heat pump", "Air conditioning", "Heated floors", "Terrace", "Luxury jacuzzi"],
+          title: tAmenities('features'),
+          items: [
+            tAmenities('wifi'),
+            tAmenities('tv'),
+            tAmenities('heatPump'),
+            tAmenities('airConditioning'),
+            tAmenities('heatedFloors'),
+            tAmenities('terrace'),
+            tAmenities('jacuzzi')
+          ],
         },
       ]}
     />

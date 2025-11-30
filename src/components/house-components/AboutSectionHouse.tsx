@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslations } from 'next-intl';
 import { FaUserFriends } from 'react-icons/fa';
 
 interface AboutSectionProps {
@@ -41,6 +42,7 @@ export default function AboutSection({
   onSelectDates,
   onReserveNow,
 }: AboutSectionProps) {
+  const t = useTranslations('housePage');
   const [isVisible, setIsVisible] = useState(false);
   const sectionRef = useRef<HTMLDivElement>(null);
 
@@ -84,7 +86,7 @@ export default function AboutSection({
                   <div className="h-1 w-12 md:w-20 bg-gradient-to-r from-[#bfa58b] to-[#214235] flex-shrink-0 shadow-lg md:shadow-none md:hidden" />
                   <h2 className="text-xl md:text-4xl lg:text-5xl font-bold font-header text-[#f4efe9] md:text-[var(--color-secondary)] drop-shadow-lg md:drop-shadow-none">
                     <span className="md:hidden">{title}</span>
-                    <span className="hidden md:inline">About this place</span>
+                    <span className="hidden md:inline">{t('aboutThisPlace')}</span>
                   </h2>
                 </div>
               </div>
@@ -128,7 +130,7 @@ export default function AboutSection({
                       </svg>
                     </div>
                     <h3 className="text-2xl font-bold font-header text-white drop-shadow-lg">
-                      Your Reservation
+                      {t('yourReservation')}
                     </h3>
                   </div>
                 </div>
@@ -145,7 +147,7 @@ export default function AboutSection({
                           </svg>
                         </div>
                         <div className="flex-1">
-                          <h4 className="font-bold text-xs uppercase tracking-wider text-[#8f6e52]/70 mb-1">Check-in</h4>
+                          <h4 className="font-bold text-xs uppercase tracking-wider text-[#8f6e52]/70 mb-1">{t('checkIn')}</h4>
                           <p className="text-base font-semibold text-[#bfa58b]">16:00</p>
                         </div>
                       </div>
@@ -157,7 +159,7 @@ export default function AboutSection({
                           </svg>
                         </div>
                         <div className="flex-1">
-                          <h4 className="font-bold text-xs uppercase tracking-wider text-[#8f6e52]/70 mb-1">Check-out</h4>
+                          <h4 className="font-bold text-xs uppercase tracking-wider text-[#8f6e52]/70 mb-1">{t('checkOut')}</h4>
                           <p className="text-base font-semibold text-[#bfa58b]">{checkoutTime}</p>
                         </div>
                       </div>
@@ -172,18 +174,18 @@ export default function AboutSection({
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         <div className="text-xs font-bold text-[#8f6e52] uppercase tracking-wider">
-                          Payment Summary
+                          {t('paymentSummary')}
                         </div>
                       </div>
 
                       <div className="flex items-center justify-between text-sm">
                         <div className="flex items-center text-[#8f6e52]">
                           <FaUserFriends className="mr-2 text-[#bfa58b]" />
-                          <span>Guests: <span className="font-semibold">{guestsDisplay}</span></span>
+                          <span>{t('guests')}: <span className="font-semibold">{guestsDisplay}</span></span>
                         </div>
                         {typeParam && (
                           <div className="text-sm text-[#8f6e52]">
-                            Type: <span className="font-semibold">{typeParam}</span>
+                            {t('type')}: <span className="font-semibold">{typeParam}</span>
                           </div>
                         )}
                       </div>
@@ -191,37 +193,37 @@ export default function AboutSection({
                       {loadingPrice ? (
                         <div className="flex items-center gap-2">
                           <div className="w-4 h-4 border-2 border-[#bfa58b] border-t-transparent rounded-full animate-spin" />
-                          <span className="text-sm text-[#8f6e52]">Calculating price...</span>
+                          <span className="text-sm text-[#8f6e52]">{t('calculatingPrice')}</span>
                         </div>
                       ) : priceError ? (
-                        <div className="text-sm text-red-600 font-medium">Could not calculate price</div>
+                        <div className="text-sm text-red-600 font-medium">{t('couldNotCalculatePrice')}</div>
                       ) : totalFromServer !== null ? (
                         <div className="space-y-3">
                           <div className="pb-3 border-b border-[#bfa58b]/30">
-                            <div className="text-xs text-[#8f6e52]/70 uppercase tracking-wider mb-1">Total for the stay</div>
+                            <div className="text-xs text-[#8f6e52]/70 uppercase tracking-wider mb-1">{t('totalForStay')}</div>
                             <div className="text-3xl font-bold text-[#8f6e52] tracking-tight">
                               {formatCurrency && formatCurrency(totalFromServer)}
                             </div>
                           </div>
 
                           <div className="p-4 rounded-xl bg-[#8f6e52]/10 border-l-4 border-[#bfa58b]">
-                            <div className="text-xs text-[#8f6e52]/70 font-semibold uppercase tracking-wider mb-1">Charge now</div>
+                            <div className="text-xs text-[#8f6e52]/70 font-semibold uppercase tracking-wider mb-1">{t('chargeNow')}</div>
                             {firstFromServer !== null ? (
                               <div className="text-2xl font-bold text-[#8f6e52]">
                                 {formatCurrency && formatCurrency(firstFromServer)}
                               </div>
                             ) : (
                               <div className="text-sm font-semibold text-[#8f6e52]">
-                                Reservation fee shown at checkout
+                                {t('reservationFeeShown')}
                               </div>
                             )}
                             <div className="mt-2 text-xs text-[#8f6e52]/70">
-                              Remaining amount charged on arrival
+                              {t('remainingAmountOnArrival')}
                             </div>
                           </div>
                         </div>
                       ) : (
-                        <div className="text-sm text-[#8f6e52]">Select dates to see price</div>
+                        <div className="text-sm text-[#8f6e52]">{t('selectDatesToSeePrice')}</div>
                       )}
                     </div>
                   ) : null}
@@ -236,7 +238,7 @@ export default function AboutSection({
                       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[#bfa58b]/30 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-700" />
 
                       <span className="relative z-10 flex items-center justify-center gap-2">
-                        Reserve now
+                        {t('reserveNow')}
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                         </svg>
@@ -250,7 +252,7 @@ export default function AboutSection({
                       {/* Shine effect */}
                       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[#bfa58b]/30 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-700" />
 
-                      <span className="relative z-10">Select dates</span>
+                      <span className="relative z-10">{t('selectDates')}</span>
                     </button>
                   )}
                 </div>

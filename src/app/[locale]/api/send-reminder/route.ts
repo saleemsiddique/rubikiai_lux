@@ -13,6 +13,7 @@ import {
   getEmailSubject,
   type EmailLocale
 } from "@/lib/emailTemplates";
+import { getHouseDisplayName } from "@/lib/houseNames";
 
 // ------------ utilidades de fechas (UTC puro) ------------
 function dateOnlyIso(d: Date) {
@@ -120,8 +121,13 @@ async function buildInlineAttachments(houseImageFileName?: string) {
   return { attachments, logoCid, houseCid };
 }
 
-function mapLangToLocale(lang: "en" | "es"): EmailLocale {
-  return lang === "en" ? "en" : "lt";
+function mapLangToLocale(lang: string): EmailLocale {
+  // Direct locale mapping
+  if (lang === "en") return "en";
+  if (lang === "ru") return "ru";
+  if (lang === "lt") return "lt";
+  // Legacy: "es" maps to "lt" for backwards compatibility
+  return "lt";
 }
 
 const HOUSE_A_ID = "L0TeFf2LmrWGAaAyS8NY"; // uses Email A
@@ -129,7 +135,7 @@ const HOUSE_A_ID = "L0TeFf2LmrWGAaAyS8NY"; // uses Email A
 async function sendReminderViaResend(params: {
   to: string | string[];
   fromName?: string;
-  lang: "en" | "es";
+  lang: string;
   data: {
     guestName: string;
     houseName: string;
@@ -227,7 +233,8 @@ export async function GET(_req: NextRequest) {
       });
     }
 
-    const lang: "es" | "en" = (process.env.CRON_LANG as "es" | "en") || "es";
+    // CRON_LANG can be "lt", "en", or "ru" (or legacy "es" which maps to "lt")
+    const lang: string = process.env.CRON_LANG || "lt";
 
     let sent = 0;
     let skipped = 0;
@@ -244,9 +251,11 @@ export async function GET(_req: NextRequest) {
       }
 
       try {
-        const houseId: string | undefined = d.houseId || (Array.isArray(d.houseIds) ? d.houseIds[0] : undefined);
-        const houseName = await getHouseName(houseId);
+        // Handle both single houseId and multiple houseIds
+        const houseIdOrIds = d.houseIds || d.houseId;
+        const houseName = getHouseDisplayName(houseIdOrIds);
         const guestName = guessGuestName(to);
+        const houseId: string | undefined = d.houseId || (Array.isArray(d.houseIds) ? d.houseIds[0] : undefined);
 
         // normaliza fechas a string YYYY-MM-DD para la plantilla (UTC)
         const checkInStr = dateOnlyIso(toDateOnly(d.checkIn));

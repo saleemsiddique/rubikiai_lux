@@ -4,17 +4,20 @@
 import React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FaExclamationTriangle } from "react-icons/fa";
+import { useLocale, useTranslations } from 'next-intl';
 
 export default function GenericErrorClient() {
+  const locale = useLocale();
+  const t = useTranslations('paymentPages');
   const router = useRouter();
   const searchParams = useSearchParams();
 
   // You can pass any parameters you want to display
-  const message = searchParams?.get("message") ?? "An error occurred.";
+  const message = searchParams?.get("message") ?? t('errorOccurred');
   const details = searchParams?.get("details") ?? null;
 
   const handleBack = () => {
-    router.push("/reservations");
+    router.push(`/${locale}/reservations`);
   };
 
   return (
@@ -35,11 +38,11 @@ export default function GenericErrorClient() {
             onClick={handleBack}
             className="flex-1 py-3 rounded-lg bg-[var(--color-primary)] hover:bg-[var(--color-primary-dark)] text-white font-semibold transition"
           >
-            Back to search
+            {t('backToSearch')}
           </button>
         </div>
 
-        <div className="mt-4 text-xs text-gray-500">If you believe this is an error, contact support.</div>
+        <div className="mt-4 text-xs text-gray-500">{t('contactSupport')}</div>
       </div>
     </main>
   );

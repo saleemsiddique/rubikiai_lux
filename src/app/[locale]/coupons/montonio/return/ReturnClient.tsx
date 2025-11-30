@@ -2,8 +2,10 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { useLocale } from 'next-intl';
 
 export default function ReturnClient() {
+  const locale = useLocale();
   const search = useSearchParams();
   const router = useRouter();
   const orderId = search?.get("orderId") ?? null;
@@ -22,7 +24,7 @@ export default function ReturnClient() {
     (async () => {
       try {
         setConsumeResult("sending");
-        const endpoint = `/api/montonio/webhook?order-token=${encodeURIComponent(orderToken)}`;
+        const endpoint = `/${locale}/api/montonio/webhook?order-token=${encodeURIComponent(orderToken)}`;
         const res = await fetch(endpoint, { method: "POST" });
         if (!mounted) return;
         
@@ -51,7 +53,7 @@ export default function ReturnClient() {
     const check = async () => {
       try {
         setLoading(true);
-        const res = await fetch(`/api/montonio/order-status?orderId=${encodeURIComponent(orderId)}`);
+        const res = await fetch(`/${locale}/api/montonio/order-status?orderId=${encodeURIComponent(orderId)}`);
         
         if (!res.ok) {
           if (res.status === 404) {
@@ -73,7 +75,7 @@ export default function ReturnClient() {
         if (s === "completed") {
           // Clear interval and redirect to success
           if (intervalId) clearInterval(intervalId);
-          router.replace(`/coupons/success?orderId=${encodeURIComponent(orderId)}`);
+          router.replace(`/${locale}/coupons/success?orderId=${encodeURIComponent(orderId)}`);
         }
       } catch (e) {
         console.error("order-status fetch failed", e);

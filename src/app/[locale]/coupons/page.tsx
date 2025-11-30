@@ -1,6 +1,7 @@
 "use client";
 import React, { JSX, useState } from "react";
 import { formatLithuaniaTime } from "@/app/[locale]/utils/date";
+import { useLocale } from 'next-intl';
 
 const AMOUNTS = [100, 150, 200, 300] as const;
 
@@ -36,6 +37,7 @@ type PercentLookup = {
 type LookupResult = CouponLookup | PercentLookup;
 
 export default function CouponPage(): JSX.Element {
+  const locale = useLocale();
   const [selected, setSelected] = useState<number>(AMOUNTS[0]);
   const [quantity, setQuantity] = useState<number>(1);
   const [loading, setLoading] = useState(false);
@@ -46,14 +48,15 @@ export default function CouponPage(): JSX.Element {
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [lookup, setLookup] = useState<LookupResult | null>(null);
 
-  // Montonio modal / email
-  const [showBankModal, setShowBankModal] = useState(false);
+  // Email modal for both payment methods
+  const [showEmailModal, setShowEmailModal] = useState(false);
   const [buyerEmail, setBuyerEmail] = useState<string>("");
-  const [bankSubmitting, setBankSubmitting] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'montonio' | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   // Control scroll when modal is open
   React.useEffect(() => {
-    if (showBankModal) {
+    if (showEmailModal) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
@@ -61,64 +64,66 @@ export default function CouponPage(): JSX.Element {
     return () => {
       document.body.style.overflow = 'unset';
     };
-  }, [showBankModal]);
+  }, [showEmailModal]);
 
-  const handleBuy = async () => {
-    try {
-      setLoading(true);
-      const res = await fetch("/api/coupons/create-checkout-session", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ unitAmount: selected, quantity }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Could not start checkout");
-      if (data?.url) {
-        window.location.assign(data.url);
-        return;
-      }
-      throw new Error("Unexpected server response");
-    } catch (e: any) {
-      console.error(e);
-      if (typeof window !== "undefined" && window.alert) {
-        window.alert(e?.message || "Could not start payment");
-      }
-    } finally {
-      setLoading(false);
-    }
+  const handleBuy = () => {
+    setBuyerEmail("");
+    setPaymentMethod('stripe');
+    setShowEmailModal(true);
   };
 
   const handleOpenBankModal = () => {
     setBuyerEmail("");
-    setShowBankModal(true);
+    setPaymentMethod('montonio');
+    setShowEmailModal(true);
   };
 
-  const handleConfirmBankPayment = async () => {
+  const handleConfirmPayment = async () => {
     if (!buyerEmail || !buyerEmail.includes("@")) {
       window.alert("Please enter a valid email to receive the coupon.");
       return;
     }
+
     try {
-      setBankSubmitting(true);
-      const res = await fetch("/api/montonio/coupon/checkout", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ unitAmount: selected, quantity, buyerEmail }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Could not start Montonio checkout");
-      const url = data?.url || data?.paymentUrl || data?.payment_url;
-      if (url) {
-        setShowBankModal(false);
-        window.location.assign(url);
-        return;
+      setSubmitting(true);
+
+      if (paymentMethod === 'stripe') {
+        // Stripe checkout with email
+        const res = await fetch(`/${locale}/api/coupons/create-checkout-session`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ unitAmount: selected, quantity, buyerEmail }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || "Could not start checkout");
+        if (data?.url) {
+          setShowEmailModal(false);
+          window.location.assign(data.url);
+          return;
+        }
+        throw new Error("Unexpected server response");
+      } else if (paymentMethod === 'montonio') {
+        // Montonio checkout with email
+        const res = await fetch(`/${locale}/api/montonio/coupon/checkout`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ unitAmount: selected, quantity, buyerEmail }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || "Could not start Montonio checkout");
+        const url = data?.url || data?.paymentUrl || data?.payment_url;
+        if (url) {
+          setShowEmailModal(false);
+          window.location.assign(url);
+          return;
+        }
+        throw new Error("Montonio did not return a payment URL");
       }
-      throw new Error("Montonio did not return a payment URL");
     } catch (e: any) {
       console.error(e);
-      window.alert(e?.message || "Could not start bank payment");
+      window.alert(e?.message || "Could not start payment");
     } finally {
-      setBankSubmitting(false);
+      setSubmitting(false);
     }
   };
 
@@ -133,7 +138,7 @@ export default function CouponPage(): JSX.Element {
       setLookupLoading(true);
       setLookupError(null);
       setLookup(null);
-      const res = await fetch(`/api/coupons/lookup?code=${encodeURIComponent(raw)}`);
+      const res = await fetch(`/${locale}/api/coupons/lookup?code=${encodeURIComponent(raw)}`);
       if (res.status === 404) {
         setLookupError("Coupon not found");
         return;
@@ -513,24 +518,24 @@ export default function CouponPage(): JSX.Element {
         </section>
       </main>
 
-      {/* Bank Transfer Modal - Mobile Optimized */}
-      {showBankModal && (
+      {/* Email Modal - Mobile Optimized (for both payment methods) */}
+      {showEmailModal && (
         <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 backdrop-blur-sm p-0 md:p-4">
-          <div 
-            className="absolute inset-0" 
-            onClick={() => !bankSubmitting && setShowBankModal(false)} 
+          <div
+            className="absolute inset-0"
+            onClick={() => !submitting && setShowEmailModal(false)}
           />
-          
+
           <div className="relative z-10 w-full md:max-w-md bg-white rounded-t-3xl md:rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
             <div className="sticky top-0 bg-white border-b border-gray-100 px-5 py-4 flex items-center justify-between rounded-t-3xl md:rounded-t-2xl">
               <h3 className="text-lg font-bold text-[var(--color-text)]">
-                Bank Transfer Payment
+                {paymentMethod === 'stripe' ? 'Card / PayPal Payment' : 'Bank Transfer Payment'}
               </h3>
               <button
-                onClick={() => !bankSubmitting && setShowBankModal(false)}
+                onClick={() => !submitting && setShowEmailModal(false)}
                 className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
-                disabled={bankSubmitting}
+                disabled={submitting}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -541,7 +546,7 @@ export default function CouponPage(): JSX.Element {
             {/* Modal Content */}
             <div className="p-5 space-y-4">
               <p className="text-sm text-[var(--color-text)]/70">
-                Enter your email to receive the voucher after completing the bank transfer.
+                Enter your email to receive the voucher after completing the payment.
               </p>
 
               <div>
@@ -554,7 +559,7 @@ export default function CouponPage(): JSX.Element {
                   placeholder="your@email.com"
                   type="email"
                   className="w-full px-4 py-3 rounded-lg border-2 border-gray-200 focus:border-[var(--color-secondary)] focus:outline-none transition-colors"
-                  disabled={bankSubmitting}
+                  disabled={submitting}
                 />
               </div>
 
@@ -573,16 +578,16 @@ export default function CouponPage(): JSX.Element {
 
               <div className="space-y-3 pt-2">
                 <button
-                  onClick={handleConfirmBankPayment}
-                  disabled={bankSubmitting}
+                  onClick={handleConfirmPayment}
+                  disabled={submitting}
                   className="w-full bg-[var(--color-secondary)] text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-[var(--color-secondary)]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {bankSubmitting ? "Processing..." : "Continue to Bank Transfer"}
+                  {submitting ? "Processing..." : paymentMethod === 'stripe' ? 'Continue to Payment' : 'Continue to Bank Transfer'}
                 </button>
 
                 <button
-                  onClick={() => setShowBankModal(false)}
-                  disabled={bankSubmitting}
+                  onClick={() => setShowEmailModal(false)}
+                  disabled={submitting}
                   className="w-full bg-white border border-gray-200 text-[var(--color-text)] py-3 rounded-xl font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
                 >
                   Cancel

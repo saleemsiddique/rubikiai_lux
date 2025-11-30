@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useLocale } from 'next-intl';
 
 async function readError(res: Response) {
   const text = await res.text();
@@ -18,6 +19,7 @@ export default function AdminDiscountsClient({
 }: {
   adminEmail: string;
 }) {
+  const locale = useLocale();
   const [toEmail, setToEmail] = useState("");
   const [percent, setPercent] = useState("10"); // string, entero
   const [busy, setBusy] = useState(false);
@@ -45,7 +47,7 @@ export default function AdminDiscountsClient({
 
     setBusy(true);
     try {
-      const res = await fetch("/api/admin/discounts/create", {
+      const res = await fetch(`/${locale}/api/admin/discounts/create`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

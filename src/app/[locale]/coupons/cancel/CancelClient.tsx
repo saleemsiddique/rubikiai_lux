@@ -4,13 +4,16 @@
 import React from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { useLocale, useTranslations } from 'next-intl';
 
 export default function CancelClient() {
+  const locale = useLocale();
+  const t = useTranslations('paymentPages');
   const searchParams = useSearchParams();
   const orderId = searchParams?.get("orderId") ?? undefined;
   const reason = (searchParams?.get("reason") ?? "cancelled").toLowerCase();
 
-  const { title, message } = getCopy(reason);
+  const { title, message } = getCopy(reason, t);
 
   return (
     <div className="flex flex-col items-center text-center gap-6">
@@ -30,12 +33,12 @@ export default function CancelClient() {
 
       <p className="max-w-xl text-sm md:text-base" style={{ color: "var(--color-text)" }}>
         {message}
-        {orderId ? " — Order ID: " : ""}
+        {orderId ? ` — ${t('orderId')} ` : ""}
         {orderId && <span className="font-mono ml-1" style={{ color: "var(--color-highlight)" }}>{orderId}</span>}
       </p>
 
       <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
-        <Link href="/coupons" className="block">
+        <Link href={`/${locale}/coupons`} className="block">
           <button
             className="w-full py-3 rounded-lg font-semibold"
             style={{
@@ -44,82 +47,82 @@ export default function CancelClient() {
               boxShadow: "0 6px 18px rgba(143,110,82,0.12)",
             }}
           >
-            Try again
+            {t('tryAgain')}
           </button>
         </Link>
 
-        <Link href="/" className="block">
+        <Link href={`/${locale}`} className="block">
           <button
             className="w-full py-3 rounded-lg border font-semibold"
             style={{ borderColor: "var(--color-primary)", color: "var(--color-primary-dark)", background: "transparent" }}
           >
-            Back to home
+            {t('backToHome')}
           </button>
         </Link>
       </div>
 
       <div className="text-xs text-gray-500 mt-3">
         <p style={{ color: "var(--color-text)" }}>
-          Need help?{" "}
+          {t('needHelp')}{" "}
           <Link
-            href="/contact"
+            href={`/${locale}/contact`}
             className="inline-block"
             style={{ color: "var(--color-primary-dark)", fontWeight: 600 }}
           >
-            Contact us
+            {t('contactUs')}
           </Link>
         </p>
       </div>
 
       <div className="mt-4 w-full text-center text-xs text-gray-400">
-        <p>If a charge was created, it will not be captured. If you have questions about a pending authorization on your card, please contact support.</p>
+        <p>{t('noChargeInfo')}</p>
       </div>
     </div>
   );
 }
 
-function getCopy(reason: string) {
+function getCopy(reason: string, t: any) {
   switch (reason) {
     case "missing_order":
       return {
-        title: "Order not found",
-        message: "We could not locate your order information.",
+        title: t('orderNotFound'),
+        message: t('orderNotFoundMessage'),
       };
     case "not_found":
       return {
-        title: "Order not found",
-        message: "The order you tried to access does not exist or has been removed.",
+        title: t('orderNotFound'),
+        message: t('orderDoesNotExist'),
       };
     case "expired":
       return {
-        title: "Checkout session expired",
-        message: "Your payment session expired before completion. No charge was made.",
+        title: t('checkoutExpired'),
+        message: t('sessionExpiredMessage'),
       };
     case "no_payment_intent":
       return {
-        title: "Payment could not be verified",
-        message: "We were unable to verify the payment with Stripe. No charge was made.",
+        title: t('paymentNotVerified'),
+        message: t('paymentNotVerifiedMessage'),
       };
     case "pi_status":
       return {
-        title: "Payment not completed",
-        message: "Your payment did not reach a completed state. Please try again.",
+        title: t('paymentNotCompleted'),
+        message: t('paymentNotCompletedMessage'),
       };
     case "error":
       return {
-        title: "There was a problem",
-        message: "Something went wrong while processing your purchase.",
+        title: t('problemOccurred'),
+        message: t('somethingWentWrong'),
       };
     case "server_error":
       return {
-        title: "Server error",
-        message: "Unexpected error while finalizing your purchase. Please try again.",
+        title: t('serverError'),
+        message: t('unexpectedError'),
       };
     case "cancelled":
     default:
       return {
-        title: "Payment canceled",
-        message: "You have canceled the payment. No charge was made.",
+        title: t('paymentCanceled'),
+        message: t('paymentCanceledMessage'),
       };
   }
 }

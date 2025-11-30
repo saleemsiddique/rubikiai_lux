@@ -4,8 +4,11 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useLocale, useTranslations } from 'next-intl';
 
 export default function ReservationsThanksClient() {
+  const locale = useLocale();
+  const t = useTranslations('paymentPages');
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -23,13 +26,13 @@ export default function ReservationsThanksClient() {
   useEffect(() => {
     (async () => {
       if (!reservationId) {
-        router.replace(`/cancel?reason=missing_reservation`);
+        router.replace(`/${locale}/cancel?reason=missing_reservation`);
         return;
       }
       try {
-        const res = await fetch(`/api/reservation-status?reservationId=${encodeURIComponent(reservationId)}`);
+        const res = await fetch(`/${locale}/api/reservation-status?reservationId=${encodeURIComponent(reservationId)}`);
         if (!res.ok) {
-          router.replace(`/cancel?reservationId=${reservationId}&reason=not_found`);
+          router.replace(`/${locale}/cancel?reservationId=${reservationId}&reason=not_found`);
           return;
         }
         const json = await res.json();
@@ -38,14 +41,14 @@ export default function ReservationsThanksClient() {
         setReservationStatus(reservation.status);
 
         if (reservation.status === "expired") {
-          router.replace(`/cancel?reservationId=${reservationId}&reason=expired`);
+          router.replace(`/${locale}/cancel?reservationId=${reservationId}&reason=expired`);
           return;
         }
 
         if (reservation.expiresAtIso) {
           const expMs = new Date(reservation.expiresAtIso).getTime();
           if (expMs <= Date.now()) {
-            router.replace(`/cancel?reservationId=${reservationId}&reason=expired`);
+            router.replace(`/${locale}/cancel?reservationId=${reservationId}&reason=expired`);
             return;
           }
         }
@@ -53,7 +56,7 @@ export default function ReservationsThanksClient() {
         setLoading(false);
       } catch (err) {
         console.error("Error checking reservation status:", err);
-        router.replace(`/cancel?reservationId=${reservationId}&reason=server_error`);
+        router.replace(`/${locale}/cancel?reservationId=${reservationId}&reason=server_error`);
       }
     })();
     // depend on reservationId and router (router is stable from next/navigation)
@@ -63,7 +66,7 @@ export default function ReservationsThanksClient() {
   if (loading) {
     return (
       <div className="flex flex-col items-center text-center gap-6">
-        <div>Comprobando estado de la reserva…</div>
+        <div>{t('checkingStatus')}</div>
       </div>
     );
   }
@@ -83,42 +86,42 @@ export default function ReservationsThanksClient() {
       </div>
 
       <h1 className="text-3xl md:text-4xl font-extrabold" style={{ color: "var(--color-text)" }}>
-        {reservationStatus === "reserved" ? "¡Reserva confirmada!" : "Reserva en proceso"}
+        {reservationStatus === "reserved" ? t('reservationConfirmed') : t('reservationInProgress')}
       </h1>
 
       <p className="max-w-xl text-sm md:text-base" style={{ color: "var(--color-text)" }}>
         {reservationStatus === "reserved"
-          ? `Gracias por tu reserva en Rubikiai. Hemos recibido tu pago y tu reserva está confirmada.`
-          : `Tu pago está siendo procesado. Recibirás un e-mail cuando la reserva esté confirmada.`}
-        {idToShow ? " — ID: " : ""}
+          ? t('thanksForReservation')
+          : t('paymentBeingProcessed')}
+        {idToShow ? ` — ${t('id')} ` : ""}
         <span className="font-mono ml-1" style={{ color: "var(--color-highlight)" }}>{idToShow}</span>
       </p>
 
-      <div className="w-full flex justify-ceter mt-2">
-        <Link href="/" className="block">
+      <div className="w-full flex justify-center mt-2">
+        <Link href={`/${locale}`} className="block">
           <button
             className="w-full py-3 px-4 rounded-lg border font-semibold"
             style={{ borderColor: "var(--color-primary)", color: "var(--color-primary-dark)", background: "transparent" }}
           >
-            Volver al inicio
+            {t('backToHome')}
           </button>
         </Link>
       </div>
 
       <div className="text-xs text-gray-500 mt-3">
         <p>
-          ¿Necesitas ayuda?{" "}
+          {t('needHelp')}{" "}
           <Link
-            href="/contact"
+            href={`/${locale}/contact`}
             style={{ color: "var(--color-primary-dark)", fontWeight: 600 }}
           >
-            Contáctanos
+            {t('contactUs')}
           </Link>
         </p>
       </div>
 
       <div className="mt-4 w-full text-center text-xs text-gray-400">
-        <p>Recibirás un e-mail con los detalles. Guarda el ID de reserva para cualquier incidencia.</p>
+        <p>{t('emailWithDetails')}</p>
       </div>
     </div>
   );

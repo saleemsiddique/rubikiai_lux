@@ -2,6 +2,7 @@
 import admin, { adminDb } from "@/lib/firebase-admin";
 import { cookies } from "next/headers";
 import { nowInLithuania } from "@/app/[locale]/utils/date-server";
+import { getHouseDisplayName } from "@/lib/houseNames";
 
 function isISO(s: string) {
   const d = new Date(s);
@@ -33,9 +34,15 @@ function toISOIfTimestamp(val: any) {
   return null;
 }
 
-export async function POST(req: Request) {
+export async function POST(
+  req: Request,
+  { params }: { params: Promise<{ locale: string }> }
+) {
   const me = await requireAdmin();
   if (!me) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Extract locale (default to 'lt' for admin operations)
+  const { locale = "lt" } = (await params) || {};
 
   try {
     const body = await req.json();
@@ -349,13 +356,13 @@ export async function POST(req: Request) {
     try {
       const customerEmail = customerObj.email;
       if (customerEmail) {
-        await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
+        await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/${locale}/api/send-email`, {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
             type: "reservation_confirmation",
             to: customerEmail,
-            lang: "en",
+            locale: locale,
             data: {
               reservationId,
               guestName: customerObj.name || customerEmail,
@@ -363,7 +370,7 @@ export async function POST(req: Request) {
               checkIn,
               checkOut,
               nights,
-              roomType: (targetHouseIds.length === 1 ? targetHouseIds[0] : targetHouseIds.join(", ")) || "Accommodation",
+              roomType: getHouseDisplayName(targetHouseIds),
               guests: guestsNum,
               paidNow: payNow,
               payAtArrival: payAtArrival,
@@ -410,12 +417,13 @@ export async function POST(req: Request) {
     try {
       const OWNER_EMAIL = process.env.OWNER_EMAIL;
 
-      await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
+      await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/${locale}/api/send-email`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           type: "owner_reservation_notification",
           to: OWNER_EMAIL,
+          locale: locale,
           data: {
             reservationId,
             guestName: customerObj.name || customerObj.email || "Guest",
@@ -468,10 +476,10 @@ export async function POST(req: Request) {
           const reminderPayload = {
             type: "booking_reminder",
             to: customerEmail,
-            lang: "en",
+            locale: locale,
             data: {
               guestName: customerObj.name || customerEmail.split("@")[0],
-              houseName: targetHouseIds.length === 1 ? targetHouseIds[0] : (targetHouseIds.join(", ") || "Rubikiai Lux"),
+              houseName: getHouseDisplayName(targetHouseIds),
               checkIn,
               checkOut: checkOut || undefined,
               nGuests: guestsNum || 2,
@@ -482,7 +490,7 @@ export async function POST(req: Request) {
 
           console.log("📤 Reminder payload:", JSON.stringify(reminderPayload, null, 2));
 
-          const reminderRes = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
+          const reminderRes = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/${locale}/api/send-email`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify(reminderPayload),

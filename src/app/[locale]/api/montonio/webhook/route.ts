@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import admin, { adminDb as db } from "@/lib/firebase-admin";
 import { jwtVerify } from "jose";
 import { nowInLithuania } from "@/app/[locale]/utils/date-server";
+import { getHouseDisplayName } from "@/lib/houseNames";
 
 const MONTONIO_SECRET_KEY = (
   process.env.MONTONIO_SECRET_KEY ??
@@ -392,6 +393,7 @@ export async function POST(req: Request) {
                 (intent.customer?.arrivalTime || ""),
               comment:
                 fromIntentMeta.comment ?? (intent.customer?.comment || ""),
+              locale: fromIntentMeta.locale ?? intent.locale ?? "lt",
               houseIds: fromIntentMeta.houseIds ?? intent.houseIds,
               app_user_id:
                 fromIntentMeta.app_user_id ??
@@ -482,6 +484,7 @@ export async function POST(req: Request) {
                 arrivalTime:
                   existingMeta.arrivalTime ?? existing?.customer?.arrivalTime,
                 comment: existingMeta.comment ?? existing?.customer?.comment,
+                locale: existingMeta.locale ?? existing.locale ?? "lt",
                 houseIds: existingMeta.houseIds ?? existing.houseIds,
                 app_user_id:
                   existingMeta.app_user_id ??
@@ -719,15 +722,19 @@ export async function POST(req: Request) {
 
         await batch.commit();
 
+        // Extract locale from metadata (defaults to 'lt')
+        const couponLocale = metadataCandidate?.locale || "lt";
+
         // send email with codes (if buyerEmail present)
         if (buyerEmailFinal) {
           try {
-            await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
+            await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/${couponLocale}/api/send-email`, {
               method: "POST",
               headers: { "content-type": "application/json" },
               body: JSON.stringify({
                 type: "coupon_purchase",
                 to: buyerEmailFinal,
+                locale: couponLocale,
                 data: {
                   unitAmount,
                   quantity,
@@ -756,12 +763,13 @@ export async function POST(req: Request) {
         // --- NOTIFY OWNER (USING OWNER_EMAIL ENV) ---
         try {
           if (OWNER_EMAIL) {
-            await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
+            await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/${couponLocale}/api/send-email`, {
               method: "POST",
               headers: { "content-type": "application/json" },
               body: JSON.stringify({
                 type: "owner_coupon_notification",
                 to: OWNER_EMAIL,
+                locale: couponLocale,
                 data: {
                   orderId: orderId,
                   buyerEmail: buyerEmailFinal,
@@ -877,6 +885,7 @@ export async function POST(req: Request) {
       const customerPhoneFromMeta = meta?.customerPhone || "";
       const arrivalTime = meta?.arrivalTime || "";
       const comment = meta?.comment || "";
+      const localeFromMeta = meta?.locale || "lt";
 
       const montonioOrderUuid = uuid || null;
       const montonioNotification = payload;
@@ -1037,6 +1046,8 @@ export async function POST(req: Request) {
       try {
         const customerEmail = customerEmailFromMeta || null;
         if (customerEmail) {
+          console.log(`📧 Montonio webhook: sending confirmation email in locale: ${localeFromMeta}`);
+
           // Usar los campos simplificados que ya calculamos
           const paidNow = Number(meta?.payNow ?? discountedFirst ?? 0);
           const totalStayAmount = Number(
@@ -1054,13 +1065,13 @@ export async function POST(req: Request) {
             discountApplied = Number(meta.percentAmountApplied) || 0;
           }
 
-          await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
+          await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/${localeFromMeta}/api/send-email`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({
               type: "reservation_confirmation",
               to: customerEmail,
-              lang: "en",
+              locale: localeFromMeta,
               data: {
                 reservationId,
                 guestName: customerNameFromMeta || customerEmail,
@@ -1068,10 +1079,7 @@ export async function POST(req: Request) {
                 checkIn,
                 checkOut,
                 nights,
-                roomType:
-                  (houseIds.length === 1
-                    ? houseIds[0]
-                    : meta?.roomType || houseIds.join(", ")) || "Accommodation",
+                roomType: getHouseDisplayName(houseIds),
                 guests: guestsNum,
                 // NUEVOS CAMPOS SIMPLIFICADOS:
                 paidNow,
@@ -1148,12 +1156,13 @@ export async function POST(req: Request) {
                 ? Number(meta?.percentAmountApplied || 0)
                 : 0;
 
-          await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
+          await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/${localeFromMeta}/api/send-email`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({
               type: "owner_reservation_notification",
               to: OWNER_EMAIL,
+              locale: localeFromMeta,
               data: {
                 reservationId,
                 guestName: customerNameFromMeta || customerEmailFromMeta || "Guest",
@@ -1163,10 +1172,7 @@ export async function POST(req: Request) {
                 checkIn,
                 checkOut,
                 nights,
-                roomType:
-                  (houseIds.length === 1
-                    ? houseIds[0]
-                    : meta?.roomType || houseIds.join(", ")) || "Accommodation",
+                roomType: getHouseDisplayName(houseIds),
                 guests: guestsNum,
                 paidNow,
                 payAtArrival: payAtArrivalAmount,
@@ -1226,17 +1232,16 @@ export async function POST(req: Request) {
             const reminderVariant =
               firstHouseId === "L0TeFf2LmrWGAaAyS8NY" ? "A" : "B";
 
-            await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
+            await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/${localeFromMeta}/api/send-email`, {
               method: "POST",
               headers: { "content-type": "application/json" },
               body: JSON.stringify({
                 type: "booking_reminder",
                 to: customerEmail,
-                lang: "en",
+                locale: localeFromMeta,
                 data: {
                   guestName: customerNameFromMeta || customerEmail.split("@")[0],
-                  houseName:
-                    meta?.rawValue || houseIds.join(", ") || "Rubikiai Lux",
+                  houseName: getHouseDisplayName(houseIds),
                   checkIn,
                   checkOut,
                   nGuests: guestsNum,

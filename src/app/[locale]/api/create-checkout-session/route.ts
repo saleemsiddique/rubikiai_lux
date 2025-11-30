@@ -10,6 +10,7 @@ import {
   resolveHouseIds
 } from "@/lib/checkout-utils";
 import { nowInLithuania } from "@/app/[locale]/utils/date-server";
+import { getTranslations } from 'next-intl/server';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY! as string);
 
@@ -179,8 +180,13 @@ async function getOrCreateStripeCustomer(input?: CheckoutBody["customer"]) {
 }
 
 /* ---------------- Handler ---------------- */
-export async function POST(req: Request) {
+export async function POST(
+  req: Request,
+  { params }: { params: Promise<{ locale: string }> }
+) {
   try {
+    const { locale } = await params;
+    const t = await getTranslations({ locale, namespace: 'api.errors' });
     const body = (await req.json()) as CheckoutBody;
     console.debug("create-checkout-session body:", body);
 
@@ -208,7 +214,7 @@ export async function POST(req: Request) {
       endIso = dateIsoLocal(e);
       if (e.getTime() <= s.getTime()) {
         return NextResponse.json(
-          { error: "Invalid date range: end must be after start" },
+          { error: t('invalidDateRange') },
           { status: 400 }
         );
       }
@@ -222,7 +228,7 @@ export async function POST(req: Request) {
 
     if (!houseId && !houseSlug) {
       return NextResponse.json(
-        { error: "Missing params: houseId or houseSlug required" },
+        { error: t('missingParams') },
         { status: 400 }
       );
     }
@@ -246,7 +252,7 @@ export async function POST(req: Request) {
         const coIso = dateIsoLocal(co);
         if (!(coIso <= startIso || ciIso >= endIso)) {
           return NextResponse.json(
-            { error: "Dates already booked" },
+            { error: t('datesAlreadyBooked') },
             { status: 409 }
           );
         }
@@ -259,7 +265,7 @@ export async function POST(req: Request) {
       : 2;
     if (!Number.isFinite(guestsNum) || guestsNum <= 0) {
       return NextResponse.json(
-        { error: "Invalid guests number" },
+        { error: t('invalidGuestsNumber') },
         { status: 400 }
       );
     }
@@ -318,14 +324,14 @@ export async function POST(req: Request) {
       const couponDocId = discount.id || "";
       if (!couponDocId) {
         return NextResponse.json(
-          { error: "Missing coupon id" },
+          { error: t('missingCouponId') },
           { status: 400 }
         );
       }
       const snap = await db.collection("coupons").doc(couponDocId).get();
       if (!snap.exists) {
         return NextResponse.json(
-          { error: "Coupon not found" },
+          { error: t('couponNotFound') },
           { status: 400 }
         );
       }
@@ -335,13 +341,13 @@ export async function POST(req: Request) {
 
       if (status !== "active") {
         return NextResponse.json(
-          { error: "Coupon inactive" },
+          { error: t('couponInactive') },
           { status: 400 }
         );
       }
       if (!Number.isFinite(remaining) || remaining <= 0) {
         return NextResponse.json(
-          { error: "Coupon has no remaining balance" },
+          { error: t('couponNoBalance') },
           { status: 400 }
         );
       }
@@ -349,7 +355,7 @@ export async function POST(req: Request) {
       let proposed = Number(discount.value || 0);
       if (!Number.isFinite(proposed) || proposed <= 0) {
         return NextResponse.json(
-          { error: "Invalid coupon value" },
+          { error: t('invalidCouponValue') },
           { status: 400 }
         );
       }
@@ -368,7 +374,7 @@ export async function POST(req: Request) {
       const percentDocId = discount.id || "";
       if (!percentDocId) {
         return NextResponse.json(
-          { error: "Missing percent discount id" },
+          { error: t('missingDiscountId') },
           { status: 400 }
         );
       }
@@ -378,7 +384,7 @@ export async function POST(req: Request) {
         .get();
       if (!snap.exists) {
         return NextResponse.json(
-          { error: "Percent discount not found" },
+          { error: t('discountNotFound') },
           { status: 400 }
         );
       }
@@ -393,13 +399,13 @@ export async function POST(req: Request) {
 
       if (used) {
         return NextResponse.json(
-          { error: "Discount already used" },
+          { error: t('discountAlreadyUsed') },
           { status: 400 }
         );
       }
       if (!Number.isFinite(pctRaw) || pctRaw <= 0 || pctRaw > 100) {
         return NextResponse.json(
-          { error: "Invalid percent value" },
+          { error: t('invalidPercentValue') },
           { status: 400 }
         );
       }
@@ -407,7 +413,7 @@ export async function POST(req: Request) {
         const expTime = new Date(expStr + "T23:59:59").getTime();
         if (Date.now() > expTime) {
           return NextResponse.json(
-            { error: "Discount expired" },
+            { error: t('discountExpired') },
             { status: 400 }
           );
         }
@@ -445,35 +451,39 @@ export async function POST(req: Request) {
 
       // Basic validations
       if (!Number.isFinite(clientPayNow) || clientPayNow < 0) {
-        return NextResponse.json({ error: "Invalid pricing.payNow" }, { status: 400 });
+        return NextResponse.json({ error: t('invalidPricingPayNow') }, { status: 400 });
       }
       if (!Number.isFinite(clientTotalStay) || clientTotalStay < 0) {
-        return NextResponse.json({ error: "Invalid pricing.totalStay" }, { status: 400 });
+        return NextResponse.json({ error: t('invalidPricingTotal') }, { status: 400 });
       }
       if (clientPayNow > clientTotalStay + 0.001) {
-        return NextResponse.json({ error: "pricing.payNow cannot exceed pricing.totalStay" }, { status: 400 });
+        return NextResponse.json({ error: t('pricingPayNowExceedsTotal') }, { status: 400 });
       }
 
       // --- Reemplazar la validación estricta por una validación tolerante ---
       const ALLOWED_POSITIVE_DELTA = 5.0; // euros permitidos de diferencia positiva (frontend > server)
-      const NEGATIVE_TOLERANCE = 0.99; // si clientTotalStay < grandTotal - 0.99 => rechazamos (cliente intenta pagar menos)
+      const NEGATIVE_TOLERANCE = 0.99; // si clientTotalStay < serverTotal - 0.99 => rechazamos (cliente intenta pagar menos)
 
-      if (clientTotalStay < grandTotal - NEGATIVE_TOLERANCE) {
+      // Calcular el total del servidor DESPUÉS del descuento para comparar correctamente
+      const serverTotalAfterDiscount = round2(grandTotal - effectiveDiscountAmount);
+
+      if (clientTotalStay < serverTotalAfterDiscount - NEGATIVE_TOLERANCE) {
         // Cliente intentando pagar MENOS de lo que el servidor calcula -> reject
         return NextResponse.json(
-          { error: "Client totalStay is lower than server calculated total" },
+          { error: t('priceMismatch') },
           { status: 400 }
         );
       }
 
       // Si clientTotalStay excede al serverGrandTotal por una fracción pequeña, lo aceptamos
       let clientTotalMismatch = false;
-      if (clientTotalStay > grandTotal + ALLOWED_POSITIVE_DELTA) {
+      if (clientTotalStay > serverTotalAfterDiscount + ALLOWED_POSITIVE_DELTA) {
         // Si la diferencia es grande, puedes elegir RECHAZAR en lugar de aceptar.
         // Aquí lo aceptamos pero lo marcamos en metadata para auditoría.
         console.warn("Client totalStay exceeds server calculated total but within tolerance? No: exceeds ALLOWED_POSITIVE_DELTA", {
           clientTotalStay,
-          grandTotal,
+          serverTotalAfterDiscount,
+          effectiveDiscountAmount,
           ALLOWED_POSITIVE_DELTA,
         });
 
@@ -602,9 +612,10 @@ export async function POST(req: Request) {
         customerPhone: customerInput?.phone || "",
         arrivalTime: customerInput?.arrivalTime || "",
         comment: customerInput?.comment || "",
+        locale: locale || "lt",
       },
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/checkout-complete?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: cancelUrl || `${process.env.NEXT_PUBLIC_APP_URL}`,
+      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/${locale}/api/checkout-complete?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: cancelUrl || `${process.env.NEXT_PUBLIC_APP_URL}/${locale}`,
     };
 
     const session = await stripe.checkout.sessions.create(sessionParams, {
@@ -622,6 +633,7 @@ export async function POST(req: Request) {
       effectiveDiscountAmount,
       discountKindForMeta,
       reservationId,
+      locale, // Log locale to verify it's being passed correctly
     });
 
     return NextResponse.json({ url: session.url });

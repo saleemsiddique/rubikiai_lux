@@ -1,6 +1,7 @@
 export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
+import { getTranslations } from 'next-intl/server';
 
 function dateOnlyIso(d: Date) {
   const y = d.getFullYear();
@@ -30,14 +31,19 @@ function toDateOnly(value: any): Date {
   return d;
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ locale: string }> }
+) {
   try {
+    const { locale } = await params;
+    const t = await getTranslations({ locale, namespace: 'api.errors' });
     const body = await req.json();
     const { startDate: startISO, endDate: endISO, guests, propertyType } = body;
     const reqStart = toDateOnly(startISO);
     const reqEnd = toDateOnly(endISO);
     if (!reqStart || !reqEnd)
-      return NextResponse.json({ error: "Invalid dates" }, { status: 400 });
+      return NextResponse.json({ error: t('invalidDates') }, { status: 400 });
 
     let housesQuery = adminDb.collection("houses");
     if (propertyType && propertyType !== "todos") {

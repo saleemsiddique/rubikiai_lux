@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslations } from 'next-intl';
 import { FaCheck } from 'react-icons/fa';
 
 type AmenitiesSection = {
@@ -13,6 +14,7 @@ interface AmenitiesSectionProps {
 }
 
 export default function AmenitiesSection({ amenitiesSections }: AmenitiesSectionProps) {
+  const t = useTranslations('housePage');
   const [visibleCards, setVisibleCards] = useState<number[]>([]);
   const sectionRef = useRef<HTMLDivElement>(null);
 
@@ -63,11 +65,11 @@ export default function AmenitiesSection({ amenitiesSections }: AmenitiesSection
           <div className="inline-block mb-4">
             <div className="h-1 w-20 bg-[#bfa58b] mx-auto mb-4" />
             <h2 className="text-3xl md:text-5xl font-bold font-header text-[#f4efe9]">
-              Amenities
+              {t('amenities')}
             </h2>
           </div>
           <p className="text-[#f4efe9]/80 text-lg mt-4 max-w-2xl mx-auto">
-            Everything you need for a comfortable and memorable stay
+            {t('amenitiesSubtitle')}
           </p>
         </div>
 

@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import Image from 'next/image';
 
 interface ImageGalleryProps {
@@ -10,6 +11,7 @@ interface ImageGalleryProps {
 }
 
 const ImageGallery: React.FC<ImageGalleryProps> = ({ images, initialDisplayCount = 6 }) => {
+  const t = useTranslations('housePage');
   const [displayedCount, setDisplayedCount] = useState(initialDisplayCount);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
   const [imageLoading, setImageLoading] = useState(false);
@@ -58,7 +60,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, initialDisplayCount
   return (
     <div className="py-12">
       <div className="container mx-auto px-4">
-        <h2 className="text-3xl font-bold text-center mb-8 font-header">Gallery</h2>
+        <h2 className="text-3xl font-bold text-center mb-8 font-header">{t('gallery')}</h2>
         
         {/* Mobile: Grid normal con 3 imágenes normales + 1 con botón */}
         <div className="grid grid-cols-1 gap-6 md:hidden">
@@ -89,7 +91,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, initialDisplayCount
                 transition-opacity duration-300
               ">
                 <span className="text-white text-lg font-sans font-semibold">
-                  View image in full size
+                  {t('viewImageFullSize')}
                 </span>
               </div>
             </div>
@@ -124,7 +126,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, initialDisplayCount
                   }}
                   className="bg-[var(--color-primary)] hover:bg-[var(--color-primary-dark)] text-white font-bold py-3 px-8 rounded-full transition-colors font-sans z-10"
                 >
-                  Load more
+                  {t('loadMore')}
                 </button>
               </div>
             </div>
@@ -153,14 +155,14 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, initialDisplayCount
               />
 
               <div className="
-                absolute inset-0 
+                absolute inset-0
                 bg-black/50
                 flex items-center justify-center
                 opacity-0 group-hover:opacity-100
                 transition-opacity duration-300
               ">
                 <span className="text-white text-lg font-sans font-semibold">
-                  View image in full size
+                  {t('viewImageFullSize')}
                 </span>
               </div>
             </div>
@@ -174,7 +176,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, initialDisplayCount
               onClick={() => showMoreImages()}
               className="bg-[var(--color-primary)] hover:bg-[var(--color-primary-dark)] text-white font-bold py-3 px-8 rounded-full transition-colors font-sans"
             >
-              Load more
+              {t('loadMore')}
             </button>
           </div>
         )}

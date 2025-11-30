@@ -11,7 +11,8 @@ import {
   getEmailSubject,
   type EmailLocale
 } from "@/lib/emailTemplates";
-import { DiscountCodeEmailHtml } from "@/app/emails/DiscountCodeEmailHtml";
+import { DiscountCodeEmailHtml } from "@/app/[locale]/emails/DiscountCodeEmailHtml";
+import { getTranslations } from 'next-intl/server';
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -153,14 +154,26 @@ export type SendEmailBody =
     fromName?: string;
   }
 
-export async function POST(req: Request) {
+export async function POST(
+  req: Request,
+  { params }: { params: Promise<{ locale: string }> }
+) {
   try {
+    const { locale: routeLocale } = await params;
+    const t = await getTranslations({ locale: routeLocale, namespace: 'api.errors' });
     const body = (await req.json()) as SendEmailBody;
 
     const accept = (await headers()).get("accept-language") ?? "";
 
-    // Determine locale: prefer explicit locale, fallback to lang mapping, then headers
-    const locale: EmailLocale = body.locale ?? mapLangToLocale(body.lang, accept);
+    // Determine locale: prefer explicit body.locale, then routeLocale from URL, then fallback to lang mapping or headers
+    // This ensures we use the locale from the URL path (e.g., /ru/api/send-email) if body.locale is not provided
+    const locale: EmailLocale =
+      body.locale ??
+      (routeLocale as EmailLocale) ??
+      mapLangToLocale(body.lang, accept);
+
+    // Log locale for debugging email language issues
+    console.log(`📧 Sending ${body.type} email to ${body.to} in locale: ${locale} (body.locale: ${body.locale}, routeLocale: ${routeLocale}, body.lang: ${body.lang})`);
 
     let subject: string;
     let html: string;
@@ -223,9 +236,11 @@ export async function POST(req: Request) {
       case "discount_code": {
         const { code, percent, expiresAt } = body.data;
         subject =
-          lang === "en"
+          locale === "en"
             ? `Your ${percent}% personal discount`
-            : `Tu descuento personal del ${percent}%`;
+            : locale === "ru"
+              ? `Ваша персональная скидка ${percent}%`
+              : `Tavo asmeninė ${percent}% nuolaida`;
 
         html = DiscountCodeEmailHtml({
           code,
@@ -274,7 +289,7 @@ export async function POST(req: Request) {
         subject = `New reservation: ${d.reservationId}`;
         // importa la plantilla:
         const { OwnerReservationNotificationEmailHtmlEN } = await import(
-          "@/app/emails/OwnerReservationNotificationEmailHtmlEN"
+          "@/app/[locale]/emails/OwnerReservationNotificationEmailHtmlEN"
         );
         html = OwnerReservationNotificationEmailHtmlEN({
           ...d,
@@ -287,7 +302,7 @@ export async function POST(req: Request) {
         const d = body.data;
         subject = `Coupon purchase: ${d.orderId || "order"}`;
         const { OwnerCouponPurchaseEmailHtmlEN } = await import(
-          "@/app/emails/OwnerCouponPurchaseEmailHtmlEN"
+          "@/app/[locale]/emails/OwnerCouponPurchaseEmailHtmlEN"
         );
         html = OwnerCouponPurchaseEmailHtmlEN({
           ...d,
@@ -325,7 +340,7 @@ export async function POST(req: Request) {
 
       default:
         return NextResponse.json(
-          { error: "Tipo de email no válido" },
+          { error: t('invalidEmailType') },
           { status: 400 }
         );
     }

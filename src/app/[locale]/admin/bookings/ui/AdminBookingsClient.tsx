@@ -4,6 +4,7 @@
 import { useRouter } from "next/navigation";
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocale } from 'next-intl';
+import { useParams } from "next/navigation";
 
 type Reservation = {
     id: string;
@@ -189,6 +190,9 @@ function PriceSummaryBlock({
     const [priceData, setPriceData] = useState<any | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+
+    const { locale } = useParams();
 
     useEffect(() => {
         const fetchPrice = async () => {

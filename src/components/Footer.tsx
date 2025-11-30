@@ -63,18 +63,22 @@ const Footer: React.FC = () => {
               </Link>
               <Link
                 href={`/${locale}/house-rules`}
-                className="text-[var(--color-primary)] hover:text-white hover:translate-x-1 transition-all duration-200 font-normal flex items-center group"
+                className={`text-[var(--color-primary)] hover:text-white hover:translate-x-1 transition-all duration-200 font-normal flex items-center group ${locale === 'lt' || locale == 'ru'? 'text-sm' : ''
+                  }`}
               >
                 <span className="opacity-0 group-hover:opacity-100 transition-opacity mr-1">→</span>
                 {t('houseRules')}
               </Link>
+
               <Link
                 href={`/${locale}/privacy-policy`}
-                className={`text-[var(--color-primary)] hover:text-white hover:translate-x-1 transition-all duration-200 font-normal flex items-center group ${locale === 'ru' ? 'text-sm' : ''}`}
+                className={`text-[var(--color-primary)] hover:text-white hover:translate-x-1 transition-all duration-200 font-normal flex items-center group ${locale === 'lt' || locale == 'ru' ? 'text-sm' : ''
+                  }`}
               >
                 <span className="opacity-0 group-hover:opacity-100 transition-opacity mr-1">→</span>
                 {t('privacyPolicy')}
               </Link>
+
               <Link
                 href={`/${locale}/faq`}
                 className="text-[var(--color-primary)] hover:text-white hover:translate-x-1 transition-all duration-200 font-normal flex items-center group"
@@ -131,11 +135,10 @@ const Footer: React.FC = () => {
               <button
                 key={loc}
                 onClick={() => switchLanguage(loc)}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                  locale === loc
-                    ? 'bg-[var(--color-primary)] text-white shadow-lg'
-                    : 'text-gray-300 hover:text-white hover:bg-white/10'
-                }`}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${locale === loc
+                  ? 'bg-[var(--color-primary)] text-white shadow-lg'
+                  : 'text-gray-300 hover:text-white hover:bg-white/10'
+                  }`}
                 aria-label={`Switch to ${localeNames[loc as keyof typeof localeNames]}`}
               >
                 {localeNames[loc as keyof typeof localeNames]}

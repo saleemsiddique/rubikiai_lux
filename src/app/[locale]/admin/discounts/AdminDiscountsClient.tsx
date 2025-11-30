@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 
 async function readError(res: Response) {
   const text = await res.text();
@@ -19,6 +19,7 @@ export default function AdminDiscountsClient({
 }: {
   adminEmail: string;
 }) {
+  const t = useTranslations('admin');
   const locale = useLocale();
   const [toEmail, setToEmail] = useState("");
   const [percent, setPercent] = useState("10"); // string, entero
@@ -31,7 +32,7 @@ export default function AdminDiscountsClient({
     // Validaciones básicas en cliente
     const pInt = parseInt(percent, 10);
     if (!toEmail.trim()) {
-      setMsg("Falta el email destino.");
+      setMsg(t('discounts.errors.missingEmail'));
       return;
     }
     if (
@@ -41,7 +42,7 @@ export default function AdminDiscountsClient({
       String(pInt) !== percent.trim()
     ) {
       // también validamos que no meta decimales tipo "10.5"
-      setMsg("El porcentaje debe ser un entero entre 1 y 100.");
+      setMsg(t('discounts.errors.invalidPercent'));
       return;
     }
 
@@ -64,16 +65,9 @@ export default function AdminDiscountsClient({
 
       const data = await res.json();
       if (data.warning) {
-        setMsg(
-          `Código creado (${data.id}) pero el email NO se pudo enviar automáticamente.\n` +
-            `Revisa percentage_discounts en Firestore.`
-        );
+        setMsg(t('discounts.warning', { id: data.id }));
       } else {
-        setMsg(
-          `Descuento creado y enviado correctamente a ${toEmail}. ID: ${
-            data.id || "?"
-          }`
-        );
+        setMsg(t('discounts.success', { email: toEmail, id: data.id || "?" }));
       }
 
       // podríamos limpiar email/percent si quieres:
@@ -81,7 +75,7 @@ export default function AdminDiscountsClient({
       // setPercent("10");
     } catch (e: any) {
       console.error("discount create error:", e);
-      setMsg(`Error: ${e?.message || "No se pudo enviar"}`);
+      setMsg(t('discounts.errorSending', { message: e?.message || "No se pudo enviar" }));
     } finally {
       setBusy(false);
     }
@@ -94,12 +88,12 @@ export default function AdminDiscountsClient({
           {/* Email destino */}
           <div className="flex flex-col">
             <label className="text-xs text-neutral-600 font-medium">
-              Email destino
+              {t('discounts.destinationEmail')}
             </label>
             <input
               type="email"
               className="mt-1 border rounded-md p-2 text-sm"
-              placeholder="cliente@example.com"
+              placeholder={t('discounts.destinationEmailPlaceholder')}
               value={toEmail}
               onChange={(e) => setToEmail(e.target.value)}
             />
@@ -108,7 +102,7 @@ export default function AdminDiscountsClient({
           {/* % Descuento */}
           <div className="flex flex-col">
             <label className="text-xs text-neutral-600 font-medium">
-              % Descuento
+              {t('discounts.percentDiscount')}
             </label>
             <input
               type="number"
@@ -133,7 +127,7 @@ export default function AdminDiscountsClient({
               }}
             />
             <div className="text-[11px] text-neutral-500 mt-1">
-              Ej: 5, 10, 20… (máx 100%)
+              {t('discounts.percentHelp')}
             </div>
           </div>
         </div>
@@ -144,7 +138,7 @@ export default function AdminDiscountsClient({
             onClick={handleSend}
             className="rounded-md bg-[var(--color-primary)] text-white px-4 py-2 text-sm font-semibold hover:opacity-95 disabled:opacity-60"
           >
-            {busy ? "Enviando…" : "Crear y enviar descuento"}
+            {busy ? t('discounts.sending') : t('discounts.createAndSend')}
           </button>
 
           {msg && (

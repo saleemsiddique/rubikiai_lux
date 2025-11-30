@@ -591,5 +591,333 @@
     "confirmationTakingLonger": "Подтверждение занимает больше времени, чем ожидалось",
     "errorVerifyingReservation": "Ошибка при проверке статуса бронирования",
     "errorValidatingPayment": "Ошибка при проверке платежа"
+  },
+  "admin": {
+    "common": {
+      "back": "Назад",
+      "refresh": "Обновить",
+      "loading": "Загрузка…",
+      "saving": "Сохранение…",
+      "searching": "Поиск…",
+      "creating": "Создание…",
+      "all": "Все",
+      "search": "Поиск",
+      "clear": "Очистить",
+      "save": "Сохранить",
+      "saveChanges": "Сохранить изменения",
+      "undoChanges": "Отменить изменения",
+      "cancel": "Отмена",
+      "edit": "Редактировать",
+      "delete": "Удалить",
+      "apply": "Применить",
+      "lookup": "Просмотреть",
+      "create": "Создать",
+      "filter": "Фильтр",
+      "status": "Статус",
+      "from": "От",
+      "to": "До",
+      "house": "Дом",
+      "allHouses": "(Все)",
+      "results": "Результаты",
+      "total": "всего",
+      "noResults": "Нет результатов",
+      "closedSession": "Сессия закрыта"
+    },
+    "login": {
+      "title": "Вход администратора",
+      "subtitle": "Доступ только для администраторов.",
+      "email": "Эл. почта",
+      "password": "Пароль",
+      "rememberMe": "Запомнить меня (14 дней)",
+      "signIn": "Войти",
+      "signingIn": "Вход…",
+      "reasonLogin": "Пожалуйста, войдите, чтобы продолжить.",
+      "reasonForbidden": "Доступ запрещен. Ваш пользователь не является администратором.",
+      "reasonExpired": "Сессия истекла. Пожалуйста, войдите снова."
+    },
+    "menu": {
+      "title": "Администратор · Меню",
+      "reservations": "Бронирования",
+      "reservationsDesc": "Управление бронированиями",
+      "coupons": "Баланс купонов €",
+      "couponsDesc": "Создание и редактирование подарочных купонов",
+      "discounts": "% Прямые скидки",
+      "discountsDesc": "Отправить личный код с % и сроком действия",
+      "revenue": "Доход",
+      "revenueDesc": "Бронирования + купоны · экспорт в Excel",
+      "houses": "Дома",
+      "housesDesc": "Цены за день · информация",
+      "sessionOf": "Сессия:"
+    },
+    "bookings": {
+      "title": "Бронирования",
+      "filters": {
+        "status": "Статус",
+        "multiSelectHelp": "Ctrl/Cmd для множественного выбора"
+      },
+      "table": {
+        "dates": "Даты",
+        "customer": "Клиент",
+        "guests": "Гости",
+        "paid": "Оплачено",
+        "extraGuests": "дополн.",
+        "fullyPaid": "Полностью оплачено",
+        "nights": "н"
+      },
+      "calendar": {
+        "title": "Общий календарь",
+        "prevMonth": "Предыдущий месяц",
+        "nextMonth": "Следующий месяц",
+        "mon": "Пн",
+        "tue": "Вт",
+        "wed": "Ср",
+        "thu": "Чт",
+        "fri": "Пт",
+        "sat": "Сб",
+        "sun": "Вс",
+        "reservationsOn": "Бронирования на"
+      },
+      "block": {
+        "title": "Заблокировать даты",
+        "customerInfo": "Информация о клиенте *",
+        "name": "Имя *",
+        "namePlaceholder": "Имя клиента",
+        "email": "Эл. почта *",
+        "emailPlaceholder": "email@example.com",
+        "phone": "Телефон",
+        "phonePlaceholder": "+34 600 000 000",
+        "arrivalTime": "Время прибытия",
+        "comment": "Комментарий",
+        "commentPlaceholder": "Дополнительные комментарии",
+        "extras": "Дополнительно",
+        "discount": "Скидка (опционально)",
+        "discountPlaceholder": "Введите код скидки",
+        "dualBookingInfo": "ℹ️ Для 5+ гостей необходимо забронировать оба дуплекса вместе",
+        "dualBookingRequired": "(для 5+ гостей требуется двойное бронирование)",
+        "blocking": "Блокировка…",
+        "block": "Заблокировать",
+        "datesBlockedSuccess": "Даты успешно заблокированы.",
+        "errors": {
+          "selectHouse": "Вы должны выбрать дом для блокировки.",
+          "invalidDateRange": "Неверный диапазон дат.",
+          "datesInPast": "Вы не можете блокировать даты в прошлом.",
+          "guestsRequired": "Количество гостей обязательно (минимум 1).",
+          "nameRequired": "Имя клиента обязательно.",
+          "emailRequired": "Эл. почта клиента обязательна.",
+          "conflict": "Выбранные даты пересекаются с существующим бронированием (reserved / complete / admin)."
+        }
+      },
+      "priceSummary": {
+        "title": "Сводка бронирования",
+        "accommodation": "Размещение",
+        "extraGuestsIncluded": "Дополнительные гости ({count})",
+        "includedInTotal": "Включено в общую сумму",
+        "total": "Всего",
+        "discountApplied": "Скидка применена",
+        "totalAfterDiscount": "Всего после скидки",
+        "reservationFee": "Сбор за бронирование (оплатить сейчас)",
+        "payAtArrival": "Оплатить при прибытии",
+        "loadingPrice": "Загрузка сводки цен...",
+        "errorCalculating": "Ошибка расчета цены:"
+      },
+      "actions": {
+        "markPaidComplete": "Отметить как полностью оплаченное и завершенное?",
+        "cancelReservation": "Отменить бронирование?",
+        "adminBlocksCannotComplete": "Блоки администратора не могут быть завершены"
+      }
+    },
+    "houses": {
+      "title": "Выберите дом",
+      "filterPlaceholder": "Название, псевдоним, id…",
+      "loading": "Загрузка домов…",
+      "noMatches": "Не найдено соответствующих домов.",
+      "noName": "(Без названия)",
+      "backToList": "Вернуться к списку",
+      "selectHouseToEdit": "Выберите дом из списка для редактирования цен.",
+      "loadingHouse": "Загрузка дома…",
+      "basicInfo": {
+        "name": "Название",
+        "type": "Тип",
+        "aliasId": "Псевдоним / ID",
+        "capacity": "Вместимость"
+      },
+      "basePrices": {
+        "title": "Базовые цены по дням недели",
+        "subtitle": "Эти цены используются, когда нет активного сезона",
+        "monday": "Понедельник",
+        "tuesday": "Вторник",
+        "wednesday": "Среда",
+        "thursday": "Четверг",
+        "friday": "Пятница",
+        "saturday": "Суббота",
+        "sunday": "Воскресенье",
+        "successMessage": "Базовые цены успешно обновлены."
+      },
+      "seasons": {
+        "title": "Сезоны",
+        "subtitle": "Определите периоды с конкретными ценами. Даты, не попадающие ни в один сезон, будут использовать базовые цены.",
+        "new": "Новый сезон",
+        "editing": "Редактирование сезона",
+        "name": "Название *",
+        "namePlaceholder": "напр.: Высокий сезон",
+        "startDate": "Дата начала *",
+        "endDate": "Дата окончания *",
+        "weekdayPrices": "Цены по дням недели",
+        "createSeason": "Создать сезон",
+        "updateSeason": "Обновить сезон",
+        "cancelEdit": "Отменить редактирование",
+        "noPricesDefined": "Не определено",
+        "successCreated": "Сезон успешно создан.",
+        "successUpdated": "Сезон успешно обновлен.",
+        "successDeleted": "Сезон успешно удален.",
+        "confirmDelete": "Удалить этот сезон?"
+      },
+      "specialPrices": {
+        "title": "Специальные цены",
+        "subtitle": "Переопределить цены сезона и базовые цены для конкретных дней",
+        "range": {
+          "title": "Применить к диапазону дат",
+          "from": "От",
+          "to": "До",
+          "pricePerNight": "Цена €/ночь",
+          "applyRange": "Применить диапазон",
+          "clear": "Очистить",
+          "applyingRange": "Применение…"
+        },
+        "singleDay": {
+          "title": "Настроить конкретный день",
+          "date": "Дата",
+          "pricePerNight": "Цена €/ночь",
+          "saveDay": "Сохранить день",
+          "clear": "Очистить",
+          "savingDay": "Сохранение…"
+        },
+        "configuredDates": "Настроенные даты",
+        "noSpecialPrices": "Нет специальных цен.",
+        "successSaved": "Специальная цена сохранена.",
+        "successDeleted": "Специальная(-ые) цена(-ы) удалена(-ы).",
+        "deleteError": "Не удалось удалить день",
+        "invalidDateFormat": "Дата должна быть в формате YYYY-MM-DD.",
+        "invalidRangeDateFormat": "Даты диапазона должны быть в формате YYYY-MM-DD.",
+        "invalidPrice": "Цена должна быть числом ≥ 0."
+      },
+      "images": {
+        "title": "Изображения"
+      }
+    },
+    "coupons": {
+      "title": "Код купона",
+      "searchPlaceholder": "ABCD-EFGH",
+      "type": {
+        "title": "Тип",
+        "valueCoupon": "Купон на сумму",
+        "percentDiscount": "Процентная скидка"
+      },
+      "state": {
+        "title": "Состояние",
+        "active": "Активен",
+        "used": "Использован",
+        "expired": "Истек",
+        "disabled": "Неактивен",
+        "system": "Система:"
+      },
+      "code": "Код",
+      "order": "Заказ:",
+      "amounts": {
+        "title": "Суммы",
+        "original": "Исходная:",
+        "expires": "Истекает:",
+        "purchased": "Куплен:"
+      },
+      "additionalInfo": {
+        "title": "Дополнительная информация",
+        "buyer": "Покупатель:",
+        "orderId": "ID заказа:"
+      },
+      "editBalance": {
+        "title": "Редактировать доступный баланс",
+        "currentBalance": "Текущий баланс",
+        "newBalance": "Новый баланс",
+        "successMessage": "Баланс успешно обновлен."
+      },
+      "discount": {
+        "title": "Скидка",
+        "onTotal": "От общей суммы бронирования"
+      },
+      "expiration": "Срок действия",
+      "noExpiration": "Без срока действия",
+      "usage": {
+        "title": "Использование",
+        "alreadyUsed": "Уже использован",
+        "available": "Доступен"
+      },
+      "percentNote": "Купоны с процентной скидкой не имеют редактируемого баланса. Они могут быть использованы только один раз.",
+      "errors": {
+        "enterCode": "Введите код купона",
+        "notFound": "Купон не найден",
+        "enterNumericValue": "Введите числовое значение.",
+        "balanceGreaterZero": "Баланс должен быть числом больше или равным 0."
+      }
+    },
+    "discounts": {
+      "title": "Создать и отправить скидку",
+      "destinationEmail": "Эл. почта получателя",
+      "destinationEmailPlaceholder": "client@example.com",
+      "percentDiscount": "% Скидка",
+      "percentHelp": "Напр.: 5, 10, 20… (макс. 100%)",
+      "createAndSend": "Создать и отправить скидку",
+      "sending": "Отправка…",
+      "errors": {
+        "missingEmail": "Отсутствует эл. почта получателя.",
+        "invalidPercent": "Процент должен быть целым числом от 1 до 100."
+      },
+      "success": "Скидка успешно создана и отправлена на {email}. ID: {id}",
+      "warning": "Код создан ({id}), но письмо НЕ УДАЛОСЬ отправить автоматически.\nПроверьте percentage_discounts в Firestore.",
+      "errorSending": "Ошибка: {message}"
+    },
+    "revenue": {
+      "title": "Доход",
+      "filters": {
+        "from": "От",
+        "to": "До",
+        "house": "Дом (опционально)",
+        "reservationStates": "Статусы бронирований:",
+        "exportExcel": "Экспорт в Excel"
+      },
+      "tabs": {
+        "all": "Все",
+        "reservations": "Бронирования",
+        "coupons": "Купоны"
+      },
+      "summary": {
+        "reservations": "Бронирования",
+        "reservationsCount": "{count} бронирований(-я)",
+        "totalContracted": "Всего по договору:",
+        "collectedNow": "Собрано сейчас:",
+        "pendingArrival": "Ожидается (при прибытии):",
+        "coupons": "Купоны",
+        "ordersCount": "{count} заказов(-а)",
+        "couponRevenue": "Доход от купонов:",
+        "combined": "Комбинированный",
+        "collectedLabel": "Собрано сейчас:",
+        "contractual": "По договору:",
+        "pending": "Ожидается:"
+      },
+      "table": {
+        "reservations": "Бронирования",
+        "dates": "Даты",
+        "guests": "Гости",
+        "totalContract": "Всего по договору",
+        "collected": "Собрано",
+        "pending": "Ожидается",
+        "payment": "Оплата",
+        "couponsSold": "Проданные купоны",
+        "date": "Дата",
+        "buyer": "Покупатель",
+        "quantity": "Количество",
+        "unit": "Единица",
+        "revenue": "Доход"
+      }
+    }
   }
 }

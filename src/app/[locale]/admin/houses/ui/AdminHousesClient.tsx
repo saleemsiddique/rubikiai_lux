@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 
 type Weekday =
   | "monday"
@@ -35,15 +35,18 @@ type House = HouseListItem & {
   specialPrices?: Record<string, number>;
 };
 
-const WEEK_LABEL: Record<Weekday, string> = {
-  monday: "Lunes",
-  tuesday: "Martes",
-  wednesday: "Miércoles",
-  thursday: "Jueves",
-  friday: "Viernes",
-  saturday: "Sábado",
-  sunday: "Domingo",
-};
+// Esta función se define en el componente para acceder a las traducciones
+function getWeekLabel(t: any): Record<Weekday, string> {
+  return {
+    monday: t('houses.basePrices.monday'),
+    tuesday: t('houses.basePrices.tuesday'),
+    wednesday: t('houses.basePrices.wednesday'),
+    thursday: t('houses.basePrices.thursday'),
+    friday: t('houses.basePrices.friday'),
+    saturday: t('houses.basePrices.saturday'),
+    sunday: t('houses.basePrices.sunday'),
+  };
+}
 
 async function readError(res: Response) {
   const text = await res.text();
@@ -67,6 +70,7 @@ function formatDateToDisplay(isoDate: string): string {
 }
 
 export default function AdminHousesClient() {
+  const t = useTranslations('admin');
   const locale = useLocale();
   // ===== LISTA Y FILTRO =====
   const [list, setList] = useState<HouseListItem[]>([]);
@@ -303,11 +307,11 @@ export default function AdminHousesClient() {
             ? String(updated.pricePerNight.sunday)
             : "",
       });
-      setSaveMsg("Precios base actualizados correctamente.");
+      setSaveMsg(t('houses.basePrices.successMessage'));
     } catch (e: any) {
       console.error("[admin/houses] save error:", e);
       setSaveMsg(
-        `Error: ${e?.message || "No se pudo guardar"}`
+        `Error: ${e?.message || t('common.saving')}`
       );
     } finally {
       setSaving(false);
@@ -323,7 +327,7 @@ export default function AdminHousesClient() {
     const end = seasonEnd.trim();
 
     if (!name) {
-      setSeasonMsg("Debes proporcionar un nombre para la temporada.");
+      setSeasonMsg(t('houses.seasons.name'));
       return;
     }
     if (!isValidISODate(start) || !isValidISODate(end)) {
@@ -369,8 +373,8 @@ export default function AdminHousesClient() {
       setHouse(updated);
       setSeasonMsg(
         editingSeasonIndex !== null
-          ? "Temporada actualizada correctamente."
-          : "Temporada creada correctamente."
+          ? t('houses.seasons.successUpdated')
+          : t('houses.seasons.successCreated')
       );
 
       // Limpiar el formulario
@@ -398,7 +402,7 @@ export default function AdminHousesClient() {
   // ===== ELIMINAR TEMPORADA =====
   const handleDeleteSeason = useCallback(async (index: number) => {
     if (!house) return;
-    if (!confirm(`¿Eliminar esta temporada?`)) return;
+    if (!confirm(t('houses.seasons.confirmDelete'))) return;
 
     try {
       setSeasonSaving(true);
@@ -414,7 +418,7 @@ export default function AdminHousesClient() {
       if (!res.ok) throw new Error(await readError(res));
       const updated: House = await res.json();
       setHouse(updated);
-      setSeasonMsg("Temporada eliminada correctamente.");
+      setSeasonMsg(t('houses.seasons.successDeleted'));
     } catch (e: any) {
       console.error("[admin/houses] season delete error:", e);
       setSeasonMsg(`Error: ${e?.message || "No se pudo eliminar la temporada"}`);
@@ -498,13 +502,13 @@ export default function AdminHousesClient() {
     if (!house) return;
     if (!isValidISODate(rangeStart) || !isValidISODate(rangeEnd)) {
       setSpecialMsg(
-        "Las fechas del rango deben tener formato YYYY-MM-DD."
+        t('houses.specialPrices.invalidRangeDateFormat')
       );
       return;
     }
     const num = Number(rangePrice.trim().replace(",", "."));
     if (!Number.isFinite(num) || num < 0) {
-      setSpecialMsg("El precio debe ser un número ≥ 0.");
+      setSpecialMsg(t('houses.specialPrices.invalidPrice'));
       return;
     }
 
@@ -516,17 +520,17 @@ export default function AdminHousesClient() {
           price: num,
         },
       },
-      "Precio especial guardado.",
-      "No se pudo guardar el rango"
+      t('houses.specialPrices.successSaved'),
+      t('houses.specialPrices.applyingRange')
     );
-  }, [house, rangeStart, rangeEnd, rangePrice, postSpecialPrices]);
+  }, [house, rangeStart, rangeEnd, rangePrice, postSpecialPrices, t]);
 
   // ===== ELIMINAR RANGO =====
   const handleDeleteRange = useCallback(() => {
     if (!house) return;
     if (!isValidISODate(rangeStart) || !isValidISODate(rangeEnd)) {
       setSpecialMsg(
-        "Las fechas del rango deben tener formato YYYY-MM-DD."
+        t('houses.specialPrices.invalidRangeDateFormat')
       );
       return;
     }
@@ -538,10 +542,10 @@ export default function AdminHousesClient() {
           end: rangeEnd,
         },
       },
-      "Precio(s) especial(es) eliminado(s).",
-      "No se pudo eliminar el rango"
+      t('houses.specialPrices.successDeleted'),
+      t('houses.specialPrices.applyingRange')
     );
-  }, [house, rangeStart, rangeEnd, postSpecialPrices]);
+  }, [house, rangeStart, rangeEnd, postSpecialPrices, t]);
 
   // ===== GUARDAR DÍA INDIVIDUAL =====
   const handleSaveSingleDay = useCallback(() => {
@@ -550,12 +554,12 @@ export default function AdminHousesClient() {
     const raw = specialPrice.trim();
 
     if (!isValidISODate(d)) {
-      setSpecialMsg("La fecha debe tener formato YYYY-MM-DD.");
+      setSpecialMsg(t('houses.specialPrices.invalidDateFormat'));
       return;
     }
     const num = Number(raw.replace(",", "."));
     if (!Number.isFinite(num) || num < 0) {
-      setSpecialMsg("El precio debe ser un número ≥ 0.");
+      setSpecialMsg(t('houses.specialPrices.invalidPrice'));
       return;
     }
 
@@ -563,19 +567,19 @@ export default function AdminHousesClient() {
       {
         upsert: { [d]: num },
       },
-      "Precio especial guardado.",
-      "No se pudo guardar el día"
+      t('houses.specialPrices.successSaved'),
+      t('houses.specialPrices.savingDay')
     );
 
     setSpecialPrice("");
-  }, [house, specialDate, specialPrice, postSpecialPrices]);
+  }, [house, specialDate, specialPrice, postSpecialPrices, t]);
 
   // ===== ELIMINAR DÍA INDIVIDUAL =====
   const handleDeleteSingleDay = useCallback(() => {
     if (!house) return;
     const d = specialDate.trim();
     if (!isValidISODate(d)) {
-      setSpecialMsg("La fecha debe tener formato YYYY-MM-DD.");
+      setSpecialMsg(t('houses.specialPrices.invalidDateFormat'));
       return;
     }
 
@@ -583,10 +587,10 @@ export default function AdminHousesClient() {
       {
         delete: [d],
       },
-      "Precio(s) especial(es) eliminado(s).",
-      "No se pudo eliminar el día"
+      t('houses.specialPrices.successDeleted'),
+      t('houses.specialPrices.savingDay')
     );
-  }, [house, specialDate, postSpecialPrices]);
+  }, [house, specialDate, postSpecialPrices, t]);
 
   return (
     <div className="mt-4 md:mt-6">
@@ -628,14 +632,14 @@ export default function AdminHousesClient() {
           className={`bg-white border rounded-xl p-4 lg:col-span-1 ${showEditor && house ? "hidden lg:block" : "block"
             }`}
         >
-          <div className="text-sm font-semibold">Selecciona una casa</div>
+          <div className="text-sm font-semibold">{t('houses.title')}</div>
 
           <div className="mt-2">
-            <label className="block text-xs text-neutral-600">Filtrar</label>
+            <label className="block text-xs text-neutral-600">{t('common.filter')}</label>
             <input
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              placeholder="Nombre, alias, id…"
+              placeholder={t('houses.filterPlaceholder')}
               className="w-full mt-1 p-2 rounded-md border text-base"
             />
           </div>
@@ -648,11 +652,11 @@ export default function AdminHousesClient() {
 
           <div className="mt-3 max-h-[calc(100vh-16rem)] lg:max-h-[28rem] overflow-auto divide-y">
             {listLoading && (
-              <div className="text-sm text-neutral-500">Cargando casas…</div>
+              <div className="text-sm text-neutral-500">{t('houses.loading')}</div>
             )}
             {!listLoading && filtered.length === 0 && (
               <div className="text-sm text-neutral-500">
-                No hay casas que coincidan.
+                {t('houses.noMatches')}
               </div>
             )}
             {filtered.map((h) => {
@@ -669,7 +673,7 @@ export default function AdminHousesClient() {
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-medium text-sm md:text-base">
-                      {h.name || "(Sin nombre)"}
+                      {h.name || t('houses.noName')}
                     </span>
                     {typeof h.maxGuests === "number" && (
                       <span className="text-xs text-neutral-500 whitespace-nowrap">
@@ -695,11 +699,11 @@ export default function AdminHousesClient() {
           <div className="bg-white border rounded-xl p-3 md:p-4">
             {!house && !loading && (
               <div className="text-neutral-600 text-sm">
-                Selecciona una casa en la lista para editar sus precios.
+                {t('houses.selectHouseToEdit')}
               </div>
             )}
             {loading && (
-              <div className="text-neutral-600 text-sm">Cargando casa…</div>
+              <div className="text-neutral-600 text-sm">{t('houses.loadingHouse')}</div>
             )}
             {loadError && (
               <div className="text-sm text-red-600 whitespace-pre-wrap mt-1">
@@ -727,21 +731,21 @@ export default function AdminHousesClient() {
                       d="M15 19l-7-7 7-7"
                     />
                   </svg>
-                  Volver a la lista
+                  {t('houses.backToList')}
                 </button>
 
                 {/* === Info básica === */}
                 <div className="p-3 md:p-4 rounded-xl border bg-white grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
                   <div>
                     <div className="text-xs uppercase tracking-wider text-neutral-600">
-                      Nombre
+                      {t('houses.basicInfo.name')}
                     </div>
                     <div className="mt-1 font-semibold text-sm md:text-base break-words">
                       {house.name}
                     </div>
                     {house.type && (
                       <div className="text-xs text-neutral-500 mt-1">
-                        Tipo: {house.type}
+                        {t('houses.basicInfo.type')}: {house.type}
                       </div>
                     )}
                   </div>
@@ -805,7 +809,7 @@ export default function AdminHousesClient() {
                       disabled={saving}
                       className="rounded-md bg-[var(--color-primary)] text-white px-4 py-2 text-sm font-semibold hover:opacity-95 disabled:opacity-60"
                     >
-                      {saving ? "Guardando…" : "Guardar cambios"}
+                      {saving ? t('common.saving') : t('common.saveChanges')}
                     </button>
 
                     <button
@@ -857,11 +861,10 @@ export default function AdminHousesClient() {
                 {/* === TEMPORADAS === */}
                 <div className="p-3 md:p-4 rounded-xl border bg-white">
                   <div className="text-sm font-semibold">
-                    Temporadas (Seasons)
+                    {t('houses.seasons.title')}
                   </div>
                   <div className="text-xs text-neutral-500 mt-1">
-                    Define periodos con precios específicos. Las fechas que no
-                    caigan en ninguna temporada usarán los precios base.
+                    {t('houses.seasons.subtitle')}
                   </div>
 
                   {/* Lista de temporadas existentes */}
@@ -881,14 +884,14 @@ export default function AdminHousesClient() {
                               {formatDateToDisplay(season.end)}
                             </div>
                             <div className="text-xs text-neutral-500 mt-1 break-words">
-                              Precios:{" "}
+                              {t('houses.seasons.weekdayPrices')}:{" "}
                               {Object.entries(season.weekdayPrices)
                                 .filter(([_, v]) => v !== undefined)
                                 .map(
                                   ([k, v]) =>
-                                    `${WEEK_LABEL[k as Weekday]}: ${v}€`
+                                    `${getWeekLabel(t)[k as Weekday]}: ${v}€`
                                 )
-                                .join(", ") || "No definidos"}
+                                .join(", ") || t('houses.seasons.noPricesDefined')}
                             </div>
                           </div>
                           <div className="flex gap-2 self-end sm:self-start">
@@ -897,7 +900,7 @@ export default function AdminHousesClient() {
                               className="text-xs rounded-md border px-3 py-1 hover:bg-neutral-50 whitespace-nowrap"
                               onClick={() => handleEditSeason(index, season)}
                             >
-                              Editar
+                              {t('common.edit')}
                             </button>
                             <button
                               type="button"
@@ -905,7 +908,7 @@ export default function AdminHousesClient() {
                               onClick={() => handleDeleteSeason(index)}
                               disabled={seasonSaving}
                             >
-                              Eliminar
+                              {t('common.delete')}
                             </button>
                           </div>
                         </div>
@@ -917,20 +920,20 @@ export default function AdminHousesClient() {
                   <div className="mt-4 border rounded-md p-3 bg-neutral-50">
                     <div className="text-xs uppercase tracking-wider text-neutral-600 mb-3">
                       {editingSeasonIndex !== null
-                        ? `Editando temporada`
-                        : "Nueva temporada"}
+                        ? t('houses.seasons.editing')
+                        : t('houses.seasons.new')}
                     </div>
 
                     <div className="grid grid-cols-1 gap-3">
                       <div>
                         <label className="block text-xs text-neutral-600">
-                          Nombre *
+                          {t('houses.seasons.name')}
                         </label>
                         <input
                           type="text"
                           value={seasonName}
                           onChange={(e) => setSeasonName(e.target.value)}
-                          placeholder="ej: Temporada Alta"
+                          placeholder={t('houses.seasons.namePlaceholder')}
                           className="mt-1 w-full rounded-md border p-2 text-base"
                         />
                       </div>
@@ -938,7 +941,7 @@ export default function AdminHousesClient() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <label className="block text-xs text-neutral-600">
-                            Fecha inicio *
+                            {t('houses.seasons.startDate')}
                           </label>
                           <input
                             type="date"
@@ -950,7 +953,7 @@ export default function AdminHousesClient() {
 
                         <div>
                           <label className="block text-xs text-neutral-600">
-                            Fecha fin *
+                            {t('houses.seasons.endDate')}
                           </label>
                           <input
                             type="date"
@@ -964,13 +967,13 @@ export default function AdminHousesClient() {
 
                     <div className="mt-3">
                       <div className="text-xs text-neutral-600 mb-2">
-                        Precios por día de la semana
+                        {t('houses.seasons.weekdayPrices')}
                       </div>
                       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-                        {(Object.keys(WEEK_LABEL) as Weekday[]).map((key) => (
+                        {(Object.keys(getWeekLabel(t)) as Weekday[]).map((key) => (
                           <div key={key}>
                             <label className="block text-xs text-neutral-600">
-                              {WEEK_LABEL[key]}
+                              {getWeekLabel(t)[key]}
                             </label>
                             <input
                               type="number"
@@ -998,10 +1001,10 @@ export default function AdminHousesClient() {
                         className="rounded-md bg-[var(--color-primary)] text-white px-4 py-2 text-sm font-semibold hover:opacity-95 disabled:opacity-60"
                       >
                         {seasonSaving
-                          ? "Guardando…"
+                          ? t('common.saving')
                           : editingSeasonIndex !== null
-                            ? "Actualizar temporada"
-                            : "Crear temporada"}
+                            ? t('houses.seasons.updateSeason')
+                            : t('houses.seasons.createSeason')}
                       </button>
 
                       {editingSeasonIndex !== null && (
@@ -1025,7 +1028,7 @@ export default function AdminHousesClient() {
                           }}
                           className="rounded-md border px-4 py-2 text-sm hover:bg-neutral-50"
                         >
-                          Cancelar edición
+                          {t('houses.seasons.cancelEdit')}
                         </button>
                       )}
 
@@ -1064,24 +1067,23 @@ export default function AdminHousesClient() {
                 {/* === Precios especiales (rango + día) === */}
                 <div className="p-3 md:p-4 rounded-xl border bg-white">
                   <div className="text-sm font-semibold">
-                    Precios especiales
+                    {t('houses.specialPrices.title')}
                   </div>
                   <div className="text-xs text-neutral-500 mt-1">
-                    Sobrescriben los precios de temporadas y base para días
-                    específicos
+                    {t('houses.specialPrices.subtitle')}
                   </div>
 
                   {/* ---- RANGO ---- */}
                   <div className="mt-4 border rounded-md p-3">
                     <div className="text-xs uppercase tracking-wider text-neutral-600 mb-2">
-                      Aplicar a un rango de fechas
+                      {t('houses.specialPrices.range.title')}
                     </div>
 
                     <div className="grid grid-cols-1 gap-3">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <label className="block text-xs text-neutral-600">
-                            Desde
+                            {t('houses.specialPrices.range.from')}
                           </label>
                           <input
                             type="date"
@@ -1093,7 +1095,7 @@ export default function AdminHousesClient() {
 
                         <div>
                           <label className="block text-xs text-neutral-600">
-                            Hasta
+                            {t('houses.specialPrices.range.to')}
                           </label>
                           <input
                             type="date"
@@ -1106,7 +1108,7 @@ export default function AdminHousesClient() {
 
                       <div>
                         <label className="block text-xs text-neutral-600">
-                          Precio €/noche
+                          {t('houses.specialPrices.range.pricePerNight')}
                         </label>
                         <input
                           type="number"
@@ -1127,7 +1129,7 @@ export default function AdminHousesClient() {
                         disabled={specialSaving}
                         className="rounded-md bg-[var(--color-primary)] text-white px-4 py-2 text-sm font-semibold hover:opacity-95 disabled:opacity-60"
                       >
-                        {specialSaving ? "Guardando…" : "Aplicar rango"}
+                        {specialSaving ? t('common.saving') : t('houses.specialPrices.range.applyRange')}
                       </button>
 
                       <button
@@ -1140,7 +1142,7 @@ export default function AdminHousesClient() {
                         }}
                         className="rounded-md border px-4 py-2 text-sm hover:bg-neutral-50"
                       >
-                        Limpiar
+                        {t('houses.specialPrices.range.clear')}
                       </button>
                     </div>
                   </div>
@@ -1148,13 +1150,13 @@ export default function AdminHousesClient() {
                   {/* ---- DÍA INDIVIDUAL ---- */}
                   <div className="mt-6 border rounded-md p-3">
                     <div className="text-xs uppercase tracking-wider text-neutral-600 mb-2">
-                      Ajustar un día concreto
+                      {t('houses.specialPrices.singleDay.title')}
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <label className="block text-xs text-neutral-600">
-                          Fecha
+                          {t('houses.specialPrices.singleDay.date')}
                         </label>
                         <input
                           type="date"
@@ -1166,7 +1168,7 @@ export default function AdminHousesClient() {
 
                       <div>
                         <label className="block text-xs text-neutral-600">
-                          Precio €/noche
+                          {t('houses.specialPrices.singleDay.pricePerNight')}
                         </label>
                         <input
                           type="number"
@@ -1187,7 +1189,7 @@ export default function AdminHousesClient() {
                         disabled={specialSaving}
                         className="rounded-md bg-[var(--color-primary)] text-white px-4 py-2 text-sm font-semibold hover:opacity-95 disabled:opacity-60"
                       >
-                        {specialSaving ? "Guardando…" : "Guardar día"}
+                        {specialSaving ? t('common.saving') : t('houses.specialPrices.singleDay.saveDay')}
                       </button>
 
                       <button
@@ -1199,7 +1201,7 @@ export default function AdminHousesClient() {
                         }}
                         className="rounded-md border px-4 py-2 text-sm hover:bg-neutral-50"
                       >
-                        Limpiar
+                        {t('houses.specialPrices.singleDay.clear')}
                       </button>
                     </div>
                   </div>
@@ -1207,13 +1209,13 @@ export default function AdminHousesClient() {
                   {/* ---- LISTA DE OVERRIDES EXISTENTES ---- */}
                   <div className="mt-6">
                     <div className="text-xs uppercase tracking-wider text-neutral-600 mb-1">
-                      Fechas configuradas
+                      {t('houses.specialPrices.configuredDates')}
                     </div>
 
                     {!house?.specialPrices ||
                       Object.keys(house.specialPrices).length === 0 ? (
                       <div className="text-sm text-neutral-500">
-                        No hay precios especiales.
+                        {t('houses.specialPrices.noSpecialPrices')}
                       </div>
                     ) : (
                       <div className="border rounded-md divide-y max-h-64 overflow-auto">
@@ -1241,7 +1243,7 @@ export default function AdminHousesClient() {
                                     setSpecialPrice(String(price));
                                   }}
                                 >
-                                  Editar
+                                  {t('common.edit')}
                                 </button>
                                 <button
                                   type="button"
@@ -1250,12 +1252,12 @@ export default function AdminHousesClient() {
                                     setSpecialDate(iso);
                                     postSpecialPrices(
                                       { delete: [iso] },
-                                      "Precio(s) especial(es) eliminado(s).",
-                                      "No se pudo eliminar el día"
+                                      t('houses.specialPrices.successDeleted'),
+                                      t('houses.specialPrices.deleteError')
                                     );
                                   }}
                                 >
-                                  Eliminar
+                                  {t('common.delete')}
                                 </button>
                               </div>
                             </div>
@@ -1274,7 +1276,7 @@ export default function AdminHousesClient() {
                 {/* === Imágenes === */}
                 {!!house.images?.length && (
                   <div className="p-3 md:p-4 rounded-xl border bg-white">
-                    <div className="text-sm font-semibold">Imágenes</div>
+                    <div className="text-sm font-semibold">{t('houses.images.title')}</div>
                     <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 md:gap-3">
                       {house.images!.map((src, i) => (
                         <div

@@ -5,7 +5,7 @@ import React, { useEffect, useState } from "react";
 import { clientAuth } from "@/lib/firebase-auth";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 
 async function readErrorResponse(res: Response) {
   const text = await res.text();
@@ -18,14 +18,8 @@ async function readErrorResponse(res: Response) {
   }
 }
 
-function friendly(r?: string | null) {
-  if (r === "login") return "Inicia sesión para continuar.";
-  if (r === "forbidden") return "Acceso denegado. Tu usuario no es administrador.";
-  if (r === "expired") return "Sesión expirada. Vuelve a iniciar sesión.";
-  return null;
-}
-
 export default function AdminLoginClient() {
+  const t = useTranslations('admin');
   const locale = useLocale();
   const router = useRouter();
   const search = useSearchParams();
@@ -40,9 +34,14 @@ export default function AdminLoginClient() {
   useEffect(() => {
     const reason = search?.get("reason");
     if (reason) {
-      setErr(friendly(reason));
+      const friendlyMsg =
+        reason === "login" ? t('login.reasonLogin') :
+        reason === "forbidden" ? t('login.reasonForbidden') :
+        reason === "expired" ? t('login.reasonExpired') :
+        null;
+      setErr(friendlyMsg);
     }
-  }, [search]);
+  }, [search, t]);
 
   useEffect(() => {
     let abort = false;
@@ -97,12 +96,12 @@ export default function AdminLoginClient() {
 
   return (
     <>
-      <h1 className="text-2xl font-bold text-[var(--color-primary-dark)]">Admin Login</h1>
-      <p className="mt-2 text-sm text-neutral-600">Acceso restringido a administradores.</p>
+      <h1 className="text-2xl font-bold text-[var(--color-primary-dark)]">{t('login.title')}</h1>
+      <p className="mt-2 text-sm text-neutral-600">{t('login.subtitle')}</p>
 
       <form onSubmit={onSubmit} className="mt-6 space-y-4 bg-white rounded-2xl border p-6 shadow-sm">
         <div>
-          <label className="text-sm text-neutral-700">Email</label>
+          <label className="text-sm text-neutral-700">{t('login.email')}</label>
           <input
             type="email"
             className="mt-1 w-full rounded-md border px-3 py-2"
@@ -113,7 +112,7 @@ export default function AdminLoginClient() {
           />
         </div>
         <div>
-          <label className="text-sm text-neutral-700">Password</label>
+          <label className="text-sm text-neutral-700">{t('login.password')}</label>
           <input
             type="password"
             className="mt-1 w-full rounded-md border px-3 py-2"
@@ -126,7 +125,7 @@ export default function AdminLoginClient() {
 
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
-          Recordarme (14 días)
+          {t('login.rememberMe')}
         </label>
 
         <button
@@ -134,7 +133,7 @@ export default function AdminLoginClient() {
           disabled={loading}
           className="w-full rounded-md bg-[var(--color-primary)] py-2 text-white font-semibold disabled:opacity-60"
         >
-          {loading ? "Accediendo…" : "Entrar"}
+          {loading ? t('login.signingIn') : t('login.signIn')}
         </button>
 
         {err && <div className="text-sm text-red-600">{err}</div>}

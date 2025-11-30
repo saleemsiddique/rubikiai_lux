@@ -617,5 +617,333 @@
     "confirmationTakingLonger": "Patvirtinimas užtrunka ilgiau nei tikėtasi",
     "errorVerifyingReservation": "Klaida tikrinant rezervacijos būseną",
     "errorValidatingPayment": "Klaida tikrinant mokėjimą"
+  },
+  "admin": {
+    "common": {
+      "back": "Grįžti",
+      "refresh": "Atnaujinti",
+      "loading": "Kraunama…",
+      "saving": "Išsaugoma…",
+      "searching": "Ieškoma…",
+      "creating": "Kuriama…",
+      "all": "Visi",
+      "search": "Ieškoti",
+      "clear": "Išvalyti",
+      "save": "Išsaugoti",
+      "saveChanges": "Išsaugoti pakeitimus",
+      "undoChanges": "Atšaukti pakeitimus",
+      "cancel": "Atšaukti",
+      "edit": "Redaguoti",
+      "delete": "Ištrinti",
+      "apply": "Taikyti",
+      "lookup": "Peržiūrėti",
+      "create": "Sukurti",
+      "filter": "Filtruoti",
+      "status": "Būsena",
+      "from": "Nuo",
+      "to": "Iki",
+      "house": "Namelis",
+      "allHouses": "(Visi)",
+      "results": "Rezultatai",
+      "total": "iš viso",
+      "noResults": "Rezultatų nėra",
+      "closedSession": "Sesija uždaryta"
+    },
+    "login": {
+      "title": "Administratoriaus prisijungimas",
+      "subtitle": "Prieiga tik administratoriams.",
+      "email": "El. paštas",
+      "password": "Slaptažodis",
+      "rememberMe": "Prisiminti mane (14 dienų)",
+      "signIn": "Prisijungti",
+      "signingIn": "Prisijungiama…",
+      "reasonLogin": "Prašome prisijungti, kad tęsti.",
+      "reasonForbidden": "Prieiga uždrausta. Jūsų vartotojas nėra administratorius.",
+      "reasonExpired": "Sesija baigėsi. Prašome prisijungti iš naujo."
+    },
+    "menu": {
+      "title": "Administratorius · Meniu",
+      "reservations": "Rezervacijos",
+      "reservationsDesc": "Valdyti rezervacijas",
+      "coupons": "Kuponų balansas €",
+      "couponsDesc": "Kurti ir redaguoti dovanų kuponus",
+      "discounts": "% Tiesioginės nuolaidos",
+      "discountsDesc": "Siųsti asmeninį kodą su % ir galiojimo laiku",
+      "revenue": "Pajamos",
+      "revenueDesc": "Rezervacijos + kuponai · eksportuoti į Excel",
+      "houses": "Nameliai",
+      "housesDesc": "Kainos pagal dieną · informacija",
+      "sessionOf": "Sesija:"
+    },
+    "bookings": {
+      "title": "Rezervacijos",
+      "filters": {
+        "status": "Būsena",
+        "multiSelectHelp": "Ctrl/Cmd kelių pasirinkimui"
+      },
+      "table": {
+        "dates": "Datos",
+        "customer": "Klientas",
+        "guests": "Svečiai",
+        "paid": "Apmokėta",
+        "extraGuests": "papildomi",
+        "fullyPaid": "Pilnai apmokėta",
+        "nights": "n"
+      },
+      "calendar": {
+        "title": "Bendras kalendorius",
+        "prevMonth": "Ankstesnis mėnuo",
+        "nextMonth": "Kitas mėnuo",
+        "mon": "Pr",
+        "tue": "An",
+        "wed": "Tr",
+        "thu": "Kt",
+        "fri": "Pn",
+        "sat": "Št",
+        "sun": "Sk",
+        "reservationsOn": "Rezervacijos"
+      },
+      "block": {
+        "title": "Blokuoti datas",
+        "customerInfo": "Kliento informacija *",
+        "name": "Vardas *",
+        "namePlaceholder": "Kliento vardas",
+        "email": "El. paštas *",
+        "emailPlaceholder": "email@example.com",
+        "phone": "Telefonas",
+        "phonePlaceholder": "+370 600 000 000",
+        "arrivalTime": "Atvykimo laikas",
+        "comment": "Komentaras",
+        "commentPlaceholder": "Papildomi komentarai",
+        "extras": "Papildomos paslaugos",
+        "discount": "Nuolaida (neprivaloma)",
+        "discountPlaceholder": "Įveskite nuolaidos kodą",
+        "dualBookingInfo": "ℹ️ 5+ svečiams reikia užsisakyti abu dupleksus kartu",
+        "dualBookingRequired": "(5+ svečiams reikalingas dvigubas užsakymas)",
+        "blocking": "Blokuojama…",
+        "block": "Blokuoti",
+        "datesBlockedSuccess": "Datos sėkmingai užblokuotos.",
+        "errors": {
+          "selectHouse": "Turite pasirinkti namelį blokavimui.",
+          "invalidDateRange": "Neteisingas datų intervalas.",
+          "datesInPast": "Negalite blokuoti datų praeityje.",
+          "guestsRequired": "Svečių skaičius privalomas (minimumas 1).",
+          "nameRequired": "Kliento vardas privalomas.",
+          "emailRequired": "Kliento el. paštas privalomas.",
+          "conflict": "Pasirinktos datos sutampa su esama rezervacija (reserved / complete / admin)."
+        }
+      },
+      "priceSummary": {
+        "title": "Rezervacijos suvestinė",
+        "accommodation": "Apgyvendinimas",
+        "extraGuestsIncluded": "Papildomi svečiai ({count})",
+        "includedInTotal": "Įskaičiuota į sumą",
+        "total": "Iš viso",
+        "discountApplied": "Nuolaida pritaikyta",
+        "totalAfterDiscount": "Iš viso po nuolaidos",
+        "reservationFee": "Rezervacijos mokestis (mokėti dabar)",
+        "payAtArrival": "Mokėti atvykus",
+        "loadingPrice": "Kraunama kainų suvestinė...",
+        "errorCalculating": "Kainos skaičiavimo klaida:"
+      },
+      "actions": {
+        "markPaidComplete": "Pažymėti kaip pilnai apmokėtą ir užbaigtą?",
+        "cancelReservation": "Atšaukti rezervaciją?",
+        "adminBlocksCannotComplete": "Administratoriaus blokai negali būti užbaigti"
+      }
+    },
+    "houses": {
+      "title": "Pasirinkite namelį",
+      "filterPlaceholder": "Pavadinimas, slapyvardis, id…",
+      "loading": "Kraunami nameliai…",
+      "noMatches": "Nerasta atitinkančių namelių.",
+      "noName": "(Be pavadinimo)",
+      "backToList": "Grįžti į sąrašą",
+      "selectHouseToEdit": "Pasirinkite namelį iš sąrašo, kad redaguoti kainas.",
+      "loadingHouse": "Kraunamas namelis…",
+      "basicInfo": {
+        "name": "Pavadinimas",
+        "type": "Tipas",
+        "aliasId": "Slapyvardis / ID",
+        "capacity": "Talpa"
+      },
+      "basePrices": {
+        "title": "Bazinės kainos pagal savaitės dieną",
+        "subtitle": "Šios kainos naudojamos, kai nėra aktyvaus sezono",
+        "monday": "Pirmadienis",
+        "tuesday": "Antradienis",
+        "wednesday": "Trečiadienis",
+        "thursday": "Ketvirtadienis",
+        "friday": "Penktadienis",
+        "saturday": "Šeštadienis",
+        "sunday": "Sekmadienis",
+        "successMessage": "Bazinės kainos sėkmingai atnaujintos."
+      },
+      "seasons": {
+        "title": "Sezonai",
+        "subtitle": "Apibrėžkite laikotarpius su konkrečiomis kainomis. Datos, kurios nepatenka į jokį sezoną, naudos bazines kainas.",
+        "new": "Naujas sezonas",
+        "editing": "Redaguojamas sezonas",
+        "name": "Pavadinimas *",
+        "namePlaceholder": "pvz.: Aukštas sezonas",
+        "startDate": "Pradžios data *",
+        "endDate": "Pabaigos data *",
+        "weekdayPrices": "Kainos pagal savaitės dieną",
+        "createSeason": "Sukurti sezoną",
+        "updateSeason": "Atnaujinti sezoną",
+        "cancelEdit": "Atšaukti redagavimą",
+        "noPricesDefined": "Neapibrėžta",
+        "successCreated": "Sezonas sėkmingai sukurtas.",
+        "successUpdated": "Sezonas sėkmingai atnaujintas.",
+        "successDeleted": "Sezonas sėkmingai ištrintas.",
+        "confirmDelete": "Ištrinti šį sezoną?"
+      },
+      "specialPrices": {
+        "title": "Specialios kainos",
+        "subtitle": "Perrašyti sezono ir bazines kainas konkrečioms dienoms",
+        "range": {
+          "title": "Taikyti datų intervalui",
+          "from": "Nuo",
+          "to": "Iki",
+          "pricePerNight": "Kaina €/naktis",
+          "applyRange": "Taikyti intervalą",
+          "clear": "Išvalyti",
+          "applyingRange": "Taikoma…"
+        },
+        "singleDay": {
+          "title": "Koreguoti konkrečią dieną",
+          "date": "Data",
+          "pricePerNight": "Kaina €/naktis",
+          "saveDay": "Išsaugoti dieną",
+          "clear": "Išvalyti",
+          "savingDay": "Išsaugoma…"
+        },
+        "configuredDates": "Sukonfigūruotos datos",
+        "noSpecialPrices": "Nėra specialių kainų.",
+        "successSaved": "Speciali kaina išsaugota.",
+        "successDeleted": "Speciali(-ios) kaina(-os) ištrinta(-os).",
+        "deleteError": "Nepavyko ištrinti dienos",
+        "invalidDateFormat": "Data turi būti YYYY-MM-DD formato.",
+        "invalidRangeDateFormat": "Intervalo datos turi būti YYYY-MM-DD formato.",
+        "invalidPrice": "Kaina turi būti skaičius ≥ 0."
+      },
+      "images": {
+        "title": "Nuotraukos"
+      }
+    },
+    "coupons": {
+      "title": "Kupono kodas",
+      "searchPlaceholder": "ABCD-EFGH",
+      "type": {
+        "title": "Tipas",
+        "valueCoupon": "Vertės kuponas",
+        "percentDiscount": "Procentinė nuolaida"
+      },
+      "state": {
+        "title": "Būsena",
+        "active": "Aktyvus",
+        "used": "Išnaudotas",
+        "expired": "Pasibaigęs",
+        "disabled": "Neaktyvus",
+        "system": "Sistema:"
+      },
+      "code": "Kodas",
+      "order": "Užsakymas:",
+      "amounts": {
+        "title": "Sumos",
+        "original": "Pradinė:",
+        "expires": "Galioja iki:",
+        "purchased": "Įsigytas:"
+      },
+      "additionalInfo": {
+        "title": "Papildoma informacija",
+        "buyer": "Pirkėjas:",
+        "orderId": "Užsakymo ID:"
+      },
+      "editBalance": {
+        "title": "Redaguoti turimą balansą",
+        "currentBalance": "Dabartinis balansas",
+        "newBalance": "Naujas balansas",
+        "successMessage": "Balansas sėkmingai atnaujintas."
+      },
+      "discount": {
+        "title": "Nuolaida",
+        "onTotal": "Nuo bendros rezervacijos"
+      },
+      "expiration": "Galiojimas",
+      "noExpiration": "Be galiojimo termino",
+      "usage": {
+        "title": "Naudojimas",
+        "alreadyUsed": "Jau panaudotas",
+        "available": "Galimas"
+      },
+      "percentNote": "Procentinės nuolaidos kuponai neturi redaguojamo balanso. Jie gali būti panaudoti tik vieną kartą.",
+      "errors": {
+        "enterCode": "Įveskite kupono kodą",
+        "notFound": "Kuponas nerastas",
+        "enterNumericValue": "Įveskite skaitinę reikšmę.",
+        "balanceGreaterZero": "Balansas turi būti skaičius didesnis arba lygus 0."
+      }
+    },
+    "discounts": {
+      "title": "Sukurti ir išsiųsti nuolaidą",
+      "destinationEmail": "Gavėjo el. paštas",
+      "destinationEmailPlaceholder": "klientas@example.com",
+      "percentDiscount": "% Nuolaida",
+      "percentHelp": "Pvz.: 5, 10, 20… (maks. 100%)",
+      "createAndSend": "Sukurti ir išsiųsti nuolaidą",
+      "sending": "Siunčiama…",
+      "errors": {
+        "missingEmail": "Trūksta gavėjo el. pašto.",
+        "invalidPercent": "Procentas turi būti sveikasis skaičius tarp 1 ir 100."
+      },
+      "success": "Nuolaida sėkmingai sukurta ir išsiųsta {email}. ID: {id}",
+      "warning": "Kodas sukurtas ({id}), bet el. laiškas NEPAVYKO išsiųsti automatiškai.\nPatikrinkite percentage_discounts Firestore.",
+      "errorSending": "Klaida: {message}"
+    },
+    "revenue": {
+      "title": "Pajamos",
+      "filters": {
+        "from": "Nuo",
+        "to": "Iki",
+        "house": "Namelis (neprivaloma)",
+        "reservationStates": "Rezervacijų būsenos:",
+        "exportExcel": "Eksportuoti į Excel"
+      },
+      "tabs": {
+        "all": "Visi",
+        "reservations": "Rezervacijos",
+        "coupons": "Kuponai"
+      },
+      "summary": {
+        "reservations": "Rezervacijos",
+        "reservationsCount": "{count} rezervacijos(-ų)",
+        "totalContracted": "Iš viso sutarta:",
+        "collectedNow": "Surinkta dabar:",
+        "pendingArrival": "Laukiama (atvykus):",
+        "coupons": "Kuponai",
+        "ordersCount": "{count} užsakymai(-ų)",
+        "couponRevenue": "Pajamos iš kuponų:",
+        "combined": "Bendrai",
+        "collectedLabel": "Surinkta dabar:",
+        "contractual": "Sutartinė:",
+        "pending": "Laukiama:"
+      },
+      "table": {
+        "reservations": "Rezervacijos",
+        "dates": "Datos",
+        "guests": "Svečiai",
+        "totalContract": "Iš viso sutarta",
+        "collected": "Surinkta",
+        "pending": "Laukiama",
+        "payment": "Mokėjimas",
+        "couponsSold": "Parduoti kuponai",
+        "date": "Data",
+        "buyer": "Pirkėjas",
+        "quantity": "Kiekis",
+        "unit": "Vienetas",
+        "revenue": "Pajamos"
+      }
+    }
   }
 }

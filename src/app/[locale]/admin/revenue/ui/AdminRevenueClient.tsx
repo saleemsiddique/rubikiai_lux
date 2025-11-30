@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import { formatLithuaniaTime, toLithuaniaISO } from "@/app/[locale]/utils/date";
+import { useTranslations } from 'next-intl';
 
 type ReservationRow = {
   id: string;
@@ -96,6 +97,7 @@ async function readError(res: Response) {
 }
 
 export default function AdminRevenueClient() {
+  const t = useTranslations('admin');
   const today = todayISO();
   const monthAgo = addDaysISO(today, -30);
 
@@ -286,7 +288,7 @@ export default function AdminRevenueClient() {
       {/* Filtros */}
       <div className="bg-white border rounded-xl p-4 grid grid-cols-1 md:grid-cols-4 gap-3">
         <div className="flex flex-col">
-          <label className="text-xs text-neutral-600">Desde</label>
+          <label className="text-xs text-neutral-600">{t('revenue.filters.from')}</label>
           <input
             type="date"
             value={start}
@@ -295,7 +297,7 @@ export default function AdminRevenueClient() {
           />
         </div>
         <div className="flex flex-col">
-          <label className="text-xs text-neutral-600">Hasta</label>
+          <label className="text-xs text-neutral-600">{t('revenue.filters.to')}</label>
           <input
             type="date"
             value={end}
@@ -304,13 +306,13 @@ export default function AdminRevenueClient() {
           />
         </div>
         <div className="flex flex-col">
-          <label className="text-xs text-neutral-600">House (opcional)</label>
+          <label className="text-xs text-neutral-600">{t('revenue.filters.house')}</label>
           <select
             value={houseId}
             onChange={(e) => setHouseId(e.target.value)}
             className="mt-1 border rounded-md p-2"
           >
-            <option value="">(Todas)</option>
+            <option value="">{t('common.allHouses')}</option>
             {HOUSE_OPTIONS.map((h) => (
               <option key={h.id} value={h.id}>
                 {h.alias}
@@ -321,7 +323,7 @@ export default function AdminRevenueClient() {
 
         <div className="md:col-span-4 flex flex-col md:flex-row flex-wrap gap-2 items-center">
           <div className="flex flex-wrap items-center gap-2 text-sm">
-            <label className="text-xs text-neutral-600">Estados reserva:</label>
+            <label className="text-xs text-neutral-600">{t('revenue.filters.reservationStates')}</label>
 
             {["reserved", "complete", "admin", "canceled"].map((s) => {
               const checked = resStatuses.includes(s);
@@ -353,7 +355,7 @@ export default function AdminRevenueClient() {
               disabled={loading}
               className="w-full md:w-auto rounded-md bg-[var(--color-primary)] text-white px-4 py-2 text-sm font-semibold disabled:opacity-60"
             >
-              {loading ? "Cargando…" : "Buscar"}
+              {loading ? t('common.loading') : t('common.search')}
             </button>
 
             <button
@@ -363,7 +365,7 @@ export default function AdminRevenueClient() {
               }
               className="w-full md:w-auto rounded-md border px-3 py-2 text-sm hover:bg-neutral-50 disabled:opacity-60"
             >
-              Exportar a Excel
+              {t('revenue.filters.exportExcel')}
             </button>
           </div>
         </div>
@@ -378,19 +380,19 @@ export default function AdminRevenueClient() {
       {/* Tabs */}
       <div className="mt-4 flex gap-2 overflow-x-auto">
         {[
-          { key: "all", label: "Todo" },
-          { key: "reservations", label: "Reservas" },
-          { key: "coupons", label: "Cupones" },
-        ].map((t) => (
+          { key: "all", label: t('revenue.tabs.all') },
+          { key: "reservations", label: t('revenue.tabs.reservations') },
+          { key: "coupons", label: t('revenue.tabs.coupons') },
+        ].map((tabItem) => (
           <button
-            key={t.key}
-            onClick={() => setTab(t.key as any)}
-            className={`px-3 py-1 rounded-md border text-sm ${tab === t.key
+            key={tabItem.key}
+            onClick={() => setTab(tabItem.key as any)}
+            className={`px-3 py-1 rounded-md border text-sm ${tab === tabItem.key
               ? "bg-[var(--color-primary)] text-white"
               : "bg-white hover:bg-neutral-50"
               }`}
           >
-            {t.label}
+            {tabItem.label}
           </button>
         ))}
       </div>
@@ -398,41 +400,41 @@ export default function AdminRevenueClient() {
       {/* Resumen */}
       <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
         <div className="bg-white border rounded-xl p-4">
-          <div className="text-xs text-neutral-600">Reservas</div>
-          <div className="mt-1 text-lg font-semibold">{resMetrics.count} reservas</div>
+          <div className="text-xs text-neutral-600">{t('revenue.summary.reservations')}</div>
+          <div className="mt-1 text-lg font-semibold">{t('revenue.summary.reservationsCount', { count: resMetrics.count })}</div>
           <div className="text-xs text-neutral-600 mt-1">
-            Total contratado: <b>{resMetrics.totalContracted.toFixed(2)} €</b>
+            {t('revenue.summary.totalContracted')} <b>{resMetrics.totalContracted.toFixed(2)} €</b>
           </div>
           <div className="text-xs text-neutral-600">
-            Cobrado ahora: <b>{resMetrics.totalPayNow.toFixed(2)} €</b>
+            {t('revenue.summary.collectedNow')} <b>{resMetrics.totalPayNow.toFixed(2)} €</b>
           </div>
           <div className="text-xs text-neutral-600">
-            Pendiente (llegada): <b>{resMetrics.totalPayAtArrival.toFixed(2)} €</b>
+            {t('revenue.summary.pendingArrival')} <b>{resMetrics.totalPayAtArrival.toFixed(2)} €</b>
           </div>
         </div>
 
         <div className="bg-white border rounded-xl p-4">
-          <div className="text-xs text-neutral-600">Cupones</div>
-          <div className="mt-1 text-lg font-semibold">{couponMetrics.ordersCount} pedidos</div>
+          <div className="text-xs text-neutral-600">{t('revenue.summary.coupons')}</div>
+          <div className="mt-1 text-lg font-semibold">{t('revenue.summary.ordersCount', { count: couponMetrics.ordersCount })}</div>
           <div className="text-xs text-neutral-600">
-            Ingresos por cupones: <b>{couponMetrics.couponsRevenue.toFixed(2)} €</b>
+            {t('revenue.summary.couponRevenue')} <b>{couponMetrics.couponsRevenue.toFixed(2)} €</b>
           </div>
         </div>
 
         <div className="bg-white border rounded-xl p-4">
-          <div className="text-xs text-neutral-600">Combinado</div>
-          <div className="mt-1 text-lg font-semibold">Cobrado ahora: {combined.collected.toFixed(2)} €</div>
-          <div className="text-xs text-neutral-600">Contractual: {combined.contracted.toFixed(2)} €</div>
-          <div className="text-xs text-neutral-600">Pendiente: {combined.pending.toFixed(2)} €</div>
+          <div className="text-xs text-neutral-600">{t('revenue.summary.combined')}</div>
+          <div className="mt-1 text-lg font-semibold">{t('revenue.summary.collectedLabel')} {combined.collected.toFixed(2)} €</div>
+          <div className="text-xs text-neutral-600">{t('revenue.summary.contractual')} {combined.contracted.toFixed(2)} €</div>
+          <div className="text-xs text-neutral-600">{t('revenue.summary.pending')} {combined.pending.toFixed(2)} €</div>
         </div>
       </div>
 
       {/* Tabla de reservas */}
       {(tab === "all" || tab === "reservations") && (
         <div className="mt-6 bg-white border rounded-xl overflow-hidden">
-          <div className="px-4 py-3 border-b text-sm font-semibold">Reservas</div>
+          <div className="px-4 py-3 border-b text-sm font-semibold">{t('revenue.table.reservations')}</div>
           {reservations.length === 0 ? (
-            <div className="p-4 text-sm text-neutral-600">Sin resultados</div>
+            <div className="p-4 text-sm text-neutral-600">{t('common.noResults')}</div>
           ) : (
             <>
               {/* MOBILE: Card list */}
@@ -495,15 +497,15 @@ export default function AdminRevenueClient() {
                 <table className="min-w-full text-sm">
                   <thead className="bg-neutral-50 text-neutral-700">
                     <tr>
-                      <th className="px-3 py-2 text-left">Fechas</th>
-                      <th className="px-3 py-2 text-left">Estado</th>
-                      <th className="px-3 py-2 text-left">House</th>
-                      <th className="px-3 py-2 text-left">Huésp.</th>
+                      <th className="px-3 py-2 text-left">{t('revenue.table.dates')}</th>
+                      <th className="px-3 py-2 text-left">{t('common.status')}</th>
+                      <th className="px-3 py-2 text-left">{t('common.house')}</th>
+                      <th className="px-3 py-2 text-left">{t('revenue.table.guests')}</th>
                       <th className="px-3 py-2 text-left">Email</th>
-                      <th className="px-3 py-2 text-right">Total contrato</th>
-                      <th className="px-3 py-2 text-right">Cobrado</th>
-                      <th className="px-3 py-2 text-right">Pendiente</th>
-                      <th className="px-3 py-2 text-left">Pago</th>
+                      <th className="px-3 py-2 text-right">{t('revenue.table.totalContract')}</th>
+                      <th className="px-3 py-2 text-right">{t('revenue.table.collected')}</th>
+                      <th className="px-3 py-2 text-right">{t('revenue.table.pending')}</th>
+                      <th className="px-3 py-2 text-left">{t('revenue.table.payment')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -549,9 +551,9 @@ export default function AdminRevenueClient() {
       {/* Tabla cupones */}
       {(tab === "all" || tab === "coupons") && (
         <div className="mt-6 bg-white border rounded-xl overflow-hidden">
-          <div className="px-4 py-3 border-b text-sm font-semibold">Cupones vendidos</div>
+          <div className="px-4 py-3 border-b text-sm font-semibold">{t('revenue.table.couponsSold')}</div>
           {orders.length === 0 ? (
-            <div className="p-4 text-sm text-neutral-600">Sin resultados</div>
+            <div className="p-4 text-sm text-neutral-600">{t('common.noResults')}</div>
           ) : (
             <>
               {/* MOBILE: Card list */}
@@ -578,12 +580,12 @@ export default function AdminRevenueClient() {
                 <table className="min-w-full text-sm">
                   <thead className="bg-neutral-50 text-neutral-700">
                     <tr>
-                      <th className="px-3 py-2 text-left">Fecha</th>
-                      <th className="px-3 py-2 text-left">Comprador</th>
-                      <th className="px-3 py-2 text-left">Cant.</th>
-                      <th className="px-3 py-2 text-left">Unit</th>
-                      <th className="px-3 py-2 text-right">Ingreso</th>
-                      <th className="px-3 py-2 text-left">Status</th>
+                      <th className="px-3 py-2 text-left">{t('revenue.table.date')}</th>
+                      <th className="px-3 py-2 text-left">{t('revenue.table.buyer')}</th>
+                      <th className="px-3 py-2 text-left">{t('revenue.table.quantity')}</th>
+                      <th className="px-3 py-2 text-left">{t('revenue.table.unit')}</th>
+                      <th className="px-3 py-2 text-right">{t('revenue.table.revenue')}</th>
+                      <th className="px-3 py-2 text-left">{t('common.status')}</th>
                     </tr>
                   </thead>
                   <tbody>

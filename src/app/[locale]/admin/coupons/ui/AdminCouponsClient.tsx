@@ -2,7 +2,7 @@
 
 import React, { useCallback, useState } from "react";
 import { formatLithuaniaTime } from "@/app/[locale]/utils/date";
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 
 /** Tipos del lookup existente (/api/coupons/lookup) */
 type CouponLookup = {
@@ -47,6 +47,7 @@ async function readError(res: Response) {
 }
 
 export default function AdminCouponsClient() {
+  const t = useTranslations('admin');
   const locale = useLocale();
   const [codeInput, setCodeInput] = useState("");
   const [lookupLoading, setLookupLoading] = useState(false);
@@ -71,10 +72,10 @@ export default function AdminCouponsClient() {
       disabled: "bg-gray-100 text-gray-700 border-gray-200",
     };
     const label: Record<LookupResult["state"], string> = {
-      active: "Activo",
-      used: "Agotado",
-      expired: "Caducado",
-      disabled: "Inactivo",
+      active: t('coupons.state.active'),
+      used: t('coupons.state.used'),
+      expired: t('coupons.state.expired'),
+      disabled: t('coupons.state.disabled'),
     };
     if (!state) return null;
     return (
@@ -85,7 +86,7 @@ export default function AdminCouponsClient() {
   const doLookup = useCallback(async () => {
     const raw = codeInput.trim();
     if (!raw) {
-      setLookupError("Introduce un código de cupón");
+      setLookupError(t('coupons.errors.enterCode'));
       setLookup(null);
       return;
     }
@@ -97,7 +98,7 @@ export default function AdminCouponsClient() {
 
       const res = await fetch(`/${locale}/api/coupons/lookup?code=${encodeURIComponent(raw)}`, { cache: "no-store" });
       if (res.status === 404) {
-        setLookupError("Cupón no encontrado");
+        setLookupError(t('coupons.errors.notFound'));
         return;
       }
       if (!res.ok) {
@@ -111,22 +112,22 @@ export default function AdminCouponsClient() {
       }
     } catch (e: any) {
       console.error("[admin/coupons] lookup error:", e);
-      setLookupError(e?.message || "No se pudo consultar el cupón");
+      setLookupError(e?.message || t('coupons.errors.notFound'));
     } finally {
       setLookupLoading(false);
     }
-  }, [codeInput]);
+  }, [codeInput, locale, t]);
 
   const updateRemaining = useCallback(async () => {
     if (!lookup || lookup.kind !== "coupon") return;
     const val = editRemaining.trim();
     if (!val) {
-      setSaveMsg("Introduce un valor numérico.");
+      setSaveMsg(t('coupons.errors.enterNumericValue'));
       return;
     }
     const num = Number(val.replace(",", "."));
     if (!Number.isFinite(num) || num < 0) {
-      setSaveMsg("El saldo debe ser un número mayor o igual a 0.");
+      setSaveMsg(t('coupons.errors.balanceGreaterZero'));
       return;
     }
 
@@ -153,25 +154,25 @@ export default function AdminCouponsClient() {
         },
       });
       setEditRemaining(String(updated.remaining));
-      setSaveMsg("Saldo actualizado correctamente.");
+      setSaveMsg(t('coupons.editBalance.successMessage'));
     } catch (e: any) {
       console.error("[admin/coupons] update error:", e);
-      setSaveMsg(`Error: ${e?.message || "No se pudo actualizar el saldo"}`);
+      setSaveMsg(`Error: ${e?.message || t('coupons.errors.balanceGreaterZero')}`);
     } finally {
       setSaving(false);
     }
-  }, [lookup, editRemaining]);
+  }, [lookup, editRemaining, locale, t]);
 
   return (
     <div className="mt-6 bg-white border rounded-xl p-4">
       {/* Buscador */}
       <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-end">
         <div className="flex-1">
-          <label className="block text-xs text-neutral-600">Código de cupón</label>
+          <label className="block text-xs text-neutral-600">{t('coupons.title')}</label>
           <input
             value={codeInput}
             onChange={(e) => setCodeInput(e.target.value.toUpperCase())}
-            placeholder="ABCD-EFGH"
+            placeholder={t('coupons.searchPlaceholder')}
             className="w-full mt-1 p-2 rounded-md border"
           />
         </div>
@@ -181,14 +182,14 @@ export default function AdminCouponsClient() {
             disabled={lookupLoading}
             className="rounded-md bg-[var(--color-primary)] text-white px-4 py-2 text-sm font-semibold hover:opacity-95 disabled:opacity-60"
           >
-            {lookupLoading ? "Buscando…" : "Buscar"}
+            {lookupLoading ? t('common.searching') : t('common.search')}
           </button>
           <button
             type="button"
             onClick={() => { setCodeInput(""); setLookup(null); setLookupError(null); setSaveMsg(null); }}
             className="rounded-md border px-4 py-2 text-sm hover:bg-neutral-50"
           >
-            Limpiar
+            {t('common.clear')}
           </button>
         </div>
       </div>
@@ -199,53 +200,53 @@ export default function AdminCouponsClient() {
       {lookup && lookup.kind === "coupon" && (
         <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="p-4 rounded-xl border bg-white">
-            <div className="text-xs uppercase tracking-wider text-neutral-600">Tipo</div>
-            <div className="mt-1 text-lg font-semibold text-blue-600">Cupón de valor</div>
+            <div className="text-xs uppercase tracking-wider text-neutral-600">{t('coupons.type.title')}</div>
+            <div className="mt-1 text-lg font-semibold text-blue-600">{t('coupons.type.valueCoupon')}</div>
           </div>
 
           <div className="p-4 rounded-xl border bg-white">
-            <div className="text-xs uppercase tracking-wider text-neutral-600">Estado</div>
+            <div className="text-xs uppercase tracking-wider text-neutral-600">{t('coupons.state.title')}</div>
             <div className="mt-2">{statePill(lookup.state)}</div>
-            <div className="mt-2 text-xs text-neutral-500">Sistema: {lookup.coupon.status}</div>
+            <div className="mt-2 text-xs text-neutral-500">{t('coupons.state.system')} {lookup.coupon.status}</div>
           </div>
 
           <div className="p-4 rounded-xl border bg-white">
-            <div className="text-xs uppercase tracking-wider text-neutral-600">Código</div>
+            <div className="text-xs uppercase tracking-wider text-neutral-600">{t('coupons.code')}</div>
             <div className="mt-1 font-mono text-lg">{lookup.coupon.code}</div>
             {lookup.coupon.orderId && (
-              <div className="text-xs text-neutral-500 mt-1">Order: <span className="font-mono">{lookup.coupon.orderId}</span></div>
+              <div className="text-xs text-neutral-500 mt-1">{t('coupons.order')} <span className="font-mono">{lookup.coupon.orderId}</span></div>
             )}
           </div>
 
           <div className="p-4 rounded-xl border bg-white">
-            <div className="text-xs uppercase tracking-wider text-neutral-600">Importes</div>
-            <div className="mt-1 text-sm">Original: <span className="font-semibold">{lookup.coupon.unitAmount.toFixed(2)} {lookup.coupon.currency}</span></div>
-            <div className="mt-1">Caduca: <span className="font-semibold">{formatDate(lookup.coupon.expiresAtIso)}</span></div>
-            <div className="mt-1 text-xs text-neutral-500">Comprado: {formatDate(lookup.coupon.purchasedAtIso)}</div>
+            <div className="text-xs uppercase tracking-wider text-neutral-600">{t('coupons.amounts.title')}</div>
+            <div className="mt-1 text-sm">{t('coupons.amounts.original')} <span className="font-semibold">{lookup.coupon.unitAmount.toFixed(2)} {lookup.coupon.currency}</span></div>
+            <div className="mt-1">{t('coupons.amounts.expires')} <span className="font-semibold">{formatDate(lookup.coupon.expiresAtIso)}</span></div>
+            <div className="mt-1 text-xs text-neutral-500">{t('coupons.amounts.purchased')} {formatDate(lookup.coupon.purchasedAtIso)}</div>
           </div>
 
           <div className="p-4 rounded-xl border bg-white md:col-span-2">
-            <div className="text-xs uppercase tracking-wider text-neutral-600">Información adicional</div>
+            <div className="text-xs uppercase tracking-wider text-neutral-600">{t('coupons.additionalInfo.title')}</div>
             {lookup.coupon.buyerEmail && (
-              <div className="mt-1 text-sm">Comprador: <span className="font-mono">{lookup.coupon.buyerEmail}</span></div>
+              <div className="mt-1 text-sm">{t('coupons.additionalInfo.buyer')} <span className="font-mono">{lookup.coupon.buyerEmail}</span></div>
             )}
             {lookup.coupon.orderId && (
-              <div className="text-sm mt-1">ID de pedido: <span className="font-mono">{lookup.coupon.orderId}</span></div>
+              <div className="text-sm mt-1">{t('coupons.additionalInfo.orderId')} <span className="font-mono">{lookup.coupon.orderId}</span></div>
             )}
           </div>
 
           {/* Editor de remaining */}
           <div className="md:col-span-3 p-4 rounded-xl border bg-white">
-            <div className="text-sm font-semibold">Editar saldo disponible</div>
+            <div className="text-sm font-semibold">{t('coupons.editBalance.title')}</div>
             <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="block text-xs text-neutral-600">Saldo actual</label>
+                <label className="block text-xs text-neutral-600">{t('coupons.editBalance.currentBalance')}</label>
                 <div className="mt-1 p-2 rounded-md border bg-neutral-50">
                   {lookup.coupon.remaining.toFixed(2)} {lookup.coupon.currency}
                 </div>
               </div>
               <div>
-                <label className="block text-xs text-neutral-600">Nuevo saldo</label>
+                <label className="block text-xs text-neutral-600">{t('coupons.editBalance.newBalance')}</label>
                 <input
                   type="number"
                   min={0}
@@ -262,7 +263,7 @@ export default function AdminCouponsClient() {
                   disabled={saving}
                   className="w-full rounded-md bg-[var(--color-primary)] text-white px-4 py-2 text-sm font-semibold hover:opacity-95 disabled:opacity-60"
                 >
-                  {saving ? "Guardando…" : "Guardar cambios"}
+                  {saving ? t('common.saving') : t('common.saveChanges')}
                 </button>
               </div>
             </div>
@@ -275,39 +276,39 @@ export default function AdminCouponsClient() {
       {lookup && lookup.kind === "percent" && (
         <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="p-4 rounded-xl border bg-white">
-            <div className="text-xs uppercase tracking-wider text-neutral-600">Tipo</div>
-            <div className="mt-1 text-lg font-semibold text-purple-600">Descuento porcentual</div>
+            <div className="text-xs uppercase tracking-wider text-neutral-600">{t('coupons.type.title')}</div>
+            <div className="mt-1 text-lg font-semibold text-purple-600">{t('coupons.type.percentDiscount')}</div>
           </div>
 
           <div className="p-4 rounded-xl border bg-white">
-            <div className="text-xs uppercase tracking-wider text-neutral-600">Estado</div>
+            <div className="text-xs uppercase tracking-wider text-neutral-600">{t('coupons.state.title')}</div>
             <div className="mt-2">{statePill(lookup.state)}</div>
           </div>
 
           <div className="p-4 rounded-xl border bg-white">
-            <div className="text-xs uppercase tracking-wider text-neutral-600">Descuento</div>
+            <div className="text-xs uppercase tracking-wider text-neutral-600">{t('coupons.discount.title')}</div>
             <div className="mt-1 text-3xl font-bold text-[var(--color-primary-dark)]">{lookup.percentDoc.percent}%</div>
-            <div className="text-xs text-neutral-500">Sobre total reserva</div>
+            <div className="text-xs text-neutral-500">{t('coupons.discount.onTotal')}</div>
           </div>
 
           <div className="p-4 rounded-xl border bg-white">
-            <div className="text-xs uppercase tracking-wider text-neutral-600">Código</div>
+            <div className="text-xs uppercase tracking-wider text-neutral-600">{t('coupons.code')}</div>
             <div className="mt-1 font-mono text-lg">{lookup.percentDoc.code}</div>
           </div>
 
           <div className="p-4 rounded-xl border bg-white">
-            <div className="text-xs uppercase tracking-wider text-neutral-600">Caducidad</div>
-            <div className="mt-1 text-lg font-semibold">{lookup.percentDoc.expiresAt || "Sin caducidad"}</div>
+            <div className="text-xs uppercase tracking-wider text-neutral-600">{t('coupons.expiration')}</div>
+            <div className="mt-1 text-lg font-semibold">{lookup.percentDoc.expiresAt || t('coupons.noExpiration')}</div>
           </div>
 
           <div className="p-4 rounded-xl border bg-white">
-            <div className="text-xs uppercase tracking-wider text-neutral-600">Uso</div>
-            <div className="mt-1 text-lg font-semibold">{lookup.percentDoc.used ? "Ya usado" : "Disponible"}</div>
+            <div className="text-xs uppercase tracking-wider text-neutral-600">{t('coupons.usage.title')}</div>
+            <div className="mt-1 text-lg font-semibold">{lookup.percentDoc.used ? t('coupons.usage.alreadyUsed') : t('coupons.usage.available')}</div>
           </div>
 
           <div className="md:col-span-3 p-4 rounded-xl border bg-amber-50">
             <div className="text-sm text-amber-800">
-              Los cupones de descuento porcentual no tienen saldo editable. Solo se pueden usar una vez.
+              {t('coupons.percentNote')}
             </div>
           </div>
         </div>

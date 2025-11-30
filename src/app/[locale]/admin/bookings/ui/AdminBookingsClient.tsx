@@ -3,7 +3,7 @@
 
 import { useRouter } from "next/navigation";
 import React, { useEffect, useMemo, useState } from "react";
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { useParams } from "next/navigation";
 
 type Reservation = {
@@ -187,6 +187,7 @@ function PriceSummaryBlock({
     discountData: any;
     appliedDiscount: number;
 }) {
+    const t = useTranslations('admin');
     const [priceData, setPriceData] = useState<any | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -269,7 +270,7 @@ function PriceSummaryBlock({
     if (loading) {
         return (
             <div className="border-t pt-3 mt-2 text-xs text-neutral-600">
-                Loading price summary...
+                {t('bookings.priceSummary.loadingPrice')}
             </div>
         );
     }
@@ -278,7 +279,7 @@ function PriceSummaryBlock({
         return (
             <div className="border-t pt-3 mt-2">
                 <div className="bg-red-50 border border-red-200 rounded-md p-3 text-xs text-red-700">
-                    <span className="font-semibold">Price calculation error:</span> {error}
+                    <span className="font-semibold">{t('bookings.priceSummary.errorCalculating')}</span> {error}
                 </div>
             </div>
         );
@@ -312,41 +313,41 @@ function PriceSummaryBlock({
     return (
         <div className="border-t pt-3 mt-2">
             <div className="text-xs font-semibold text-neutral-700 mb-2">
-                Reservation Summary
+                {t('bookings.priceSummary.title')}
             </div>
             <div className="bg-gray-50 rounded-md p-3 text-xs space-y-2">
                 <div className="flex justify-between">
-                    <span className="text-neutral-600">Accommodation ({nights} night{nights > 1 ? 's' : ''})</span>
+                    <span className="text-neutral-600">{t('bookings.priceSummary.accommodation')} ({nights} {nights > 1 ? t('bookings.table.nights') : t('bookings.table.nights')})</span>
                     <span className="font-medium">€{(priceData.total || 0).toFixed(2)}</span>
                 </div>
 
                 {extraGuests > 0 && (
                     <div className="flex justify-between text-neutral-600">
-                        <span>Extra guests ({extraGuests})</span>
-                        <span>Included in total</span>
+                        <span>{t('bookings.priceSummary.extraGuestsIncluded', { count: extraGuests })}</span>
+                        <span>{t('bookings.priceSummary.includedInTotal')}</span>
                     </div>
                 )}
 
                 {jacuzziEnabled && (priceData.jacuzziFee || 0) > 0 && (
                     <div className="flex justify-between">
-                        <span className="text-neutral-600">Jacuzzi ({jacuzziDays} day{jacuzziDays > 1 ? 's' : ''})</span>
+                        <span className="text-neutral-600">Jacuzzi ({jacuzziDays} {jacuzziDays > 1 ? 'days' : 'day'})</span>
                         <span className="font-medium">€{(priceData.jacuzziFee || 0).toFixed(2)}</span>
                     </div>
                 )}
 
                 <div className="border-t border-gray-300 pt-2 flex justify-between font-semibold">
-                    <span>Total</span>
+                    <span>{t('bookings.priceSummary.total')}</span>
                     <span>€{(priceData.grandTotal || 0).toFixed(2)}</span>
                 </div>
 
                 {discountApplied && discountAmount > 0 && (
                     <>
                         <div className="flex justify-between text-green-600">
-                            <span>Discount applied</span>
+                            <span>{t('bookings.priceSummary.discountApplied')}</span>
                             <span>-€{discountAmount.toFixed(2)}</span>
                         </div>
                         <div className="border-t border-gray-300 pt-2 flex justify-between font-semibold text-[var(--color-primary)]">
-                            <span>Total after discount</span>
+                            <span>{t('bookings.priceSummary.totalAfterDiscount')}</span>
                             <span>€{discountedGrandTotal.toFixed(2)}</span>
                         </div>
                     </>
@@ -354,11 +355,11 @@ function PriceSummaryBlock({
 
                 <div className="border-t border-gray-300 pt-2 mt-2">
                     <div className="flex justify-between text-[var(--color-primary-dark)]">
-                        <span>Reservation fee (pay now)</span>
+                        <span>{t('bookings.priceSummary.reservationFee')}</span>
                         <span className="font-bold">€{discountedFirst.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-neutral-600 mt-1">
-                        <span>Pay at arrival</span>
+                        <span>{t('bookings.priceSummary.payAtArrival')}</span>
                         <span>€{Math.max(0, discountedGrandTotal - discountedFirst).toFixed(2)}</span>
                     </div>
                 </div>
@@ -368,6 +369,7 @@ function PriceSummaryBlock({
 }
 
 export default function AdminBookingsClient() {
+    const t = useTranslations('admin');
     const locale = useLocale();
     const router = useRouter();
 
@@ -978,7 +980,7 @@ export default function AdminBookingsClient() {
                         </button>
 
                         <h1 className="text-lg sm:text-2xl font-bold text-[var(--color-primary-dark)]">
-                            Reservations
+                            {t('bookings.title')}
                         </h1>
                     </div>
 
@@ -988,7 +990,7 @@ export default function AdminBookingsClient() {
                             disabled={loading}
                             className="rounded-md border px-3 py-2 text-sm hover:bg-neutral-50 disabled:opacity-60 w-full sm:w-auto text-center"
                         >
-                            {loading ? "Loading…" : "Refresh"}
+                            {loading ? t('common.loading') : t('common.refresh')}
                         </button>
                     </div>
                 </div>
@@ -997,7 +999,7 @@ export default function AdminBookingsClient() {
                 <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-3 bg-white border rounded-xl p-4">
                     <div className="flex flex-col">
                         <label className="text-xs text-neutral-600">
-                            Status
+                            {t('common.status')}
                         </label>
                         <select
                             multiple
@@ -1019,13 +1021,13 @@ export default function AdminBookingsClient() {
                             ))}
                         </select>
                         <div className="text-[11px] text-neutral-500 mt-1">
-                            Ctrl/Cmd for multi-selection
+                            {t('bookings.filters.multiSelectHelp')}
                         </div>
                     </div>
 
                     <div className="flex flex-col">
                         <label className="text-xs text-neutral-600">
-                            From
+                            {t('common.from')}
                         </label>
                         <input
                             type="date"
@@ -1037,7 +1039,7 @@ export default function AdminBookingsClient() {
 
                     <div className="flex flex-col">
                         <label className="text-xs text-neutral-600">
-                            To
+                            {t('common.to')}
                         </label>
                         <input
                             type="date"
@@ -1049,14 +1051,14 @@ export default function AdminBookingsClient() {
 
                     <div className="flex flex-col">
                         <label className="text-xs text-neutral-600">
-                            House
+                            {t('common.house')}
                         </label>
                         <select
                             value={houseId}
                             onChange={(e) => setHouseId(e.target.value)}
                             className="mt-1 border rounded-md p-2"
                         >
-                            <option value="">(All)</option>
+                            <option value="">{t('common.allHouses')}</option>
                             {HOUSE_OPTIONS.map((h) => (
                                 <option key={h.id} value={h.id}>
                                     {h.alias}
@@ -1070,7 +1072,7 @@ export default function AdminBookingsClient() {
                             onClick={fetchList}
                             className="rounded-md bg-[var(--color-primary)] text-white px-4 py-2 text-sm font-semibold hover:opacity-95 w-full md:w-auto"
                         >
-                            Search
+                            {t('common.search')}
                         </button>
                     </div>
                 </div>

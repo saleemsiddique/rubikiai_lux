@@ -4,6 +4,7 @@ import admin from "@/lib/firebase-admin";
 import { redirect } from "next/navigation";
 import AdminHousesClient from "./ui/AdminHousesClient";
 import Link from "next/link";
+import { getTranslations } from 'next-intl/server';
 
 async function requireAdmin() {
   const session = (await cookies()).get("session")?.value;
@@ -19,17 +20,18 @@ async function requireAdmin() {
 
 export default async function AdminHousesPage() {
   await requireAdmin();
+  const t = await getTranslations('admin');
 
   return (
     <main className="min-h-screen pt-24 bg-[var(--color-background-main)]">
       <section className="max-w-5xl mx-auto px-6 py-10">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-[var(--color-primary-dark)]">Houses</h1>
+          <h1 className="text-2xl font-bold text-[var(--color-primary-dark)]">{t('menu.houses')}</h1>
           <Link
             href="/admin/menu"
             className="rounded-md border px-3 py-2 text-sm hover:bg-neutral-50"
           >
-            Volver al menú
+            {t('common.back')}
           </Link>
         </div>
 

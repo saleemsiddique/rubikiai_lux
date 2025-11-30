@@ -2,6 +2,8 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import admin from "@/lib/firebase-admin";
 import { redirect } from "next/navigation";
+import { useTranslations } from 'next-intl';
+import { getTranslations } from 'next-intl/server';
 
 async function requireAdmin() {
   const session = (await cookies()).get("session")?.value;
@@ -22,6 +24,7 @@ async function requireAdmin() {
 
 export default async function AdminMenuPage() {
   const user = await requireAdmin();
+  const t = await getTranslations('admin');
 
   async function logout() {
     "use server";
@@ -33,7 +36,7 @@ export default async function AdminMenuPage() {
       <section className="max-w-5xl mx-auto px-6 py-12">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-[var(--color-primary-dark)]">
-            Admin · Menu
+            {t('menu.title')}
           </h1>
 
           {/* Logout con petición POST */}
@@ -41,7 +44,7 @@ export default async function AdminMenuPage() {
             onClick={logout}
             className="rounded-md border px-3 py-2 text-sm hover:bg-neutral-50"
           >
-            Cerrar sesión
+            {t('common.closedSession')}
           </button>
         </div>
 
@@ -50,45 +53,45 @@ export default async function AdminMenuPage() {
             href="/admin/bookings"
             className="rounded-xl border p-4 bg-white hover:bg-neutral-50"
           >
-            <div className="font-semibold">Reservas</div>
-            <div className="text-xs text-neutral-600">Gestiona las reservas</div>
+            <div className="font-semibold">{t('menu.reservations')}</div>
+            <div className="text-xs text-neutral-600">{t('menu.reservationsDesc')}</div>
           </Link>
 
           <Link
             href="/admin/coupons"
             className="rounded-xl border p-4 bg-white hover:bg-neutral-50"
           >
-            <div className="font-semibold">Cupones saldo €</div>
-            <div className="text-xs text-neutral-600">Crea y edita bonos regalo</div>
+            <div className="font-semibold">{t('menu.coupons')}</div>
+            <div className="text-xs text-neutral-600">{t('menu.couponsDesc')}</div>
           </Link>
 
           <Link
             href="/admin/discounts"
             className="rounded-xl border p-4 bg-white hover:bg-neutral-50"
           >
-            <div className="font-semibold">% Descuentos directos</div>
-            <div className="text-xs text-neutral-600">Enviar código personal con % y caducidad</div>
+            <div className="font-semibold">{t('menu.discounts')}</div>
+            <div className="text-xs text-neutral-600">{t('menu.discountsDesc')}</div>
           </Link>
 
           <Link
             href="/admin/revenue"
             className="rounded-xl border p-4 bg-white hover:bg-neutral-50"
           >
-            <div className="font-semibold">Ingresos</div>
-            <div className="text-xs text-neutral-600">Reservas + cupones · exportar Excel</div>
+            <div className="font-semibold">{t('menu.revenue')}</div>
+            <div className="text-xs text-neutral-600">{t('menu.revenueDesc')}</div>
           </Link>
 
           <Link
             href="/admin/houses"
             className="rounded-xl border p-4 bg-white hover:bg-neutral-50"
           >
-            <div className="font-semibold">Houses</div>
-            <div className="text-xs text-neutral-600">Precios por día · info</div>
+            <div className="font-semibold">{t('menu.houses')}</div>
+            <div className="text-xs text-neutral-600">{t('menu.housesDesc')}</div>
           </Link>
         </div>
 
         <div className="mt-8 text-xs text-neutral-500">
-          Sesión de:{" "}
+          {t('menu.sessionOf')}{" "}
           <span className="font-medium">
             {(user as any).email ?? (user as any).uid}
           </span>

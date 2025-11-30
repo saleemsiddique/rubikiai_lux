@@ -491,5 +491,333 @@
     "confirmationTakingLonger": "The confirmation is taking longer than expected",
     "errorVerifyingReservation": "Error verifying the reservation status",
     "errorValidatingPayment": "Error validating payment"
+  },
+  "admin": {
+    "common": {
+      "back": "Back",
+      "refresh": "Refresh",
+      "loading": "Loading…",
+      "saving": "Saving…",
+      "searching": "Searching…",
+      "creating": "Creating…",
+      "all": "All",
+      "search": "Search",
+      "clear": "Clear",
+      "save": "Save",
+      "saveChanges": "Save changes",
+      "undoChanges": "Undo changes",
+      "cancel": "Cancel",
+      "edit": "Edit",
+      "delete": "Delete",
+      "apply": "Apply",
+      "lookup": "Lookup",
+      "create": "Create",
+      "filter": "Filter",
+      "status": "Status",
+      "from": "From",
+      "to": "To",
+      "house": "House",
+      "allHouses": "(All)",
+      "results": "Results",
+      "total": "total",
+      "noResults": "No results",
+      "closedSession": "Closed session"
+    },
+    "login": {
+      "title": "Admin Login",
+      "subtitle": "Restricted access for administrators.",
+      "email": "Email",
+      "password": "Password",
+      "rememberMe": "Remember me (14 days)",
+      "signIn": "Sign in",
+      "signingIn": "Signing in…",
+      "reasonLogin": "Please sign in to continue.",
+      "reasonForbidden": "Access denied. Your user is not an administrator.",
+      "reasonExpired": "Session expired. Please sign in again."
+    },
+    "menu": {
+      "title": "Admin · Menu",
+      "reservations": "Reservations",
+      "reservationsDesc": "Manage reservations",
+      "coupons": "Coupon balance €",
+      "couponsDesc": "Create and edit gift vouchers",
+      "discounts": "% Direct discounts",
+      "discountsDesc": "Send personal code with % and expiration",
+      "revenue": "Revenue",
+      "revenueDesc": "Reservations + coupons · export Excel",
+      "houses": "Houses",
+      "housesDesc": "Prices per day · info",
+      "sessionOf": "Session of:"
+    },
+    "bookings": {
+      "title": "Reservations",
+      "filters": {
+        "status": "Status",
+        "multiSelectHelp": "Ctrl/Cmd for multi-selection"
+      },
+      "table": {
+        "dates": "Dates",
+        "customer": "Customer",
+        "guests": "Guests",
+        "paid": "Paid",
+        "extraGuests": "extra",
+        "fullyPaid": "Fully Paid",
+        "nights": "n"
+      },
+      "calendar": {
+        "title": "Global Calendar",
+        "prevMonth": "Previous month",
+        "nextMonth": "Next month",
+        "mon": "Mon",
+        "tue": "Tue",
+        "wed": "Wed",
+        "thu": "Thu",
+        "fri": "Fri",
+        "sat": "Sat",
+        "sun": "Sun",
+        "reservationsOn": "Reservations on"
+      },
+      "block": {
+        "title": "Block dates",
+        "customerInfo": "Customer information *",
+        "name": "Name *",
+        "namePlaceholder": "Customer name",
+        "email": "Email *",
+        "emailPlaceholder": "email@example.com",
+        "phone": "Phone",
+        "phonePlaceholder": "+34 600 000 000",
+        "arrivalTime": "Arrival time",
+        "comment": "Comment",
+        "commentPlaceholder": "Additional comments",
+        "extras": "Extras",
+        "discount": "Discount (optional)",
+        "discountPlaceholder": "Enter discount code",
+        "dualBookingInfo": "ℹ️ For 5+ guests, both dupleks must be booked together",
+        "dualBookingRequired": "(5+ guests require dual booking)",
+        "blocking": "Blocking…",
+        "block": "Block",
+        "datesBlockedSuccess": "Dates blocked successfully.",
+        "errors": {
+          "selectHouse": "You must select a House to block.",
+          "invalidDateRange": "Invalid date range.",
+          "datesInPast": "You cannot block dates in the past.",
+          "guestsRequired": "Number of guests is required (minimum 1).",
+          "nameRequired": "Customer name is required.",
+          "emailRequired": "Customer email is required.",
+          "conflict": "The selected dates overlap with an existing reservation (reserved / complete / admin)."
+        }
+      },
+      "priceSummary": {
+        "title": "Reservation Summary",
+        "accommodation": "Accommodation",
+        "extraGuestsIncluded": "Extra guests ({count})",
+        "includedInTotal": "Included in total",
+        "total": "Total",
+        "discountApplied": "Discount applied",
+        "totalAfterDiscount": "Total after discount",
+        "reservationFee": "Reservation fee (pay now)",
+        "payAtArrival": "Pay at arrival",
+        "loadingPrice": "Loading price summary...",
+        "errorCalculating": "Price calculation error:"
+      },
+      "actions": {
+        "markPaidComplete": "Mark as fully paid and complete?",
+        "cancelReservation": "Cancel reservation?",
+        "adminBlocksCannotComplete": "Admin blocks cannot be completed"
+      }
+    },
+    "houses": {
+      "title": "Select a house",
+      "filterPlaceholder": "Name, alias, id…",
+      "loading": "Loading houses…",
+      "noMatches": "No matching houses.",
+      "noName": "(No name)",
+      "backToList": "Back to list",
+      "selectHouseToEdit": "Select a house from the list to edit its prices.",
+      "loadingHouse": "Loading house…",
+      "basicInfo": {
+        "name": "Name",
+        "type": "Type",
+        "aliasId": "Alias / ID",
+        "capacity": "Capacity"
+      },
+      "basePrices": {
+        "title": "Base prices per day of the week",
+        "subtitle": "These prices are used when there is no active season",
+        "monday": "Monday",
+        "tuesday": "Tuesday",
+        "wednesday": "Wednesday",
+        "thursday": "Thursday",
+        "friday": "Friday",
+        "saturday": "Saturday",
+        "sunday": "Sunday",
+        "successMessage": "Base prices updated successfully."
+      },
+      "seasons": {
+        "title": "Seasons",
+        "subtitle": "Define periods with specific prices. Dates that do not fall within any season will use base prices.",
+        "new": "New season",
+        "editing": "Editing season",
+        "name": "Name *",
+        "namePlaceholder": "e.g.: High Season",
+        "startDate": "Start date *",
+        "endDate": "End date *",
+        "weekdayPrices": "Prices per day of the week",
+        "createSeason": "Create season",
+        "updateSeason": "Update season",
+        "cancelEdit": "Cancel edit",
+        "noPricesDefined": "Not defined",
+        "successCreated": "Season created successfully.",
+        "successUpdated": "Season updated successfully.",
+        "successDeleted": "Season deleted successfully.",
+        "confirmDelete": "Delete this season?"
+      },
+      "specialPrices": {
+        "title": "Special prices",
+        "subtitle": "Override season and base prices for specific days",
+        "range": {
+          "title": "Apply to a date range",
+          "from": "From",
+          "to": "To",
+          "pricePerNight": "Price €/night",
+          "applyRange": "Apply range",
+          "clear": "Clear",
+          "applyingRange": "Applying…"
+        },
+        "singleDay": {
+          "title": "Adjust a specific day",
+          "date": "Date",
+          "pricePerNight": "Price €/night",
+          "saveDay": "Save day",
+          "clear": "Clear",
+          "savingDay": "Saving…"
+        },
+        "configuredDates": "Configured dates",
+        "noSpecialPrices": "No special prices.",
+        "successSaved": "Special price saved.",
+        "successDeleted": "Special price(s) deleted.",
+        "deleteError": "Could not delete the day",
+        "invalidDateFormat": "The date must be in YYYY-MM-DD format.",
+        "invalidRangeDateFormat": "Range dates must be in YYYY-MM-DD format.",
+        "invalidPrice": "The price must be a number ≥ 0."
+      },
+      "images": {
+        "title": "Images"
+      }
+    },
+    "coupons": {
+      "title": "Coupon code",
+      "searchPlaceholder": "ABCD-EFGH",
+      "type": {
+        "title": "Type",
+        "valueCoupon": "Value coupon",
+        "percentDiscount": "Percentage discount"
+      },
+      "state": {
+        "title": "State",
+        "active": "Active",
+        "used": "Depleted",
+        "expired": "Expired",
+        "disabled": "Inactive",
+        "system": "System:"
+      },
+      "code": "Code",
+      "order": "Order:",
+      "amounts": {
+        "title": "Amounts",
+        "original": "Original:",
+        "expires": "Expires:",
+        "purchased": "Purchased:"
+      },
+      "additionalInfo": {
+        "title": "Additional information",
+        "buyer": "Buyer:",
+        "orderId": "Order ID:"
+      },
+      "editBalance": {
+        "title": "Edit available balance",
+        "currentBalance": "Current balance",
+        "newBalance": "New balance",
+        "successMessage": "Balance updated successfully."
+      },
+      "discount": {
+        "title": "Discount",
+        "onTotal": "On total reservation"
+      },
+      "expiration": "Expiration",
+      "noExpiration": "No expiration",
+      "usage": {
+        "title": "Usage",
+        "alreadyUsed": "Already used",
+        "available": "Available"
+      },
+      "percentNote": "Percentage discount coupons do not have editable balance. They can only be used once.",
+      "errors": {
+        "enterCode": "Enter a coupon code",
+        "notFound": "Coupon not found",
+        "enterNumericValue": "Enter a numeric value.",
+        "balanceGreaterZero": "The balance must be a number greater than or equal to 0."
+      }
+    },
+    "discounts": {
+      "title": "Create and send discount",
+      "destinationEmail": "Destination email",
+      "destinationEmailPlaceholder": "client@example.com",
+      "percentDiscount": "% Discount",
+      "percentHelp": "E.g.: 5, 10, 20… (max 100%)",
+      "createAndSend": "Create and send discount",
+      "sending": "Sending…",
+      "errors": {
+        "missingEmail": "Destination email is missing.",
+        "invalidPercent": "The percentage must be an integer between 1 and 100."
+      },
+      "success": "Discount created and sent successfully to {email}. ID: {id}",
+      "warning": "Code created ({id}) but the email could NOT be sent automatically.\nCheck percentage_discounts in Firestore.",
+      "errorSending": "Error: {message}"
+    },
+    "revenue": {
+      "title": "Revenue",
+      "filters": {
+        "from": "From",
+        "to": "To",
+        "house": "House (optional)",
+        "reservationStates": "Reservation states:",
+        "exportExcel": "Export to Excel"
+      },
+      "tabs": {
+        "all": "All",
+        "reservations": "Reservations",
+        "coupons": "Coupons"
+      },
+      "summary": {
+        "reservations": "Reservations",
+        "reservationsCount": "{count} reservations",
+        "totalContracted": "Total contracted:",
+        "collectedNow": "Collected now:",
+        "pendingArrival": "Pending (arrival):",
+        "coupons": "Coupons",
+        "ordersCount": "{count} orders",
+        "couponRevenue": "Coupon revenue:",
+        "combined": "Combined",
+        "collectedLabel": "Collected now:",
+        "contractual": "Contractual:",
+        "pending": "Pending:"
+      },
+      "table": {
+        "reservations": "Reservations",
+        "dates": "Dates",
+        "guests": "Guests",
+        "totalContract": "Total contract",
+        "collected": "Collected",
+        "pending": "Pending",
+        "payment": "Payment",
+        "couponsSold": "Coupons sold",
+        "date": "Date",
+        "buyer": "Buyer",
+        "quantity": "Quantity",
+        "unit": "Unit",
+        "revenue": "Revenue"
+      }
+    }
   }
 }

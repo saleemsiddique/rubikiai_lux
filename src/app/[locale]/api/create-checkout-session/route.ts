@@ -11,8 +11,12 @@ import {
 } from "@/lib/checkout-utils";
 import { nowInLithuania } from "@/app/[locale]/utils/date-server";
 import { getTranslations } from 'next-intl/server';
+// al inicio del archivo, con otros imports
+import { getHouseDisplayName } from '@/lib/houseNames';
+
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY! as string);
+
 
 /* ---------------- Business constants ---------------- */
 const JACUZZI_BASE_PRICE = 65;
@@ -240,6 +244,9 @@ export async function POST(
       .map((s) => s.trim())
       .filter(Boolean);
     const houseIds = await resolveHouseIds(rawParts);
+
+    const houseDisplayName = getHouseDisplayName(houseIds); // acepta string[] o string
+
 
     // 3. Check availability
     for (const id of houseIds) {
@@ -525,16 +532,16 @@ export async function POST(
     const tStripe = await getTranslations({ locale, namespace: 'api.stripe' });
 
     const productName = tStripe('reservationProductName', {
-      property: rawValue,
+      property: houseDisplayName, // ahora usamos el nombre legible
       checkIn: startIso,
       checkOut: endIso
     });
 
     const productDescription = effectiveDiscountAmount > 0
       ? tStripe('reservationFeeWithDiscount', {
-          date: startIso,
-          code: discountCodeForMeta || discountIdForMeta
-        })
+        date: startIso,
+        code: discountCodeForMeta || discountIdForMeta
+      })
       : tStripe('reservationFeeDescription', { date: startIso });
 
     const sessionParams: Stripe.Checkout.SessionCreateParams = {
@@ -565,6 +572,7 @@ export async function POST(
 
         houseIds: houseIds.join(","),
         rawValue,
+        houseDisplayName,           // <-- AÑADIDO (nombre legible)
         checkIn: startIso,
         checkOut: endIso,
         nights: String(nights),
@@ -638,6 +646,7 @@ export async function POST(
 
     console.debug("create-checkout:", {
       houseIds,
+      houseDisplayName, // agregado
       nights,
       payNow,
       payAtArrival,

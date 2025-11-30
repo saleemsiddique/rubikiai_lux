@@ -58,9 +58,15 @@ export async function POST(
       userId,
       jacuzzi,
       discount,
+      emailLocale, // Language for customer confirmation email
     } = body || {};
 
     const guestsNum = Math.max(1, Number(guests || 2));
+
+    // Determine customer email locale (fallback to 'en' if not specified)
+    const customerLocale = emailLocale && ["en", "lt", "ru"].includes(emailLocale)
+      ? emailLocale
+      : "en";
 
     if (!isISO(checkIn) || !isISO(checkOut) || checkIn >= checkOut) {
       return Response.json({ error: "Invalid date range" }, { status: 400 });
@@ -356,13 +362,13 @@ export async function POST(
     try {
       const customerEmail = customerObj.email;
       if (customerEmail) {
-        await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/${locale}/api/send-email`, {
+        await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/${customerLocale}/api/send-email`, {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
             type: "reservation_confirmation",
             to: customerEmail,
-            locale: locale,
+            locale: customerLocale,
             data: {
               reservationId,
               guestName: customerObj.name || customerEmail,
@@ -433,7 +439,7 @@ export async function POST(
             checkIn,
             checkOut,
             nights,
-            roomType: (targetHouseIds.length === 1 ? targetHouseIds[0] : targetHouseIds.join(", ")) || "Accommodation",
+            roomType: getHouseDisplayName(targetHouseIds),
             guests: guestsNum,
             paidNow: payNow,
             payAtArrival: payAtArrival,
@@ -476,7 +482,7 @@ export async function POST(
           const reminderPayload = {
             type: "booking_reminder",
             to: customerEmail,
-            locale: locale,
+            locale: customerLocale,
             data: {
               guestName: customerObj.name || customerEmail.split("@")[0],
               houseName: getHouseDisplayName(targetHouseIds),
@@ -490,7 +496,7 @@ export async function POST(
 
           console.log("📤 Reminder payload:", JSON.stringify(reminderPayload, null, 2));
 
-          const reminderRes = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/${locale}/api/send-email`, {
+          const reminderRes = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/${customerLocale}/api/send-email`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify(reminderPayload),

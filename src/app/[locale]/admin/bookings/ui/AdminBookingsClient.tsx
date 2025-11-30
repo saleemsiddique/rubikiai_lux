@@ -420,6 +420,7 @@ export default function AdminBookingsClient() {
     const [blockCustomerPhone, setBlockCustomerPhone] = useState<string>("");
     const [blockArrivalTime, setBlockArrivalTime] = useState<string>("");
     const [blockComment, setBlockComment] = useState<string>("");
+    const [blockEmailLocale, setBlockEmailLocale] = useState<string>("en"); // Language for confirmation email
 
     // Jacuzzi options
     const [blockWithJacuzzi, setBlockWithJacuzzi] = useState<boolean>(false);
@@ -879,6 +880,9 @@ export default function AdminBookingsClient() {
                 payload.comment = blockComment.trim();
             }
 
+            // Add email locale for confirmation email
+            payload.emailLocale = blockEmailLocale;
+
             // Add jacuzzi info if enabled
             if (blockWithJacuzzi) {
                 payload.jacuzzi = {
@@ -930,6 +934,7 @@ export default function AdminBookingsClient() {
             setBlockCustomerPhone("");
             setBlockArrivalTime("");
             setBlockComment("");
+            setBlockEmailLocale("en");
             setBlockWithJacuzzi(false);
             setBlockJacuzziDays(1);
             setBlockDiscountCode("");
@@ -1708,6 +1713,19 @@ export default function AdminBookingsClient() {
                                         placeholder="Additional comments"
                                         className="w-full border rounded-md p-2 mt-1"
                                     />
+                                </div>
+
+                                <div className="mb-2">
+                                    <label className="text-xs text-neutral-600">Email language *</label>
+                                    <select
+                                        value={blockEmailLocale}
+                                        onChange={(e) => setBlockEmailLocale(e.target.value)}
+                                        className="w-full border rounded-md p-2 mt-1"
+                                    >
+                                        <option value="en">English</option>
+                                        <option value="lt">Lithuanian (Lietuvių)</option>
+                                        <option value="ru">Russian (Русский)</option>
+                                    </select>
                                 </div>
                             </div>
 

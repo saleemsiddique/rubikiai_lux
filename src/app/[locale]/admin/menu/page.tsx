@@ -85,14 +85,6 @@ export default async function AdminMenuPage() {
             <div className="font-semibold">Houses</div>
             <div className="text-xs text-neutral-600">Precios por día · info</div>
           </Link>
-
-          <Link
-            href="/admin/menu"
-            className="rounded-xl border p-4 bg-white hover:bg-neutral-50"
-          >
-            <div className="font-semibold">Volver al menú</div>
-            <div className="text-xs text-neutral-600">Página principal admin</div>
-          </Link>
         </div>
 
         <div className="mt-8 text-xs text-neutral-500">

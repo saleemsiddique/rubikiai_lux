@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import admin from "@/lib/firebase-admin";
 import { redirect } from "next/navigation";
 import AdminDiscountsClient from "./AdminDiscountsClient";
-import { Link } from "lucide-react";
+import Link from "next/link";
 
 async function requireAdmin() {
   const session = (await cookies()).get("session")?.value;

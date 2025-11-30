@@ -4,7 +4,7 @@ import admin from "@/lib/firebase-admin";
 import { redirect } from "next/navigation";
 // ⬇️ IMPORTA DIRECTO EL CLIENT COMPONENT (sin next/dynamic)
 import AdminCouponsClient from "./ui/AdminCouponsClient";
-import { Link } from "lucide-react";
+import Link from "next/link";
 
 async function requireAdmin() {
   const session = (await cookies()).get("session")?.value;

@@ -12,8 +12,9 @@ export async function GET(
   req: Request,
   { params }: { params: Promise<{ locale: string }> }
 ) {
+  const { locale } = await params;
+
   try {
-    const { locale } = await params;
     const url = new URL(req.url);
     const sessionId = url.searchParams.get("session_id");
     if (!sessionId) {

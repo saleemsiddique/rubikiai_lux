@@ -70,6 +70,7 @@ const OtherOptions: React.FC = () => {
 
                 {/* Texto sobre la imagen */}
                 <div className="absolute bottom-0 left-0 right-0 p-2 z-10">
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent pointer-events-none"></div>
                   <span className="text-base font-semibold text-white drop-shadow-lg leading-tight ml-1">
                     {prop.name}
                   </span>

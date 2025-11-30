@@ -8,5 +8,6 @@ export default createMiddleware({
 });
 
 export const config = {
-  matcher: ['/((?!api|_next|_vercel|.*\\..*).*)']
+  // Include API routes in the matcher so they get the locale prefix
+  matcher: ['/((?!_next|_vercel|.*\\..*).*)']
 };

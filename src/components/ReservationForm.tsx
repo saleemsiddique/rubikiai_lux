@@ -2028,7 +2028,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
         </div>
 
         <div className="relative z-20 flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 w-full justify-center items-center">
-          <div className="flex flex-col text-left flex-1 border-r border-[var(--color-primary)]/40 pr-4 w-full">
+          <div className={`flex flex-col text-left flex-1 border-r border-[var(--color-primary)]/40 pr-4 w-full ${openPicker === "arrival" ? "relative z-50" : "relative z-10"}`}>
             <label className="text-[var(--color-primary)] text-sm mb-1 font-sans uppercase font-bold drop-shadow-sm">{t('checkIn')}</label>
             <DatePicker
               selected={startDate}
@@ -2040,6 +2040,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
               onClickOutside={() => setOpenPicker(null)}
               popperClassName="z-[99999]"
               locale={locale}
+              calendarStartDay={1}  // 👈 Añade esto (1 = Lunes, 0 = Domingo)
               customInput={
                 <div className="p-2 bg-transparent font-sans text-xl cursor-pointer text-white drop-shadow-md">
                   {startDate ? formatDateDDMMYYYY(startDate) : 'DD/MM/YYYY'}
@@ -2048,7 +2049,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
             />
           </div>
 
-          <div className="flex flex-col text-left flex-1 border-r border-[var(--color-primary)]/40 pr-4 w-full">
+          <div className={`flex flex-col text-left flex-1 border-r border-[var(--color-primary)]/40 pr-4 w-full ${openPicker === "departure" ? "relative z-50" : "relative z-10"}`}>
             <label className="text-[var(--color-primary)] text-sm mb-1 font-sans uppercase font-bold drop-shadow-sm">{t('checkOut')}</label>
             <DatePicker
               selected={endDate}
@@ -2061,6 +2062,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
               onClickOutside={() => setOpenPicker(null)}
               popperClassName="z-[99999]"
               locale={locale}
+              calendarStartDay={1}  // 👈 Añade esto (1 = Lunes, 0 = Domingo)
               customInput={
                 <div className="p-2 bg-transparent font-sans text-xl cursor-pointer text-white drop-shadow-md">
                   {endDate ? formatDateDDMMYYYY(endDate) : 'DD/MM/YYYY'}

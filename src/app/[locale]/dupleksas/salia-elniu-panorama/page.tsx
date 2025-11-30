@@ -76,33 +76,31 @@ export default async function Page({
             tAmenities('refrigerator'),
             tAmenities('microwave'),
             tAmenities('electricStove'),
-            tAmenities('dishwasher'),
-            tAmenities('coffeeMachine'),
-            tAmenities('kettle'),
-            tAmenities('dishes')
+            tAmenities('oven'),
+            tAmenities('coffeeMachine')
           ],
         },
         {
           title: tAmenities('bathroom'),
           items: [
-            tAmenities('bathtub'),
-            tAmenities('shower'),
-            tAmenities('toilet'),
             tAmenities('towels'),
+            tAmenities('spaTowels'),
             tAmenities('hairDryer'),
-            tAmenities('toiletries')
+            tAmenities('shampooGel')
           ],
         },
         {
-          title: tAmenities('features'),
+          title: tAmenities('additionally'),
           items: [
             tAmenities('wifi'),
             tAmenities('tv'),
             tAmenities('heatPump'),
             tAmenities('airConditioning'),
-            tAmenities('heatedFloors'),
+            tAmenities('heatedFloor'),
+            tAmenities('oven'),
             tAmenities('terrace'),
-            tAmenities('jacuzzi')
+            tAmenities('jacuzzi'),
+            tAmenities('bbq')
           ],
         },
       ]}

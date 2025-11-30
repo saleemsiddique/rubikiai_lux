@@ -98,7 +98,9 @@ p {
   z-index: 99999 !important;
 }
 
-
+.react-datepicker-popper[data-placement^="bottom"] {
+  z-index: 99999 !important;
+}
 
 /* Evita el doble-tap por hover en dispositivos táctiles y mejora la respuesta al tap */
 .nav-link {

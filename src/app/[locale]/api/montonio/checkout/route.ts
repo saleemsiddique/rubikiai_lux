@@ -20,8 +20,12 @@ type CheckoutBody = {
   start: string | Date;
   end: string | Date;
   guests: number;
-  // ✅ AÑADIR ESTE CAMPO
   cancelUrl?: string;
+  // ✅ NUEVOS CAMPOS DE PRECIO SIMPLIFICADOS
+  pricing?: {
+    payNow: number;
+    totalStay: number;
+  };
   discount?: {
     kind?: "coupon" | "percent";
     id?: string;
@@ -87,7 +91,7 @@ export async function POST(
     const body = (await req.json()) as CheckoutBody;
     console.debug("montonio/checkout body:", body);
 
-    const { houseId, houseSlug, start, end, guests, discount, cancelUrl } = body || {};
+    const { houseId, houseSlug, start, end, guests, discount, cancelUrl, pricing } = body || {};
     const extras = body?.extras || {};
     const customerInput = body?.customer || {};
 
@@ -173,151 +177,207 @@ export async function POST(
       );
     }
 
-    // core pricing
-    const {
-      totalNightsOnly,
-      nights,
-      firstNightCharge,
-      includedBase,
-      extraGuests,
-    } = await calculateNightsCore(houseIds, startIso, endIso, guestsNum);
-
-    // jacuzzi fee (multi-day calculation)
-    let jacuzziFee = 0;
-    let jacuzziEnabled = false;
-    let jacuzziDays = 0;
-
-    if (extras?.jacuzzi?.enabled) {
-      jacuzziEnabled = true;
-      jacuzziDays = Number(extras?.jacuzzi?.days || 1);
-
-      // Validar que jacuzziDays no exceda nights
-      if (jacuzziDays > nights) {
-        jacuzziDays = nights;
-      }
-      if (jacuzziDays < 1) {
-        jacuzziDays = 1;
-      }
-
-      const jacuzziExtraGuests = Math.max(0, guestsNum - 2);
-
-      // Primer día: 65€ + 10€ por guest extra
-      const firstDayFee = 65 + (jacuzziExtraGuests * 10);
-
-      // Días adicionales: 45€ + 10€ por guest extra cada día
-      const additionalDays = Math.max(0, jacuzziDays - 1);
-      const additionalDaysFee = additionalDays * (45 + (jacuzziExtraGuests * 10));
-
-      jacuzziFee = firstDayFee + additionalDaysFee;
-    }
-    // grandTotal = lodging + jacuzzi (full stay)
-    const grandTotal = totalNightsOnly + jacuzziFee;
-
-    // discount logic (mirror Stripe)
+    // ✅ SI VIENE pricing DEL FRONTEND, USARLO DIRECTAMENTE (YA TIENE DESCUENTOS APLICADOS)
+    let payNow: number;
+    let totalStay: number;
+    let payAtArrival: number;
+    let nights: number;
+    let totalNightsOnly: number;
+    let firstNightCharge: number;
+    let includedBase: number;
+    let extraGuests: number;
+    let jacuzziFee: number = 0;
+    let jacuzziEnabled: boolean = false;
+    let jacuzziDays: number = 0;
+    let grandTotal: number;
+    let discountedFirst: number;
+    let discountedGrandTotal: number;
     let effectiveDiscountAmount = 0;
     let discountKindForMeta: string = "";
     let discountCodeForMeta: string = "";
     let discountIdForMeta: string = "";
     let percentValueForMeta: string = "";
 
-    if (discount?.kind === "coupon") {
-      const couponDocId = discount.id || "";
-      if (!couponDocId)
-        return NextResponse.json(
-          { error: t('missingCouponId') },
-          { status: 400 }
-        );
-      const snap = await db.collection("coupons").doc(couponDocId).get();
-      if (!snap.exists)
-        return NextResponse.json(
-          { error: t('couponNotFound') },
-          { status: 400 }
-        );
-      const cData: any = snap.data();
-      const remaining = Number(cData?.remaining ?? 0);
-      const status = String(cData?.status || "active").toLowerCase();
-      if (status !== "active")
-        return NextResponse.json({ error: t('couponInactive') }, { status: 400 });
-      if (!Number.isFinite(remaining) || remaining <= 0)
-        return NextResponse.json(
-          { error: t('couponNoBalance') },
-          { status: 400 }
-        );
+    if (pricing && typeof pricing.payNow === 'number' && typeof pricing.totalStay === 'number') {
+      // ✅ USAR LOS VALORES QUE VIENEN DEL FRONTEND (YA CALCULADOS CON DESCUENTOS)
+      console.log("✅ Usando pricing del frontend:", pricing);
+      payNow = pricing.payNow;
+      totalStay = pricing.totalStay;
+      payAtArrival = Math.max(0, totalStay - payNow);
 
-      let proposed = Number(discount.value || 0);
-      if (!Number.isFinite(proposed) || proposed <= 0)
-        return NextResponse.json(
-          { error: t('invalidCouponValue') },
-          { status: 400 }
-        );
+      // Aún necesitamos calcular algunos valores para metadata
+      const coreData = await calculateNightsCore(houseIds, startIso, endIso, guestsNum);
+      nights = coreData.nights;
+      totalNightsOnly = coreData.totalNightsOnly;
+      firstNightCharge = coreData.firstNightCharge;
+      includedBase = coreData.includedBase;
+      extraGuests = coreData.extraGuests;
 
-      // IMPORTANT: cap by remaining, firstNightCharge, grandTotal (but we only apply to Reservation fee)
-      proposed = Math.min(proposed, remaining, firstNightCharge, grandTotal);
-      proposed = adjustForStripeMin(firstNightCharge, proposed);
+      // Calcular jacuzzi para metadata
+      if (extras?.jacuzzi?.enabled) {
+        jacuzziEnabled = true;
+        jacuzziDays = Number(extras?.jacuzzi?.days || 1);
+        if (jacuzziDays > nights) jacuzziDays = nights;
+        if (jacuzziDays < 1) jacuzziDays = 1;
 
-      if (proposed > 0) {
-        effectiveDiscountAmount = proposed;
-        discountKindForMeta = "coupon";
-        discountCodeForMeta = String(discount.code || cData?.code || "");
-        discountIdForMeta = couponDocId;
+        const jacuzziExtraGuests = Math.max(0, guestsNum - 2);
+        const firstDayFee = 65 + (jacuzziExtraGuests * 10);
+        const additionalDays = Math.max(0, jacuzziDays - 1);
+        const additionalDaysFee = additionalDays * (45 + (jacuzziExtraGuests * 10));
+        jacuzziFee = firstDayFee + additionalDaysFee;
       }
-    } else if (discount?.kind === "percent") {
-      const percentDocId = discount.id || "";
-      if (!percentDocId)
-        return NextResponse.json(
-          { error: t('missingDiscountId') },
-          { status: 400 }
-        );
-      const snap = await db
-        .collection("percentage_discounts")
-        .doc(percentDocId)
-        .get();
-      if (!snap.exists)
-        return NextResponse.json(
-          { error: t('discountNotFound') },
-          { status: 400 }
-        );
-      const pData: any = snap.data();
-      const used = !!pData?.used;
-      const pctRaw = Number(pData?.percent ?? discount.value ?? 0);
-      const pct = pctRaw / 100;
-      if (used)
-        return NextResponse.json(
-          { error: t('discountAlreadyUsed') },
-          { status: 400 }
-        );
-      if (!Number.isFinite(pctRaw) || pctRaw <= 0 || pctRaw > 100)
-        return NextResponse.json(
-          { error: t('invalidPercentValue') },
-          { status: 400 }
-        );
 
-      // apply only to Reservation fee
-      let proposed = firstNightCharge * pct;
-      if (proposed > grandTotal) proposed = grandTotal;
-      proposed = adjustForStripeMin(firstNightCharge, proposed);
+      grandTotal = totalStay; // totalStay ya incluye todo (con o sin jacuzzi, con descuentos)
+      discountedFirst = payNow;
+      discountedGrandTotal = totalStay;
 
-      if (proposed > 0) {
-        effectiveDiscountAmount = proposed;
-        discountKindForMeta = "percent";
-        discountCodeForMeta = String(discount.code || pData?.code || "");
-        discountIdForMeta = percentDocId;
-        percentValueForMeta = String(pctRaw);
+      // Si hay descuento, calcular el effectiveDiscountAmount
+      if (discount) {
+        effectiveDiscountAmount = Math.max(0, firstNightCharge - payNow);
+        discountKindForMeta = discount.kind || "";
+        discountCodeForMeta = discount.code || "";
+        discountIdForMeta = discount.id || "";
+        if (discount.kind === "percent") {
+          percentValueForMeta = String(discount.value || "");
+        }
       }
+    } else {
+      // ❌ FALLBACK: CALCULAR DESDE CERO (MODO LEGACY)
+      console.log("⚠️ No se recibió pricing del frontend, calculando desde cero");
+      const coreData = await calculateNightsCore(houseIds, startIso, endIso, guestsNum);
+      totalNightsOnly = coreData.totalNightsOnly;
+      nights = coreData.nights;
+      firstNightCharge = coreData.firstNightCharge;
+      includedBase = coreData.includedBase;
+      extraGuests = coreData.extraGuests;
+
+      // jacuzzi fee (multi-day calculation)
+      if (extras?.jacuzzi?.enabled) {
+        jacuzziEnabled = true;
+        jacuzziDays = Number(extras?.jacuzzi?.days || 1);
+
+        // Validar que jacuzziDays no exceda nights
+        if (jacuzziDays > nights) {
+          jacuzziDays = nights;
+        }
+        if (jacuzziDays < 1) {
+          jacuzziDays = 1;
+        }
+
+        const jacuzziExtraGuests = Math.max(0, guestsNum - 2);
+
+        // Primer día: 65€ + 10€ por guest extra
+        const firstDayFee = 65 + (jacuzziExtraGuests * 10);
+
+        // Días adicionales: 45€ + 10€ por guest extra cada día
+        const additionalDays = Math.max(0, jacuzziDays - 1);
+        const additionalDaysFee = additionalDays * (45 + (jacuzziExtraGuests * 10));
+
+        jacuzziFee = firstDayFee + additionalDaysFee;
+      }
+      // grandTotal = lodging + jacuzzi (full stay)
+      grandTotal = totalNightsOnly + jacuzziFee;
+
+      // discount logic (mirror Stripe)
+      if (discount?.kind === "coupon") {
+        const couponDocId = discount.id || "";
+        if (!couponDocId)
+          return NextResponse.json(
+            { error: t('missingCouponId') },
+            { status: 400 }
+          );
+        const snap = await db.collection("coupons").doc(couponDocId).get();
+        if (!snap.exists)
+          return NextResponse.json(
+            { error: t('couponNotFound') },
+            { status: 400 }
+          );
+        const cData: any = snap.data();
+        const remaining = Number(cData?.remaining ?? 0);
+        const status = String(cData?.status || "active").toLowerCase();
+        if (status !== "active")
+          return NextResponse.json({ error: t('couponInactive') }, { status: 400 });
+        if (!Number.isFinite(remaining) || remaining <= 0)
+          return NextResponse.json(
+            { error: t('couponNoBalance') },
+            { status: 400 }
+          );
+
+        let proposed = Number(discount.value || 0);
+        if (!Number.isFinite(proposed) || proposed <= 0)
+          return NextResponse.json(
+            { error: t('invalidCouponValue') },
+            { status: 400 }
+          );
+
+        // IMPORTANT: cap by remaining, firstNightCharge, grandTotal (but we only apply to Reservation fee)
+        proposed = Math.min(proposed, remaining, firstNightCharge, grandTotal);
+        proposed = adjustForStripeMin(firstNightCharge, proposed);
+
+        if (proposed > 0) {
+          effectiveDiscountAmount = proposed;
+          discountKindForMeta = "coupon";
+          discountCodeForMeta = String(discount.code || cData?.code || "");
+          discountIdForMeta = couponDocId;
+        }
+      } else if (discount?.kind === "percent") {
+        const percentDocId = discount.id || "";
+        if (!percentDocId)
+          return NextResponse.json(
+            { error: t('missingDiscountId') },
+            { status: 400 }
+          );
+        const snap = await db
+          .collection("percentage_discounts")
+          .doc(percentDocId)
+          .get();
+        if (!snap.exists)
+          return NextResponse.json(
+            { error: t('discountNotFound') },
+            { status: 400 }
+          );
+        const pData: any = snap.data();
+        const used = !!pData?.used;
+        const pctRaw = Number(pData?.percent ?? discount.value ?? 0);
+        const pct = pctRaw / 100;
+        if (used)
+          return NextResponse.json(
+            { error: t('discountAlreadyUsed') },
+            { status: 400 }
+          );
+        if (!Number.isFinite(pctRaw) || pctRaw <= 0 || pctRaw > 100)
+          return NextResponse.json(
+            { error: t('invalidPercentValue') },
+            { status: 400 }
+          );
+
+        // apply only to Reservation fee
+        let proposed = firstNightCharge * pct;
+        if (proposed > grandTotal) proposed = grandTotal;
+        proposed = adjustForStripeMin(firstNightCharge, proposed);
+
+        if (proposed > 0) {
+          effectiveDiscountAmount = proposed;
+          discountKindForMeta = "percent";
+          discountCodeForMeta = String(discount.code || pData?.code || "");
+          discountIdForMeta = percentDocId;
+          percentValueForMeta = String(pctRaw);
+        }
+      }
+
+      // totals after discount (only affects Reservation fee now)
+      discountedFirst = Math.max(
+        0,
+        firstNightCharge - effectiveDiscountAmount
+      );
+      discountedGrandTotal = Math.max(
+        0,
+        grandTotal - effectiveDiscountAmount
+      );
+      payNow = discountedFirst; // lo que cobramos ahora
+      totalStay = discountedGrandTotal; // total de la estancia
+      payAtArrival = Math.max(0, totalStay - payNow); // lo que queda por pagar
     }
-
-    // totals after discount (only affects Reservation fee now)
-    const discountedFirst = Math.max(
-      0,
-      firstNightCharge - effectiveDiscountAmount
-    );
-    const discountedGrandTotal = Math.max(
-      0,
-      grandTotal - effectiveDiscountAmount
-    );
-    const payNow = discountedFirst; // lo que cobramos ahora
-    const totalStay = discountedGrandTotal; // total de la estancia
-    const payAtArrival = Math.max(0, totalStay - payNow); // lo que queda por pagar
 
     // prepare reservationId (Firestore id) — will be used as merchantReference
     const reservationRef = db.collection("reservations").doc();

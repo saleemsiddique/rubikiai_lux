@@ -1,132 +1,206 @@
 import { BookingReminderParams } from '@/lib/emailTemplates';
+import dayjs from "dayjs";
+
+const PROPERTY_NAME_MAP: Record<string, string> = {
+  "L0TeFf2LmrWGAaAyS8NY": "Ezero Namelis",
+  "PZwbfMYlSXj61uYYJutg": "Salia-Elniu-Aptvaro",
+  "oDzv9346CdaAsok162sX": "Salia-Elniu-Panorama",
+};
 
 export function BookingReminderEmailHtml_en(params: BookingReminderParams): string {
-  const { guestName, reservationId, houseName, startDate, endDate, guests, totalPrice } = params;
+  const {
+    guestName,
+    houseName,
+    checkIn,
+    checkOut,
+    nGuests = 2,
+    variant = "B",
+    notes,
+    logoCid = "rubikiai-logo",
+  } = params;
+
+  const checkInFmt = dayjs(checkIn).format("dddd, MMMM D, YYYY");
+  const checkOutFmt = checkOut ? dayjs(checkOut).format("dddd, MMMM D, YYYY") : "";
+  const shortDate = dayjs(checkIn).format("DD/MM/YYYY");
+  const displayName = PROPERTY_NAME_MAP[houseName] || houseName;
+
+  // Reglas específicas según variante (EN)
+  const rulesA_EN = [
+    "Accommodation hours: check-in from 4:00 PM, check-out by 12:00 PM the next day.",
+    "Upon arrival, you must pay the remaining reservation amount.",
+    "Arriving with pets is strictly prohibited. If you arrive anyway, you will be asked to leave. No refund will be given.",
+    "Do not move furniture or relocate items to places they don't belong. Keep the apartments tidy and clean. Everything is in ideal condition and we would like to maintain that.",
+    "Please take care of our property. If inventory is broken, damaged, or otherwise harmed - inform and settle immediately. If such damage is caused by minors, their parents or guardians are financially responsible, and if they refuse, the Client is liable in all cases.",
+    "If the Client arrives with minors - must care for them, i.e. not leave them unattended, and is fully responsible for their safety and fully financially liable for damage caused by children at the property (broken, damaged inventory, property).",
+    "We accept guests only for peaceful rest, so please respect the peace of neighbors, quiet hours from 12:00 AM to 9:00 AM.",
+    "SMOKING INDOORS IS PROHIBITED. When smoking outdoors, dispose of cigarette butts only in designated containers on the terrace.",
+    "Do not cut on tables or countertops, use cutting boards.",
+    "Use baking paper or foil in the oven.",
+    "Use electrical appliances according to safety requirements, do not let children use them. Do not leave electrical appliances on unattended. Please turn off all lights and turn off water taps before leaving the apartments.",
+    "Blankets, towels, and other room inventory may not be used at the beach or outdoor picnic.",
+  ];
+
+  const rulesB_EN = [
+    "Accommodation hours: check-in from 4:00 PM, check-out by 11:00 AM the next day.",
+    "Upon arrival, you must pay the remaining reservation amount.",
+    "Arriving with pets is strictly prohibited. If you arrive anyway, you will be asked to leave. No refund will be given.",
+    "Do not move furniture or relocate items to places they don't belong. Keep the apartments tidy and clean. Everything is in ideal condition and we would like to maintain that.",
+    "Please take care of our property. If inventory is broken, damaged, or otherwise harmed - inform and settle immediately. If such damage is caused by minors, their parents or guardians are financially responsible, and if they refuse, the Client is liable in all cases.",
+    "If the Client or anyone accompanying them arrives with minors - must care for them, i.e. not leave them unattended, and is fully responsible for their safety and fully financially liable for damage caused by children at the property (broken, damaged inventory, property).",
+    "We accept guests only for peaceful rest, so please respect the peace of neighbors, quiet hours from 12:00 AM to 9:00 AM.",
+    "SMOKING INDOORS IS PROHIBITED. When smoking outdoors, dispose of cigarette butts only in designated containers on the terrace.",
+    "Do not cut on tables or countertops, use cutting boards.",
+    "Use baking paper or foil in the oven.",
+    "Use electrical appliances according to safety requirements, do not let children use them. Do not leave electrical appliances on unattended. Please turn off all lights and turn off water taps before leaving the apartments.",
+    "Light the stove only with permission from the property owner and after listening to instructions.",
+    "Do not place items on the stove, do not burn household waste in the stove.",
+    "Maintain a safe distance from the hot stove and do not leave it burning unattended.",
+    "Blankets, towels, and other room inventory may not be used at the beach or outdoor picnic.",
+    "Feed the fallow deer only with fruits or vegetables, no other food.",
+  ];
+
+  const jacuzziRules_EN = [
+    "If the jacuzzi service has not been paid for, using it is strictly prohibited!",
+    "Jacuzzi usage time from 6:00 PM to 12:00 AM.",
+    "The jacuzzi is not for washing, so we recommend showering before using it!!!",
+    ...(variant === "A" ? [] : ["Jumping into and out of the jacuzzi is strictly prohibited."]),
+    "Do not wear jewelry and accessories (rings, bracelets, necklaces, watches...) due to the possibility of losing them and damaging jacuzzi pumps...you will have to cover repair costs...€",
+    "Using the jacuzzi after applying any creams or oils is prohibited.",
+    "Do not eat or drink in the whirlpool tub and do not pour any liquids, shampoo, soap... into it - this can damage the filtration system and pumps and you will have to cover repair costs ...€...",
+    "Opening the jacuzzi cover while using the grill is prohibited.",
+    "After each use of the whirlpool tub, CLOSING THE COVER IS MANDATORY.",
+  ];
+
+  const selectedRules = variant === "A" ? rulesA_EN : rulesB_EN;
 
   return `
-    <!DOCTYPE html>
-    <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Reminder about your reservation</title>
-      </head>
-      <body style="margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; background-color: #f5f5f5;">
-        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5;">
-          <tr>
-            <td align="center" style="padding: 40px 20px;">
-              <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+  <div style="margin:0;padding:0;background:#f6f3ef;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f6f3ef;">
+      <tr>
+        <td align="center" style="padding:28px 16px;">
+          <table role="presentation" width="640" cellspacing="0" cellpadding="0" border="0" style="max-width:640px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #eae3da;box-shadow:0 6px 22px rgba(17,24,39,0.06);">
 
-                <!-- Header -->
-                <tr>
-                  <td align="center" style="background: linear-gradient(135deg, #2a4850 0%, #3a5860 100%); padding: 40px 20px;">
-                    <h1 style="color: #ffffff; font-size: 28px; margin: 0; font-weight: 600;">Rubikiai Lux</h1>
-                    <p style="color: #d4b996; font-size: 16px; margin: 10px 0 0 0;">Reminder about your reservation</p>
-                  </td>
-                </tr>
+            <!-- Logo + date -->
+            <tr>
+              <td style="padding:18px 22px 6px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                  <tr>
+                    <td style="vertical-align:middle;">
+                      <img src="cid:${logoCid}" width="140" alt="Logo" style="display:block;border:0;outline:none;text-decoration:none;">
+                    </td>
+                    <td align="right" style="vertical-align:middle;font:600 14px Inter,Arial,sans-serif;color:#6b7280;">
+                      <div>Reservation reminder</div>
+                      <div style="font:500 13px Inter,Arial,sans-serif;color:#94a3b8;margin-top:4px;">${shortDate}</div>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
 
-                <!-- Greeting -->
-                <tr>
-                  <td style="padding: 40px 40px 20px 40px;">
-                    <h2 style="color: #2a4850; font-size: 24px; margin: 0 0 20px 0;">Hello, ${guestName}!</h2>
-                    <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0;">
-                      We wanted to remind you that your visit is coming up soon! We look forward to welcoming you!
-                    </p>
-                  </td>
-                </tr>
+            <!-- Title -->
+            <tr>
+              <td style="padding:8px 22px 0;">
+                <div style="font:700 26px Georgia, 'Times New Roman', serif;color:#214235;letter-spacing:0.6px;">
+                  Hi ${guestName}, important info for your stay
+                </div>
+                <div style="height:3px;width:96px;background:#bfa58b;border-radius:2px;margin-top:10px;"></div>
+              </td>
+            </tr>
 
-                <!-- Reservation Details -->
-                <tr>
-                  <td style="padding: 0 40px 40px 40px;">
-                    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f9f9f9; border-radius: 8px; padding: 20px;">
-                      <tr>
-                        <td>
-                          <h3 style="color: #2a4850; font-size: 18px; margin: 0 0 15px 0; border-bottom: 2px solid #d4b996; padding-bottom: 10px;">Your Reservation Details</h3>
+            <!-- Main copy -->
+            <tr>
+              <td style="padding:14px 22px 6px;">
+                <div style="font:500 15px Inter,Arial,sans-serif;color:#334155;line-height:1.6;">
+                  We're excited to host you at <strong>${displayName}</strong> on <strong>${checkInFmt}</strong>${checkOut ? ` until ${checkOutFmt}` : ""}. Please review the house information and rules below.
+                </div>
+              </td>
+            </tr>
 
-                          <table width="100%" cellpadding="8" cellspacing="0">
-                            <tr>
-                              <td style="color: #666666; font-size: 14px; padding: 8px 0;">Reservation No.:</td>
-                              <td style="color: #2a4850; font-size: 14px; font-weight: 600; text-align: right; padding: 8px 0;">${reservationId}</td>
-                            </tr>
-                            <tr>
-                              <td style="color: #666666; font-size: 14px; padding: 8px 0;">Property:</td>
-                              <td style="color: #2a4850; font-size: 14px; font-weight: 600; text-align: right; padding: 8px 0;">${houseName}</td>
-                            </tr>
-                            <tr>
-                              <td style="color: #666666; font-size: 14px; padding: 8px 0;">Check-in:</td>
-                              <td style="color: #2a4850; font-size: 14px; font-weight: 600; text-align: right; padding: 8px 0;">${startDate} (from 4:00 PM)</td>
-                            </tr>
-                            <tr>
-                              <td style="color: #666666; font-size: 14px; padding: 8px 0;">Check-out:</td>
-                              <td style="color: #2a4850; font-size: 14px; font-weight: 600; text-align: right; padding: 8px 0;">${endDate} (until 11:00-12:00)</td>
-                            </tr>
-                            <tr>
-                              <td style="color: #666666; font-size: 14px; padding: 8px 0;">Number of Guests:</td>
-                              <td style="color: #2a4850; font-size: 14px; font-weight: 600; text-align: right; padding: 8px 0;">${guests}</td>
-                            </tr>
-                            <tr style="border-top: 2px solid #d4b996;">
-                              <td style="color: #666666; font-size: 14px; padding: 12px 0 8px 0;">Total Price:</td>
-                              <td style="color: #2a4850; font-size: 16px; font-weight: 700; text-align: right; padding: 12px 0 8px 0;">€${totalPrice.toFixed(2)}</td>
-                            </tr>
-                          </table>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
+            <!-- Quick details -->
+            <tr>
+              <td style="padding:12px 22px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid #f0eadf;border-radius:12px;background:#fffcf9;">
+                  <tr>
+                    <td style="padding:12px 16px;border-right:1px solid #f0eadf;width:50%;">
+                      <div style="font:600 12px Inter,Arial,sans-serif;color:#6b7280;text-transform:uppercase;letter-spacing:0.6px;">Check-in</div>
+                      <div style="font:600 16px Inter,Arial,sans-serif;color:#0f172a;margin-top:6px;">${checkInFmt}</div>
+                    </td>
+                    <td style="padding:12px 16px;width:50%;">
+                      <div style="font:600 12px Inter,Arial,sans-serif;color:#6b7280;text-transform:uppercase;letter-spacing:0.6px;">Guests</div>
+                      <div style="font:600 16px Inter,Arial,sans-serif;color:#0f172a;margin-top:6px;">${nGuests}</div>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
 
-                <!-- Important Info -->
-                <tr>
-                  <td style="padding: 0 40px 40px 40px;">
-                    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #fff8e1; border-left: 4px solid #d4b996; border-radius: 4px; padding: 20px;">
-                      <tr>
-                        <td>
-                          <h4 style="color: #2a4850; font-size: 16px; margin: 0 0 10px 0;">Important for Your Visit</h4>
-                          <ul style="color: #666666; font-size: 14px; line-height: 1.8; margin: 0; padding-left: 20px;">
-                            <li>Check-in time from <strong>4:00 PM</strong></li>
-                            <li>Check-out time until <strong>12:00 PM</strong> (Lake House) or <strong>11:00 AM</strong> (Duplexes)</li>
-                            <li>Pets not allowed for the safety of the fallow deer</li>
-                            <li>You can feed the deer only with fruits and vegetables</li>
-                            <li>If you have any questions or special requests, don't hesitate to reach out</li>
-                          </ul>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
+            <!-- House Rules (LT version - kept in Lithuanian as per user's request) -->
+            <tr>
+              <td style="padding:6px 22px 0;">
+                <div style="font:700 18px Georgia, 'Times New Roman', serif;color:#214235;">House Rules</div>
+                <div style="font:500 14px Inter,Arial,sans-serif;color:#6b7280;margin-top:6px;">Please read carefully</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:10px 22px 18px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid #eee;border-radius:12px;overflow:hidden;">
+                  <tbody>
+                    <tr>
+                      <td style="padding:12px 14px;font:14px/1.6 Inter, Arial, sans-serif;color:#334155;">
+                        <ul style="margin:0;padding-left:18px;">
+                          ${selectedRules.map((rule) => `<li style="margin:6px 0;">${rule}</li>`).join("")}
+                        </ul>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </td>
+            </tr>
 
-                <!-- Call to Action -->
-                <tr>
-                  <td align="center" style="padding: 0 40px 40px 40px;">
-                    <p style="color: #666666; font-size: 14px; line-height: 1.6; margin: 0 0 20px 0;">
-                      We look forward to seeing you soon!
-                    </p>
-                  </td>
-                </tr>
+            <!-- Jacuzzi Rules -->
+            <tr>
+              <td style="padding:6px 22px 0;">
+                <div style="font:700 18px Georgia, 'Times New Roman', serif;color:#214235;">Jacuzzi Rules</div>
+                <div style="font:500 14px Inter,Arial,sans-serif;color:#6b7280;margin-top:6px;">Usage information</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:10px 22px 18px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid #eee;border-radius:12px;overflow:hidden;">
+                  <tbody>
+                    <tr>
+                      <td style="padding:12px 14px;font:14px/1.6 Inter, Arial, sans-serif;color:#334155;">
+                        <ul style="margin:0;padding-left:18px;">
+                          ${jacuzziRules_EN.map((rule) => `<li style="margin:6px 0;">${rule}</li>`).join("")}
+                        </ul>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </td>
+            </tr>
 
-                <!-- Footer -->
-                <tr>
-                  <td align="center" style="padding: 30px 40px; background-color: #f9f9f9; border-top: 1px solid #e0e0e0;">
-                    <p style="color: #666666; font-size: 14px; line-height: 1.6; margin: 0 0 10px 0;">
-                      If you have any questions, please contact us:
-                    </p>
-                    <p style="color: #2a4850; font-size: 14px; margin: 5px 0;">
-                      <strong>Phone:</strong> <a href="tel:+37064632972" style="color: #d4b996; text-decoration: none;">+370 646 32 972</a>
-                    </p>
-                    <p style="color: #2a4850; font-size: 14px; margin: 5px 0;">
-                      <strong>Email:</strong> <a href="mailto:info@rubikiailux.lt" style="color: #d4b996; text-decoration: none;">info@rubikiailux.lt</a>
-                    </p>
-                    <p style="color: #999999; font-size: 12px; margin: 20px 0 0 0;">
-                      © ${new Date().getFullYear()} Rubikiai Lux. All rights reserved.
-                    </p>
-                  </td>
-                </tr>
+            ${notes ? `<tr><td style="padding:12px 22px 12px;"><div style="font:600 13px Inter,Arial,sans-serif;color:#6b7280;">Notes</div><div style="font:14px Inter,Arial,sans-serif;color:#334155;margin-top:6px;">${notes}</div></td></tr>` : ""}
 
-              </table>
-            </td>
-          </tr>
-        </table>
-      </body>
-    </html>
-  `;
+            <!-- CTA / contact -->
+            <tr>
+              <td align="center" style="padding:12px 22px 20px;">
+                <div style="font:13px Inter,Arial,sans-serif;color:#6b7280;margin-top:10px;">Need anything? Reply to this email or contact us at <a href="mailto:info@rubikiailux.lt" style="color:#214235;text-decoration:underline;">info@rubikiailux.lt</a>.</div>
+              </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+              <td style="padding:12px 22px 28px;border-top:1px solid #f0eadf;">
+                <div style="font:400 12px Inter,Arial,sans-serif;color:#6b7280;text-align:center;">
+                  We look forward to hosting you. Please check travel requirements and local rules before arrival.
+                </div>
+              </td>
+            </tr>
+
+          </table>
+        </td>
+      </tr>
+    </table>
+  </div>`;
 }

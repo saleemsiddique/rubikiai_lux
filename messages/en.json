@@ -354,6 +354,11 @@
       "invalidAmount": "Invalid amount",
       "invalidEmail": "Valid email required",
       "internalError": "Internal server error"
+    },
+    "stripe": {
+      "reservationProductName": "Reservation {property} {checkIn} → {checkOut}",
+      "reservationFeeDescription": "Reservation fee ({date})",
+      "reservationFeeWithDiscount": "Reservation fee ({date}) — discount {code} applied"
     }
   },
   "checkoutDetails": {

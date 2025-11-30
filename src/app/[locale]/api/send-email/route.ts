@@ -219,16 +219,13 @@ export async function POST(
         // Get and call the appropriate template function
         const templateFn = await getCouponPurchaseTemplate(locale);
 
-        // Use first code as recipient name or fallback
-        const recipientName = "Guest"; // Could be enhanced with actual recipient name from data
-        const code = codes[0]?.code || "";
-        const amount = unitAmount * quantity;
-
         html = templateFn({
-          recipientName,
-          code,
-          amount,
-          expirationDate: expiresAt,
+          unitAmount,
+          quantity,
+          currency: body.data.currency || "EUR",
+          codes,
+          expiresAt,
+          logoCid,
         });
         break;
       }
@@ -255,13 +252,16 @@ export async function POST(
         const {
           reservationId,
           guestName,
+          bookingDate,
           checkIn,
           checkOut,
+          nights,
           roomType,
           guests,
           paidNow,
           payAtArrival,
           totalStay,
+          discountApplied,
         } = body.data;
 
         // Get subject line for this locale
@@ -271,15 +271,23 @@ export async function POST(
         const templateFn = await getReservationConfirmationTemplate(locale);
 
         html = templateFn({
-          guestName,
           reservationId,
-          houseName: roomType, // roomType contains the house name
-          startDate: checkIn,
-          endDate: checkOut,
+          guestName,
+          bookingDate: bookingDate || new Date().toISOString().slice(0, 19),
+          checkIn,
+          checkOut,
+          nights: nights || 1,
+          roomType,
           guests,
-          totalPrice: totalStay,
-          depositPaid: paidNow,
-          remainingBalance: payAtArrival,
+          paidNow,
+          payAtArrival,
+          totalStay,
+          discountApplied,
+          currency: body.data.currency || "EUR",
+          hotelName: body.data.hotelName || "Rubikiai Lux",
+          hotelContactEmail: body.data.hotelContactEmail || "info@rubikiailux.lt",
+          hotelContactPhone: body.data.hotelContactPhone || "",
+          logoCid,
         });
         break;
       }
@@ -317,6 +325,8 @@ export async function POST(
           checkIn,
           checkOut,
           nGuests = 2,
+          variant = "B",
+          notes,
         } = body.data;
 
         // Get subject line for this locale
@@ -327,12 +337,13 @@ export async function POST(
 
         html = templateFn({
           guestName,
-          reservationId: "", // Not needed for reminder
           houseName,
-          startDate: checkIn,
-          endDate: checkOut || "",
-          guests: nGuests,
-          totalPrice: 0, // Not shown in reminder
+          checkIn,
+          checkOut,
+          nGuests,
+          variant,
+          notes,
+          logoCid,
         });
 
         break;

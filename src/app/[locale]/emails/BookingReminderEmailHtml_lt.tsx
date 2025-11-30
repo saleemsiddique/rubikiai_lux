@@ -1,132 +1,206 @@
 import { BookingReminderParams } from '@/lib/emailTemplates';
+import dayjs from "dayjs";
+
+const PROPERTY_NAME_MAP: Record<string, string> = {
+  "L0TeFf2LmrWGAaAyS8NY": "Ezero Namelis",
+  "PZwbfMYlSXj61uYYJutg": "Salia-Elniu-Aptvaro",
+  "oDzv9346CdaAsok162sX": "Salia-Elniu-Panorama",
+};
 
 export function BookingReminderEmailHtml_lt(params: BookingReminderParams): string {
-  const { guestName, reservationId, houseName, startDate, endDate, guests, totalPrice } = params;
+  const {
+    guestName,
+    houseName,
+    checkIn,
+    checkOut,
+    nGuests = 2,
+    variant = "B",
+    notes,
+    logoCid = "rubikiai-logo",
+  } = params;
+
+  const checkInFmt = dayjs(checkIn).format("dddd, MMMM D, YYYY");
+  const checkOutFmt = checkOut ? dayjs(checkOut).format("dddd, MMMM D, YYYY") : "";
+  const shortDate = dayjs(checkIn).format("DD/MM/YYYY");
+  const displayName = PROPERTY_NAME_MAP[houseName] || houseName;
+
+  // Reglas específicas según variante (LT)
+  const rulesA_LT = [
+    "Apgyvendinimo para prasideda 16 val., baigiasi kitos dienos 12 val.",
+    "Atvykus reikia sumokėti likusią rezervacijos sumą.",
+    "Atvykti su augintiniais griežtai draudžiama. Visgi atvykus, bus paprašyta išvykti. Mokėjimas nebus grąžinamas.",
+    "Neišstumdyti baldų ir neperdėti daiktų į ne jiems skirtas vietas. Palaikyti apartamentuose tvarką ir švarą. Viskas yra idealaus stovio ir mes norėtumėme tai išlaikyti.",
+    "Prašome saugoti musų turtą. Jei inventorius sulaužomas, sudaužomas ar kitaip sugadinamas - informuoti ir atsiskaityti reikia iš karto. Jeigu minėtą žalą padaro nepilnamečiai vaikai, materialiai už juos atsako jų tėvai ar globėjai, o šiems atsisakius žalą atlygina – visais atvejais Klientas.",
+    "Jei Klientas atvyksta su nepilnamečiais vaikais - privalo rūpintis jais, t.y. nepalikti jų be priežiūros, ir pilnai atsako pats už jų saugumą bei pilnai materialiai atsako už vaikų padarytus sodyboje nuostolius (sulaužytą, sugadintą inventorių, turtą).",
+    "Priimame svečius tik ramiam poilsiui, todėl prašome gerbti aplinkinių ramybę, ramybės valandos nuo 24 iki 9 valandos.",
+    "RŪKYTI VIDUJE DRAUDŽIAMA. Rūkant lauke, nuorūkas mesti tik į tam skirtas talpas terasoje.",
+    "Nepjaustyti ant stalo ar stalviršių, naudoti pjaustymo lenteles.",
+    "Orkaitėje naudoti kepimo popierių ar foliją.",
+    "Naudotis elektros prietaisais laikantis saugumo reikalavimų, neleisti jais naudotis vaikams. Nepalikti be priežiūros įjungtų elektros prietaisų. Prašome išjungti visas šviesas ir užsukti vandens čiaupus prieš paliekant apartamentus.",
+    "Antklodės, rankšluosčiai ir kitas kambarių inventorius negali buti naudojamas pliaže ar iškyloje lauke.",
+  ];
+
+  const rulesB_LT = [
+    "Apgyvendinimo para prasideda 16 val., baigiasi kitos dienos 11 val.",
+    "Atvykus reikia sumokėti likusią rezervacijos sumą.",
+    "Atvykti su augintiniais griežtai draudžiama. Visgi atvykus, bus paprašyta išvykti. Mokėjimas nebus grąžinamas.",
+    "Neišstumdyti baldų ir neperdėti daiktų į ne jiems skirtas vietas. Palaikyti apartamentuose tvarką ir švarą. Viskas yra idealaus stovio ir mes norėtumėme tai išlaikyti.",
+    "Prašome saugoti musų turtą. Jei inventorius sulaužomas, sudaužomas ar kitaip sugadinamas - informuoti ir atsiskaityti reikia iš karto. Jeigu minėtą žalą padaro nepilnamečiai vaikai, materialiai už juos atsako jų tėvai ar globėjai, o šiems atsisakius žalą atlygina – visais atvejais Klientas.",
+    "Jei Klientas ar su juo atvykę asmenys atvyksta su nepilnamečiais vaikais - privalo rūpintis jais, t.y. nepalikti jų be priežiūros, ir pilnai atsako patys už jų saugumą bei pilnai materialiai atsako už vaikų padarytus sodyboje nuostolius (sulaužytą, sugadintą inventorių, turtą).",
+    "Priimame svečius tik ramiam poilsiui, todėl prašome gerbti aplinkinių ramybę, ramybės valandos nuo 24 iki 9 valandos.",
+    "RŪKYTI VIDUJE DRAUDŽIAMA. Rūkant lauke, nuorūkas mesti tik į tam skirtas talpas terasoje.",
+    "Nepjaustyti ant stalo ar stalviršių, naudoti pjaustymo lenteles.",
+    "Orkaitėje naudoti kepimo popierių ar foliją.",
+    "Naudotis elektros prietaisais laikantis saugumo reikalavimų, neleisti jais naudotis vaikams. Nepalikti be priežiūros įjungtų elektros prietaisų. Prašome išjungti visas šviesas ir užsukti vandens čiaupus prieš paliekant apartamentus.",
+    "Kambaryje esančia krosnelę kūrenti tik leidus sodybos šeimininkui ir išklausius instruktažą.",
+    "Nedėti daiktų ant krosnelės, nekūrenti krosnelės buitinėmis atliekomis.",
+    "Laikytis saugaus atstumo nuo įkaitusios krosnelės, bei nepalikti kūrentis be priežiūros.",
+    "Antklodės, rankšluosčiai ir kitas kambarių inventorius negali buti naudojamas pliaže ar iškyloje lauke.",
+    "Nemaitinti elnių danielių kitu maistu, tik vaisiais ar daržovėmis.",
+  ];
+
+  const jacuzziRules_LT = [
+    "Jei jacuzzi paslauga neapmokėta, ja naudotis griežtai draudžiama!",
+    "Jacuzzi naudojimosi laikas nuo 18 val iki 24 val.",
+    "Jacuzzi nėra skirta prausimuisi, todėl prieš naudojantis ja, rekomenduojame nusiprausti duše !!!",
+    ...(variant === "A" ? [] : ["Griežtai draužiama šokinėti į ir iš Jacuzzi."]),
+    "Nedėvėti papuošalų ir aksesuarų (žiedų, apyrankių, grandinėlių, laikrodžių...) dėl galimybės juos prarasti bei sugadinti jacuzzi siurblius...turėsite padengti taisymo išlaidas...€",
+    "Draudžiama naudotis jacuzzi išsitepus bet kokiais kremais ar aliejais.",
+    "Nevalgyti ir negerti sūkurinėje vonioje ir nepilti į ją jokių skysčių, nei šampūno, muilo... - taip galite sugadinti filtravimo sistemą bei siurblius ir turėsite padengti taisymo išlaidas ...€..",
+    "Draudžiama atidaryti jacuzzi dangtį naudojant grilių – šašlykinę,",
+    "Po kiekvieno naudojimosi sūkurine vonia BŪTINA uždaryti dangtį.",
+  ];
+
+  const selectedRules = variant === "A" ? rulesA_LT : rulesB_LT;
 
   return `
-    <!DOCTYPE html>
-    <html lang="lt">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Priminimasapie jūsų rezervaciją</title>
-      </head>
-      <body style="margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; background-color: #f5f5f5;">
-        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5;">
-          <tr>
-            <td align="center" style="padding: 40px 20px;">
-              <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+  <div style="margin:0;padding:0;background:#f6f3ef;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f6f3ef;">
+      <tr>
+        <td align="center" style="padding:28px 16px;">
+          <table role="presentation" width="640" cellspacing="0" cellpadding="0" border="0" style="max-width:640px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #eae3da;box-shadow:0 6px 22px rgba(17,24,39,0.06);">
 
-                <!-- Header -->
-                <tr>
-                  <td align="center" style="background: linear-gradient(135deg, #2a4850 0%, #3a5860 100%); padding: 40px 20px;">
-                    <h1 style="color: #ffffff; font-size: 28px; margin: 0; font-weight: 600;">Rubikiai Lux</h1>
-                    <p style="color: #d4b996; font-size: 16px; margin: 10px 0 0 0;">Priminimasapie jūsų rezervaciją</p>
-                  </td>
-                </tr>
+            <!-- Logo + date -->
+            <tr>
+              <td style="padding:18px 22px 6px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                  <tr>
+                    <td style="vertical-align:middle;">
+                      <img src="cid:${logoCid}" width="140" alt="Logo" style="display:block;border:0;outline:none;text-decoration:none;">
+                    </td>
+                    <td align="right" style="vertical-align:middle;font:600 14px Inter,Arial,sans-serif;color:#6b7280;">
+                      <div>Rezervacijos priminimas</div>
+                      <div style="font:500 13px Inter,Arial,sans-serif;color:#94a3b8;margin-top:4px;">${shortDate}</div>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
 
-                <!-- Greeting -->
-                <tr>
-                  <td style="padding: 40px 40px 20px 40px;">
-                    <h2 style="color: #2a4850; font-size: 24px; margin: 0 0 20px 0;">Sveiki, ${guestName}!</h2>
-                    <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0;">
-                      Norime priminti, kad jūsų apsilankymas jau netrukus! Laukiame jūsų!
-                    </p>
-                  </td>
-                </tr>
+            <!-- Title -->
+            <tr>
+              <td style="padding:8px 22px 0;">
+                <div style="font:700 26px Georgia, 'Times New Roman', serif;color:#214235;letter-spacing:0.6px;">
+                  Sveiki ${guestName}, svarbi informacija apie jūsų apsilankymą
+                </div>
+                <div style="height:3px;width:96px;background:#bfa58b;border-radius:2px;margin-top:10px;"></div>
+              </td>
+            </tr>
 
-                <!-- Reservation Details -->
-                <tr>
-                  <td style="padding: 0 40px 40px 40px;">
-                    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f9f9f9; border-radius: 8px; padding: 20px;">
-                      <tr>
-                        <td>
-                          <h3 style="color: #2a4850; font-size: 18px; margin: 0 0 15px 0; border-bottom: 2px solid #d4b996; padding-bottom: 10px;">Jūsų rezervacijos informacija</h3>
+            <!-- Main copy -->
+            <tr>
+              <td style="padding:14px 22px 6px;">
+                <div style="font:500 15px Inter,Arial,sans-serif;color:#334155;line-height:1.6;">
+                  Džiaugiamės galėdami jus priimti <strong>${displayName}</strong> <strong>${checkInFmt}</strong>${checkOut ? ` iki ${checkOutFmt}` : ""}. Prašome peržiūrėti namų informaciją ir taisykles žemiau.
+                </div>
+              </td>
+            </tr>
 
-                          <table width="100%" cellpadding="8" cellspacing="0">
-                            <tr>
-                              <td style="color: #666666; font-size: 14px; padding: 8px 0;">Rezervacijos Nr.:</td>
-                              <td style="color: #2a4850; font-size: 14px; font-weight: 600; text-align: right; padding: 8px 0;">${reservationId}</td>
-                            </tr>
-                            <tr>
-                              <td style="color: #666666; font-size: 14px; padding: 8px 0;">Namelis:</td>
-                              <td style="color: #2a4850; font-size: 14px; font-weight: 600; text-align: right; padding: 8px 0;">${houseName}</td>
-                            </tr>
-                            <tr>
-                              <td style="color: #666666; font-size: 14px; padding: 8px 0;">Atvykimas:</td>
-                              <td style="color: #2a4850; font-size: 14px; font-weight: 600; text-align: right; padding: 8px 0;">${startDate} (nuo 16:00)</td>
-                            </tr>
-                            <tr>
-                              <td style="color: #666666; font-size: 14px; padding: 8px 0;">Išvykimas:</td>
-                              <td style="color: #2a4850; font-size: 14px; font-weight: 600; text-align: right; padding: 8px 0;">${endDate} (iki 11:00-12:00)</td>
-                            </tr>
-                            <tr>
-                              <td style="color: #666666; font-size: 14px; padding: 8px 0;">Svečių skaičius:</td>
-                              <td style="color: #2a4850; font-size: 14px; font-weight: 600; text-align: right; padding: 8px 0;">${guests}</td>
-                            </tr>
-                            <tr style="border-top: 2px solid #d4b996;">
-                              <td style="color: #666666; font-size: 14px; padding: 12px 0 8px 0;">Bendra kaina:</td>
-                              <td style="color: #2a4850; font-size: 16px; font-weight: 700; text-align: right; padding: 12px 0 8px 0;">€${totalPrice.toFixed(2)}</td>
-                            </tr>
-                          </table>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
+            <!-- Quick details -->
+            <tr>
+              <td style="padding:12px 22px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid #f0eadf;border-radius:12px;background:#fffcf9;">
+                  <tr>
+                    <td style="padding:12px 16px;border-right:1px solid #f0eadf;width:50%;">
+                      <div style="font:600 12px Inter,Arial,sans-serif;color:#6b7280;text-transform:uppercase;letter-spacing:0.6px;">Atvykimas</div>
+                      <div style="font:600 16px Inter,Arial,sans-serif;color:#0f172a;margin-top:6px;">${checkInFmt}</div>
+                    </td>
+                    <td style="padding:12px 16px;width:50%;">
+                      <div style="font:600 12px Inter,Arial,sans-serif;color:#6b7280;text-transform:uppercase;letter-spacing:0.6px;">Svečiai</div>
+                      <div style="font:600 16px Inter,Arial,sans-serif;color:#0f172a;margin-top:6px;">${nGuests}</div>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
 
-                <!-- Important Info -->
-                <tr>
-                  <td style="padding: 0 40px 40px 40px;">
-                    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #fff8e1; border-left: 4px solid #d4b996; border-radius: 4px; padding: 20px;">
-                      <tr>
-                        <td>
-                          <h4 style="color: #2a4850; font-size: 16px; margin: 0 0 10px 0;">Svarbikasruošiantis apsilankymui</h4>
-                          <ul style="color: #666666; font-size: 14px; line-height: 1.8; margin: 0; padding-left: 20px;">
-                            <li>Atvykimo laikas nuo <strong>16:00</strong></li>
-                            <li>Išvykimo laikas iki <strong>12:00</strong> (Ežero Namelis) arba <strong>11:00</strong> (Dupleksai)</li>
-                            <li>Gyvūnai draudžiami danielių saugumui</li>
-                            <li>Galite danielius maitinti tik vaisiais ir daržovėmis</li>
-                            <li>Jei turite klausimų ar specialių pageidavimų, nedvejodami susisiekite</li>
-                          </ul>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
+            <!-- House Rules (LT version - kept in Lithuanian as per user's request) -->
+            <tr>
+              <td style="padding:6px 22px 0;">
+                <div style="font:700 18px Georgia, 'Times New Roman', serif;color:#214235;">Namų taisyklės</div>
+                <div style="font:500 14px Inter,Arial,sans-serif;color:#6b7280;margin-top:6px;">Prašome atidžiai perskaityti</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:10px 22px 18px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid #eee;border-radius:12px;overflow:hidden;">
+                  <tbody>
+                    <tr>
+                      <td style="padding:12px 14px;font:14px/1.6 Inter, Arial, sans-serif;color:#334155;">
+                        <ul style="margin:0;padding-left:18px;">
+                          ${selectedRules.map((rule) => `<li style="margin:6px 0;">${rule}</li>`).join("")}
+                        </ul>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </td>
+            </tr>
 
-                <!-- Call to Action -->
-                <tr>
-                  <td align="center" style="padding: 0 40px 40px 40px;">
-                    <p style="color: #666666; font-size: 14px; line-height: 1.6; margin: 0 0 20px 0;">
-                      Laukiame jūsų greitai pasimatyti!
-                    </p>
-                  </td>
-                </tr>
+            <!-- Jacuzzi Rules -->
+            <tr>
+              <td style="padding:6px 22px 0;">
+                <div style="font:700 18px Georgia, 'Times New Roman', serif;color:#214235;">Jacuzzi taisyklės</div>
+                <div style="font:500 14px Inter,Arial,sans-serif;color:#6b7280;margin-top:6px;">Naudojimo informacija</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:10px 22px 18px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid #eee;border-radius:12px;overflow:hidden;">
+                  <tbody>
+                    <tr>
+                      <td style="padding:12px 14px;font:14px/1.6 Inter, Arial, sans-serif;color:#334155;">
+                        <ul style="margin:0;padding-left:18px;">
+                          ${jacuzziRules_LT.map((rule) => `<li style="margin:6px 0;">${rule}</li>`).join("")}
+                        </ul>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </td>
+            </tr>
 
-                <!-- Footer -->
-                <tr>
-                  <td align="center" style="padding: 30px 40px; background-color: #f9f9f9; border-top: 1px solid #e0e0e0;">
-                    <p style="color: #666666; font-size: 14px; line-height: 1.6; margin: 0 0 10px 0;">
-                      Jei turite klausimų, susisiekite su mumis:
-                    </p>
-                    <p style="color: #2a4850; font-size: 14px; margin: 5px 0;">
-                      <strong>Telefonas:</strong> <a href="tel:+37064632972" style="color: #d4b996; text-decoration: none;">+370 646 32 972</a>
-                    </p>
-                    <p style="color: #2a4850; font-size: 14px; margin: 5px 0;">
-                      <strong>El. paštas:</strong> <a href="mailto:info@rubikiailux.lt" style="color: #d4b996; text-decoration: none;">info@rubikiailux.lt</a>
-                    </p>
-                    <p style="color: #999999; font-size: 12px; margin: 20px 0 0 0;">
-                      © ${new Date().getFullYear()} Rubikiai Lux. Visos teisės saugomos.
-                    </p>
-                  </td>
-                </tr>
+            ${notes ? `<tr><td style="padding:12px 22px 12px;"><div style="font:600 13px Inter,Arial,sans-serif;color:#6b7280;">Pastabos</div><div style="font:14px Inter,Arial,sans-serif;color:#334155;margin-top:6px;">${notes}</div></td></tr>` : ""}
 
-              </table>
-            </td>
-          </tr>
-        </table>
-      </body>
-    </html>
-  `;
+            <!-- CTA / contact -->
+            <tr>
+              <td align="center" style="padding:12px 22px 20px;">
+                <div style="font:13px Inter,Arial,sans-serif;color:#6b7280;margin-top:10px;">Reikia pagalbos? Atsakykite į šį laišką arba susisiekite <a href="mailto:info@rubikiailux.lt" style="color:#214235;text-decoration:underline;">info@rubikiailux.lt</a>.</div>
+              </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+              <td style="padding:12px 22px 28px;border-top:1px solid #f0eadf;">
+                <div style="font:400 12px Inter,Arial,sans-serif;color:#6b7280;text-align:center;">
+                  Laukiame jūsų apsilankymo. Prašome patikrinti kelionės reikalavimus ir vietos taisykles prieš atvykimą.
+                </div>
+              </td>
+            </tr>
+
+          </table>
+        </td>
+      </tr>
+    </table>
+  </div>`;
 }

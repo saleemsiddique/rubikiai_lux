@@ -355,6 +355,11 @@
       "invalidEmail": "Требуется действительный адрес электронной почты",
       "internalError": "Внутренняя ошибка сервера"
     },
+    "stripe": {
+      "reservationProductName": "Бронирование {property} {checkIn} → {checkOut}",
+      "reservationFeeDescription": "Сбор за бронирование ({date})",
+      "reservationFeeWithDiscount": "Сбор за бронирование ({date}) — применена скидка {code}"
+    },
     "admin": {
       "back": "Назад",
       "reservations": "Бронирования",

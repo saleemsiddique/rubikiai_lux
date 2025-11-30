@@ -381,6 +381,11 @@
       "invalidEmail": "Reikalingas tinkamas el. paštas",
       "internalError": "Vidinė serverio klaida"
     },
+    "stripe": {
+      "reservationProductName": "Rezervacija {property} {checkIn} → {checkOut}",
+      "reservationFeeDescription": "Rezervacijos mokestis ({date})",
+      "reservationFeeWithDiscount": "Rezervacijos mokestis ({date}) — pritaikyta nuolaida {code}"
+    },
     "admin": {
       "back": "Atgal",
       "reservations": "Rezervacijos",

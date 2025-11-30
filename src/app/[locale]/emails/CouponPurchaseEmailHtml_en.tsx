@@ -1,127 +1,128 @@
 import { CouponPurchaseParams } from '@/lib/emailTemplates';
+import { formatCurrency } from "@/lib/currency";
 
 export function CouponPurchaseEmailHtml_en(params: CouponPurchaseParams): string {
-  const { recipientName, code, amount, expirationDate } = params;
+  const { unitAmount, quantity, currency = "EUR", codes, expiresAt, logoCid = "rubikiai-logo" } = params;
+
+  const total = unitAmount * quantity;
+
+  const codeRows = codes
+    .map(
+      (c) => `
+      <tr>
+        <td align="left" style="padding:12px 14px;border-bottom:1px solid #eee;">
+          <span style="display:inline-block;padding:6px 10px;border:1px solid #d6c6b3;border-radius:999px;font:600 13px/1 Inter,Arial,sans-serif;color:#214235;letter-spacing:0.5px;background:#faf7f2;">
+            ${c.code}
+          </span>
+        </td>
+        <td align="right" style="padding:12px 14px;border-bottom:1px solid #eee;font:600 14px/1 Inter,Arial,sans-serif;color:#0f172a;">
+          ${formatCurrency(c.remaining, currency)}
+        </td>
+      </tr>`
+    )
+    .join("");
 
   return `
-    <!DOCTYPE html>
-    <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Your Gift Voucher</title>
-      </head>
-      <body style="margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; background-color: #f5f5f5;">
-        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5;">
-          <tr>
-            <td align="center" style="padding: 40px 20px;">
-              <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+  <div style="margin:0;padding:0;background:#f4efe9;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f4efe9;">
+      <tr>
+        <td align="center" style="padding:32px 16px;">
+          <!-- Card -->
+          <table role="presentation" width="640" cellspacing="0" cellpadding="0" border="0" style="max-width:640px;background:#ffffff;border-radius:16px;box-shadow:0 4px 18px rgba(0,0,0,0.08);overflow:hidden;border:1px solid #e9e2d9;">
+            <!-- Header / Logo -->
+            <tr>
+              <td align="center" style="padding:28px 28px 8px;">
+                <img src="cid:${logoCid}" width="180" height="auto" alt="Rubikiai Lux" style="display:block;border:0;outline:none;text-decoration:none;width:180px;height:auto;">
+              </td>
+            </tr>
 
-                <!-- Header -->
-                <tr>
-                  <td align="center" style="background: linear-gradient(135deg, #2a4850 0%, #3a5860 100%); padding: 40px 20px;">
-                    <h1 style="color: #ffffff; font-size: 28px; margin: 0; font-weight: 600;">Rubikiai Lux</h1>
-                    <p style="color: #d4b996; font-size: 16px; margin: 10px 0 0 0;">Your Gift Voucher</p>
-                  </td>
-                </tr>
+            <!-- Title -->
+            <tr>
+              <td align="center" style="padding:0 28px 6px;">
+                <div style="font:700 28px/1.25 Georgia,'Times New Roman',Times,serif;color:#214235;letter-spacing:1px;text-transform:uppercase;">
+                  Gift Voucher
+                </div>
+              </td>
+            </tr>
 
-                <!-- Greeting -->
-                <tr>
-                  <td style="padding: 40px 40px 20px 40px;">
-                    <h2 style="color: #2a4850; font-size: 24px; margin: 0 0 20px 0;">Hello, ${recipientName}!</h2>
-                    <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0;">
-                      We're delighted to present your gift voucher for a relaxing stay at Rubikiai Lux!
-                    </p>
-                  </td>
-                </tr>
+            <!-- Gold divider -->
+            <tr>
+              <td align="center" style="padding:8px 28px 0;">
+                <div style="height:3px;width:120px;background:#bfa58b;border-radius:2px;"></div>
+              </td>
+            </tr>
 
-                <!-- Coupon Code -->
-                <tr>
-                  <td style="padding: 0 40px 30px 40px;">
-                    <table width="100%" cellpadding="0" cellspacing="0" style="background: linear-gradient(135deg, #d4b996 0%, #c9a87a 100%); border-radius: 12px; padding: 30px; text-align: center;">
-                      <tr>
-                        <td>
-                          <p style="color: #2a4850; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 10px 0; font-weight: 600;">Your Voucher Code</p>
-                          <div style="background-color: #ffffff; border-radius: 8px; padding: 20px; margin: 10px 0;">
-                            <p style="color: #2a4850; font-size: 32px; font-weight: 700; margin: 0; letter-spacing: 3px; font-family: 'Courier New', monospace;">${code}</p>
-                          </div>
-                          <p style="color: #2a4850; font-size: 24px; font-weight: 700; margin: 20px 0 0 0;">€${amount.toFixed(2)}</p>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
+            <!-- Intro copy -->
+            <tr>
+              <td align="center" style="padding:16px 28px 6px;">
+                <div style="font:500 16px/1.6 Inter,Arial,sans-serif;color:#334155;">
+                  Thanks for your purchase! Below are your Rubikiai Lux coupon(s).
+                </div>
+              </td>
+            </tr>
 
-                <!-- Coupon Details -->
-                <tr>
-                  <td style="padding: 0 40px 40px 40px;">
-                    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f9f9f9; border-radius: 8px; padding: 20px;">
-                      <tr>
-                        <td>
-                          <h3 style="color: #2a4850; font-size: 18px; margin: 0 0 15px 0; border-bottom: 2px solid #d4b996; padding-bottom: 10px;">Voucher Details</h3>
+            <!-- Summary block -->
+            <tr>
+              <td style="padding:18px 24px 6px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid #efe7dc;border-radius:12px;background:#fffcf8;">
+                  <tr>
+                    <td style="padding:14px 18px;border-bottom:1px solid #efe7dc;">
+                      <div style="font:600 13px/1 Inter,Arial,sans-serif;color:#6b7280;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">Amount</div>
+                      <div style="font:600 18px/1.4 Inter,Arial,sans-serif;color:#0f172a;">
+                        ${formatCurrency(unitAmount, currency)} × ${quantity}
+                        <span style="opacity:.6">=</span>
+                        <span style="color:#214235;">${formatCurrency(total, currency)}</span>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:14px 18px;">
+                      <div style="font:600 13px/1 Inter,Arial,sans-serif;color:#6b7280;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">Validity</div>
+                      <div style="font:600 16px/1.5 Inter,Arial,sans-serif;color:#0f172a;">
+                        Until <span style="color:#214235;">${expiresAt}</span> <span style="opacity:.6">(12 months)</span>
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
 
-                          <table width="100%" cellpadding="8" cellspacing="0">
-                            <tr>
-                              <td style="color: #666666; font-size: 14px; padding: 8px 0;">Value:</td>
-                              <td style="color: #2a4850; font-size: 14px; font-weight: 600; text-align: right; padding: 8px 0;">€${amount.toFixed(2)}</td>
-                            </tr>
-                            <tr>
-                              <td style="color: #666666; font-size: 14px; padding: 8px 0;">Valid Until:</td>
-                              <td style="color: #2a4850; font-size: 14px; font-weight: 600; text-align: right; padding: 8px 0;">${expirationDate}</td>
-                            </tr>
-                            <tr>
-                              <td style="color: #666666; font-size: 14px; padding: 8px 0;">Code:</td>
-                              <td style="color: #2a4850; font-size: 14px; font-weight: 600; text-align: right; padding: 8px 0; font-family: 'Courier New', monospace;">${code}</td>
-                            </tr>
-                          </table>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
+            <!-- Codes list title -->
+            <tr>
+              <td style="padding:10px 24px 0;">
+                <div style="font:700 18px/1.3 Georgia,'Times New Roman',Times,serif;color:#214235;">Codes & Balance</div>
+              </td>
+            </tr>
 
-                <!-- How to Use -->
-                <tr>
-                  <td style="padding: 0 40px 40px 40px;">
-                    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #fff8e1; border-left: 4px solid #d4b996; border-radius: 4px; padding: 20px;">
-                      <tr>
-                        <td>
-                          <h4 style="color: #2a4850; font-size: 16px; margin: 0 0 10px 0;">How to Use Your Voucher</h4>
-                          <ul style="color: #666666; font-size: 14px; line-height: 1.8; margin: 0; padding-left: 20px;">
-                            <li>Visit our website and select your desired property</li>
-                            <li>During booking, enter your voucher code: <strong style="font-family: 'Courier New', monospace;">${code}</strong></li>
-                            <li>The discount will be automatically applied to the total amount</li>
-                            <li>Voucher is valid until <strong>${expirationDate}</strong></li>
-                          </ul>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
+            <!-- Codes table -->
+            <tr>
+              <td style="padding:8px 24px 22px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid #eee;border-radius:12px;overflow:hidden;">
+                  <thead>
+                    <tr>
+                      <th align="left" style="padding:12px 14px;background:#faf7f2;border-bottom:1px solid #eee;font:700 12px/1 Inter,Arial,sans-serif;color:#6b7280;letter-spacing:.5px;text-transform:uppercase;">Code</th>
+                      <th align="right" style="padding:12px 14px;background:#faf7f2;border-bottom:1px solid #eee;font:700 12px/1 Inter,Arial,sans-serif;color:#6b7280;letter-spacing:.5px;text-transform:uppercase;">Balance</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${codeRows}
+                  </tbody>
+                </table>
+              </td>
+            </tr>
 
-                <!-- Footer -->
-                <tr>
-                  <td align="center" style="padding: 30px 40px; background-color: #f9f9f9; border-top: 1px solid #e0e0e0;">
-                    <p style="color: #666666; font-size: 14px; line-height: 1.6; margin: 0 0 10px 0;">
-                      If you have any questions, please contact us:
-                    </p>
-                    <p style="color: #2a4850; font-size: 14px; margin: 5px 0;">
-                      <strong>Phone:</strong> <a href="tel:+37064632972" style="color: #d4b996; text-decoration: none;">+370 646 32 972</a>
-                    </p>
-                    <p style="color: #2a4850; font-size: 14px; margin: 5px 0;">
-                      <strong>Email:</strong> <a href="mailto:info@rubikiailux.lt" style="color: #d4b996; text-decoration: none;">info@rubikiailux.lt</a>
-                    </p>
-                    <p style="color: #999999; font-size: 12px; margin: 20px 0 0 0;">
-                      © ${new Date().getFullYear()} Rubikiai Lux. All rights reserved.
-                    </p>
-                  </td>
-                </tr>
-
-              </table>
-            </td>
-          </tr>
-        </table>
-      </body>
-    </html>
-  `;
+            <!-- Footer note -->
+            <tr>
+              <td style="padding:0 28px 28px;">
+                <div style="font:400 12px/1.6 Inter,Arial,sans-serif;color:#6b7280;">
+                  Redeem your code during booking at Rubikiai Lux (subject to availability). Non-refundable. If you need assistance, contact info@rubikiailux.lt.
+                </div>
+              </td>
+            </tr>
+          </table>
+          <!-- /Card -->
+        </td>
+      </tr>
+    </table>
+  </div>`;
 }

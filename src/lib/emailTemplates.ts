@@ -7,31 +7,43 @@ export type EmailType = 'booking-reminder' | 'coupon-purchase' | 'reservation-co
 
 export interface BookingReminderParams {
   guestName: string;
-  reservationId: string;
   houseName: string;
-  startDate: string;
-  endDate: string;
-  guests: number;
-  totalPrice: number;
+  checkIn: string;
+  checkOut?: string;
+  nGuests?: number;
+  variant?: "A" | "B"; // A = house L0TeFf2LmrWGAaAyS8NY, B = otros
+  notes?: string;
+  logoCid?: string;
+  houseImageCid?: string;
 }
 
 export interface CouponPurchaseParams {
-  recipientName: string;
-  code: string;
-  amount: number;
-  expirationDate: string;
+  unitAmount: number;
+  quantity: number;
+  currency?: string;
+  codes: { code: string; remaining: number }[];
+  expiresAt: string; // ISO (YYYY-MM-DD)
+  logoCid?: string; // CID de la imagen del logo adjunta en el email
 }
 
 export interface ReservationConfirmationParams {
-  guestName: string;
   reservationId: string;
-  houseName: string;
-  startDate: string;
-  endDate: string;
+  guestName: string;
+  bookingDate: string;
+  checkIn: string;
+  checkOut: string;
+  nights: number;
+  roomType: string; // House ID or name
   guests: number;
-  totalPrice: number;
-  depositPaid: number;
-  remainingBalance: number;
+  paidNow: number; // lo que se pagó ahora
+  payAtArrival: number; // lo que queda por pagar
+  totalStay: number; // total de la estancia
+  discountApplied?: number; // lo descontado del cupón/porcentaje
+  currency?: string;
+  hotelName?: string;
+  hotelContactEmail?: string;
+  hotelContactPhone?: string;
+  logoCid?: string;
 }
 
 /**

@@ -521,6 +521,22 @@ export async function POST(
     const methodTypes: Stripe.Checkout.SessionCreateParams.PaymentMethodType[] =
       isFreeOrder ? [] : ["card", "paypal"];
 
+    // Get Stripe product translations
+    const tStripe = await getTranslations({ locale, namespace: 'api.stripe' });
+
+    const productName = tStripe('reservationProductName', {
+      property: rawValue,
+      checkIn: startIso,
+      checkOut: endIso
+    });
+
+    const productDescription = effectiveDiscountAmount > 0
+      ? tStripe('reservationFeeWithDiscount', {
+          date: startIso,
+          code: discountCodeForMeta || discountIdForMeta
+        })
+      : tStripe('reservationFeeDescription', { date: startIso });
+
     const sessionParams: Stripe.Checkout.SessionCreateParams = {
       mode: "payment",
       ...(isFreeOrder
@@ -529,16 +545,14 @@ export async function POST(
           payment_method_types: methodTypes,
         }),
       customer: stripeCustomerId,
+      locale: locale as Stripe.Checkout.SessionCreateParams.Locale, // Stripe UI locale
       line_items: [
         {
           price_data: {
             currency: "eur",
             product_data: {
-              name: `Reservation ${rawValue} ${startIso} → ${endIso}`,
-              description:
-                effectiveDiscountAmount > 0
-                  ? `Reservation fee (${startIso}) — discount ${discountCodeForMeta || discountIdForMeta} applied`
-                  : `Reservation fee (${startIso})`,
+              name: productName,
+              description: productDescription,
             },
             unit_amount: Math.max(0, discountedFirstCents),
           },

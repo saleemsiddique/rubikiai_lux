@@ -47,6 +47,7 @@ export async function POST(
       mode: "payment",
       customer_creation: "always",
       payment_method_types: ["card", "paypal"],
+      locale: locale, // Stripe UI locale
       line_items: [
         {
           price_data: {

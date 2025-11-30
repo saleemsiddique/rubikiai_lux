@@ -1,130 +1,170 @@
 import { ReservationConfirmationParams } from '@/lib/emailTemplates';
+import { formatCurrency } from "@/lib/currency";
 
 export function ReservationConfirmationEmailHtml_ru(params: ReservationConfirmationParams): string {
-  const { guestName, reservationId, houseName, startDate, endDate, guests, totalPrice, depositPaid, remainingBalance } = params;
+  const {
+    reservationId,
+    guestName,
+    bookingDate,
+    checkIn,
+    checkOut,
+    nights,
+    roomType,
+    guests,
+    paidNow = 0,
+    payAtArrival = 0,
+    totalStay = 0,
+    discountApplied = 0,
+    currency = "EUR",
+    hotelName = "Rubikiai Lux",
+    hotelContactEmail = "info@rubikiailux.lt",
+    hotelContactPhone = "",
+    logoCid = "rubikiai-logo",
+  } = params;
+
+  const PROPERTY_NAME_MAP: Record<string, string> = {
+    "L0TeFf2LmrWGAaAyS8NY": "Ezero Namelis",
+    "PZwbfMYlSXj61uYYJutg": "Salia Elnių Aptvaro",
+    "oDzv9346CdaAsok162sX": "Salia Elnių Panorama",
+  };
+
+  const readableRoomType = PROPERTY_NAME_MAP[roomType] || roomType;
+  const hasDiscount = discountApplied > 0;
+  const totalBeforeDiscount = totalStay + discountApplied;
 
   return `
-    <!DOCTYPE html>
-    <html lang="ru">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Подтверждение бронирования</title>
-      </head>
-      <body style="margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; background-color: #f5f5f5;">
-        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5;">
-          <tr>
-            <td align="center" style="padding: 40px 20px;">
-              <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+  <div style="margin:0;padding:0;background:#f4efe9;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f4efe9;">
+      <tr>
+        <td align="center" style="padding:32px 16px;">
+          <table role="presentation" width="640" cellspacing="0" cellpadding="0" border="0" style="max-width:640px;background:#ffffff;border-radius:16px;box-shadow:0 4px 18px rgba(0,0,0,0.08);overflow:hidden;border:1px solid #e9e2d9;">
+            <tr>
+              <td align="center" style="padding:28px 28px 8px;">
+                <img src="cid:${logoCid}" width="180" height="auto" alt="${hotelName}" style="display:block;border:0;outline:none;text-decoration:none;width:180px;height:auto;">
+              </td>
+            </tr>
 
-                <!-- Header -->
-                <tr>
-                  <td align="center" style="background: linear-gradient(135deg, #2a4850 0%, #3a5860 100%); padding: 40px 20px;">
-                    <h1 style="color: #ffffff; font-size: 28px; margin: 0; font-weight: 600;">Rubikiai Lux</h1>
-                    <p style="color: #d4b996; font-size: 16px; margin: 10px 0 0 0;">Подтверждение бронирования</p>
-                  </td>
-                </tr>
+            <tr>
+              <td align="center" style="padding:0 28px 6px;">
+                <div style="font:700 28px/1.25 Georgia,'Times New Roman',Times,serif;color:#214235;letter-spacing:1px;text-transform:uppercase;">
+                  Подтверждение бронирования
+                </div>
+              </td>
+            </tr>
 
-                <!-- Greeting -->
-                <tr>
-                  <td style="padding: 40px 40px 20px 40px;">
-                    <h2 style="color: #2a4850; font-size: 24px; margin: 0 0 20px 0;">Здравствуйте, ${guestName}!</h2>
-                    <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0;">
-                      Рады подтвердить ваше бронирование. С нетерпением ждем вашего визита!
-                    </p>
-                  </td>
-                </tr>
+            <tr>
+              <td align="center" style="padding:8px 28px 0;">
+                <div style="height:3px;width:120px;background:#bfa58b;border-radius:2px;"></div>
+              </td>
+            </tr>
 
-                <!-- Reservation Details -->
-                <tr>
-                  <td style="padding: 0 40px 40px 40px;">
-                    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f9f9f9; border-radius: 8px; padding: 20px;">
-                      <tr>
-                        <td>
-                          <h3 style="color: #2a4850; font-size: 18px; margin: 0 0 15px 0; border-bottom: 2px solid #d4b996; padding-bottom: 10px;">Детали бронирования</h3>
+            <tr>
+              <td align="center" style="padding:16px 28px 6px;">
+                <div style="font:500 16px/1.6 Inter,Arial,sans-serif;color:#334155;">
+                  Спасибо, <strong>${guestName}</strong>. Ваше бронирование подтверждено.
+                </div>
+              </td>
+            </tr>
 
-                          <table width="100%" cellpadding="8" cellspacing="0">
-                            <tr>
-                              <td style="color: #666666; font-size: 14px; padding: 8px 0;">Номер брони:</td>
-                              <td style="color: #2a4850; font-size: 14px; font-weight: 600; text-align: right; padding: 8px 0;">${reservationId}</td>
-                            </tr>
-                            <tr>
-                              <td style="color: #666666; font-size: 14px; padding: 8px 0;">Объект:</td>
-                              <td style="color: #2a4850; font-size: 14px; font-weight: 600; text-align: right; padding: 8px 0;">${houseName}</td>
-                            </tr>
-                            <tr>
-                              <td style="color: #666666; font-size: 14px; padding: 8px 0;">Заезд:</td>
-                              <td style="color: #2a4850; font-size: 14px; font-weight: 600; text-align: right; padding: 8px 0;">${startDate} (с 16:00)</td>
-                            </tr>
-                            <tr>
-                              <td style="color: #666666; font-size: 14px; padding: 8px 0;">Выезд:</td>
-                              <td style="color: #2a4850; font-size: 14px; font-weight: 600; text-align: right; padding: 8px 0;">${endDate} (до 11:00-12:00)</td>
-                            </tr>
-                            <tr>
-                              <td style="color: #666666; font-size: 14px; padding: 8px 0;">Количество гостей:</td>
-                              <td style="color: #2a4850; font-size: 14px; font-weight: 600; text-align: right; padding: 8px 0;">${guests}</td>
-                            </tr>
-                            <tr style="border-top: 2px solid #d4b996;">
-                              <td style="color: #666666; font-size: 14px; padding: 12px 0 8px 0;">Общая стоимость:</td>
-                              <td style="color: #2a4850; font-size: 16px; font-weight: 700; text-align: right; padding: 12px 0 8px 0;">€${totalPrice.toFixed(2)}</td>
-                            </tr>
-                            <tr>
-                              <td style="color: #666666; font-size: 14px; padding: 4px 0;">Оплачен депозит:</td>
-                              <td style="color: #4caf50; font-size: 14px; font-weight: 600; text-align: right; padding: 4px 0;">€${depositPaid.toFixed(2)}</td>
-                            </tr>
-                            <tr>
-                              <td style="color: #666666; font-size: 14px; padding: 4px 0 12px 0;">Оплатить при заезде:</td>
-                              <td style="color: #ff9800; font-size: 16px; font-weight: 700; text-align: right; padding: 4px 0 12px 0;">€${remainingBalance.toFixed(2)}</td>
-                            </tr>
-                          </table>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
+            <tr>
+              <td style="padding:18px 24px 6px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid #efe7dc;border-radius:12px;background:#fffcf8;">
+                  <tr>
+                    <td style="padding:14px 18px;border-bottom:1px solid #efe7dc;">
+                      <div style="font:600 13px/1 Inter,Arial,sans-serif;color:#6b7280;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">Бронирование</div>
+                      <div style="font:600 16px/1.4 Inter,Arial,sans-serif;color:#0f172a;">
+                        <div>ID: <span style="color:#214235;">${reservationId}</span></div>
+                        <div>Дата бронирования: <span style="color:#214235;">${bookingDate}</span></div>
+                      </div>
+                    </td>
+                  </tr>
 
-                <!-- Important Info -->
-                <tr>
-                  <td style="padding: 0 40px 40px 40px;">
-                    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #fff8e1; border-left: 4px solid #d4b996; border-radius: 4px; padding: 20px;">
-                      <tr>
-                        <td>
-                          <h4 style="color: #2a4850; font-size: 16px; margin: 0 0 10px 0;">Важная информация</h4>
-                          <ul style="color: #666666; font-size: 14px; line-height: 1.8; margin: 0; padding-left: 20px;">
-                            <li>Время заезда с <strong>16:00</strong></li>
-                            <li>Время выезда до <strong>12:00</strong> (Домик у Озера) или <strong>11:00</strong> (Дуплексы)</li>
-                            <li>Домашние животные не допускаются для безопасности оленей</li>
-                            <li>Оленей можно кормить только фруктами и овощами</li>
-                          </ul>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
+                  <tr>
+                    <td style="padding:14px 18px;border-bottom:1px solid #efe7dc;">
+                      <div style="font:600 13px/1 Inter,Arial,sans-serif;color:#6b7280;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">Детали проживания</div>
+                      <div style="font:600 16px/1.5 Inter,Arial,sans-serif;color:#0f172a;">
+                        <div>Заезд: <strong>${checkIn}</strong> &nbsp; | &nbsp; Выезд: <strong>${checkOut}</strong></div>
+                        <div>Ночей: <strong>${nights}</strong> &nbsp; | &nbsp; Гостей: <strong>${guests}</strong></div>
+                        <div>Название объекта: <strong>${readableRoomType}</strong></div>
+                      </div>
+                    </td>
+                  </tr>
 
-                <!-- Footer -->
-                <tr>
-                  <td align="center" style="padding: 30px 40px; background-color: #f9f9f9; border-top: 1px solid #e0e0e0;">
-                    <p style="color: #666666; font-size: 14px; line-height: 1.6; margin: 0 0 10px 0;">
-                      Если у вас есть вопросы, свяжитесь с нами:
-                    </p>
-                    <p style="color: #2a4850; font-size: 14px; margin: 5px 0;">
-                      <strong>Телефон:</strong> <a href="tel:+37064632972" style="color: #d4b996; text-decoration: none;">+370 646 32 972</a>
-                    </p>
-                    <p style="color: #2a4850; font-size: 14px; margin: 5px 0;">
-                      <strong>Эл. почта:</strong> <a href="mailto:info@rubikiailux.lt" style="color: #d4b996; text-decoration: none;">info@rubikiailux.lt</a>
-                    </p>
-                    <p style="color: #999999; font-size: 12px; margin: 20px 0 0 0;">
-                      © ${new Date().getFullYear()} Rubikiai Lux. Все права защищены.
-                    </p>
-                  </td>
-                </tr>
+                  <tr>
+                    <td style="padding:14px 18px;">
+                      <div style="font:600 13px/1 Inter,Arial,sans-serif;color:#6b7280;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">Сводка платежей</div>
+                      <div style="font:600 16px/1.5 Inter,Arial,sans-serif;color:#0f172a;">
+                        ${hasDiscount ? `
+                        <div style="margin-top:6px;font-size:16px;color:#64748b;">
+                          Сумма до скидки: <strong>${formatCurrency(totalBeforeDiscount, currency)}</strong>
+                        </div>
+                        <div style="margin-top:6px;font-size:15px;color:#16a34a;">
+                          Применена скидка: <strong>-${formatCurrency(discountApplied, currency)}</strong>
+                        </div>
+                        <div style="margin-top:6px;padding-top:6px;border-top:1px solid #efe7dc;"></div>
+                        ` : ""}
+                        <div style="margin-top:6px;font-size:16px;color:#0f172a;">
+                          Оплачено сейчас: <strong style="color:#059669;">${formatCurrency(paidNow, currency)}</strong>
+                        </div>
+                        <div style="margin-top:6px;font-size:16px;color:#0f172a;">
+                          К оплате при заезде: <strong style="color:#dc2626;">${formatCurrency(payAtArrival, currency)}</strong>
+                        </div>
+                        <div style="margin-top:10px;padding-top:10px;border-top:1px solid #efe7dc;font-size:18px;color:#214235;">
+                          Общая сумма: <strong>${formatCurrency(totalStay, currency)}</strong>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
 
-              </table>
-            </td>
-          </tr>
-        </table>
-      </body>
-    </html>
+            <tr>
+              <td style="padding:12px 24px 6px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                  <tr>
+                    <td style="padding:10px 0;">
+                      <div style="font:700 16px/1.3 Georgia,'Times New Roman',Times,serif;color:#214235;">Нужна помощь?</div>
+                      <div style="font:400 13px/1.6 Inter,Arial,sans-serif;color:#6b7280;">
+                        Если вам нужно изменить или отменить бронирование, свяжитесь с нами по адресу <a href="mailto:${hotelContactEmail}" style="color:#214235;text-decoration:none;">${hotelContactEmail}</a>${hotelContactPhone ? ` или позвоните нам по телефону ${hotelContactPhone}.` : "."}
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:12px 24px 18px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid #eee;border-radius:12px;background:#fffcf8;overflow:hidden;">
+                  <tr>
+                    <td style="padding:14px 18px;">
+                      <div style="font:600 13px/1 Inter,Arial,sans-serif;color:#6b7280;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">Важно</div>
+                      <div style="font:600 16px/1.5 Inter,Arial,sans-serif;color:#0f172a;">
+                        <div style="margin-bottom:8px;">
+                          Мы отправим вам письмо-напоминание ближе к дате заезда с дополнительной информацией — инструкции по заезду, направления и советы по бронированию.
+                        </div>
+                        <div style="margin-top:10px;font-size:14px;color:#6b7280;">
+                          Если вам понадобится помощь раньше, свяжитесь с нами по адресу <a href="mailto:${hotelContactEmail}" style="color:#214235;text-decoration:none;">${hotelContactEmail}</a>${hotelContactPhone ? ` или позвоните ${hotelContactPhone}` : ""}.
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:0 28px 28px;">
+                <div style="font:400 12px/1.6 Inter,Arial,sans-serif;color:#6b7280;">
+                  Ваше бронирование подлежит условиям и положениям Rubikiai Lux. Если у вас есть вопросы, ответьте на это письмо или напишите по адресу <a href="mailto:${hotelContactEmail}" style="color:#214235;text-decoration:none;">${hotelContactEmail}</a>.
+                </div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </div>
   `;
 }

@@ -72,6 +72,7 @@ function formatDateToDisplay(isoDate: string): string {
 export default function AdminHousesClient() {
   const t = useTranslations('admin');
   const locale = useLocale();
+  const WEEK_LABEL = getWeekLabel(t);
   // ===== LISTA Y FILTRO =====
   const [list, setList] = useState<HouseListItem[]>([]);
   const [listLoading, setListLoading] = useState(false);
@@ -249,6 +250,7 @@ export default function AdminHousesClient() {
   const savePrices = useCallback(async () => {
     if (!house) return;
 
+    const WEEK_LABEL = getWeekLabel(t);
     const payload: Partial<Record<Weekday, number>> = {};
     for (const k of Object.keys(WEEK_LABEL) as Weekday[]) {
       const raw = (form[k] ?? "").trim();
@@ -316,12 +318,13 @@ export default function AdminHousesClient() {
     } finally {
       setSaving(false);
     }
-  }, [house, form]);
+  }, [house, form, t]);
 
   // ===== GUARDAR/ACTUALIZAR TEMPORADA =====
   const handleSaveSeason = useCallback(async () => {
     if (!house) return;
 
+    const WEEK_LABEL = getWeekLabel(t);
     const name = seasonName.trim();
     const start = seasonStart.trim();
     const end = seasonEnd.trim();
@@ -397,7 +400,7 @@ export default function AdminHousesClient() {
     } finally {
       setSeasonSaving(false);
     }
-  }, [house, seasonName, seasonStart, seasonEnd, seasonPrices, editingSeasonIndex]);
+  }, [house, seasonName, seasonStart, seasonEnd, seasonPrices, editingSeasonIndex, t]);
 
   // ===== ELIMINAR TEMPORADA =====
   const handleDeleteSeason = useCallback(async (index: number) => {
@@ -425,7 +428,7 @@ export default function AdminHousesClient() {
     } finally {
       setSeasonSaving(false);
     }
-  }, [house]);
+  }, [house, t]);
 
   // ===== EDITAR TEMPORADA =====
   const handleEditSeason = useCallback((index: number, season: Season) => {

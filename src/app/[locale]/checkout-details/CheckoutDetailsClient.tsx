@@ -810,6 +810,16 @@ export default function CheckoutDetailsClient() {
 
         cancelUrl: window.location.href,
 
+        // NUEVOS CAMPOS DE PRECIO SIMPLIFICADOS
+        pricing: {
+          payNow: payNowAfterDiscount ?? priceData.first ?? 0,
+          totalStay:
+            totalAfterDiscount ??
+            (withJacuzzi ? priceData.grandTotal : priceData.total) ??
+            0,
+          // payAtArrival se calcula en backend: totalStay - payNow
+        },
+
         customer: {
           email,
           name: `${firstName} ${lastName}`.trim(),

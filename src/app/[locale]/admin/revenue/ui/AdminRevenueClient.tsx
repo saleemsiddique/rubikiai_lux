@@ -65,8 +65,8 @@ const HOUSE_OPTIONS = [
 
 const PROPERTY_NAME_MAP: Record<string, string> = {
   "L0TeFf2LmrWGAaAyS8NY": "Ezero Namelis",
-  "PZwbfMYlSXj61uYYJutg": "Salia Elnių Aptvaro",
-  "oDzv9346CdaAsok162sX": "Salia Elnių Panorama",
+  "PZwbfMYlSXj61uYYJutg": "N1",
+  "oDzv9346CdaAsok162sX": "N2",
 };
 
 function todayISO() {
@@ -128,22 +128,50 @@ export default function AdminRevenueClient() {
         const p = new URLSearchParams();
         p.set("start", start);
         p.set("end", end);
-        p.set("by", "createdAt");
+        // no forzamos "by=createdAt" aquí para no filtrar por createdAt en el servidor
         p.set("status", resStatuses.join(","));
         if (houseId) p.set("houseId", houseId);
 
-        const resR = await fetch(
-          `/api/admin/revenue/reservations?${p.toString()}`,
-          { cache: "no-store" }
-        );
+        const resR = await fetch(`/api/admin/revenue/reservations?${p.toString()}`, { cache: "no-store" });
         if (!resR.ok) throw new Error(await readError(resR));
         const jr = await resR.json();
-        setReservations(jr.results || []);
+        const allResults: ReservationRow[] = jr.results || [];
+
+        // --- Filtrado cliente: quedarnos con reservas donde checkIn o checkOut estén en el rango,
+        // o que la reserva englobe por completo el rango seleccionado ---
+        const toIso = (s?: string | null) => {
+          if (!s) return null;
+          // normalize to YYYY-MM-DD (handles timestamps like 2025-12-01T13:00:00Z)
+          return s.length >= 10 ? s.slice(0, 10) : s;
+        };
+
+        const startIso = toIso(start) ?? null; // start y end ya vienen en YYYY-MM-DD
+        const endIso = toIso(end) ?? null;
+
+        const overlapsRange = (r: ReservationRow) => {
+          const ci = toIso(r.checkIn);
+          const co = toIso(r.checkOut);
+
+          // If neither date present, skip (cannot determine)
+          if (!ci && !co) return false;
+
+          // checkIn inside range
+          if (ci && startIso && endIso && ci >= startIso && ci <= endIso) return true;
+          // checkOut inside range
+          if (co && startIso && endIso && co >= startIso && co <= endIso) return true;
+          // reservation encloses the whole interval (checkIn <= start && checkOut >= end)
+          if (ci && co && startIso && endIso && ci <= startIso && co >= endIso) return true;
+
+          return false;
+        };
+
+        const filtered = allResults.filter(overlapsRange);
+        setReservations(filtered);
       } else {
         setReservations([]);
       }
 
-      // CUPONES
+      // CUPONES (sin cambios)
       if (tab === "all" || tab === "coupons") {
         const p2 = new URLSearchParams();
         p2.set("start", start);
@@ -151,10 +179,7 @@ export default function AdminRevenueClient() {
         p2.set("by", "completedAt");
         p2.set("status", "completed");
 
-        const resC = await fetch(
-          `/api/admin/revenue/coupon-orders?${p2.toString()}`,
-          { cache: "no-store" }
-        );
+        const resC = await fetch(`/api/admin/revenue/coupon-orders?${p2.toString()}`, { cache: "no-store" });
         if (!resC.ok) throw new Error(await readError(resC));
         const jc = await resC.json();
         setOrders(jc.results || []);

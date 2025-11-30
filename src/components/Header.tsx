@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useCallback, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useTranslations, useLocale } from 'next-intl';
 
 export default function Header() {
@@ -47,6 +47,11 @@ export default function Header() {
 
   // Check if we're on home page
   const isHomePage = pathname === `/${locale}`;
+  const isHousePage =
+    pathname.startsWith(`/${locale}/dupleksas/`) ||
+    pathname === `/${locale}/dupleksas` ||
+    pathname === `/${locale}/ezero-namelis`;
+
 
   // --- Smooth rAF-based scroll handling with hysteresis ---
   useEffect(() => {
@@ -97,22 +102,22 @@ export default function Header() {
   }, [isOpen]);
 
   // detecta si estamos en pantallas "desktop" (md = 768px en Tailwind)
-const [isDesktop, setIsDesktop] = useState<boolean>(false);
+  const [isDesktop, setIsDesktop] = useState<boolean>(false);
 
-useEffect(() => {
-  if (typeof window === "undefined") return;
-  const mq = window.matchMedia("(min-width: 768px)");
-  const handler = (e: MediaQueryListEvent | MediaQueryList) => setIsDesktop(e.matches);
-  // set initial
-  setIsDesktop(mq.matches);
-  // compat: addEventListener en la spec moderna, addListener en navegadores viejos
-  if (typeof mq.addEventListener === "function") mq.addEventListener("change", handler);
-  else mq.addListener(handler);
-  return () => {
-    if (typeof mq.removeEventListener === "function") mq.removeEventListener("change", handler);
-    else mq.removeListener(handler);
-  };
-}, []);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(min-width: 768px)");
+    const handler = (e: MediaQueryListEvent | MediaQueryList) => setIsDesktop(e.matches);
+    // set initial
+    setIsDesktop(mq.matches);
+    // compat: addEventListener en la spec moderna, addListener en navegadores viejos
+    if (typeof mq.addEventListener === "function") mq.addEventListener("change", handler);
+    else mq.addListener(handler);
+    return () => {
+      if (typeof mq.removeEventListener === "function") mq.removeEventListener("change", handler);
+      else mq.removeListener(handler);
+    };
+  }, []);
 
 
   useEffect(() => {
@@ -133,10 +138,18 @@ useEffect(() => {
     };
   }, [isOpen, close]);
 
-// mostrar si estamos en home y (es escritorio OR no está scrolleado)
-// -> en desktop lo mostramos siempre; en móviles solo si no está scrolleado
-const showMobileReservationButton = isHomePage && (isDesktop || !scrolled);
+  const searchParams = useSearchParams();
 
+  const hasQueryParamsHousePage = Boolean(
+    searchParams?.has("start") ||
+    searchParams?.has("end") ||
+    searchParams?.has("guests") ||
+    searchParams?.has("type")
+  );
+
+  const showMobileReservationButton =
+    (isHomePage && (isDesktop || !scrolled)) ||
+    (isHousePage && (isDesktop || !scrolled) && !hasQueryParamsHousePage);
 
   return (
     <>
@@ -226,8 +239,8 @@ const showMobileReservationButton = isHomePage && (isDesktop || !scrolled);
           >
             <span
               className={`transition-all duration-300 rounded px-4 py-1 ${scrolled
-                  ? "border-2 border-[var(--color-secondary)] text-[var(--color-secondary)] hover:bg-[var(--color-secondary)] hover:text-white"
-                  : "border-2 border-white/80 md:border-[var(--color-secondary)] text-white md:text-[var(--color-secondary)] hover:bg-white md:hover:bg-[var(--color-secondary)] hover:text-[var(--color-secondary)] md:hover:text-white backdrop-blur-sm"
+                ? "border-2 border-[var(--color-secondary)] text-[var(--color-secondary)] hover:bg-[var(--color-secondary)] hover:text-white"
+                : "border-2 border-white/80 md:border-[var(--color-secondary)] text-white md:text-[var(--color-secondary)] hover:bg-white md:hover:bg-[var(--color-secondary)] hover:text-[var(--color-secondary)] md:hover:text-white backdrop-blur-sm"
                 }`}
               style={{
                 opacity: showMobileReservationButton ? 1 : 0,
@@ -244,8 +257,8 @@ const showMobileReservationButton = isHomePage && (isDesktop || !scrolled);
         <div
           aria-hidden
           className={`absolute inset-0 pointer-events-none transition-all duration-400 ${scrolled
-              ? "bg-[var(--color-background-main)]/97 backdrop-blur-md shadow-lg"
-              : "bg-gradient-to-b from-black/50 to-transparent md:bg-[var(--color-background-main)]/20 md:backdrop-blur-sm"
+            ? "bg-[var(--color-background-main)]/97 backdrop-blur-md shadow-lg"
+            : "bg-gradient-to-b from-black/50 to-transparent md:bg-[var(--color-background-main)]/20 md:backdrop-blur-sm"
             }`}
           style={{ zIndex: -1 }}
         />

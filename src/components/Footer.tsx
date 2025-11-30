@@ -3,7 +3,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { PhoneIcon, InboxIcon, Globe, Facebook, Instagram } from "lucide-react";
 import { useTranslations, useLocale } from 'next-intl';
 import { locales, localeNames } from "@/i18n/config";
@@ -13,19 +13,34 @@ const Footer: React.FC = () => {
   const t = useTranslations('nav');
   const tCommon = useTranslations('common');
   const locale = useLocale();
-  const pathname = usePathname();
 
-  // Get current path without locale prefix
-  const getPathWithoutLocale = () => {
-    const pathWithoutLocale = pathname.replace(`/${locale}`, '') || '/';
-    return pathWithoutLocale;
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  // Devuelve el path actual SIN el prefijo de locale (limpio, con leading slash)
+  const getPathWithoutLocale = (loc: string) => {
+    // eliminar solo el prefijo inicial "/{locale}"
+    return pathname.replace(new RegExp(`^/${loc}`), '') || '/';
   };
 
+  // Cambia el idioma preservando query string y hash
   const switchLanguage = (newLocale: string) => {
-    const pathWithoutLocale = getPathWithoutLocale();
-    const searchParams = window.location.search; // Preserve URL parameters
+    // path sin locale
+    const pathWithoutLocale = getPathWithoutLocale(locale);
+
+    // reconstruir query string desde useSearchParams (más fiable en SPA)
+    const rawSearch = searchParams?.toString() ?? '';
+    const search = rawSearch ? `?${rawSearch}` : '';
+
+    // conservar hash si existe (window.location.hash)
+    const hash = typeof window !== 'undefined' ? window.location.hash : '';
+
+    // nuevo path: si es root -> '/{newLocale}', si no -> '/{newLocale}{pathWithoutLocale}'
     const newPath = pathWithoutLocale === '/' ? `/${newLocale}` : `/${newLocale}${pathWithoutLocale}`;
-    window.location.href = newPath + searchParams;
+
+    // usar router.push para navegación cliente (mantiene historial y estado)
+    router.push(newPath + search + hash);
   };
 
   return (
@@ -36,9 +51,9 @@ const Footer: React.FC = () => {
 
           {/* Quick Links - Destacado */}
           <div className="lg:col-span-2 flex flex-col items-center">
-            <h3 className="text-sm font-bold text-white mb-6 uppercase tracking-wider border-b border-[var(--color-primary)] pb-2 inline-block text-center">
+            {/*<h3 className="text-sm font-bold text-white mb-6 uppercase tracking-wider border-b border-[var(--color-primary)] pb-2 inline-block text-center">
               {t('navigate')}
-            </h3>
+            </h3>*/}
 
             <nav className="grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-3 mt-6 text-lg w-full justify-items-start md:justify-items-center">
               <Link

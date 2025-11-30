@@ -10,6 +10,8 @@ import { useTranslations, useLocale } from 'next-intl';
 import { enUS } from 'date-fns/locale/en-US';
 import { lt } from 'date-fns/locale/lt';
 import { ru } from 'date-fns/locale/ru';
+import { HOUSE_ROUTE_OVERRIDES_BY_ID } from "@/lib/houseRoutes"; // opcional, solo si existe
+
 
 // Register all locales
 registerLocale('en', enUS);
@@ -359,29 +361,69 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     }
   }, [searchParams]);
 
+  const allHouseIds = Object.keys(HOUSE_ROUTE_OVERRIDES_BY_ID);
+
   const onChangeArrival = (date: Date | null) => {
     setStartDate(date);
-    if (date) {
-      // Si la fecha seleccionada es igual o mayor al endDate actual, resetear endDate
-      if (endDate && date.getTime() >= endDate.getTime()) {
-        setEndDate(null);
-      }
-      setOpenPicker("departure");
+
+    if (!date) {
+      setSelectedArrivalDates(prev => {
+        const next = { ...prev };
+        allHouseIds.forEach(id => (next[id] = null));
+        return next;
+      });
+      setTimeout(() => recomputeHousesAvailability(null, endDate), 0);
+      return;
     }
-    setTimeout(() => recomputeHousesAvailability(date, endDate), 0);
+
+    // Si arrival >= checkout → quitar checkout (no mover al día siguiente)
+    if (endDate && date.getTime() >= endDate.getTime()) {
+      setEndDate(null);
+      setSelectedDepartureDates(prev => {
+        const next = { ...prev };
+        allHouseIds.forEach(id => (next[id] = null));
+        return next;
+      });
+    }
+
+    // Propagar checkin a todas las casas
+    setSelectedArrivalDates(prev => {
+      const next = { ...prev };
+      allHouseIds.forEach(id => (next[id] = date));
+      return next;
+    });
+
+    setOpenPicker("departure");
+    setTimeout(() => recomputeHousesAvailability(date, null), 0);
   };
 
   const onChangeDeparture = (date: Date | null) => {
-    // No permitir que check-out sea igual a check-in
-    if (date && startDate && date.getTime() === startDate.getTime()) {
+    if (date && startDate && date.getTime() === startDate.getTime()) return;
+
+    setEndDate(date);
+
+    if (!date) {
+      setSelectedDepartureDates(prev => {
+        const next = { ...prev };
+        allHouseIds.forEach(id => (next[id] = null));
+        return next;
+      });
+      setTimeout(() => recomputeHousesAvailability(startDate, null), 0);
+      setOpenPicker("departure");
       return;
     }
-    setEndDate(date);
-    if (date) {
-      setOpenPicker(null);
-    }
+
+    // Propagar checkout a todas las casas
+    setSelectedDepartureDates(prev => {
+      const next = { ...prev };
+      allHouseIds.forEach(id => (next[id] = date));
+      return next;
+    });
+
+    setOpenPicker(null);
     setTimeout(() => recomputeHousesAvailability(startDate, date), 0);
   };
+
 
   const handleGuestsChange = (inc: number) => {
     setGuests((prev) => {
@@ -825,7 +867,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       }
     };
 
-    // <-- Cambiado: ahora acepta opts.preserveDepartureIfSame -->
+    // <-- Cambiado: ya no mueve el checkout al día siguiente; ahora solo lo elimina
     const handleSelectArrival = (date: Date, opts?: { preserveDepartureIfSame?: boolean }) => {
       const iso = dateIso(date);
       if (occupiedSet.has(iso)) return;
@@ -834,36 +876,19 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       const newStart = date;
       let newEnd = localEndDate ? new Date(localEndDate) : null;
 
-      // Si arrival coincide con departure → intentar mover departure UN DÍA (pero
-      // comprobar la validez del día candidato COMO checkout, no como checkin)
+      // Si arrival coincide con departure -> por defecto deseleccionamos el checkout,
+      // salvo que se pase opts.preserveDepartureIfSame === true
       if (newEnd && dateIso(newEnd) === iso) {
-        const candidate = addDays(newEnd, 1);
-
-        // Comprobar validez del candidate COMO día de checkout
-        const candidateDs = dateIso(candidate);
-        const isOccCandidate = occupiedSetFull.has(candidateDs);
-        const isPrevOccCandidate = occupiedSetFull.has(dateIso(addDays(candidate, -1)));
-        const isCheckinStartCandidate = isOccCandidate && !isPrevOccCandidate;
-        const isCheckoutEndCandidate = !isOccCandidate && isPrevOccCandidate;
-
-        // Reglas de "checkout válido" (misma lógica que usas para departure mode)
-        const candidateIsValidCheckout = !((isOccCandidate && !isCheckinStartCandidate) || isCheckoutEndCandidate);
-
-        if (!candidateIsValidCheckout) {
-          // Si NO es válido COMO checkout → no mover (comportamiento previo: eliminar checkout)
+        if (opts?.preserveDepartureIfSame) {
+          // preservamos el checkout tal cual (no hacer nada)
+        } else {
           newEnd = null;
           setSelectedDepartureDates(prev => ({ ...prev, [houseId]: null }));
           setEndDate(null);
-        } else {
-          // Si SÍ es válido COMO checkout → mover el checkout al día siguiente
-          newEnd = candidate;
-          setSelectedDepartureDates(prev => ({ ...prev, [houseId]: candidate }));
-          setEndDate(candidate);
         }
       }
 
-
-      // Validar rango arrival → departure
+      // Validar rango arrival → departure (si hay departure)
       if (newEnd) {
         let cur = stripTime(newStart);
         const end = stripTime(newEnd);
@@ -892,6 +917,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
 
       setTimeout(() => switchMode('departure'), 200);
     };
+
 
     const handleSelectDeparture = (date: Date) => {
       const iso = dateIso(date);
@@ -1257,7 +1283,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     return !!s && s.has(iso);
   };
 
-  // Reemplaza tu función por esta
+  // Reemplaza tu función por esta (no mueve checkout cuando arrival === departure)
   const handleSelectArrival = (
     houseId: string,
     d: Date,
@@ -1287,34 +1313,25 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
 
     // Caso A: arrival coincide con departure seleccionado
     if (newEnd && dateIso(newEnd) === dateIso(newStart)) {
-      // Si nos piden preservar el departure, no intentamos moverlo
-      if (!opts?.preserveDepartureIfSame) {
-        const candidate = addDays(newEnd, 1);
-
-        // Comprobar si el candidate es válido COMO checkout
-        if (candidateIsValidCheckout(candidate)) {
-          newEnd = candidate;
-        } else {
-          // Si no es válido COMO checkout → borrar checkout (comportamiento previo)
-          newEnd = null;
-        }
-      } else {
-        // preserveDepartureIfSame === true → NO tocar newEnd (se mantiene tal cual)
+      // Si nos piden preservar el departure, no tocarlo
+      if (opts?.preserveDepartureIfSame) {
         newEnd = new Date(newEnd);
+      } else {
+        // NO mover el checkout al día siguiente: lo deseleccionamos
+        newEnd = null;
       }
     } else {
       // Caso B: arrival no coincide con departure
-      // Si no había endDate → proponemos arrival + 1
+      // Si no había endDate → proponemos arrival + 1 (validando como checkout)
       if (!newEnd) {
         const candidate = addDays(newStart, 1);
-        // Validar como checkout antes de asignar
         if (candidateIsValidCheckout(candidate)) {
           newEnd = candidate;
         } else {
           newEnd = null;
         }
       } else {
-        // Si arrival >= endDate (o same) → proponer arrival+1 (y validar como checkout)
+        // Si arrival >= endDate → proponer arrival+1 (y validar como checkout)
         const endStripped = strip(newEnd);
         const startStripped = strip(newStart);
         if (startStripped.getTime() >= endStripped.getTime()) {
@@ -1355,7 +1372,6 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     // Refrescar disponibilidad/visualmente
     setTimeout(() => recomputeHousesAvailability(newStart, newEnd), 0);
   };
-
 
   const handleSelectDeparture = (houseId: string, d: Date) => {
     const iso = dateIso(d);

@@ -84,7 +84,6 @@ export default async function Page({
           title: tAmenities('bathroom'),
           items: [
             tAmenities('towels'),
-            tAmenities('spaTowels'),
             tAmenities('hairDryer'),
             tAmenities('shampooGel')
           ],
@@ -97,7 +96,6 @@ export default async function Page({
             tAmenities('heatPump'),
             tAmenities('airConditioning'),
             tAmenities('heatedFloor'),
-            tAmenities('oven'),
             tAmenities('terrace'),
             tAmenities('jacuzzi'),
             tAmenities('bbq')

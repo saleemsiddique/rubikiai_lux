@@ -100,8 +100,8 @@ const DUPLEKSA_IDS = ["PZwbfMYlSXj61uYYJutg", "oDzv9346CdaAsok162sX"];
 
 const PROPERTY_NAME_MAP: Record<string, string> = {
     "L0TeFf2LmrWGAaAyS8NY": "Ezero Namelis",
-    "PZwbfMYlSXj61uYYJutg": "Salia Elnić Aptvaro",
-    "oDzv9346CdaAsok162sX": "Salia Elnić Panorama",
+    "PZwbfMYlSXj61uYYJutg": "N1",
+    "oDzv9346CdaAsok162sX": "N2",
 };
 
 /* ---------- Date helpers (LOCAL) ---------- */
@@ -1433,15 +1433,35 @@ export default function AdminBookingsClient() {
                                     );
                                 }
 
-                                const list = dayMap.get(cell.iso) || [];
-                                const hasAdmin = list.some((r) => r.status === "admin");
-                                const onlyAdmin = hasAdmin && list.every((r) => r.status === "admin");
-                                const busy = list.length > 0;
+                                const iso = cell.iso!;
+                                const list = dayMap.get(iso) || [];
+
+                                // 1. ¿Hay algún bloqueo admin?
+                                const hasAdmin = list.some(r => r.status === "admin");
+
+                                // 2. ¿SOLO es ocupado por admin (sin reservas normales), y respetando checkout libre?
+                                const onlyAdmin = list.length > 0 && list.every(r => {
+                                    if (r.status !== "admin") return false;
+                                    if (!r.checkOut) return iso >= r.checkIn;
+                                    return iso >= r.checkIn && iso < r.checkOut; // <--- checkout queda libre
+                                });
+
+                                // 3. Día ocupado (admin o normal) → MISMAS reglas, checkout excluido en ambos casos
+                                const busy = list.some(r => {
+                                    if (r.status === "admin") {
+                                        if (!r.checkOut) return iso >= r.checkIn;
+                                        return iso >= r.checkIn && iso < r.checkOut; // <--- de nuevo < checkOut
+                                    }
+
+                                    if (!r.checkIn || !r.checkOut) return true;
+                                    return iso >= r.checkIn && iso < r.checkOut;
+                                });
+
 
                                 return (
                                     <button
                                         key={cell.key}
-                                        onClick={() => setSelectedDay(cell.iso!)}
+                                        onClick={() => setSelectedDay(iso)}
                                         className={`h-12 md:h-16 rounded-md border text-xs flex flex-col items-center justify-center ${onlyAdmin
                                             ? "bg-neutral-200 border-neutral-300 text-neutral-700"
                                             : busy

@@ -8,12 +8,16 @@ export const revalidate = 0;
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY! as string);
 
-export async function GET(req: Request) {
+export async function GET(
+  req: Request,
+  { params }: { params: Promise<{ locale: string }> }
+) {
   try {
+    const { locale } = await params;
     const url = new URL(req.url);
     const sessionId = url.searchParams.get("session_id");
     if (!sessionId) {
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/coupons/cancel?reason=missing_session`);
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/${locale}/coupons/cancel?reason=missing_session`);
     }
 
     // Solo obtenemos el orderId para redirigir (la emisión de cupones se hace en el webhook)
@@ -26,10 +30,10 @@ export async function GET(req: Request) {
     const orderId = session?.metadata?.orderId ?? url.searchParams.get("orderId") ?? "";
 
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/coupons/thanks${orderId ? `?orderId=${encodeURIComponent(orderId)}` : ""}`
+      `${process.env.NEXT_PUBLIC_APP_URL}/${locale}/coupons/thanks${orderId ? `?orderId=${encodeURIComponent(orderId)}` : ""}`
     );
   } catch (err) {
     console.error("coupons/checkout-complete error:", err);
-    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/coupons/cancel?reason=server_error`);
+    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/${locale}/coupons/cancel?reason=server_error`);
   }
 }

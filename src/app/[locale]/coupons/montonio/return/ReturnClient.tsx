@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useLocale } from 'next-intl';
+import { Link } from "lucide-react";
 
 export default function ReturnClient() {
   const locale = useLocale();
@@ -10,7 +11,7 @@ export default function ReturnClient() {
   const router = useRouter();
   const orderId = search?.get("orderId") ?? null;
   const orderToken = search?.get("order-token") ?? search?.get("orderToken") ?? null;
-  
+
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [tries, setTries] = useState(0);
@@ -20,14 +21,14 @@ export default function ReturnClient() {
   useEffect(() => {
     if (!orderToken) return;
     let mounted = true;
-    
+
     (async () => {
       try {
         setConsumeResult("sending");
         const endpoint = `/${locale}/api/montonio/webhook?order-token=${encodeURIComponent(orderToken)}`;
         const res = await fetch(endpoint, { method: "POST" });
         if (!mounted) return;
-        
+
         if (res.ok) {
           setConsumeResult("ok");
         } else {
@@ -40,7 +41,7 @@ export default function ReturnClient() {
         if (mounted) setConsumeResult("network_error");
       }
     })();
-    
+
     return () => { mounted = false; };
   }, [orderToken]);
 
@@ -54,7 +55,7 @@ export default function ReturnClient() {
       try {
         setLoading(true);
         const res = await fetch(`/${locale}/api/montonio/order-status?orderId=${encodeURIComponent(orderId)}`);
-        
+
         if (!res.ok) {
           if (res.status === 404) {
             if (!mounted) return;
@@ -65,13 +66,13 @@ export default function ReturnClient() {
           console.error("order-status error:", res.status, text);
           return;
         }
-        
+
         const j = await res.json();
         if (!mounted) return;
-        
+
         const s = (j.status || j.state || "pending").toString();
         setStatus(s);
-        
+
         if (s === "completed") {
           // Clear interval and redirect to success
           if (intervalId) clearInterval(intervalId);
@@ -86,7 +87,7 @@ export default function ReturnClient() {
 
     // Initial check
     check();
-    
+
     // Poll every 2 seconds
     intervalId = setInterval(() => {
       setTries((t) => t + 1);
@@ -109,11 +110,11 @@ export default function ReturnClient() {
     <div className="min-h-screen flex items-center justify-center p-4" style={{ background: '#f4efe9' }}>
       <div className="p-8 max-w-2xl w-full bg-white rounded-xl shadow-xl">
         <h2 className="text-2xl font-bold mb-4 text-gray-800">Volviendo del pago por banco</h2>
-        
+
         <p className="mb-4 text-gray-600">
           Orden: <span className="font-mono font-semibold text-gray-800">{orderId ?? "—"}</span>
         </p>
-        
+
         {orderToken && (
           <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
             <div className="text-sm text-blue-800">
@@ -124,14 +125,14 @@ export default function ReturnClient() {
             </div>
           </div>
         )}
-        
+
         {loading && (
           <div className="flex items-center gap-3 text-gray-600 mb-4">
             <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-600"></div>
             <p className="text-sm">Comprobando el estado del pago… (intento {tries})</p>
           </div>
         )}
-        
+
         {status === "completed" && (
           <div className="p-4 bg-emerald-50 rounded-lg border border-emerald-200">
             <h3 className="font-semibold text-emerald-800">✓ Pago completado</h3>
@@ -140,7 +141,7 @@ export default function ReturnClient() {
             </p>
           </div>
         )}
-        
+
         {status === "processing" && (
           <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
             <h3 className="font-semibold text-yellow-800">⏳ Pago en proceso</h3>
@@ -149,7 +150,7 @@ export default function ReturnClient() {
             </p>
           </div>
         )}
-        
+
         {status === "pending" && (
           <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
             <h3 className="font-semibold text-blue-800">⏱️ Pago pendiente</h3>
@@ -158,7 +159,7 @@ export default function ReturnClient() {
             </p>
           </div>
         )}
-        
+
         {status === "canceled" && (
           <div className="p-4 bg-rose-50 rounded-lg border border-rose-200">
             <h3 className="font-semibold text-rose-800">✕ Pago cancelado</h3>
@@ -167,7 +168,7 @@ export default function ReturnClient() {
             </p>
           </div>
         )}
-        
+
         {status === "not_found" && (
           <div className="p-4 bg-rose-50 rounded-lg border border-rose-200">
             <h3 className="font-semibold text-rose-800">✕ Orden no encontrada</h3>
@@ -176,18 +177,18 @@ export default function ReturnClient() {
             </p>
           </div>
         )}
-        
+
         {!status && !loading && (
           <p className="text-gray-600">Comprobando estado…</p>
         )}
-        
+
         <div className="mt-6 pt-6 border-t">
-          <a 
-            className="text-blue-600 hover:text-blue-800 underline font-medium" 
+          <Link
             href="/coupons"
+            className="text-blue-600 hover:text-blue-800 underline font-medium"
           >
             ← Volver a compra
-          </a>
+          </Link>
         </div>
       </div>
     </div>

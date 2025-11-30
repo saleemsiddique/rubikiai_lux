@@ -4,6 +4,7 @@ import admin from "@/lib/firebase-admin";
 import { redirect } from "next/navigation";
 // ⬇️ IMPORTA DIRECTO EL CLIENT COMPONENT (sin next/dynamic)
 import AdminCouponsClient from "./ui/AdminCouponsClient";
+import { Link } from "lucide-react";
 
 async function requireAdmin() {
   const session = (await cookies()).get("session")?.value;
@@ -25,9 +26,12 @@ export default async function AdminCouponsPage() {
       <section className="max-w-5xl mx-auto px-6 py-10">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-[var(--color-primary-dark)]">Cupones</h1>
-          <a href="/admin/menu" className="rounded-md border px-3 py-2 text-sm hover:bg-neutral-50">
+          <Link
+            href="/admin/menu"
+            className="rounded-md border px-3 py-2 text-sm hover:bg-neutral-50"
+          >
             Volver al menú
-          </a>
+          </Link>
         </div>
 
         {/* Client Component */}

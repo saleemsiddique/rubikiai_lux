@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import admin from "@/lib/firebase-admin";
 import { redirect } from "next/navigation";
 import AdminRevenueClient from "./ui/AdminRevenueClient";
+import { Link } from "lucide-react";
 
 async function requireAdmin() {
   const session = (await cookies()).get("session")?.value;
@@ -24,9 +25,12 @@ export default async function AdminRevenuePage() {
       <section className="max-w-6xl mx-auto px-6 py-10">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-[var(--color-primary-dark)]">Ingresos</h1>
-          <a href="/admin/menu" className="rounded-md border px-3 py-2 text-sm hover:bg-neutral-50">
+          <Link
+            href="/admin/menu"
+            className="rounded-md border px-3 py-2 text-sm hover:bg-neutral-50"
+          >
             Volver al menú
-          </a>
+          </Link>
         </div>
 
         <AdminRevenueClient />

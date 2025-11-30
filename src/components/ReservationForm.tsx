@@ -1,16 +1,20 @@
 // components/ReservationForm.tsx
 "use client";
 import React, { useEffect, useRef, useState } from "react";
-import DatePicker, { registerLocale, setDefaultLocale } from "react-datepicker";
+import DatePicker, { registerLocale } from "react-datepicker";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "@/lib/firestore";
 import { useHouse } from "@/context/HouseContext";
 import { useTranslations, useLocale } from 'next-intl';
-import { es } from 'date-fns/locale/es';
+import { enUS } from 'date-fns/locale/en-US';
+import { lt } from 'date-fns/locale/lt';
+import { ru } from 'date-fns/locale/ru';
 
-registerLocale('es', es);
-setDefaultLocale('es');
+// Register all locales
+registerLocale('en', enUS);
+registerLocale('lt', lt);
+registerLocale('ru', ru);
 
 /* ---------------- Types ---------------- */
 interface HouseLight {
@@ -749,6 +753,26 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     return newDate;
   }
 
+  // Helper: get weekday names based on locale
+  const getWeekdayNames = (locale: string): string[] => {
+    const weekdays: Record<string, string[]> = {
+      en: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+      lt: ["Pr", "An", "Tr", "Kt", "Pn", "Št", "Sk"],
+      ru: ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"],
+    };
+    return weekdays[locale] || weekdays.en;
+  };
+
+  // Helper: get locale string for date formatting
+  const getLocaleString = (locale: string): string => {
+    const localeMap: Record<string, string> = {
+      en: "en-US",
+      lt: "lt-LT",
+      ru: "ru-RU",
+    };
+    return localeMap[locale] || "en-US";
+  };
+
   function MobileCalendarMonthModal({ house }: { house: HouseLight }) {
     const safeHouse = house ?? ({ id: "unknown" } as HouseLight);
     const houseId = safeHouse.id;
@@ -896,7 +920,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
           <div className="flex items-center justify-between mb-2">
             <button onClick={goPrevMonth} className="px-3 py-1 border rounded-full hover:bg-gray-100">‹</button>
             <div className="text-lg font-semibold">
-              {visibleMonth.toLocaleString("en-US", { month: "long", year: "numeric" })}
+              {visibleMonth.toLocaleString(getLocaleString(locale), { month: "long", year: "numeric" })}
             </div>
             <button
               onClick={goNextMonth}
@@ -925,7 +949,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
 
           {/* Días de la semana */}
           <div className="flex justify-between mb-2 text-xs font-semibold text-gray-500">
-            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(d => (
+            {getWeekdayNames(locale).map(d => (
               <div key={d} className="w-[14.28%] text-center">{d}</div>
             ))}
           </div>
@@ -1883,7 +1907,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
 
                 {/* Día de la semana */}
                 <div className="text-xs font-bold uppercase tracking-wider opacity-75">
-                  {d.toLocaleString("en-US", { weekday: "short" })}
+                  {d.toLocaleString(getLocaleString(locale), { weekday: "short" })}
                 </div>
 
                 {/* Día */}
@@ -1891,7 +1915,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
 
                 {/* Mes */}
                 <div className="text-xs font-medium opacity-75 mb-2">
-                  {d.toLocaleString("en-US", { month: "short" })}
+                  {d.toLocaleString(getLocaleString(locale), { month: "short" })}
                 </div>
 
                 {/* Precio */}
@@ -2014,7 +2038,8 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
               open={openPicker === "arrival"}
               onInputClick={() => setOpenPicker("arrival")}
               onClickOutside={() => setOpenPicker(null)}
-              popperClassName="z-[9999]"
+              popperClassName="z-[99999]"
+              locale={locale}
               customInput={
                 <div className="p-2 bg-transparent font-sans text-xl cursor-pointer text-white drop-shadow-md">
                   {startDate ? formatDateDDMMYYYY(startDate) : 'DD/MM/YYYY'}
@@ -2034,7 +2059,8 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
               open={openPicker === "departure"}
               onInputClick={() => setOpenPicker("departure")}
               onClickOutside={() => setOpenPicker(null)}
-              popperClassName="z-[9999]"
+              popperClassName="z-[99999]"
+              locale={locale}
               customInput={
                 <div className="p-2 bg-transparent font-sans text-xl cursor-pointer text-white drop-shadow-md">
                   {endDate ? formatDateDDMMYYYY(endDate) : 'DD/MM/YYYY'}

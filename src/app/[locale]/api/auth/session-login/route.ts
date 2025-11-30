@@ -1,4 +1,3 @@
-// app/api/auth/session-login/route.ts
 import admin from "@/lib/firebase-admin";
 import { cookies } from "next/headers";
 import { getTranslations } from 'next-intl/server';
@@ -7,9 +6,12 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ locale: string }> }
 ) {
+  let t: any; // 👈 lo declaramos arriba para que exista en el catch también
+
   try {
     const { locale } = await params;
-    const t = await getTranslations({ locale, namespace: 'api.errors' });
+    t = await getTranslations({ locale, namespace: 'api.errors' });
+
     const { idToken, remember } = await req.json();
     if (!idToken) return new Response(t('missingIdToken'), { status: 400 });
 
@@ -28,7 +30,9 @@ export async function POST(
     });
 
     return Response.json({ ok: true });
+
   } catch (e: any) {
-    return new Response(e?.message ?? t('sessionError'), { status: 400 });
+    // ahora t ya está en el scope, y si falló antes de inicializarse evitamos que sea undefined
+    return new Response(e?.message ?? t?.('sessionError') ?? "Session error", { status: 400 });
   }
 }

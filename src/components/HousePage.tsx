@@ -91,16 +91,6 @@ export default function HousePage(props: HousePageProps) {
   const [scrollY, setScrollY] = useState(0);
   const [heroHeight, setHeroHeight] = useState(0);
 
-  // refs + state para rAF scroll handling (hysteresis no estricta aquí, solo rAF debounce)
-  const lastYRef = useRef(0);
-  const tickingRef = useRef(false);
-
-  // como en HomePage: scrolled cuando el scroll supera 50px
-  const scrolled = scrollY > 50;
-
-  // detectamos si es mobile (md = 768px)
-  const [isMobile, setIsMobile] = useState<boolean>(false);
-
   const startParam = searchParams?.get("start") ?? null;
   const endParam = searchParams?.get("end") ?? null;
   const guestsParam = searchParams?.get("guests") ?? defaultGuests;
@@ -227,57 +217,6 @@ export default function HousePage(props: HousePageProps) {
     defaultGuests,
   ]);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const heroEl = document.getElementById("hero-section");
-
-    const updateHeroHeight = () => {
-      const h = heroEl
-        ? heroEl.getBoundingClientRect().height
-        : window.innerHeight * 0.75;
-      setHeroHeight(h);
-    };
-
-    // init
-    updateHeroHeight();
-    setScrollY(window.scrollY);
-    const mq = window.matchMedia("(min-width: 768px)");
-    const mobileHandler = (e: MediaQueryListEvent | MediaQueryList) =>
-      setIsMobile(!e.matches);
-    setIsMobile(!mq.matches);
-
-    // resize => recalc heroHeight
-    const onResize = () => updateHeroHeight();
-
-    // rAF debounced scroll handler
-    const onScroll = () => {
-      lastYRef.current = window.scrollY;
-      if (!tickingRef.current) {
-        tickingRef.current = true;
-        requestAnimationFrame(() => {
-          setScrollY(lastYRef.current);
-          tickingRef.current = false;
-        });
-      }
-    };
-
-    // add listeners
-    if (typeof mq.addEventListener === "function")
-      mq.addEventListener("change", mobileHandler);
-    else mq.addListener(mobileHandler);
-    window.addEventListener("resize", onResize, { passive: true });
-    window.addEventListener("scroll", onScroll, { passive: true });
-
-    return () => {
-      if (typeof mq.removeEventListener === "function")
-        mq.removeEventListener("change", mobileHandler);
-      else mq.removeListener(mobileHandler);
-      window.removeEventListener("resize", onResize);
-      window.removeEventListener("scroll", onScroll);
-    };
-  }, []);
-
   const guestsDisplay = (() => {
     const p = parseInt(guestsParam as string, 10);
     if (!Number.isFinite(p) || Number.isNaN(p)) return defaultGuests;
@@ -310,9 +249,6 @@ export default function HousePage(props: HousePageProps) {
   };
 
   const showHeroButton = scrollY < heroHeight - 100;
-
-  // botón flotante visible en móvil cuando estamos en estado "scrolled"
-  const showFloating = isMobile && scrolled;
 
   return (
     <main className="text-[var(--color-text)] md:pb-0 overflow-x-hidden max-w-full">

@@ -1,4 +1,4 @@
-// page.tsx - server component with Suspense wrapper
+// page.tsx
 import React, { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getTranslations } from 'next-intl/server';
@@ -23,6 +23,9 @@ const aptvaroImages = [
 
 const ACCOMMODATES = 4;
 const DEFAULT_GUESTS = "4";
+
+// Agregar esto para hacer la página dinámica
+export const dynamic = 'force-dynamic';
 
 // Loading fallback component
 function HousePageFallback() {

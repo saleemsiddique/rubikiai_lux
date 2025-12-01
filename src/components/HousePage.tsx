@@ -1,16 +1,15 @@
 "use client";
 
-import React, { useEffect, useMemo, useState} from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useTranslations, useLocale } from "next-intl";
+import { useTranslations, useLocale } from 'next-intl';
 import ImageGallery from "@/components/ImageGallery";
 import OtherOptions from "@/components/OtherOptions";
 import BookingBarMobile from "@/components/house-components/BookingBarMobile";
 import AboutSection from "@/components/house-components/AboutSectionHouse";
 import AmenitiesSection from "@/components/house-components/AmenitiesSection";
 import { HOUSE_ROUTE_OVERRIDES_BY_ID } from "@/lib/houseRoutes";
-import FloatingButton from "./FloatingButton";
 
 type AmenitiesSectionType = {
   title: string;
@@ -83,13 +82,27 @@ export default function HousePage(props: HousePageProps) {
     description,
   } = props;
 
-  const t = useTranslations("housePage");
+  const t = useTranslations('housePage');
   const locale = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const [scrollY, setScrollY] = useState(0);
   const [heroHeight, setHeroHeight] = useState(0);
+
+  // refs + state para rAF scroll handling (hysteresis no estricta aquí, solo rAF debounce)
+  const lastYRef = useRef(0);
+  const tickingRef = useRef(false);
+
+  // como en HomePage: scrolled cuando el scroll supera 50px
+  const scrolled = scrollY > 50;
+
+
+
+
+  // detectamos si es mobile (md = 768px)
+  const [isMobile, setIsMobile] = useState<boolean>(false);
+
 
   const startParam = searchParams?.get("start") ?? null;
   const endParam = searchParams?.get("end") ?? null;
@@ -98,9 +111,9 @@ export default function HousePage(props: HousePageProps) {
 
   const hasQueryParams = Boolean(
     searchParams?.has("start") ||
-      searchParams?.has("end") ||
-      searchParams?.has("guests") ||
-      searchParams?.has("type")
+    searchParams?.has("end") ||
+    searchParams?.has("guests") ||
+    searchParams?.has("type")
   );
 
   const startFriendly = formatDateFriendly(startParam);
@@ -131,7 +144,7 @@ export default function HousePage(props: HousePageProps) {
 
   useEffect(() => {
     if (!houseIdFromMapping) {
-      setPriceError(t("houseMappingNotFound"));
+      setPriceError(t('houseMappingNotFound'));
       setTotalFromServer(null);
       setFirstFromServer(null);
       return;
@@ -160,10 +173,7 @@ export default function HousePage(props: HousePageProps) {
         type: typeParam,
       };
 
-      const endpoints = [
-        `/${locale}/api/reservations/price`,
-        `/${locale}/api/reservation/price`,
-      ];
+      const endpoints = [`/${locale}/api/reservations/price`, `/${locale}/api/reservation/price`];
       let lastErr: string | null = null;
 
       for (const ep of endpoints) {
@@ -196,7 +206,7 @@ export default function HousePage(props: HousePageProps) {
       }
 
       if (mounted) {
-        setPriceError(lastErr ?? t("couldNotFetchPrice"));
+        setPriceError(lastErr ?? t('couldNotFetchPrice'));
         setTotalFromServer(null);
         setFirstFromServer(null);
         setLoadingPrice(false);
@@ -208,14 +218,54 @@ export default function HousePage(props: HousePageProps) {
     return () => {
       mounted = false;
     };
-  }, [
-    startParam,
-    endParam,
-    guestsParam,
-    typeParam,
-    houseIdFromMapping,
-    defaultGuests,
-  ]);
+  }, [startParam, endParam, guestsParam, typeParam, houseIdFromMapping, defaultGuests]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const heroEl = document.getElementById("hero-section");
+
+    const updateHeroHeight = () => {
+      const h = heroEl ? heroEl.getBoundingClientRect().height : window.innerHeight * 0.75;
+      setHeroHeight(h);
+    };
+
+    // init
+    updateHeroHeight();
+    setScrollY(window.scrollY);
+    const mq = window.matchMedia("(min-width: 768px)");
+    const mobileHandler = (e: MediaQueryListEvent | MediaQueryList) => setIsMobile(!e.matches);
+    setIsMobile(!mq.matches);
+
+    // resize => recalc heroHeight
+    const onResize = () => updateHeroHeight();
+
+    // rAF debounced scroll handler
+    const onScroll = () => {
+      lastYRef.current = window.scrollY;
+      if (!tickingRef.current) {
+        tickingRef.current = true;
+        requestAnimationFrame(() => {
+          setScrollY(lastYRef.current);
+          tickingRef.current = false;
+        });
+      }
+    };
+
+    // add listeners
+    if (typeof mq.addEventListener === "function") mq.addEventListener("change", mobileHandler);
+    else mq.addListener(mobileHandler);
+    window.addEventListener("resize", onResize, { passive: true });
+    window.addEventListener("scroll", onScroll, { passive: true });
+
+    return () => {
+      if (typeof mq.removeEventListener === "function") mq.removeEventListener("change", mobileHandler);
+      else mq.removeListener(mobileHandler);
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("scroll", onScroll);
+    };
+  }, []);
+
 
   const guestsDisplay = (() => {
     const p = parseInt(guestsParam as string, 10);
@@ -232,7 +282,7 @@ export default function HousePage(props: HousePageProps) {
     }
 
     if (!houseIdFromMapping) {
-      alert(t("couldNotIdentifyAccommodation"));
+      alert(t('couldNotIdentifyAccommodation'));
       return;
     }
 
@@ -250,6 +300,9 @@ export default function HousePage(props: HousePageProps) {
 
   const showHeroButton = scrollY < heroHeight - 100;
 
+  // botón flotante visible en móvil cuando estamos en estado "scrolled"
+  const showFloating = isMobile && scrolled;
+
   return (
     <main className="text-[var(--color-text)] md:pb-0 overflow-x-hidden max-w-full">
       {/* Hero Section */}
@@ -260,7 +313,7 @@ export default function HousePage(props: HousePageProps) {
             src={heroSrc}
             alt={heroAlt ?? title}
             fill
-            style={{ objectFit: "cover", objectPosition: "center" }}
+            style={{ objectFit: 'cover', objectPosition: 'center' }}
             priority
             className="absolute inset-0"
           />
@@ -280,8 +333,8 @@ export default function HousePage(props: HousePageProps) {
                   <h1
                     className="text-2xl md:text-4xl lg:text-5xl font-bold font-header mb-2 md:mb-3 leading-tight tracking-tight hidden md:block"
                     style={{
-                      animation: "fadeInUp 0.8s ease-out",
-                      textShadow: "0 2px 20px rgba(0,0,0,0.4)",
+                      animation: 'fadeInUp 0.8s ease-out',
+                      textShadow: '0 2px 20px rgba(0,0,0,0.4)'
                     }}
                   >
                     {title}
@@ -307,8 +360,27 @@ export default function HousePage(props: HousePageProps) {
           formatCurrency={formatCurrency}
         />
       ) : (
-        <FloatingButton />
+        <button
+          onClick={() => router.push(`/${locale}/reservations`)}
+          className={`md:hidden fixed bottom-6 right-6 z-40 bg-gradient-to-br from-[var(--color-secondary)] to-[var(--color-primary-dark)] text-white px-6 py-3 rounded-full shadow-2xl transition-all duration-500 flex items-center gap-2 font-semibold text-sm ${scrolled
+            ? 'opacity-100 translate-y-0 pointer-events-auto scale-100'
+            : 'opacity-0 translate-y-4 pointer-events-none scale-95'
+            }`}
+          style={{
+            transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
+            willChange: 'opacity, transform'
+          }}
+          aria-hidden={!showFloating}
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          <span>            
+            {t('reserveNow')}
+          </span>
+        </button>
       )}
+
 
       <AboutSection
         title={title}
@@ -343,7 +415,7 @@ export default function HousePage(props: HousePageProps) {
           className="absolute inset-0 opacity-[0.03]"
           style={{
             backgroundImage: `repeating-linear-gradient(0deg, #fff 0px, #fff 1px, transparent 1px, transparent 50px),
-                       repeating-linear-gradient(90deg, #fff 0px, #fff 1px, transparent 1px, transparent 50px)`,
+                       repeating-linear-gradient(90deg, #fff 0px, #fff 1px, transparent 1px, transparent 50px)`
           }}
         />
 
@@ -352,11 +424,11 @@ export default function HousePage(props: HousePageProps) {
             <div className="inline-block">
               <div className="h-1 w-20 bg-[#bfa58b] mx-auto mb-4" />
               <h2 className="text-3xl md:text-5xl font-bold font-header text-[#f4efe9]">
-                {t("location")}
+                {t('location')}
               </h2>
             </div>
             <p className="text-[#f4efe9]/80 text-lg mt-4 max-w-2xl mx-auto">
-              {t("findOnMaps")}
+              {t('findOnMaps')}
             </p>
           </div>
           <div className="relative w-full h-96 md:h-[500px] rounded-2xl overflow-hidden shadow-2xl border-2 border-[#bfa58b]/30">

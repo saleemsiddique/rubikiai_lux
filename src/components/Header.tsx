@@ -77,7 +77,7 @@ function HeaderContent() {
     const search = rawSearch ? `?${rawSearch}` : '';
     const hash = typeof window !== 'undefined' ? window.location.hash : '';
     const newPath = pathWithoutLocale === '/' ? `/${newLocale}` : `/${newLocale}${pathWithoutLocale}`;
-    
+
     closeLang();
     router.push(newPath + search + hash);
   };
@@ -271,15 +271,14 @@ function HeaderContent() {
               </span>
             </button>
 
-            {/* Language Selector */}
-            <div ref={langRef} className="relative flex-shrink-0">
+            {/* Language Selector - Hidden on mobile when reservation button is visible */}
+            <div ref={langRef} className={`relative flex-shrink-0 ${showMobileReservationButton ? "hidden md:flex" : "flex"}`}>
               <button
                 onClick={toggleLang}
-                className={`flex items-center gap-1 px-2 py-1.5 md:px-2.5 md:py-2 rounded transition-all duration-300 ${
-                  scrolled
+                className={`flex items-center gap-1 px-2 py-1.5 md:px-2.5 md:py-2 rounded transition-all duration-300 ${scrolled
                     ? "text-[var(--color-secondary)] hover:bg-[var(--color-secondary)]/10"
                     : "text-white md:text-[var(--color-secondary)] hover:bg-white/10 md:hover:bg-[var(--color-secondary)]/10"
-                }`}
+                  }`}
                 aria-expanded={isLangOpen}
                 aria-label="Select language"
               >
@@ -301,11 +300,10 @@ function HeaderContent() {
                     <button
                       key={lang.code}
                       onClick={() => switchLanguage(lang.code)}
-                      className={`w-full text-left px-4 py-2 text-sm transition-colors ${
-                        lang.code === locale
+                      className={`w-full text-left px-4 py-2 text-sm transition-colors ${lang.code === locale
                           ? 'bg-[var(--color-secondary)]/10 text-[var(--color-primary-dark)] font-semibold'
                           : 'text-[var(--color-secondary)] hover:bg-[var(--color-secondary)]/5'
-                      }`}
+                        }`}
                     >
                       {lang.label}
                     </button>

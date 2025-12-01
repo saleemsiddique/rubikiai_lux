@@ -241,7 +241,8 @@ export async function POST(
     // Si hay cupón, se marca como pagado todo lo que el cupón haya cubierto
     // Si no hay cupón, se marca como pagado la primera noche (porque el admin ya recibió el pago)
     const amountPaidByClient = amountApplied > 0 ? amountApplied : firstNightBase;
-    const isPaidInFull = amountPaidByClient >= totalStay;
+    // paidInFull solo si se ha pagado el TOTAL COMPLETO (antes de descuento)
+    const isPaidInFull = amountPaidByClient >= grandTotalBase;
 
     // Build customer object
     const customerObj: any = {

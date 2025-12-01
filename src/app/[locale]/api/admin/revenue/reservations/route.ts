@@ -172,8 +172,9 @@ export async function GET(req: Request) {
         // moneda y precios (nuevos campos)
         currency: r.currency || "EUR",
         totalNightsOnly: Number(r.totalNightsOnly ?? 0),
+        grandTotal: typeof r.grandTotal === "number" ? r.grandTotal : Number(r.totalStay ?? r.totalNightsOnly ?? 0),
         totalStay: Number(r.totalStay ?? r.totalNightsOnly ?? 0),
-        
+
         // jacuzzi
         jacuzzi: r.jacuzzi ?? null,
         jacuzziFee: Number(r.jacuzziFee ?? (r.jacuzzi?.fee ?? 0)),

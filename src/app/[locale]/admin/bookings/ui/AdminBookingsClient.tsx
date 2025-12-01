@@ -1120,10 +1120,11 @@ export default function AdminBookingsClient() {
                                     const customerName = r.name || r.customer?.name || "—";
                                     const customerEmail = r.customerEmail || r.email || r.customer?.email || "—";
 
-                                    const totalStay = r.totalStay ?? r.discountedGrandTotal ?? r.discountedTotal ?? r.grandTotal ?? r.total ?? 0;
+                                    // Total = precio completo de la reserva (antes de descuentos)
+                                    const totalFull = r.grandTotal ?? r.total ?? r.totalStay ?? r.discountedGrandTotal ?? 0;
                                     const payNow = r.payNow ?? r.discountedFirst ?? r.firstNightCharge ?? 0;
                                     // Calcular lo que REALMENTE se ha pagado
-                                    const actuallyPaid = r.paidInFull ? totalStay : (r.amountPaid ?? (r.paidAt ? payNow : 0));
+                                    const actuallyPaid = r.paidInFull ? totalFull : (r.amountPaid ?? (r.paidAt ? payNow : 0));
                                     const jacuzziDays = r.jacuzzi?.days ?? 0;
 
                                     return (
@@ -1162,10 +1163,10 @@ export default function AdminBookingsClient() {
                                                 </div>
 
                                                 <div className="w-32 text-right">
-                                                    <div className="text-sm font-semibold">{totalStay.toFixed(2)}€</div>
+                                                    <div className="text-sm font-semibold">{totalFull.toFixed(2)}€</div>
                                                     <div className="text-xs text-neutral-600 mt-1">Paid: {actuallyPaid.toFixed(2)}€</div>
-                                                    {actuallyPaid < totalStay && (
-                                                        <div className="text-xs text-orange-600">Pending: {(totalStay - actuallyPaid).toFixed(2)}€</div>
+                                                    {actuallyPaid < totalFull && (
+                                                        <div className="text-xs text-orange-600">Pending: {(totalFull - actuallyPaid).toFixed(2)}€</div>
                                                     )}
                                                 </div>
                                             </div>
@@ -1243,10 +1244,11 @@ export default function AdminBookingsClient() {
                                             const customerName = r.name || r.customer?.name || "—";
                                             const customerEmail = r.customerEmail || r.email || r.customer?.email || "—";
 
-                                            const totalStay = r.totalStay ?? r.discountedGrandTotal ?? r.discountedTotal ?? r.grandTotal ?? r.total ?? 0;
+                                            // Total = precio completo de la reserva (antes de descuentos)
+                                            const totalFull = r.grandTotal ?? r.total ?? r.totalStay ?? r.discountedGrandTotal ?? 0;
                                             const payNow = r.payNow ?? r.discountedFirst ?? r.firstNightCharge ?? 0;
                                             // Calcular lo que REALMENTE se ha pagado
-                                            const actuallyPaid = r.paidInFull ? totalStay : (r.amountPaid ?? (r.paidAt ? payNow : 0));
+                                            const actuallyPaid = r.paidInFull ? totalFull : (r.amountPaid ?? (r.paidAt ? payNow : 0));
                                             const jacuzziDays = r.jacuzzi?.days ?? 0;
 
                                             return (
@@ -1290,7 +1292,7 @@ export default function AdminBookingsClient() {
                                                         ) : null}
                                                     </td>
                                                     <td className="px-3 py-2 text-right">
-                                                        {totalStay.toFixed(2)}€
+                                                        {totalFull.toFixed(2)}€
                                                         {r.jacuzzi?.enabled && (
                                                             <div className="text-[10px] text-neutral-500">
                                                                 +{r.jacuzziFee ?? 0}€ jacuzzi
@@ -1300,16 +1302,11 @@ export default function AdminBookingsClient() {
                                                     </td>
                                                     <td className="px-3 py-2 text-right">
                                                         {actuallyPaid.toFixed(2)}€
-                                                        {actuallyPaid < totalStay && (
+                                                        {actuallyPaid < totalFull && (
                                                             <div className="text-[10px] text-orange-600">
-                                                                Pending: {(totalStay - actuallyPaid).toFixed(2)}€
+                                                                Pending: {(totalFull - actuallyPaid).toFixed(2)}€
                                                             </div>
                                                         )}
-                                                        {r.amountApplied ? (
-                                                            <div className="text-[10px] text-green-600">
-                                                                Discount: -{r.amountApplied}€
-                                                            </div>
-                                                        ) : null}
                                                     </td>
                                                     <td className="px-3 py-2">
                                                         <div className="flex flex-wrap gap-2 justify-end">
@@ -1509,9 +1506,10 @@ export default function AdminBookingsClient() {
                                     {(dayMap.get(selectedDay) || []).map((r) => {
                                         const customerName = r.name || r.customer?.name || "—";
                                         const customerEmail = r.customerEmail || r.email || r.customer?.email || "—";
-                                        const totalStay = r.totalStay ?? r.discountedGrandTotal ?? r.discountedTotal ?? r.grandTotal ?? r.total ?? 0;
+                                        // Total = precio completo de la reserva (antes de descuentos)
+                                        const totalFull = r.grandTotal ?? r.total ?? r.totalStay ?? r.discountedGrandTotal ?? 0;
                                         const payNow = r.payNow ?? r.discountedFirst ?? r.firstNightCharge ?? 0;
-                                        const actuallyPaid = r.paidInFull ? totalStay : (r.amountPaid ?? (r.paidAt ? payNow : 0));
+                                        const actuallyPaid = r.paidInFull ? totalFull : (r.amountPaid ?? (r.paidAt ? payNow : 0));
                                         const jacuzziDays = r.jacuzzi?.days ?? 0;
 
                                         return (
@@ -1532,7 +1530,7 @@ export default function AdminBookingsClient() {
                                                 </div>
 
                                                 <div>
-                                                    Total: {totalStay.toFixed(2)}€
+                                                    Total: {totalFull.toFixed(2)}€
                                                     {r.jacuzzi?.enabled && (
                                                         <span> (+{r.jacuzziFee ?? 0}€ jacuzzi{jacuzziDays > 0 && ` ${jacuzziDays}d`})</span>
                                                     )}
@@ -1540,11 +1538,8 @@ export default function AdminBookingsClient() {
 
                                                 <div>
                                                     Paid: {actuallyPaid.toFixed(2)}€
-                                                    {actuallyPaid < totalStay && (
-                                                        <span className="text-orange-600"> (Pending: {(totalStay - actuallyPaid).toFixed(2)}€)</span>
-                                                    )}
-                                                    {r.amountApplied && (
-                                                        <span className="text-green-600"> (Discount: -{r.amountApplied}€)</span>
+                                                    {actuallyPaid < totalFull && (
+                                                        <span className="text-orange-600"> (Pending: {(totalFull - actuallyPaid).toFixed(2)}€)</span>
                                                     )}
                                                 </div>
 

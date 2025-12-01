@@ -904,6 +904,11 @@ export async function POST(req: Request) {
           meta?.payAtArrival ?? Math.max(0, totalStay - payNow)
         );
 
+        // ✅ CALCULAR amountPaid y paidInFull (MISMA LÓGICA QUE ADMIN/BOOKINGS)
+        const couponApplied = Number(couponAmountApplied || 0);
+        const amountPaid = couponApplied > 0 ? couponApplied : payNow;
+        const isPaidInFull = amountPaid >= grandTotal;
+
         const baseReservationPayload: any = {
           houseId: houseIds.length === 1 ? houseIds[0] : houseIds.join("__"),
           houseIds,
@@ -916,6 +921,9 @@ export async function POST(req: Request) {
           payNow,
           payAtArrival,
           totalStay,
+          grandTotal,
+          discountedGrandTotal,
+          amountPaid,
 
           // campos legacy (opcional, por compatibilidad):
           includedBase,
@@ -932,6 +940,7 @@ export async function POST(req: Request) {
           status: "reserved",
           createdAt: existsAlready ? snap.data()?.createdAt || nowTs : nowTs,
           paidAt: nowTs,
+          paidInFull: isPaidInFull,
           montonioOrderUuid: montonioOrderUuid,
           montonioNotification,
           customerEmail: customerEmailFromMeta || null,

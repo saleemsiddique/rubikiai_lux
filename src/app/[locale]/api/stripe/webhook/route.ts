@@ -437,6 +437,8 @@ export async function POST(req: Request) {
       const payNow = Number(session.metadata?.payNow ?? 0);
       const payAtArrival = Number(session.metadata?.payAtArrival ?? 0);
       const totalStay = Number(session.metadata?.totalStay ?? 0);
+      const grandTotal = Number(session.metadata?.grandTotal ?? totalStay);
+      const discountedGrandTotal = Number(session.metadata?.discountedGrandTotal ?? totalStay);
 
       // campos legacy (para compatibilidad / fallback)
       const totalNightsOnly = Number(session.metadata?.totalNightsOnly || 0);
@@ -473,6 +475,11 @@ export async function POST(req: Request) {
       const stripeCheckoutEmail =
         session.customer_details?.email || session.customer_email || null;
 
+      // ✅ CALCULAR amountPaid y paidInFull (MISMA LÓGICA QUE ADMIN/BOOKINGS)
+      const couponApplied = Number(couponAmountApplied || 0);
+      const amountPaid = couponApplied > 0 ? couponApplied : payNow;
+      const isPaidInFull = amountPaid >= grandTotal;
+
       // ✅ Crear/mergear reserva con campos simplificados
       await db.runTransaction(async (tx) => {
         const snap = await tx.get(resRef);
@@ -491,6 +498,9 @@ export async function POST(req: Request) {
           payNow,
           payAtArrival,
           totalStay,
+          grandTotal,
+          discountedGrandTotal,
+          amountPaid,
 
           // campos legacy (mantener para compatibilidad)
           includedBase,
@@ -508,6 +518,7 @@ export async function POST(req: Request) {
           status: "reserved",
           createdAt: existsAlready ? snap.data()?.createdAt || nowTs : nowTs,
           paidAt: nowTs,
+          paidInFull: isPaidInFull,
 
           stripeSessionId: session.id,
           stripePaymentIntentId: stripePaymentIntentId || null,

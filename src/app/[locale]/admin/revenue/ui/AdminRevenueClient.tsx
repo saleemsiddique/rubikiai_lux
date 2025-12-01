@@ -208,19 +208,20 @@ export default function AdminRevenueClient() {
 
     reservations.forEach((r) => {
       count++;
-      const stay = num(r.totalStay);
+      // Total = precio completo (antes de descuentos)
+      const totalFull = num((r as any).grandTotal ?? r.totalStay);
       const payNow = num(r.payNow);
 
-      totalContracted += stay;
+      totalContracted += totalFull;
 
       // Calcular lo que realmente se ha cobrado (MISMA LÓGICA QUE AdminBookingsClient)
       const amountPaidValue = (r as any).amountPaid != null ? num((r as any).amountPaid) : null;
       const actuallyPaid = (r as any).paidInFull
-        ? stay
+        ? totalFull
         : (amountPaidValue != null ? amountPaidValue : ((r as any).paidAt ? payNow : 0));
 
       totalCollected += actuallyPaid;
-      totalPending += Math.max(0, stay - actuallyPaid);
+      totalPending += Math.max(0, totalFull - actuallyPaid);
     });
 
     return { count, totalContracted, totalCollected, totalPending };
@@ -265,9 +266,11 @@ export default function AdminRevenueClient() {
         currency: r.currency,
         totalNightsOnly: num(r.totalNightsOnly),
         jacuzziFee: num(r.jacuzziFee),
+        totalFull: num((r as any).grandTotal ?? r.totalStay),
         totalStay: num(r.totalStay),
         payNow: num(r.payNow),
         payAtArrival: num(r.payAtArrival),
+        amountPaid: num((r as any).amountPaid ?? 0),
         stripeSessionId: r.stripeSessionId ?? "",
         montonioOrderUuid: r.montonioOrderUuid ?? "",
         paidAt: toLithuaniaISO(r.paidAtIso),
@@ -487,11 +490,12 @@ export default function AdminRevenueClient() {
                       ? r.houseIds.map((id: string) => PROPERTY_NAME_MAP[id] || id).join(" + ")
                       : PROPERTY_NAME_MAP[r.houseId || r.houseIds?.[0] || ""] || r.houseId || r.houseIds?.[0] || "—";
 
-                  const stay = num(r.totalStay);
+                  // Total = precio completo (antes de descuentos)
+                  const totalFull = num((r as any).grandTotal ?? r.totalStay);
                   const payNow = num(r.payNow);
-                  const amountPaid = num((r as any).amountPaid ?? 0);
-                  const actuallyPaid = (r as any).paidInFull ? stay : (amountPaid > 0 ? amountPaid : ((r as any).paidAt ? payNow : 0));
-                  const pending = Math.max(0, stay - actuallyPaid);
+                  const amountPaidValue = (r as any).amountPaid != null ? num((r as any).amountPaid) : null;
+                  const actuallyPaid = (r as any).paidInFull ? totalFull : (amountPaidValue != null ? amountPaidValue : ((r as any).paidAt ? payNow : 0));
+                  const pending = Math.max(0, totalFull - actuallyPaid);
 
                   return (
                     <div key={r.id} className="p-4">
@@ -514,7 +518,7 @@ export default function AdminRevenueClient() {
                         </div>
 
                         <div className="text-right">
-                          <div className="text-sm font-semibold">{stay.toFixed(2)}€</div>
+                          <div className="text-sm font-semibold">{totalFull.toFixed(2)}€</div>
                           <div className="text-xs text-neutral-600 mt-1">Paid: {actuallyPaid.toFixed(2)}€</div>
                           {pending > 0 && (
                             <div className="text-xs text-orange-600">Pending: {pending.toFixed(2)}€</div>
@@ -566,11 +570,12 @@ export default function AdminRevenueClient() {
                           ? r.houseIds.map((id: string) => PROPERTY_NAME_MAP[id] || id).join(" + ")
                           : PROPERTY_NAME_MAP[r.houseId || r.houseIds?.[0] || ""] || r.houseId || r.houseIds?.[0] || "—";
 
-                      const stay = num(r.totalStay);
+                      // Total = precio completo (antes de descuentos)
+                      const totalFull = num((r as any).grandTotal ?? r.totalStay);
                       const payNow = num(r.payNow);
-                      const amountPaid = num((r as any).amountPaid ?? 0);
-                      const actuallyPaid = (r as any).paidInFull ? stay : (amountPaid > 0 ? amountPaid : ((r as any).paidAt ? payNow : 0));
-                      const pending = Math.max(0, stay - actuallyPaid);
+                      const amountPaidValue = (r as any).amountPaid != null ? num((r as any).amountPaid) : null;
+                      const actuallyPaid = (r as any).paidInFull ? totalFull : (amountPaidValue != null ? amountPaidValue : ((r as any).paidAt ? payNow : 0));
+                      const pending = Math.max(0, totalFull - actuallyPaid);
 
                       return (
                         <tr key={r.id} className="border-t">
@@ -584,7 +589,7 @@ export default function AdminRevenueClient() {
                           <td className="px-3 py-2">{houseName}</td>
                           <td className="px-3 py-2">{r.guests ?? "—"}</td>
                           <td className="px-3 py-2">{r.customerEmail ?? r.email ?? "—"}</td>
-                          <td className="px-3 py-2 text-right">{stay.toFixed(2)}€</td>
+                          <td className="px-3 py-2 text-right">{totalFull.toFixed(2)}€</td>
                           <td className="px-3 py-2 text-right">{actuallyPaid.toFixed(2)}€</td>
                           <td className="px-3 py-2 text-right">{pending.toFixed(2)}€</td>
                           <td className="px-3 py-2 text-xs">{paymentMethod}</td>

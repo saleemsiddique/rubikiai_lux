@@ -4,7 +4,7 @@
 
 
 // app/ezero-namelis/page.tsx
-import React, { Suspense } from "react";
+import React from "react";
 import { getTranslations } from 'next-intl/server';
 import HousePage from "@/components/HousePage";
 
@@ -36,73 +36,71 @@ export default async function EzeroNamelisPage() {
   const tAmenities = await getTranslations('amenities');
 
   return (
-    <Suspense fallback={null}>
-      <HousePage
-        heroSrc="/ezero-namelis/ezero-namelis (19).jpg"
-        title="EŽERO NAMELIS"
-        subtitle={t('subtitle')}
-        accommodates={2}
-        size={t('size')}
-        beds={t('beds')}
-        images={images}
-        houseSlug="lake-house"
-        defaultGuests="2"
-        defaultType="ezero namelis"
-        description={
-          <>
-            <p>{t('description.p1')}</p>
-            <br />
-            <p>{t('description.p2')}</p>
-            <br />
-            <p>{t('description.p3')}</p>
-            <br />
-            <p>{t('description.p4')}</p>
-            <br />
-            <p>{t('description.p5')}</p>
-            <br />
-            <p>{t('description.p6')}</p>
-            <br />
-            <p>{t('description.p7')}</p>
-          </>
-        }
-        amenitiesSections={[
-          {
-            title: tAmenities('kitchen'),
-            items: [
-              tAmenities('refrigerator'),
-              tAmenities('microwave'),
-              tAmenities('electricStove'),
-              tAmenities('oven'),
-              tAmenities('coffeeMachine'),
-              tAmenities('kettle'),
-            ],
-          },
-          {
-            title: tAmenities('bathroom'),
-            items: [
-              tAmenities('towels'),
-              tAmenities('hairDryer'),
-              tAmenities('shampooGel'),
-              tAmenities('wc'),
-              tAmenities('showers'),
-              tAmenities('bathrobes'),
-            ],
-          },
-          {
-            title: tAmenities('additionally'),
-            items: [
-              tAmenities('wifi'),
-              tAmenities('tv'),
-              tAmenities('heatPump'),
-              tAmenities('airConditioning'),
-              tAmenities('heatedFloor'),
-              tAmenities('terrace'),
-              tAmenities('jacuzzi'),
-              tAmenities('bbq')
-            ],
-          },
-        ]}
-      />
-    </Suspense>
+    <HousePage
+      heroSrc="/ezero-namelis/ezero-namelis (19).jpg"
+      title="EŽERO NAMELIS"
+      subtitle={t('subtitle')}
+      accommodates={2}
+      size={t('size')}
+      beds={t('beds')}
+      images={images}
+      houseSlug="lake-house"
+      defaultGuests="2"
+      defaultType="ezero namelis"
+      description={
+        <>
+          <p>{t('description.p1')}</p>
+          <br />
+          <p>{t('description.p2')}</p>
+          <br />
+          <p>{t('description.p3')}</p>
+          <br />
+          <p>{t('description.p4')}</p>
+          <br />
+          <p>{t('description.p5')}</p>
+          <br />
+          <p>{t('description.p6')}</p>
+          <br />
+          <p>{t('description.p7')}</p>
+        </>
+      }
+      amenitiesSections={[
+        {
+          title: tAmenities('kitchen'),
+          items: [
+            tAmenities('refrigerator'),
+            tAmenities('microwave'),
+            tAmenities('electricStove'),
+            tAmenities('oven'),
+            tAmenities('coffeeMachine'),
+            tAmenities('kettle'),
+          ],
+        },
+        {
+          title: tAmenities('bathroom'),
+          items: [
+            tAmenities('towels'),
+            tAmenities('hairDryer'),
+            tAmenities('shampooGel'),
+            tAmenities('wc'),
+            tAmenities('showers'),
+            tAmenities('bathrobes'),
+          ],
+        },
+        {
+          title: tAmenities('additionally'),
+          items: [
+            tAmenities('wifi'),
+            tAmenities('tv'),
+            tAmenities('heatPump'),
+            tAmenities('airConditioning'),
+            tAmenities('heatedFloor'),
+            tAmenities('terrace'),
+            tAmenities('jacuzzi'),
+            tAmenities('bbq')
+          ],
+        },
+      ]}
+    />
   );
 }

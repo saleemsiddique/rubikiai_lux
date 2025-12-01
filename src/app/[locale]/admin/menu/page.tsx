@@ -4,37 +4,15 @@ import admin from "@/lib/firebase-admin";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { getTranslations } from "next-intl/server";
-
-/* 
-  Wrapper interno como Client Component para poder usar useSearchParams()
-  (está dentro del mismo archivo, pero aislado del componente principal que es Server)
-*/
-function SearchParamsSection() {
-  "use client";
-  const { useSearchParams } = require("next/navigation");
-  const params = useSearchParams();
-  const reason = params.get("reason");
-
-  if (!reason) return null;
-
-  return (
-    <div className="mb-4 text-xs text-neutral-600 bg-white border px-3 py-2 rounded-md shadow-sm">
-      Query param → <span className="font-medium">{reason}</span>
-    </div>
-  );
-}
+import SearchParamsSection from "./SeatchParamsSection";
 
 async function requireAdmin() {
   const session = (await cookies()).get("session")?.value;
-  if (!session) {
-    redirect("/admin?reason=login");
-  }
+  if (!session) redirect("/admin?reason=login");
 
   try {
     const decoded = await admin.auth().verifySessionCookie(session, true);
-    if (!(decoded as any).admin) {
-      redirect("/admin?reason=forbidden");
-    }
+    if (!(decoded as any).admin) redirect("/admin?reason=forbidden");
     return decoded;
   } catch {
     redirect("/admin?reason=expired");
@@ -49,7 +27,7 @@ export default async function AdminMenuPage() {
     <main className="min-h-screen pt-24 bg-[var(--color-background-main)]">
       <section className="max-w-5xl mx-auto px-6 py-12">
 
-        {/* Suspense boundary SOLO para la parte del client */}
+        {/* CLIENT COMPONENT envuelto en Suspense */}
         <Suspense fallback={<div className="text-xs text-neutral-400 mb-4">Loading params...</div>}>
           <SearchParamsSection />
         </Suspense>
@@ -59,7 +37,7 @@ export default async function AdminMenuPage() {
             {t("menu.title")}
           </h1>
 
-          {/* Logout mediante POST seguro para SSR */}
+          {/* Logout seguro SSR */}
           <form action="/api/auth/session-logout" method="POST">
             <button
               type="submit"
@@ -71,42 +49,27 @@ export default async function AdminMenuPage() {
         </div>
 
         <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <Link
-            href="/admin/bookings"
-            className="rounded-xl border p-4 bg-white hover:bg-neutral-50"
-          >
+          <Link href="/admin/bookings" className="rounded-xl border p-4 bg-white hover:bg-neutral-50">
             <div className="font-semibold">{t("menu.reservations")}</div>
             <div className="text-xs text-neutral-600">{t("menu.reservationsDesc")}</div>
           </Link>
 
-          <Link
-            href="/admin/coupons"
-            className="rounded-xl border p-4 bg-white hover:bg-neutral-50"
-          >
+          <Link href="/admin/coupons" className="rounded-xl border p-4 bg-white hover:bg-neutral-50">
             <div className="font-semibold">{t("menu.coupons")}</div>
             <div className="text-xs text-neutral-600">{t("menu.couponsDesc")}</div>
           </Link>
 
-          <Link
-            href="/admin/discounts"
-            className="rounded-xl border p-4 bg-white hover:bg-neutral-50"
-          >
+          <Link href="/admin/discounts" className="rounded-xl border p-4 bg-white hover:bg-neutral-50">
             <div className="font-semibold">{t("menu.discounts")}</div>
             <div className="text-xs text-neutral-600">{t("menu.discountsDesc")}</div>
           </Link>
 
-          <Link
-            href="/admin/revenue"
-            className="rounded-xl border p-4 bg-white hover:bg-neutral-50"
-          >
+          <Link href="/admin/revenue" className="rounded-xl border p-4 bg-white hover:bg-neutral-50">
             <div className="font-semibold">{t("menu.revenue")}</div>
             <div className="text-xs text-neutral-600">{t("menu.revenueDesc")}</div>
           </Link>
 
-          <Link
-            href="/admin/houses"
-            className="rounded-xl border p-4 bg-white hover:bg-neutral-50"
-          >
+          <Link href="/admin/houses" className="rounded-xl border p-4 bg-white hover:bg-neutral-50">
             <div className="font-semibold">{t("menu.houses")}</div>
             <div className="text-xs text-neutral-600">{t("menu.housesDesc")}</div>
           </Link>

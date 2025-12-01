@@ -294,10 +294,19 @@ function PriceSummaryBlock({
 
     if (discountApplied && discountData) {
         if (discountData.kind === 'coupon') {
-            // Coupon: fixed euro amount off first night
-            discountAmount = Math.min(appliedDiscount, priceData.first || 0, priceData.grandTotal || 0);
-            discountedFirst = Math.max(0, (priceData.first || 0) - discountAmount);
-            discountedGrandTotal = Math.max(0, (priceData.grandTotal || 0) - discountAmount);
+            // Coupon: apply to first night, then use ALL available credit on total
+            const firstNight = priceData.first || 0;
+            const grandTotal = priceData.grandTotal || 0;
+            const availableCredit = appliedDiscount;
+
+            // Apply to first night (respecting Stripe minimum rules)
+            const usedOnFirstNight = Math.min(availableCredit, firstNight);
+            discountedFirst = Math.max(0, firstNight - usedOnFirstNight);
+
+            // Apply ALL available credit to grand total
+            const totalCreditToUse = Math.min(availableCredit, grandTotal);
+            discountedGrandTotal = Math.max(0, grandTotal - totalCreditToUse);
+            discountAmount = totalCreditToUse;
         } else if (discountData.kind === 'percent') {
             // Percentage: applies only to first night
             const percentValue = appliedDiscount;

@@ -175,9 +175,10 @@ function HeaderContent() {
     searchParams?.has("type")
   );
 
-  const showMobileReservationButton =
-    (isHomePage && (isDesktop || !scrolled)) ||
-    (isHousePage && (isDesktop || !scrolled) && !hasQueryParamsHousePage);
+  // Separar lógica de móvil y desktop
+  const showMobileReservationButton = isDesktop
+    ? (isHomePage || (isHousePage && !hasQueryParamsHousePage)) // Desktop: ocultar solo si hay query params en house page
+    : ((isHomePage && !scrolled) || (isHousePage && !scrolled && !hasQueryParamsHousePage)); // Móvil: mantener lógica original
 
   const currentLang = languages.find(l => l.code === locale) || languages[0];
 
@@ -258,7 +259,7 @@ function HeaderContent() {
             <button
               onClick={() => showMobileReservationButton && (window.location.href = `/${locale}/reservations`)}
               disabled={!showMobileReservationButton}
-              className={`uppercase tracking-wider text-[10px] md:text-[14px] px-4 py-2 md:px-5 md:py-2.5 rounded font-semibold transition-all duration-300 ease-in-out items-center justify-center min-w-[84px] md:min-w-[100px] ${!showMobileReservationButton ? "cursor-default hidden md:flex" : "cursor-pointer flex"
+              className={`uppercase tracking-wider text-[10px] md:text-[14px] px-4 py-2 md:px-5 md:py-2.5 rounded font-semibold transition-all duration-300 ease-in-out items-center justify-center min-w-[84px] md:min-w-[100px] ${!showMobileReservationButton ? "cursor-default hidden" : "cursor-pointer flex"
                 }`}
             >
               <span

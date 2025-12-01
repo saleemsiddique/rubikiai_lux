@@ -311,11 +311,12 @@ export default function CheckoutDetailsClient() {
         availableCredit
       );
 
-      // reduce total stay by usedNow
-      const totalAfter = Math.max(0, fullStayBefore - usedNow);
+      // reduce total stay by ALL available credit (not just what was used on first night)
+      const totalCreditToUse = Math.min(availableCredit, fullStayBefore);
+      const totalAfter = Math.max(0, fullStayBefore - totalCreditToUse);
 
       return {
-        effectiveDiscountUsedNow: usedNow,
+        effectiveDiscountUsedNow: totalCreditToUse,
         payNowAfterDiscount: payNow,
         totalAfterDiscount: totalAfter,
       };
@@ -603,8 +604,8 @@ export default function CheckoutDetailsClient() {
         return;
       }
 
-      // raw max we can try to use
-      const rawToUse = Math.min(remaining, firstNightBefore, totalBefore);
+      // raw max we can try to use (don't limit to firstNightBefore here)
+      const rawToUse = Math.min(remaining, totalBefore);
       if (rawToUse <= 0) {
         setDiscountError(t('nothingToApply'));
         return;
@@ -617,8 +618,8 @@ export default function CheckoutDetailsClient() {
         return;
       }
 
-      // ✅ OK: aplicamos
-      setAppliedEuroDiscount(used);
+      // ✅ OK: aplicamos - guardar el crédito COMPLETO disponible, no solo lo usado en primera noche
+      setAppliedEuroDiscount(rawToUse);
       setDiscountApplied(true);
       return;
     }

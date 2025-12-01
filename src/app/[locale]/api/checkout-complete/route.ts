@@ -17,7 +17,10 @@ export async function GET(
   try {
     const url = new URL(req.url);
     const sessionId = url.searchParams.get("session_id");
+    console.log("🟢 [CHECKOUT-COMPLETE] sessionId:", sessionId);
+
     if (!sessionId) {
+      console.log("❌ [CHECKOUT-COMPLETE] No sessionId provided");
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/${locale}/cancel?reason=missing_session`);
     }
 
@@ -25,12 +28,16 @@ export async function GET(
     let stripeSession: Stripe.Checkout.Session | null = null;
     try {
       stripeSession = await stripe.checkout.sessions.retrieve(sessionId);
+      console.log("🟢 [CHECKOUT-COMPLETE] Retrieved session, payment_status:", stripeSession.payment_status);
     } catch (err) {
-      console.error("checkout-complete error:", err);
+      console.error("❌ [CHECKOUT-COMPLETE] Error retrieving session:", err);
     }
 
     const reservationId = stripeSession?.metadata?.reservationId ?? url.searchParams.get("reservationId");
+    console.log("🟢 [CHECKOUT-COMPLETE] reservationId from metadata:", reservationId);
+
     if (!reservationId) {
+      console.log("❌ [CHECKOUT-COMPLETE] No reservationId in metadata");
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/${locale}/cancel?reason=no_reservation`);
     }
 
@@ -42,17 +49,24 @@ export async function GET(
     const maxRetries = 5;
     const retryDelay = 500; // 500ms between retries
 
+    console.log("🟢 [CHECKOUT-COMPLETE] First attempt - reservation exists:", snap.exists);
+
     while (!snap.exists && retries < maxRetries) {
+      retries++;
+      console.log(`🟡 [CHECKOUT-COMPLETE] Retry ${retries}/${maxRetries} - waiting ${retryDelay}ms...`);
       await new Promise(resolve => setTimeout(resolve, retryDelay));
       snap = await resRef.get();
-      retries++;
+      console.log(`🟢 [CHECKOUT-COMPLETE] Retry ${retries} - reservation exists:`, snap.exists);
     }
 
     if (!snap.exists) {
+      console.log("❌ [CHECKOUT-COMPLETE] Reservation not found after", maxRetries, "retries");
       return NextResponse.redirect(
         `${process.env.NEXT_PUBLIC_APP_URL}/${locale}/cancel?reservationId=${reservationId}&reason=not_found`
       );
     }
+
+    console.log("✅ [CHECKOUT-COMPLETE] Reservation found!");
     const data: any = snap.data();
 
     // Si ya está reservado → gracias

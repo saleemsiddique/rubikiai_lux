@@ -216,6 +216,7 @@ async function applyPercentDiscountInTx(
 /* ---------- webhook handler ---------- */
 
 export async function POST(req: Request) {
+  console.log("🔵 [STRIPE WEBHOOK] Received webhook request");
   const sig = req.headers.get("stripe-signature") || "";
   const buf = await req.arrayBuffer();
   let event: Stripe.Event;
@@ -226,8 +227,9 @@ export async function POST(req: Request) {
       sig,
       process.env.STRIPE_WEBHOOK_SECRET!
     );
+    console.log("🔵 [STRIPE WEBHOOK] Event type:", event.type);
   } catch (err: any) {
-    console.error("Webhook signature error:", err?.message);
+    console.error("❌ [STRIPE WEBHOOK] Signature error:", err?.message);
     return new Response(`Webhook Error: ${err?.message}`, { status: 400 });
   }
 
@@ -236,6 +238,7 @@ export async function POST(req: Request) {
     // ================ CHECKOUT COMPLETED ==================
     // ======================================================
     if (event.type === "checkout.session.completed") {
+      console.log("🔵 [STRIPE WEBHOOK] Processing checkout.session.completed");
       const session = event.data.object as Stripe.Checkout.Session;
 
       // ¿Es compra de cupón?
@@ -411,11 +414,17 @@ export async function POST(req: Request) {
       // ----------------- RESERVA NORMAL -----------------
 
       const reservationId = session.metadata?.reservationId;
+      console.log("🔵 [STRIPE WEBHOOK] checkout.session.completed - reservationId:", reservationId);
+      console.log("🔵 [STRIPE WEBHOOK] session.id:", session.id);
+      console.log("🔵 [STRIPE WEBHOOK] session.payment_status:", session.payment_status);
+
       if (!reservationId) {
+        console.log("⚠️ [STRIPE WEBHOOK] No reservationId in metadata, skipping");
         return NextResponse.json({ ok: true });
       }
 
       const resRef = db.collection("reservations").doc(reservationId);
+      console.log("🔵 [STRIPE WEBHOOK] About to process reservation:", reservationId);
 
       // Datos principales desde metadata
       const rawValue = session.metadata?.rawValue || "";
@@ -563,11 +572,15 @@ export async function POST(req: Request) {
         }
 
         if (!existsAlready) {
+          console.log("✅ [STRIPE WEBHOOK] Creating NEW reservation:", reservationId);
           tx.set(resRef, baseReservationPayload);
         } else {
+          console.log("✅ [STRIPE WEBHOOK] Updating EXISTING reservation:", reservationId);
           tx.update(resRef, baseReservationPayload);
         }
       });
+
+      console.log("✅ [STRIPE WEBHOOK] Transaction completed for reservation:", reservationId);
 
       // ✅ Enviar email de confirmación
       try {

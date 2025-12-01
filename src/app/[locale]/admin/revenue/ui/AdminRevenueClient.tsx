@@ -202,18 +202,34 @@ export default function AdminRevenueClient() {
   // Métricas reservas (usando los nuevos campos)
   const resMetrics = useMemo(() => {
     let count = 0;
-    let totalContracted = 0; // totalStay
-    let totalPayNow = 0; // payNow
-    let totalPayAtArrival = 0; // payAtArrival
+    let totalContracted = 0; // totalStay (total de todas las reservas)
+    let totalCollected = 0; // lo que REALMENTE se ha cobrado
+    let totalPending = 0; // lo que falta por cobrar
 
     reservations.forEach((r) => {
       count++;
-      totalContracted += num(r.totalStay);
-      totalPayNow += num(r.payNow);
-      totalPayAtArrival += num(r.payAtArrival);
+      const stay = num(r.totalStay);
+      const payNow = num(r.payNow);
+
+      totalContracted += stay;
+
+      // Calcular lo que realmente se ha cobrado
+      if ((r as any).paidInFull) {
+        // Si está pagado completamente, se cobró todo el totalStay
+        totalCollected += stay;
+        totalPending += 0;
+      } else if ((r as any).paidAt) {
+        // Si tiene paidAt pero no paidInFull, se cobró solo payNow
+        totalCollected += payNow;
+        totalPending += Math.max(0, stay - payNow);
+      } else {
+        // No se ha cobrado nada aún
+        totalCollected += 0;
+        totalPending += stay;
+      }
     });
 
-    return { count, totalContracted, totalPayNow, totalPayAtArrival };
+    return { count, totalContracted, totalCollected, totalPending };
   }, [reservations]);
 
   // Métricas cupones
@@ -229,9 +245,9 @@ export default function AdminRevenueClient() {
 
   // Métrica combinada
   const combined = useMemo(() => {
-    const collected = resMetrics.totalPayNow + couponMetrics.couponsRevenue;
+    const collected = resMetrics.totalCollected + couponMetrics.couponsRevenue;
     const contracted = resMetrics.totalContracted + couponMetrics.couponsRevenue;
-    const pending = resMetrics.totalPayAtArrival;
+    const pending = resMetrics.totalPending;
     return { collected, contracted, pending };
   }, [resMetrics, couponMetrics]);
 
@@ -284,13 +300,14 @@ export default function AdminRevenueClient() {
       // Sheet: Summary
       const summaryRows = [
         ["Reservas (cantidad)", reservations.length],
-        ["Reservas - cobrado ahora", resMetrics.totalPayNow],
-        ["Reservas - pendiente llegada", resMetrics.totalPayAtArrival],
+        ["Reservas - cobrado", resMetrics.totalCollected],
+        ["Reservas - pendiente", resMetrics.totalPending],
         ["Reservas - total contratado", resMetrics.totalContracted],
         ["Cupones (cantidad)", couponMetrics.ordersCount],
         ["Cupones - cobrado", couponMetrics.couponsRevenue],
         ["TOTAL COBRADO (res+cupones)", combined.collected],
         ["TOTAL CONTRACTUAL", combined.contracted],
+        ["TOTAL PENDIENTE", combined.pending],
       ];
       const wsSum = XLSX.utils.aoa_to_sheet(summaryRows);
       XLSX.utils.book_append_sheet(wb, wsSum, "Summary");
@@ -431,10 +448,10 @@ export default function AdminRevenueClient() {
             {t('revenue.summary.totalContracted')} <b>{resMetrics.totalContracted.toFixed(2)} €</b>
           </div>
           <div className="text-xs text-neutral-600">
-            {t('revenue.summary.collectedNow')} <b>{resMetrics.totalPayNow.toFixed(2)} €</b>
+            {t('revenue.summary.collectedNow')} <b>{resMetrics.totalCollected.toFixed(2)} €</b>
           </div>
           <div className="text-xs text-neutral-600">
-            {t('revenue.summary.pendingArrival')} <b>{resMetrics.totalPayAtArrival.toFixed(2)} €</b>
+            {t('revenue.summary.pendingArrival')} <b>{resMetrics.totalPending.toFixed(2)} €</b>
           </div>
         </div>
 
@@ -476,6 +493,11 @@ export default function AdminRevenueClient() {
                       ? r.houseIds.map((id: string) => PROPERTY_NAME_MAP[id] || id).join(" + ")
                       : PROPERTY_NAME_MAP[r.houseId || r.houseIds?.[0] || ""] || r.houseId || r.houseIds?.[0] || "—";
 
+                  const stay = num(r.totalStay);
+                  const payNow = num(r.payNow);
+                  const actuallyPaid = (r as any).paidInFull ? stay : ((r as any).paidAt ? payNow : 0);
+                  const pending = Math.max(0, stay - actuallyPaid);
+
                   return (
                     <div key={r.id} className="p-4">
                       <div className="flex items-start justify-between gap-3">
@@ -497,8 +519,11 @@ export default function AdminRevenueClient() {
                         </div>
 
                         <div className="text-right">
-                          <div className="text-sm font-semibold">{num(r.totalStay).toFixed(2)}€</div>
-                          <div className="text-xs text-neutral-600 mt-1">Now: {num(r.payNow).toFixed(2)}€</div>
+                          <div className="text-sm font-semibold">{stay.toFixed(2)}€</div>
+                          <div className="text-xs text-neutral-600 mt-1">Paid: {actuallyPaid.toFixed(2)}€</div>
+                          {pending > 0 && (
+                            <div className="text-xs text-orange-600">Pending: {pending.toFixed(2)}€</div>
+                          )}
                         </div>
                       </div>
 
@@ -546,6 +571,11 @@ export default function AdminRevenueClient() {
                           ? r.houseIds.map((id: string) => PROPERTY_NAME_MAP[id] || id).join(" + ")
                           : PROPERTY_NAME_MAP[r.houseId || r.houseIds?.[0] || ""] || r.houseId || r.houseIds?.[0] || "—";
 
+                      const stay = num(r.totalStay);
+                      const payNow = num(r.payNow);
+                      const actuallyPaid = (r as any).paidInFull ? stay : ((r as any).paidAt ? payNow : 0);
+                      const pending = Math.max(0, stay - actuallyPaid);
+
                       return (
                         <tr key={r.id} className="border-t">
                           <td className="px-3 py-2">
@@ -558,9 +588,9 @@ export default function AdminRevenueClient() {
                           <td className="px-3 py-2">{houseName}</td>
                           <td className="px-3 py-2">{r.guests ?? "—"}</td>
                           <td className="px-3 py-2">{r.customerEmail ?? r.email ?? "—"}</td>
-                          <td className="px-3 py-2 text-right">{num(r.totalStay).toFixed(2)}€</td>
-                          <td className="px-3 py-2 text-right">{num(r.payNow).toFixed(2)}€</td>
-                          <td className="px-3 py-2 text-right">{num(r.payAtArrival).toFixed(2)}€</td>
+                          <td className="px-3 py-2 text-right">{stay.toFixed(2)}€</td>
+                          <td className="px-3 py-2 text-right">{actuallyPaid.toFixed(2)}€</td>
+                          <td className="px-3 py-2 text-right">{pending.toFixed(2)}€</td>
                           <td className="px-3 py-2 text-xs">{paymentMethod}</td>
                         </tr>
                       );

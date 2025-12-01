@@ -198,9 +198,11 @@ export async function POST(
 
       if (discountAmount > 0) {
         if (discount.type === "coupon") {
-          // Coupon: fixed euro amount off (applies to first night, limited by grandTotal)
-          amountApplied = Math.min(discountAmount, firstNightBase, grandTotalBase);
-          discountedFirst = Math.max(0, firstNightBase - amountApplied);
+          // Coupon: fixed euro amount off total (no limitar a primera noche)
+          amountApplied = Math.min(discountAmount, grandTotalBase);
+          // Aplicar a primera noche lo que se pueda
+          const usedOnFirstNight = Math.min(amountApplied, firstNightBase);
+          discountedFirst = Math.max(0, firstNightBase - usedOnFirstNight);
           discountedGrandTotal = Math.max(0, grandTotalBase - amountApplied);
 
           couponData = {

@@ -722,7 +722,10 @@ export default function CheckoutDetailsClient() {
         // NUEVOS CAMPOS DE PRECIO SIMPLIFICADOS
         pricing: {
           payNow: payNowAfterDiscount ?? priceData.first ?? 0,
-          totalStay: (withJacuzzi ? priceData.grandTotal : priceData.total) ?? 0,
+          totalStay:
+            totalAfterDiscount ??
+            (withJacuzzi ? priceData.grandTotal : priceData.total) ??
+            0,
           // payAtArrival se calcula en backend: totalStay - payNow
         },
 
@@ -811,7 +814,10 @@ export default function CheckoutDetailsClient() {
         // NUEVOS CAMPOS DE PRECIO SIMPLIFICADOS
         pricing: {
           payNow: payNowAfterDiscount ?? priceData.first ?? 0,
-          totalStay: (withJacuzzi ? priceData.grandTotal : priceData.total) ?? 0,
+          totalStay:
+            totalAfterDiscount ??
+            (withJacuzzi ? priceData.grandTotal : priceData.total) ??
+            0,
           // payAtArrival se calcula en backend: totalStay - payNow
         },
 

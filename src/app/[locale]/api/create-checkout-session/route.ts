@@ -367,8 +367,8 @@ export async function POST(
         );
       }
 
-      // cap coupon to remaining, firstNightCharge, grandTotal
-      proposed = Math.min(proposed, remaining, firstNightCharge, grandTotal);
+      // cap coupon to remaining and grandTotal (NOT limited to first night)
+      proposed = Math.min(proposed, remaining, grandTotal);
       proposed = adjustForStripeMin(firstNightCharge, proposed);
 
       if (proposed > 0) {

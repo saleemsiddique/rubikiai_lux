@@ -310,8 +310,8 @@ export async function POST(
             { status: 400 }
           );
 
-        // IMPORTANT: cap by remaining, firstNightCharge, grandTotal (but we only apply to Reservation fee)
-        proposed = Math.min(proposed, remaining, firstNightCharge, grandTotal);
+        // IMPORTANT: cap by remaining and grandTotal (NOT limited to first night)
+        proposed = Math.min(proposed, remaining, grandTotal);
         proposed = adjustForStripeMin(firstNightCharge, proposed);
 
         if (proposed > 0) {

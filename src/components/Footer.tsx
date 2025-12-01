@@ -1,14 +1,15 @@
 // components/Footer.tsx
 "use client";
 
-import React from "react";
+import React, { Suspense } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { PhoneIcon, InboxIcon, Globe, Facebook, Instagram } from "lucide-react";
 import { useTranslations, useLocale } from 'next-intl';
 import { locales, localeNames } from "@/i18n/config";
 
-const Footer: React.FC = () => {
+// Componente interno que usa useSearchParams
+function FooterContent() {
   const year = new Date().getFullYear();
   const t = useTranslations('nav');
   const tCommon = useTranslations('common');
@@ -51,10 +52,6 @@ const Footer: React.FC = () => {
 
           {/* Quick Links - Destacado */}
           <div className="lg:col-span-2 flex flex-col items-center">
-            {/*<h3 className="text-sm font-bold text-white mb-6 uppercase tracking-wider border-b border-[var(--color-primary)] pb-2 inline-block text-center">
-              {t('navigate')}
-            </h3>*/}
-
             <nav className="grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-3 mt-6 text-lg w-full justify-items-start md:justify-items-center">
               <Link
                 href={`/${locale}`}
@@ -164,7 +161,7 @@ const Footer: React.FC = () => {
                 <p className="text-xs text-gray-400 leading-relaxed">Anykščių raj. LT-29203, Lithuania</p>
               </div>
 
-              {/* ✅ Social Networks dentro del bloque y centrado */}
+              {/* Social Networks dentro del bloque y centrado */}
               <div className="flex justify-center gap-6 mt-4 pt-2">
                 <a
                   href="https://www.instagram.com/rubikiailux"
@@ -226,6 +223,45 @@ const Footer: React.FC = () => {
       </div>
     </footer>
   );
+}
+
+// Componente principal exportado con Suspense
+const Footer: React.FC = () => {
+  return (
+    <Suspense fallback={<FooterFallback />}>
+      <FooterContent />
+    </Suspense>
+  );
 };
+
+// Fallback simple mientras carga
+function FooterFallback() {
+  return (
+    <footer className="w-full border-t border-[#2a4850] bg-[var(--color-secondary)] text-white">
+      <div className="max-w-7xl mx-auto px-6 py-12">
+        <div className="animate-pulse space-y-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+            <div className="lg:col-span-2 space-y-4">
+              <div className="h-8 bg-white/10 rounded w-1/3 mx-auto" />
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="h-6 bg-white/10 rounded" />
+                ))}
+              </div>
+            </div>
+            <div className="space-y-4">
+              <div className="h-8 bg-white/10 rounded w-1/2 mx-auto" />
+              <div className="space-y-3">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="h-5 bg-white/10 rounded" />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </footer>
+  );
+}
 
 export default Footer;

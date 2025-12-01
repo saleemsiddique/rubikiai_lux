@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useEffect, useRef, useCallback, useState } from "react";
+import React, { useEffect, useRef, useCallback, useState, Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { useTranslations, useLocale } from 'next-intl';
 
-export default function Header() {
+// Componente interno que usa useSearchParams
+function HeaderContent() {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [isLangOpen, setIsLangOpen] = useState(false);
@@ -373,5 +374,29 @@ export default function Header() {
         </div>
       </aside>
     </>
+  );
+}
+
+// Componente principal exportado con Suspense
+export default function Header() {
+  return (
+    <Suspense fallback={<HeaderFallback />}>
+      <HeaderContent />
+    </Suspense>
+  );
+}
+
+// Fallback simple mientras carga
+function HeaderFallback() {
+  return (
+    <header className="fixed inset-x-0 top-0 z-50 bg-[var(--color-background-main)]/20 backdrop-blur-sm">
+      <div className="max-w-screen-xl mx-auto px-4 sm:px-6 md:px-6 py-3 md:py-1 flex items-center justify-between">
+        <div className="w-[120px] md:w-[80px]" />
+        <div className="flex-1 flex justify-center">
+          <div className="w-28 h-10 bg-gray-200/20 rounded animate-pulse" />
+        </div>
+        <div className="w-[120px] md:w-[140px]" />
+      </div>
+    </header>
   );
 }

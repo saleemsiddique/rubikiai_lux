@@ -576,9 +576,10 @@ export default function AdminBookingsClient() {
             const endUse =
                 isoCmp(co, monthEndExclusive) > 0 ? monthEndExclusive : co;
 
+            // El checkout no debe contar como día ocupado
             const endLoopExclusive =
-                isoCmp(addDaysISO(endUse, 1), monthEndExclusive) < 0
-                    ? addDaysISO(endUse, 1)
+                isoCmp(endUse, monthEndExclusive) < 0
+                    ? endUse
                     : monthEndExclusive;
 
             if (!isoLt(startUse, endLoopExclusive)) continue;
@@ -1183,7 +1184,6 @@ export default function AdminBookingsClient() {
 
                                                 <button
                                                     onClick={async () => {
-                                                        if (r.status === "admin") return;
                                                         if (!confirm("Mark as fully paid and complete?")) return;
                                                         try {
                                                             await updateStatus(r.id, "complete", true);
@@ -1191,7 +1191,7 @@ export default function AdminBookingsClient() {
                                                             alert(er?.message || "Error");
                                                         }
                                                     }}
-                                                    disabled={r.status === "admin" || r.status === "complete" || r.status === "canceled"}
+                                                    disabled={r.status === "complete" || r.status === "canceled"}
                                                     className="rounded-md border px-3 py-2 text-xs hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                                 >
                                                     Fully Paid
@@ -1207,7 +1207,7 @@ export default function AdminBookingsClient() {
                                                         }
                                                     }}
                                                     className="rounded-md border px-3 py-2 text-xs hover:bg-neutral-50"
-                                                    disabled={r.status === "admin" || r.status === "complete" || r.status === "canceled"}
+                                                    disabled={r.status === "complete" || r.status === "canceled"}
                                                 >
                                                     Cancel
                                                 </button>
@@ -1324,7 +1324,6 @@ export default function AdminBookingsClient() {
 
                                                             <button
                                                                 onClick={async () => {
-                                                                    if (r.status === "admin") return;
                                                                     if (!confirm("Mark as fully paid and complete?")) return;
                                                                     try {
                                                                         await updateStatus(r.id, "complete", true);
@@ -1333,11 +1332,9 @@ export default function AdminBookingsClient() {
                                                                     }
                                                                 }}
                                                                 disabled={
-                                                                    r.status === "admin" ||
                                                                     r.status === "complete" ||
                                                                     r.status === "canceled"
                                                                 }
-                                                                title={r.status === "admin" ? "Admin blocks cannot be completed" : undefined}
                                                                 className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                                             >
                                                                 Fully Paid
@@ -1354,7 +1351,6 @@ export default function AdminBookingsClient() {
                                                                 }}
                                                                 className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                                                 disabled={
-                                                                    r.status === "admin" ||
                                                                     r.status === "complete" ||
                                                                     r.status === "canceled"
                                                                 }
@@ -1543,7 +1539,6 @@ export default function AdminBookingsClient() {
                                                 <div className="mt-2 flex gap-2">
                                                     <button
                                                         onClick={async () => {
-                                                            if (r.status === "admin") return;
                                                             if (!confirm("Mark as fully paid and complete?")) return;
 
                                                             try {
@@ -1552,8 +1547,7 @@ export default function AdminBookingsClient() {
                                                                 alert(er?.message || "Error");
                                                             }
                                                         }}
-                                                        disabled={r.status === "admin"}
-                                                        title={r.status === "admin" ? "Admin blocks cannot be completed" : undefined}
+                                                        disabled={r.status === "complete" || r.status === "canceled"}
                                                         className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                                     >
                                                         Fully Paid

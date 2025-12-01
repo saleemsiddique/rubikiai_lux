@@ -188,6 +188,8 @@ export async function GET(req: Request) {
         // nuevos campos de pago
         payNow: typeof r.payNow === "number" ? r.payNow : null,
         payAtArrival: typeof r.payAtArrival === "number" ? r.payAtArrival : null,
+        amountPaid: typeof r.amountPaid === "number" ? r.amountPaid : null,
+        paidInFull: typeof r.paidInFull === "boolean" ? r.paidInFull : false,
 
         // pagos / stripe
         stripeCustomerId: r.stripeCustomerId ?? null,

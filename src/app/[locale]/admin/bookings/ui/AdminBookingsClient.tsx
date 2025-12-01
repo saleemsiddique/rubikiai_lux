@@ -1123,7 +1123,7 @@ export default function AdminBookingsClient() {
                                     const totalStay = r.totalStay ?? r.discountedGrandTotal ?? r.discountedTotal ?? r.grandTotal ?? r.total ?? 0;
                                     const payNow = r.payNow ?? r.discountedFirst ?? r.firstNightCharge ?? 0;
                                     // Calcular lo que REALMENTE se ha pagado
-                                    const actuallyPaid = r.paidInFull ? totalStay : (r.paidAt ? payNow : 0);
+                                    const actuallyPaid = r.paidInFull ? totalStay : (r.amountPaid ?? (r.paidAt ? payNow : 0));
                                     const jacuzziDays = r.jacuzzi?.days ?? 0;
 
                                     return (
@@ -1246,7 +1246,7 @@ export default function AdminBookingsClient() {
                                             const totalStay = r.totalStay ?? r.discountedGrandTotal ?? r.discountedTotal ?? r.grandTotal ?? r.total ?? 0;
                                             const payNow = r.payNow ?? r.discountedFirst ?? r.firstNightCharge ?? 0;
                                             // Calcular lo que REALMENTE se ha pagado
-                                            const actuallyPaid = r.paidInFull ? totalStay : (r.paidAt ? payNow : 0);
+                                            const actuallyPaid = r.paidInFull ? totalStay : (r.amountPaid ?? (r.paidAt ? payNow : 0));
                                             const jacuzziDays = r.jacuzzi?.days ?? 0;
 
                                             return (
@@ -1511,7 +1511,7 @@ export default function AdminBookingsClient() {
                                         const customerEmail = r.customerEmail || r.email || r.customer?.email || "—";
                                         const totalStay = r.totalStay ?? r.discountedGrandTotal ?? r.discountedTotal ?? r.grandTotal ?? r.total ?? 0;
                                         const payNow = r.payNow ?? r.discountedFirst ?? r.firstNightCharge ?? 0;
-                                        const actuallyPaid = r.paidInFull ? totalStay : (r.paidAt ? payNow : 0);
+                                        const actuallyPaid = r.paidInFull ? totalStay : (r.amountPaid ?? (r.paidAt ? payNow : 0));
                                         const jacuzziDays = r.jacuzzi?.days ?? 0;
 
                                         return (

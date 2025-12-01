@@ -213,20 +213,14 @@ export default function AdminRevenueClient() {
 
       totalContracted += stay;
 
-      // Calcular lo que realmente se ha cobrado
-      if ((r as any).paidInFull) {
-        // Si está pagado completamente, se cobró todo el totalStay
-        totalCollected += stay;
-        totalPending += 0;
-      } else if ((r as any).paidAt) {
-        // Si tiene paidAt pero no paidInFull, se cobró solo payNow
-        totalCollected += payNow;
-        totalPending += Math.max(0, stay - payNow);
-      } else {
-        // No se ha cobrado nada aún
-        totalCollected += 0;
-        totalPending += stay;
-      }
+      // Calcular lo que realmente se ha cobrado (MISMA LÓGICA QUE AdminBookingsClient)
+      const amountPaidValue = (r as any).amountPaid != null ? num((r as any).amountPaid) : null;
+      const actuallyPaid = (r as any).paidInFull
+        ? stay
+        : (amountPaidValue != null ? amountPaidValue : ((r as any).paidAt ? payNow : 0));
+
+      totalCollected += actuallyPaid;
+      totalPending += Math.max(0, stay - actuallyPaid);
     });
 
     return { count, totalContracted, totalCollected, totalPending };
@@ -495,7 +489,8 @@ export default function AdminRevenueClient() {
 
                   const stay = num(r.totalStay);
                   const payNow = num(r.payNow);
-                  const actuallyPaid = (r as any).paidInFull ? stay : ((r as any).paidAt ? payNow : 0);
+                  const amountPaid = num((r as any).amountPaid ?? 0);
+                  const actuallyPaid = (r as any).paidInFull ? stay : (amountPaid > 0 ? amountPaid : ((r as any).paidAt ? payNow : 0));
                   const pending = Math.max(0, stay - actuallyPaid);
 
                   return (
@@ -573,7 +568,8 @@ export default function AdminRevenueClient() {
 
                       const stay = num(r.totalStay);
                       const payNow = num(r.payNow);
-                      const actuallyPaid = (r as any).paidInFull ? stay : ((r as any).paidAt ? payNow : 0);
+                      const amountPaid = num((r as any).amountPaid ?? 0);
+                      const actuallyPaid = (r as any).paidInFull ? stay : (amountPaid > 0 ? amountPaid : ((r as any).paidAt ? payNow : 0));
                       const pending = Math.max(0, stay - actuallyPaid);
 
                       return (

@@ -237,6 +237,12 @@ export async function POST(
     const totalStay = discountedGrandTotal; // Grand total (con descuento)
     const payAtArrival = Math.max(0, totalStay - payNow);
 
+    // ✅ ADMIN BLOCKS: Por defecto se marca como pagado
+    // Si hay cupón, se marca como pagado todo lo que el cupón haya cubierto
+    // Si no hay cupón, se marca como pagado la primera noche (porque el admin ya recibió el pago)
+    const amountPaidByClient = amountApplied > 0 ? amountApplied : firstNightBase;
+    const isPaidInFull = amountPaidByClient >= totalStay;
+
     // Build customer object
     const customerObj: any = {
       name: String(customer.name),
@@ -295,8 +301,10 @@ export async function POST(
       stripePaymentIntentId: null,
       stripeSessionId: null,
 
-      paidAt: null,
-      paidInFull: false,
+      // ✅ ADMIN BLOCKS: Siempre marcar como pagado (el admin ya recibió el pago)
+      paidAt: nowInLithuania(),
+      amountPaid: amountPaidByClient, // Lo que realmente se ha pagado
+      paidInFull: isPaidInFull,
 
       houseIds: targetHouseIds,
       houseId: targetHouseIds[0],

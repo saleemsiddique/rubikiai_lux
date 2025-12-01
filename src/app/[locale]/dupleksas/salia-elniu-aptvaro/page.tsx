@@ -1,5 +1,5 @@
-// server component - validates guests and redirects if overflow
-import React from "react";
+// page.tsx - server component with Suspense wrapper
+import React, { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getTranslations } from 'next-intl/server';
 import HousePage from "@/components/HousePage";
@@ -24,6 +24,15 @@ const aptvaroImages = [
 const ACCOMMODATES = 4;
 const DEFAULT_GUESTS = "4";
 
+// Loading fallback component
+function HousePageFallback() {
+  return (
+    <div className="min-h-screen bg-[var(--color-bg)]">
+      <div className="relative h-[75vh] md:h-screen w-full bg-gray-200 animate-pulse" />
+    </div>
+  );
+}
+
 export default async function Page({
   searchParams,
 }: {
@@ -43,69 +52,71 @@ export default async function Page({
   const tAmenities = await getTranslations('amenities');
 
   return (
-    <HousePage
-      heroSrc="/dupleksas/1-dupleksas10.jpeg"
-      title="Nr.1 - Šalia Elnių Aptvaro"
-      subtitle={t('subtitle')}
-      accommodates={ACCOMMODATES}
-      size={t('size')}
-      beds={t('beds')}
-      images={aptvaroImages}
-      houseSlug="salia-elniu-aptvaro"
-      defaultGuests={DEFAULT_GUESTS}
-      defaultType="dupleksas"
-      description={
-        <>
-          <p>{t('description.p1')}</p>
-          <br />
-          <p>{t('description.p2')}</p>
-          <br />
-          <p>{t('description.p3')}</p>
-          <br />
-          <p>{t('description.p4')}</p>
-          <br />
-          <p>{t('description.p5')}</p>
-          <br />
-          <p>{t('description.p6')}</p>
-        </>
-      }
-      amenitiesSections={[
-        {
-          title: tAmenities('kitchen'),
-          items: [
-            tAmenities('refrigerator'),
-            tAmenities('microwave'),
-            tAmenities('electricStove'),
-            tAmenities('oven'),
-            tAmenities('coffeeMachine'),
-            tAmenities('kettle'),
-          ],
-        },
-        {
-          title: tAmenities('bathroom'),
-          items: [
-            tAmenities('towels'),
-            tAmenities('hairDryer'),
-            tAmenities('shampooGel'),
-            tAmenities('wc'),
-            tAmenities('showers'),
-            tAmenities('bathrobes')
-          ],
-        },
-        {
-          title: tAmenities('additionally'),
-          items: [
-            tAmenities('wifi'),
-            tAmenities('tv'),
-            tAmenities('heatPump'),
-            tAmenities('airConditioning'),
-            tAmenities('heatedFloor'),
-            tAmenities('terrace'),
-            tAmenities('jacuzzi'),
-            tAmenities('bbq')
-          ],
-        },
-      ]}
-    />
+    <Suspense fallback={<HousePageFallback />}>
+      <HousePage
+        heroSrc="/dupleksas/1-dupleksas10.jpeg"
+        title="Nr.1 - Šalia Elnių Aptvaro"
+        subtitle={t('subtitle')}
+        accommodates={ACCOMMODATES}
+        size={t('size')}
+        beds={t('beds')}
+        images={aptvaroImages}
+        houseSlug="salia-elniu-aptvaro"
+        defaultGuests={DEFAULT_GUESTS}
+        defaultType="dupleksas"
+        description={
+          <>
+            <p>{t('description.p1')}</p>
+            <br />
+            <p>{t('description.p2')}</p>
+            <br />
+            <p>{t('description.p3')}</p>
+            <br />
+            <p>{t('description.p4')}</p>
+            <br />
+            <p>{t('description.p5')}</p>
+            <br />
+            <p>{t('description.p6')}</p>
+          </>
+        }
+        amenitiesSections={[
+          {
+            title: tAmenities('kitchen'),
+            items: [
+              tAmenities('refrigerator'),
+              tAmenities('microwave'),
+              tAmenities('electricStove'),
+              tAmenities('oven'),
+              tAmenities('coffeeMachine'),
+              tAmenities('kettle'),
+            ],
+          },
+          {
+            title: tAmenities('bathroom'),
+            items: [
+              tAmenities('towels'),
+              tAmenities('hairDryer'),
+              tAmenities('shampooGel'),
+              tAmenities('wc'),
+              tAmenities('showers'),
+              tAmenities('bathrobes')
+            ],
+          },
+          {
+            title: tAmenities('additionally'),
+            items: [
+              tAmenities('wifi'),
+              tAmenities('tv'),
+              tAmenities('heatPump'),
+              tAmenities('airConditioning'),
+              tAmenities('heatedFloor'),
+              tAmenities('terrace'),
+              tAmenities('jacuzzi'),
+              tAmenities('bbq')
+            ],
+          },
+        ]}
+      />
+    </Suspense>
   );
 }

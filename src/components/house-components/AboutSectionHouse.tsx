@@ -43,26 +43,49 @@ export default function AboutSection({
   onReserveNow,
 }: AboutSectionProps) {
   const t = useTranslations('housePage');
-  const [isVisible, setIsVisible] = useState(false);
+
+  // Separate visibility states for title and description
+  const [isTitleVisible, setIsTitleVisible] = useState(false);
+  const [isDescVisible, setIsDescVisible] = useState(false);
+
   const sectionRef = useRef<HTMLDivElement>(null);
+  const titleRef = useRef<HTMLDivElement>(null);
+  const descRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
+    // Title observer: small threshold so it appears almost as soon as the section enters
+    const titleObserver = new IntersectionObserver(
+      (entries, observer) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            setIsVisible(true);
+            setIsTitleVisible(true);
+            observer.unobserve(entry.target);
           }
         });
       },
-      { threshold: 0.1 }
+      { threshold: 0.0 }
     );
 
-    if (sectionRef.current) {
-      observer.observe(sectionRef.current);
-    }
+    // Description observer: higher threshold so the user needs to scroll a bit more
+    const descObserver = new IntersectionObserver(
+      (entries, observer) => {
+        entries.forEach((entry) => {
+          if (entry.intersectionRatio >= 0.1) {
+            setIsDescVisible(true);
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: [0, 0.1, 0.2] }
+    );
 
-    return () => observer.disconnect();
+    if (titleRef.current) titleObserver.observe(titleRef.current);
+    if (descRef.current) descObserver.observe(descRef.current);
+
+    return () => {
+      titleObserver.disconnect();
+      descObserver.disconnect();
+    };
   }, []);
 
   return (
@@ -76,8 +99,9 @@ export default function AboutSection({
           {/* Left: About Content */}
           <div className="lg:col-span-1">
             <div
-              className={`transition-all duration-1000 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
-                }`}
+              // Title wrapper uses its own ref and visibility state
+              ref={titleRef}
+              className={`transition-all duration-1000 ${isTitleVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'}`}
             >
 
               {/* Title with decorative line */}
@@ -91,10 +115,10 @@ export default function AboutSection({
                 </div>
               </div>
 
-              {/* Description content */}
+              {/* Description content: moved to its own ref and uses a different visibility state */}
               <div
-                className={`prose prose-lg max-w-none font-sans text-[#0f172a] leading-relaxed transition-all duration-1000 delay-200 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-                  }`}
+                ref={descRef}
+                className={`prose prose-lg max-w-none font-sans text-[#0f172a] leading-relaxed transition-all duration-1000 delay-200 ${isDescVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
                 style={{
                   lineHeight: '0.2'
                 }}
@@ -104,9 +128,7 @@ export default function AboutSection({
                     {description}
                   </div>
                 ) : (
-                  <p className="text-neutral-700">
-                    Add a custom description using the <code>description</code> prop.
-                  </p>
+                  <p className="text-neutral-700">Add a custom description using the <code>description</code> prop.</p>
                 )}
               </div>
             </div>
@@ -115,8 +137,7 @@ export default function AboutSection({
           {/* Right: Reservation Card - Desktop only */}
           <div className="hidden md:block lg:col-span-1">
             <div
-              className={`sticky top-24 transition-all duration-1000 delay-600 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
-                }`}
+              className={`sticky top-24 transition-all duration-1000 delay-600 ${isTitleVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'}`}
             >
               <div className="relative bg-white rounded-2xl shadow-[0_10px_40px_rgba(27,52,59,0.15)] border-2 border-[#bfa58b]/30 overflow-hidden backdrop-blur-sm">
                 {/* Decorative accent bar at top */}
@@ -129,9 +150,7 @@ export default function AboutSection({
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                       </svg>
                     </div>
-                    <h3 className="text-2xl font-bold font-header text-white drop-shadow-lg">
-                      {t('yourReservation')}
-                    </h3>
+                    <h3 className="text-2xl font-bold font-header text-white drop-shadow-lg">{t('yourReservation')}</h3>
                   </div>
                 </div>
 
@@ -173,9 +192,7 @@ export default function AboutSection({
                         <svg className="w-5 h-5 text-[#bfa58b]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        <div className="text-xs font-bold text-[#8f6e52] uppercase tracking-wider">
-                          {t('paymentSummary')}
-                        </div>
+                        <div className="text-xs font-bold text-[#8f6e52] uppercase tracking-wider">{t('paymentSummary')}</div>
                       </div>
 
                       <div className="flex items-center justify-between text-sm">
@@ -184,9 +201,7 @@ export default function AboutSection({
                           <span>{t('guests')}: <span className="font-semibold">{guestsDisplay}</span></span>
                         </div>
                         {typeParam && (
-                          <div className="text-sm text-[#8f6e52]">
-                            {t('type')}: <span className="font-semibold">{typeParam}</span>
-                          </div>
+                          <div className="text-sm text-[#8f6e52]">{t('type')}: <span className="font-semibold">{typeParam}</span></div>
                         )}
                       </div>
 
@@ -201,25 +216,17 @@ export default function AboutSection({
                         <div className="space-y-3">
                           <div className="pb-3 border-b border-[#bfa58b]/30">
                             <div className="text-xs text-[#8f6e52]/70 uppercase tracking-wider mb-1">{t('totalForStay')}</div>
-                            <div className="text-3xl font-bold text-[#8f6e52] tracking-tight">
-                              {formatCurrency && formatCurrency(totalFromServer)}
-                            </div>
+                            <div className="text-3xl font-bold text-[#8f6e52] tracking-tight">{formatCurrency && formatCurrency(totalFromServer)}</div>
                           </div>
 
                           <div className="p-4 rounded-xl bg-[#8f6e52]/10 border-l-4 border-[#bfa58b]">
                             <div className="text-xs text-[#8f6e52]/70 font-semibold uppercase tracking-wider mb-1">{t('chargeNow')}</div>
                             {firstFromServer !== null ? (
-                              <div className="text-2xl font-bold text-[#8f6e52]">
-                                {formatCurrency && formatCurrency(firstFromServer)}
-                              </div>
+                              <div className="text-2xl font-bold text-[#8f6e52]">{formatCurrency && formatCurrency(firstFromServer)}</div>
                             ) : (
-                              <div className="text-sm font-semibold text-[#8f6e52]">
-                                {t('reservationFeeShown')}
-                              </div>
+                              <div className="text-sm font-semibold text-[#8f6e52]">{t('reservationFeeShown')}</div>
                             )}
-                            <div className="mt-2 text-xs text-[#8f6e52]/70">
-                              {t('remainingAmountOnArrival')}
-                            </div>
+                            <div className="mt-2 text-xs text-[#8f6e52]/70">{t('remainingAmountOnArrival')}</div>
                           </div>
                         </div>
                       ) : (

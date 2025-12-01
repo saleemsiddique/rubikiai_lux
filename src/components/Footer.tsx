@@ -51,7 +51,7 @@ function FooterContent() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 mb-8">
 
           {/* Quick Links - Destacado */}
-          <div className="lg:col-span-2 flex flex-col items-center">
+          <div className="lg:col-span-2 flex flex-col justify-center items-center gap-13">
             <nav className="grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-3 mt-6 text-lg w-full justify-items-start md:justify-items-center">
               <Link
                 href={`/${locale}`}

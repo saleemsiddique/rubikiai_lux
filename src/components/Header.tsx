@@ -50,7 +50,7 @@ function HeaderContent() {
   const languages = [
     { code: 'lt', label: 'LT' },
     { code: 'en', label: 'EN' },
-    { code: 'ru', label: 'RUS' },
+    { code: 'ru', label: 'RU' },
   ];
 
   const toggle = useCallback(() => setIsOpen((v) => !v), []);
@@ -203,7 +203,7 @@ function HeaderContent() {
               style={{ willChange: "transform, opacity" }}
             >
               <svg
-                className={`w-7 h-7 md:w-6 md:h-6 transition-colors duration-300 ${scrolled ? "text-[var(--color-secondary)]" : "text-white md:text-[var(--color-secondary)]"
+                className={`w-7 h-7 md:w-6 md:h-6 transition-colors duration-300 ${scrolled ? "text-[var(--color-secondary)]" : "text-white"
                   }`}
                 viewBox="0 0 24 24"
                 fill="none"
@@ -223,7 +223,7 @@ function HeaderContent() {
             </button>
 
             <span
-              className={`hidden sm:inline-block text-[10px] md:text-[16px] font-bold tracking-wide transition-colors duration-300 ${scrolled ? "text-[var(--color-secondary)]" : "text-white/90 md:text-[var(--color-secondary)] drop-shadow-lg"
+              className={`hidden sm:inline-block text-[10px] md:text-[16px] font-bold tracking-wide transition-colors duration-300 ${scrolled ? "text-[var(--color-secondary)]" : "text-white/90 drop-shadow-lg"
                 }`}
             >
               {pageTitles[pathname] || ""}
@@ -264,7 +264,7 @@ function HeaderContent() {
               <span
                 className={`transition-all duration-300 rounded px-4 py-1 ${scrolled
                   ? "border-2 border-[var(--color-secondary)] text-[var(--color-secondary)] hover:bg-[var(--color-secondary)] hover:text-white"
-                  : "border-2 border-white/80 md:border-[var(--color-secondary)] text-white md:text-[var(--color-secondary)] hover:bg-white md:hover:bg-[var(--color-secondary)] hover:text-[var(--color-secondary)] md:hover:text-white backdrop-blur-sm"
+                  : "border-2 border-white/80 text-white hover:bg-white hover:text-[var(--color-secondary)] backdrop-blur-sm"
                   }`}
               >
                 {t('reserve')}
@@ -276,8 +276,8 @@ function HeaderContent() {
               <button
                 onClick={toggleLang}
                 className={`flex items-center gap-1 px-2 py-1.5 md:px-2.5 md:py-2 rounded transition-all duration-300 ${scrolled
-                    ? "text-[var(--color-secondary)] hover:bg-[var(--color-secondary)]/10"
-                    : "text-white md:text-[var(--color-secondary)] hover:bg-white/10 md:hover:bg-[var(--color-secondary)]/10"
+                  ? "text-[var(--color-secondary)] hover:bg-[var(--color-secondary)]/10"
+                  : "text-white hover:bg-white/10"
                   }`}
                 aria-expanded={isLangOpen}
                 aria-label="Select language"
@@ -301,8 +301,8 @@ function HeaderContent() {
                       key={lang.code}
                       onClick={() => switchLanguage(lang.code)}
                       className={`w-full text-left px-4 py-2 text-sm transition-colors ${lang.code === locale
-                          ? 'bg-[var(--color-secondary)]/10 text-[var(--color-primary-dark)] font-semibold'
-                          : 'text-[var(--color-secondary)] hover:bg-[var(--color-secondary)]/5'
+                        ? 'bg-[var(--color-secondary)]/10 text-[var(--color-primary-dark)] font-semibold'
+                        : 'text-[var(--color-secondary)] hover:bg-[var(--color-secondary)]/5'
                         }`}
                     >
                       {lang.label}
@@ -318,7 +318,7 @@ function HeaderContent() {
           aria-hidden
           className={`absolute inset-0 pointer-events-none transition-all duration-400 ${scrolled
             ? "bg-[var(--color-background-main)]/97 backdrop-blur-md shadow-lg"
-            : "bg-gradient-to-b from-black/50 to-transparent md:bg-[var(--color-background-main)]/20 md:backdrop-blur-sm"
+            : "bg-gradient-to-b from-black/50 to-transparent md:bg-transparent"
             }`}
           style={{ zIndex: -1 }}
         />

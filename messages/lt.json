@@ -150,7 +150,7 @@
       "viewCalendar": "Peržiūrėti kalendorių",
       "close": "Uždaryti",
       "previous": "Ankstesnis",
-      "next": "Kitas",
+      "next": "Toliau",
       "available": "Laisva",
       "selected": "Pasirinkta",
       "priceForNights": "Kaina už {nights} {nights, plural, one {naktį} other {naktis}}",
@@ -161,7 +161,7 @@
       "priceNotAvailable": "Kaina neprieinama",
       "checkInDatesFrom": "Galimos atvykimo datos nuo",
       "checkOutDatesFrom": "Galimos išvykimo datos nuo",
-      "calendarTip": "Patarimas: Naršykite datas naudodami mygtukus „Ankstesnis“ ir „Kitas“. Dienos pažymėtos ✓ yra galimos rezervuoti."
+      "calendarTip": "Patarimas: Naršykite datas naudodami mygtukus „Ankstesnis“ ir „Toliau“. Dienos pažymėtos ✓ yra galimos rezervuoti."
     }
   },
   "contact": {
@@ -417,7 +417,7 @@
       "arrivalTime": "Atvykimo laikas",
       "comment": "Komentaras",
       "extras": "Papildomos paslaugos",
-      "privateJacuzzi": "Privatus džakuzis",
+      "privateJacuzzi": "Privatus jacuzzi",
       "jacuzziPricing": "Pirma diena: 65€ (iki 2 svečių, +10€/papildomas). Papildomos dienos: 45€/diena (+10€/papildomas)",
       "numberOfDays": "Dienų skaičius:",
       "max": "maks",
@@ -441,7 +441,7 @@
       "accommodation": "Apgyvendinimas",
       "extraGuests": "Papildomi svečiai",
       "includedInTotal": "Įskaičiuota į bendrą sumą",
-      "jacuzzi": "Džakuzis",
+      "jacuzzi": "Jacuzzi",
       "day": "diena",
       "days": "dienos",
       "totalAfterDiscount": "Suma po nuolaidos",
@@ -504,7 +504,7 @@
     "additionalNotes": "Papildomos pastabos",
     "additionalNotesPlaceholder": "Alergijos, gimtadienio staigmena ir kt.",
     "extras": "Papildomos paslaugos",
-    "privateJacuzzi": "Privatus džakuzis",
+    "privateJacuzzi": "Privatus jacuzzi",
     "jacuzziAvailableTime": "Prieinamas nuo 18:00 iki 24:00",
     "jacuzziPricing": "Pirma diena: 65€ (iki 2 svečių, +10€/papildomas svečias). Papildomos dienos: 45€/diena (+10€/papildomas svečias).",
     "numberOfDays": "Dienų skaičius:",
@@ -534,7 +534,7 @@
     "checkOut": "Išvykimas:",
     "nightsLabel": "Naktys:",
     "guestsLabel": "Svečiai:",
-    "jacuzzi": "Džakuzis",
+    "jacuzzi": "Jacuzzi",
     "totalForStay": "Visa viešnagės suma",
     "chargeNow": "Mokėti dabar",
     "percentDiscountAppliedMessage": "{percent}% nuolaida buvo pritaikyta rezervacijos mokesčiui.",

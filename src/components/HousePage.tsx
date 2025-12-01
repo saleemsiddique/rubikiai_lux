@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState, useRef } from "react";
+import React, { useEffect, useMemo, useState, useRef, Suspense } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations, useLocale } from 'next-intl';
@@ -64,7 +64,8 @@ const isIsoDateString = (s: string | null) => {
   return !Number.isNaN(d.getTime());
 };
 
-export default function HousePage(props: HousePageProps) {
+// Componente interno que usa useSearchParams
+function HousePageContent(props: HousePageProps) {
   const {
     heroSrc,
     heroAlt,
@@ -90,19 +91,12 @@ export default function HousePage(props: HousePageProps) {
   const [scrollY, setScrollY] = useState(0);
   const [heroHeight, setHeroHeight] = useState(0);
 
-  // refs + state para rAF scroll handling (hysteresis no estricta aquí, solo rAF debounce)
   const lastYRef = useRef(0);
   const tickingRef = useRef(false);
 
-  // como en HomePage: scrolled cuando el scroll supera 50px
   const scrolled = scrollY > 50;
 
-
-
-
-  // detectamos si es mobile (md = 768px)
   const [isMobile, setIsMobile] = useState<boolean>(false);
-
 
   const startParam = searchParams?.get("start") ?? null;
   const endParam = searchParams?.get("end") ?? null;
@@ -218,7 +212,7 @@ export default function HousePage(props: HousePageProps) {
     return () => {
       mounted = false;
     };
-  }, [startParam, endParam, guestsParam, typeParam, houseIdFromMapping, defaultGuests]);
+  }, [startParam, endParam, guestsParam, typeParam, houseIdFromMapping, defaultGuests, t, locale]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -230,17 +224,14 @@ export default function HousePage(props: HousePageProps) {
       setHeroHeight(h);
     };
 
-    // init
     updateHeroHeight();
     setScrollY(window.scrollY);
     const mq = window.matchMedia("(min-width: 768px)");
     const mobileHandler = (e: MediaQueryListEvent | MediaQueryList) => setIsMobile(!e.matches);
     setIsMobile(!mq.matches);
 
-    // resize => recalc heroHeight
     const onResize = () => updateHeroHeight();
 
-    // rAF debounced scroll handler
     const onScroll = () => {
       lastYRef.current = window.scrollY;
       if (!tickingRef.current) {
@@ -252,7 +243,6 @@ export default function HousePage(props: HousePageProps) {
       }
     };
 
-    // add listeners
     if (typeof mq.addEventListener === "function") mq.addEventListener("change", mobileHandler);
     else mq.addListener(mobileHandler);
     window.addEventListener("resize", onResize, { passive: true });
@@ -265,7 +255,6 @@ export default function HousePage(props: HousePageProps) {
       window.removeEventListener("scroll", onScroll);
     };
   }, []);
-
 
   const guestsDisplay = (() => {
     const p = parseInt(guestsParam as string, 10);
@@ -299,15 +288,12 @@ export default function HousePage(props: HousePageProps) {
   };
 
   const showHeroButton = scrollY < heroHeight - 100;
-
-  // botón flotante visible en móvil cuando estamos en estado "scrolled"
   const showFloating = isMobile && scrolled;
 
   return (
     <main className="text-[var(--color-text)] md:pb-0 overflow-x-hidden max-w-full">
       {/* Hero Section */}
       <section id="hero-section" className="relative">
-        {/* Hero Image */}
         <div className="relative h-[75vh] md:h-screen w-full overflow-hidden">
           <Image
             src={heroSrc}
@@ -318,17 +304,9 @@ export default function HousePage(props: HousePageProps) {
             className="absolute inset-0"
           />
 
-          {/* Mobile Gradient */}
-          {/*<div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/30 to-black/70 md:hidden" />*/}
-
-          {/* Desktop Gradient - Darker at bottom */}
-          {/*<div className="hidden md:block absolute inset-0 bg-gradient-to-b from-transparent via-black/10 to-black/80" />*/}
-
-          {/* Content Container - Bottom aligned, full width */}
           <div className="absolute bottom-0 left-0 right-0 p-6 md:pb-12 md:px-8 lg:pb-16 lg:px-12 xl:px-16">
             <div className="w-full max-w-[1600px] mx-auto">
               <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-6 md:gap-8">
-                {/* Left: Title and Subtitle */}
                 <div className="text-white md:max-w-lg lg:max-w-2xl">
                   <h1
                     className="text-2xl md:text-4xl lg:text-5xl font-bold font-header mb-2 md:mb-3 leading-tight tracking-tight hidden md:block"
@@ -346,7 +324,6 @@ export default function HousePage(props: HousePageProps) {
         </div>
       </section>
 
-      {/* ✅ Si NO hay params y estamos en mobile, mostramos botón flotante, si HAY params mostramos la barra */}
       {hasQueryParams ? (
         <BookingBarMobile
           showHeroButton={showHeroButton}
@@ -381,7 +358,6 @@ export default function HousePage(props: HousePageProps) {
         </button>
       )}
 
-
       <AboutSection
         title={title}
         description={description}
@@ -406,11 +382,9 @@ export default function HousePage(props: HousePageProps) {
       <ImageGallery images={images} />
 
       <section className="py-8 px-4 md:py-20 bg-[#1b343b] relative overflow-hidden">
-        {/* Decorative elements */}
         <div className="absolute top-0 right-0 w-96 h-96 bg-[#bfa58b]/5 rounded-full blur-3xl" />
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-[#8f6e52]/5 rounded-full blur-3xl" />
 
-        {/* Subtle grid pattern overlay */}
         <div
           className="absolute inset-0 opacity-[0.03]"
           style={{
@@ -464,5 +438,18 @@ export default function HousePage(props: HousePageProps) {
         }
       `}</style>
     </main>
+  );
+}
+
+// Componente principal exportado con Suspense
+export default function HousePage(props: HousePageProps) {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[var(--color-bg)]">
+        <div className="relative h-[75vh] md:h-screen w-full bg-gray-200 animate-pulse" />
+      </div>
+    }>
+      <HousePageContent {...props} />
+    </Suspense>
   );
 }

@@ -942,5 +942,81 @@
         "revenue": "Pajamos"
       }
     }
+  },
+  "couponsPage": {
+    "header": {
+      "title": "Dovanų Kuponai",
+      "subtitle": "Dovanokite tobulą dovaną - prabangų poilsį Rubikiai Lux"
+    },
+    "purchase": {
+      "selectAmount": "Pasirinkite Kupono Sumą",
+      "voucher": "Kuponas",
+      "giftVoucher": "Dovanų Kuponas",
+      "valid12Months": "Galioja 12 mėnesių",
+      "redeemable": "Galima panaudoti apgyvendinimui",
+      "sentByEmail": "Išsiunčiama el. paštu akimirksniu",
+      "total": "Viso",
+      "payCard": "Mokėti Kortele",
+      "payBank": "Mokėti Banko Pavedimu",
+      "processing": "Apdorojama..."
+    },
+    "lookup": {
+      "title": "Patikrinkite Savo Kuponą",
+      "description": "Įveskite kupono kodą, kad patikrintumėte likutį ir galiojimą",
+      "enterCode": "Įveskite kupono kodą",
+      "checking": "Tikrinama...",
+      "checkButton": "Tikrinti Kuponą",
+      "notFound": "Kuponas nerastas",
+      "lookupFailed": "Nepavyko patikrinti kupono",
+      "emptyState": "Įveskite kodą aukščiau, kad patikrintumėte kuponą",
+      "statusLabel": "Būsena",
+      "availableBalance": "Galimas Likutis",
+      "original": "Pradinė",
+      "voucherCode": "Kupono Kodas",
+      "expirationDate": "Galiojimo Pabaiga",
+      "purchaseDate": "Pirkimo Data",
+      "discount": "Nuolaida",
+      "offTotal": "nuo bendros sumos",
+      "discountCode": "Nuolaidos Kodas",
+      "expiration": "Galiojimas",
+      "noExpiration": "Be galiojimo pabaigos",
+      "usageStatus": "Panaudojimo Būsena",
+      "alreadyUsed": "Jau panaudotas",
+      "available": "Galimas"
+    },
+    "status": {
+      "active": "Aktyvus",
+      "used": "Panaudotas",
+      "expired": "Baigėsi galiojimas",
+      "disabled": "Išjungtas"
+    },
+    "info": {
+      "title": "Svarbi Informacija",
+      "validity": "Kuponai galioja 12 mėnesių nuo pirkimo datos",
+      "redeemable": "Galima panaudoti apgyvendinimui Rubikiai Lux",
+      "nonRefundable": "Negrąžinami ir negali būti iškeisti į pinigus",
+      "sentByEmail": "Kupono kodas bus išsiųstas į jūsų el. paštą iš karto po apmokėjimo"
+    },
+    "modal": {
+      "titleCard": "Įveskite Savo El. Paštą",
+      "titleBank": "Įveskite Savo El. Paštą",
+      "description": "Išsiųsime kupono kodą į šį el. pašto adresą iš karto po apmokėjimo",
+      "emailLabel": "El. Pašto Adresas",
+      "emailPlaceholder": "jusu@elpastas.lt",
+      "emailRequired": "Įveskite galiojantį el. pašto adresą",
+      "orderSummary": "Užsakymo Santrauka",
+      "voucherAmount": "Kupono Suma",
+      "processing": "Apdorojama...",
+      "continueToPayment": "Tęsti Mokėjimą",
+      "continueToBankTransfer": "Tęsti Banko Pavedimą",
+      "cancel": "Atšaukti"
+    },
+    "errors": {
+      "checkoutFailed": "Apmokėjimas nepavyko",
+      "montonioFailed": "Banko pavedimo apmokėjimas nepavyko",
+      "unexpectedResponse": "Netikėtas atsakymas iš serverio",
+      "noPaymentUrl": "Negauta mokėjimo nuoroda",
+      "paymentFailed": "Mokėjimas nepavyko"
+    }
   }
 }

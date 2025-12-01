@@ -1,7 +1,7 @@
 "use client";
 import React, { JSX, useState } from "react";
 import { formatLithuaniaTime } from "@/app/[locale]/utils/date";
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 
 const AMOUNTS = [100, 150, 200, 300] as const;
 
@@ -38,6 +38,7 @@ type LookupResult = CouponLookup | PercentLookup;
 
 export default function CouponPage(): JSX.Element {
   const locale = useLocale();
+  const t = useTranslations('couponsPage');
   const [selected, setSelected] = useState<number>(AMOUNTS[0]);
   const [quantity, setQuantity] = useState<number>(1);
   const [loading, setLoading] = useState(false);
@@ -80,7 +81,7 @@ export default function CouponPage(): JSX.Element {
 
   const handleConfirmPayment = async () => {
     if (!buyerEmail || !buyerEmail.includes("@")) {
-      window.alert("Please enter a valid email to receive the coupon.");
+      window.alert(t('modal.emailRequired'));
       return;
     }
 
@@ -95,13 +96,13 @@ export default function CouponPage(): JSX.Element {
           body: JSON.stringify({ unitAmount: selected, quantity, buyerEmail }),
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data?.error || "Could not start checkout");
+        if (!res.ok) throw new Error(data?.error || t('errors.checkoutFailed'));
         if (data?.url) {
           setShowEmailModal(false);
           window.location.assign(data.url);
           return;
         }
-        throw new Error("Unexpected server response");
+        throw new Error(t('errors.unexpectedResponse'));
       } else if (paymentMethod === 'montonio') {
         // Montonio checkout with email
         const res = await fetch(`/${locale}/api/montonio/coupon/checkout`, {
@@ -110,18 +111,18 @@ export default function CouponPage(): JSX.Element {
           body: JSON.stringify({ unitAmount: selected, quantity, buyerEmail }),
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data?.error || "Could not start Montonio checkout");
+        if (!res.ok) throw new Error(data?.error || t('errors.montonioFailed'));
         const url = data?.url || data?.paymentUrl || data?.payment_url;
         if (url) {
           setShowEmailModal(false);
           window.location.assign(url);
           return;
         }
-        throw new Error("Montonio did not return a payment URL");
+        throw new Error(t('errors.noPaymentUrl'));
       }
     } catch (e: any) {
       console.error(e);
-      window.alert(e?.message || "Could not start payment");
+      window.alert(e?.message || t('errors.paymentFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -130,7 +131,7 @@ export default function CouponPage(): JSX.Element {
   const handleLookup = async () => {
     const raw = codeInput.trim();
     if (!raw) {
-      setLookupError("Enter a coupon code");
+      setLookupError(t('lookup.enterCode'));
       setLookup(null);
       return;
     }
@@ -140,24 +141,23 @@ export default function CouponPage(): JSX.Element {
       setLookup(null);
       const res = await fetch(`/${locale}/api/coupons/lookup?code=${encodeURIComponent(raw)}`);
       if (res.status === 404) {
-        setLookupError("Coupon not found");
+        setLookupError(t('lookup.notFound'));
         return;
       }
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
-        throw new Error(j?.error || "Could not lookup coupon");
+        throw new Error(j?.error || t('lookup.lookupFailed'));
       }
       const data: LookupResult = await res.json();
       setLookup(data);
     } catch (e: any) {
       console.error(e);
-      setLookupError(e?.message || "Could not lookup coupon");
+      setLookupError(e?.message || t('lookup.lookupFailed'));
     } finally {
       setLookupLoading(false);
     }
   };
 
-  // Usa formatLithuaniaTime para mostrar fechas en hora de Lituania
   const formatDate = (iso: string | null) => {
     return formatLithuaniaTime(iso, { dateOnly: true });
   };
@@ -169,16 +169,10 @@ export default function CouponPage(): JSX.Element {
       expired: "bg-rose-100 text-rose-700 border-rose-300",
       disabled: "bg-gray-100 text-gray-700 border-gray-300",
     };
-    const label: Record<LookupResult["state"], string> = {
-      active: "Active",
-      used: "Used",
-      expired: "Expired",
-      disabled: "Disabled",
-    };
     if (!state) return null;
     return (
       <span className={`inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full border ${map[state]}`}>
-        {label[state]}
+        {t(`status.${state}`)}
       </span>
     );
   };
@@ -190,13 +184,13 @@ export default function CouponPage(): JSX.Element {
         {/* Decorative elements */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-[var(--color-primary)]/10 rounded-full blur-3xl" />
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full blur-2xl" />
-        
+
         <div className="relative z-10 max-w-4xl mx-auto text-center">
           <h1 className="text-3xl md:text-5xl font-bold mb-3 tracking-tight">
-            Gift Vouchers
+            {t('header.title')}
           </h1>
           <p className="text-base md:text-lg text-white/90 max-w-xl mx-auto">
-            Share unforgettable experiences at Rubikiai Lux
+            {t('header.subtitle')}
           </p>
         </div>
       </header>
@@ -209,9 +203,9 @@ export default function CouponPage(): JSX.Element {
             <div className="space-y-6">
               <div>
                 <h2 className="text-xl md:text-2xl font-bold text-[var(--color-text)] mb-4">
-                  Select Amount
+                  {t('purchase.selectAmount')}
                 </h2>
-                
+
                 <div className="grid grid-cols-2 gap-3 md:gap-4 mb-6">
                   {AMOUNTS.map((amt) => {
                     const active = selected === amt;
@@ -219,14 +213,13 @@ export default function CouponPage(): JSX.Element {
                       <button
                         key={amt}
                         onClick={() => setSelected(amt)}
-                        className={`relative p-4 md:p-6 rounded-xl transition-all duration-200 ${
-                          active 
-                            ? 'bg-[var(--color-secondary)] text-white shadow-lg scale-[1.02]' 
-                            : 'bg-[var(--color-background-main)] text-[var(--color-text)] hover:shadow-md'
-                        }`}
+                        className={`relative p-4 md:p-6 rounded-xl transition-all duration-200 ${active
+                          ? 'bg-[var(--color-secondary)] text-white shadow-lg scale-[1.02]'
+                          : 'bg-[var(--color-background-main)] text-[var(--color-text)] hover:shadow-md'
+                          }`}
                       >
                         <div className="text-xs md:text-sm uppercase tracking-wider opacity-75 mb-1">
-                          Voucher
+                          {t('purchase.voucher')}
                         </div>
                         <div className="text-3xl md:text-4xl font-black">
                           €{amt}
@@ -256,28 +249,28 @@ export default function CouponPage(): JSX.Element {
                     </div>
                   </div>
                   <div className="bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-semibold">
-                    Gift Voucher
+                    {t('purchase.giftVoucher')}
                   </div>
                 </div>
-                
+
                 <div className="space-y-1 text-sm opacity-90">
                   <div className="flex items-center gap-2">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
-                    <span>Valid for 12 months</span>
+                    <span>{t('purchase.valid12Months')}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 19v-8.93a2 2 0 01.89-1.664l7-4.666a2 2 0 012.22 0l7 4.666A2 2 0 0121 10.07V19M3 19a2 2 0 002 2h14a2 2 0 002-2M3 19l6.75-4.5M21 19l-6.75-4.5M3 10l6.75 4.5M21 10l-6.75 4.5m0 0l-1.14.76a2 2 0 01-2.22 0l-1.14-.76" />
                     </svg>
-                    <span>Redeemable for accommodation</span>
+                    <span>{t('purchase.redeemable')}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
-                    <span>Sent by email instantly</span>
+                    <span>{t('purchase.sentByEmail')}</span>
                   </div>
                 </div>
               </div>
@@ -287,7 +280,7 @@ export default function CouponPage(): JSX.Element {
             <div className="lg:mt-0 mt-6 border-t lg:border-t-0 lg:border-l border-gray-200 pt-6 lg:pt-0 lg:pl-8">
               <div className="lg:sticky lg:top-8 space-y-6">
                 <div className="flex justify-between items-center">
-                  <span className="text-lg font-semibold text-[var(--color-text)]">Total</span>
+                  <span className="text-lg font-semibold text-[var(--color-text)]">{t('purchase.total')}</span>
                   <span className="text-3xl font-black text-[var(--color-secondary)]">
                     €{(selected * quantity).toFixed(2)}
                   </span>
@@ -299,7 +292,7 @@ export default function CouponPage(): JSX.Element {
                     disabled={loading}
                     className="w-full bg-[var(--color-secondary)] text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-[var(--color-secondary)]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {loading ? "Processing..." : "Pay with Card / PayPal"}
+                    {loading ? t('purchase.processing') : t('purchase.payCard')}
                   </button>
 
                   <button
@@ -307,7 +300,7 @@ export default function CouponPage(): JSX.Element {
                     disabled={loading}
                     className="w-full bg-white border-2 border-[var(--color-secondary)] text-[var(--color-secondary)] py-4 rounded-xl font-bold text-lg hover:bg-[var(--color-background-main)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {loading ? "Processing..." : "Pay with Bank Transfer"}
+                    {loading ? t('purchase.processing') : t('purchase.payBank')}
                   </button>
                 </div>
               </div>
@@ -327,12 +320,12 @@ export default function CouponPage(): JSX.Element {
                   </svg>
                 </div>
                 <h2 className="text-xl md:text-2xl font-bold text-[var(--color-text)]">
-                  Check Your Voucher
+                  {t('lookup.title')}
                 </h2>
               </div>
 
               <p className="text-sm text-[var(--color-text)]/70 mb-4">
-                Enter your code to view balance and expiration
+                {t('lookup.description')}
               </p>
 
               <div className="space-y-3">
@@ -348,7 +341,7 @@ export default function CouponPage(): JSX.Element {
                   disabled={lookupLoading}
                   className="w-full bg-[var(--color-secondary)] text-white py-3 rounded-lg font-semibold hover:bg-[var(--color-secondary)]/90 transition-colors disabled:opacity-50"
                 >
-                  {lookupLoading ? "Checking..." : "Check Voucher"}
+                  {lookupLoading ? t('lookup.checking') : t('lookup.checkButton')}
                 </button>
               </div>
 
@@ -367,7 +360,7 @@ export default function CouponPage(): JSX.Element {
                     <svg className="w-16 h-16 mx-auto mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                    <p className="text-sm">Enter a voucher code to see details</p>
+                    <p className="text-sm">{t('lookup.emptyState')}</p>
                   </div>
                 </div>
               )}
@@ -375,25 +368,24 @@ export default function CouponPage(): JSX.Element {
               {lookup && lookup.kind === "coupon" && (
                 <div className="space-y-3">
                   {/* Status Banner */}
-                  <div className={`p-4 rounded-lg ${
-                    lookup.state === 'active' 
-                      ? 'bg-emerald-50 border border-emerald-200' 
-                      : 'bg-gray-50 border border-gray-200'
-                  }`}>
+                  <div className={`p-4 rounded-lg ${lookup.state === 'active'
+                    ? 'bg-emerald-50 border border-emerald-200'
+                    : 'bg-gray-50 border border-gray-200'
+                    }`}>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-[var(--color-text)]/70">Status</span>
+                      <span className="text-sm font-medium text-[var(--color-text)]/70">{t('lookup.statusLabel')}</span>
                       {statePill(lookup.state)}
                     </div>
                   </div>
 
                   {/* Balance Card */}
                   <div className="bg-gradient-to-br from-[var(--color-primary-dark)] to-[var(--color-primary)] rounded-xl p-6 text-white">
-                    <div className="text-sm opacity-80 mb-2">Available Balance</div>
+                    <div className="text-sm opacity-80 mb-2">{t('lookup.availableBalance')}</div>
                     <div className="text-4xl font-black mb-2">
                       €{lookup.coupon.remaining.toFixed(2)}
                     </div>
                     <div className="text-sm opacity-80">
-                      Original: €{lookup.coupon.unitAmount.toFixed(2)}
+                      {t('lookup.original')}: €{lookup.coupon.unitAmount.toFixed(2)}
                     </div>
                   </div>
 
@@ -401,7 +393,7 @@ export default function CouponPage(): JSX.Element {
                   <div className="grid grid-cols-1 gap-3">
                     <div className="p-4 bg-[var(--color-background-main)] rounded-lg">
                       <div className="text-xs uppercase tracking-wider text-[var(--color-text)]/60 mb-1">
-                        Voucher Code
+                        {t('lookup.voucherCode')}
                       </div>
                       <div className="font-mono text-lg font-semibold text-[var(--color-text)]">
                         {lookup.coupon.code}
@@ -410,7 +402,7 @@ export default function CouponPage(): JSX.Element {
 
                     <div className="p-4 bg-[var(--color-background-main)] rounded-lg">
                       <div className="text-xs uppercase tracking-wider text-[var(--color-text)]/60 mb-1">
-                        Expiration Date
+                        {t('lookup.expirationDate')}
                       </div>
                       <div className="text-lg font-semibold text-[var(--color-text)]">
                         {formatDate(lookup.coupon.expiresAtIso)}
@@ -419,7 +411,7 @@ export default function CouponPage(): JSX.Element {
 
                     <div className="p-4 bg-[var(--color-background-main)] rounded-lg">
                       <div className="text-xs uppercase tracking-wider text-[var(--color-text)]/60 mb-1">
-                        Purchase Date
+                        {t('lookup.purchaseDate')}
                       </div>
                       <div className="text-lg font-semibold text-[var(--color-text)]">
                         {formatDate(lookup.coupon.purchasedAtIso)}
@@ -432,25 +424,24 @@ export default function CouponPage(): JSX.Element {
               {lookup && lookup.kind === "percent" && (
                 <div className="space-y-3">
                   {/* Status Banner */}
-                  <div className={`p-4 rounded-lg ${
-                    lookup.state === 'active' 
-                      ? 'bg-emerald-50 border border-emerald-200' 
-                      : 'bg-gray-50 border border-gray-200'
-                  }`}>
+                  <div className={`p-4 rounded-lg ${lookup.state === 'active'
+                    ? 'bg-emerald-50 border border-emerald-200'
+                    : 'bg-gray-50 border border-gray-200'
+                    }`}>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-[var(--color-text)]/70">Status</span>
+                      <span className="text-sm font-medium text-[var(--color-text)]/70">{t('lookup.statusLabel')}</span>
                       {statePill(lookup.state)}
                     </div>
                   </div>
 
                   {/* Discount Card */}
                   <div className="bg-gradient-to-br from-[var(--color-primary-dark)] to-[var(--color-primary)] rounded-xl p-6 text-white">
-                    <div className="text-sm opacity-80 mb-2">Discount</div>
+                    <div className="text-sm opacity-80 mb-2">{t('lookup.discount')}</div>
                     <div className="text-5xl font-black mb-2">
                       {lookup.percentDoc.percent}%
                     </div>
                     <div className="text-sm opacity-80">
-                      Off total booking
+                      {t('lookup.offTotal')}
                     </div>
                   </div>
 
@@ -458,7 +449,7 @@ export default function CouponPage(): JSX.Element {
                   <div className="grid grid-cols-1 gap-3">
                     <div className="p-4 bg-[var(--color-background-main)] rounded-lg">
                       <div className="text-xs uppercase tracking-wider text-[var(--color-text)]/60 mb-1">
-                        Discount Code
+                        {t('lookup.discountCode')}
                       </div>
                       <div className="font-mono text-lg font-semibold text-[var(--color-text)]">
                         {lookup.percentDoc.code}
@@ -467,19 +458,19 @@ export default function CouponPage(): JSX.Element {
 
                     <div className="p-4 bg-[var(--color-background-main)] rounded-lg">
                       <div className="text-xs uppercase tracking-wider text-[var(--color-text)]/60 mb-1">
-                        Expiration
+                        {t('lookup.expiration')}
                       </div>
                       <div className="text-lg font-semibold text-[var(--color-text)]">
-                        {lookup.percentDoc.expiresAt || "No expiration"}
+                        {lookup.percentDoc.expiresAt || t('lookup.noExpiration')}
                       </div>
                     </div>
 
                     <div className="p-4 bg-[var(--color-background-main)] rounded-lg">
                       <div className="text-xs uppercase tracking-wider text-[var(--color-text)]/60 mb-1">
-                        Usage Status
+                        {t('lookup.usageStatus')}
                       </div>
                       <div className="text-lg font-semibold text-[var(--color-text)]">
-                        {lookup.percentDoc.used ? "Already used" : "Available"}
+                        {lookup.percentDoc.used ? t('lookup.alreadyUsed') : t('lookup.available')}
                       </div>
                     </div>
                   </div>
@@ -495,24 +486,24 @@ export default function CouponPage(): JSX.Element {
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            Important Information
+            {t('info.title')}
           </h3>
           <ul className="space-y-2 text-sm text-[var(--color-text)]/70">
             <li className="flex gap-2">
               <span className="text-[var(--color-secondary)] font-bold">•</span>
-              <span>Vouchers are valid for 12 months from purchase date</span>
+              <span>{t('info.validity')}</span>
             </li>
             <li className="flex gap-2">
               <span className="text-[var(--color-secondary)] font-bold">•</span>
-              <span>Redeemable at all Rubikiai Lux properties</span>
+              <span>{t('info.redeemable')}</span>
             </li>
             <li className="flex gap-2">
               <span className="text-[var(--color-secondary)] font-bold">•</span>
-              <span>Non-refundable and subject to availability</span>
+              <span>{t('info.nonRefundable')}</span>
             </li>
             <li className="flex gap-2">
               <span className="text-[var(--color-secondary)] font-bold">•</span>
-              <span>Sent via email immediately after payment</span>
+              <span>{t('info.sentByEmail')}</span>
             </li>
           </ul>
         </section>
@@ -530,7 +521,7 @@ export default function CouponPage(): JSX.Element {
             {/* Modal Header */}
             <div className="sticky top-0 bg-white border-b border-gray-100 px-5 py-4 flex items-center justify-between rounded-t-3xl md:rounded-t-2xl">
               <h3 className="text-lg font-bold text-[var(--color-text)]">
-                {paymentMethod === 'stripe' ? 'Card / PayPal Payment' : 'Bank Transfer Payment'}
+                {paymentMethod === 'stripe' ? t('modal.titleCard') : t('modal.titleBank')}
               </h3>
               <button
                 onClick={() => !submitting && setShowEmailModal(false)}
@@ -546,17 +537,17 @@ export default function CouponPage(): JSX.Element {
             {/* Modal Content */}
             <div className="p-5 space-y-4">
               <p className="text-sm text-[var(--color-text)]/70">
-                Enter your email to receive the voucher after completing the payment.
+                {t('modal.description')}
               </p>
 
               <div>
                 <label className="block text-sm font-medium text-[var(--color-text)] mb-2">
-                  Email Address
+                  {t('modal.emailLabel')}
                 </label>
                 <input
                   value={buyerEmail}
                   onChange={(e) => setBuyerEmail(e.target.value)}
-                  placeholder="your@email.com"
+                  placeholder={t('modal.emailPlaceholder')}
                   type="email"
                   className="w-full px-4 py-3 rounded-lg border-2 border-gray-200 focus:border-[var(--color-secondary)] focus:outline-none transition-colors"
                   disabled={submitting}
@@ -568,10 +559,10 @@ export default function CouponPage(): JSX.Element {
                   <svg className="w-5 h-5 text-[var(--color-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <span className="text-sm font-semibold text-[var(--color-text)]">Order Summary</span>
+                  <span className="text-sm font-semibold text-[var(--color-text)]">{t('modal.orderSummary')}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-[var(--color-text)]/70">Voucher Amount</span>
+                  <span className="text-sm text-[var(--color-text)]/70">{t('modal.voucherAmount')}</span>
                   <span className="text-xl font-black text-[var(--color-secondary)]">€{selected}</span>
                 </div>
               </div>
@@ -582,7 +573,7 @@ export default function CouponPage(): JSX.Element {
                   disabled={submitting}
                   className="w-full bg-[var(--color-secondary)] text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-[var(--color-secondary)]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {submitting ? "Processing..." : paymentMethod === 'stripe' ? 'Continue to Payment' : 'Continue to Bank Transfer'}
+                  {submitting ? t('modal.processing') : paymentMethod === 'stripe' ? t('modal.continueToPayment') : t('modal.continueToBankTransfer')}
                 </button>
 
                 <button
@@ -590,7 +581,7 @@ export default function CouponPage(): JSX.Element {
                   disabled={submitting}
                   className="w-full bg-white border border-gray-200 text-[var(--color-text)] py-3 rounded-xl font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
                 >
-                  Cancel
+                  {t('modal.cancel')}
                 </button>
               </div>
             </div>

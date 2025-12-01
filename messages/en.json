@@ -816,5 +816,81 @@
         "revenue": "Revenue"
       }
     }
+  },
+  "couponsPage": {
+    "header": {
+      "title": "Gift Vouchers",
+      "subtitle": "Give the perfect gift - a luxury escape to Rubikiai Lux"
+    },
+    "purchase": {
+      "selectAmount": "Select Voucher Amount",
+      "voucher": "Voucher",
+      "giftVoucher": "Gift Voucher",
+      "valid12Months": "Valid for 12 months",
+      "redeemable": "Redeemable for accommodation",
+      "sentByEmail": "Sent instantly by email",
+      "total": "Total",
+      "payCard": "Pay with Card",
+      "payBank": "Pay with Bank Transfer",
+      "processing": "Processing..."
+    },
+    "lookup": {
+      "title": "Check Your Voucher",
+      "description": "Enter your voucher code to check balance and validity",
+      "enterCode": "Please enter a voucher code",
+      "checking": "Checking...",
+      "checkButton": "Check Voucher",
+      "notFound": "Voucher not found",
+      "lookupFailed": "Failed to check voucher",
+      "emptyState": "Enter a code above to check your voucher",
+      "statusLabel": "Status",
+      "availableBalance": "Available Balance",
+      "original": "Original",
+      "voucherCode": "Voucher Code",
+      "expirationDate": "Expiration Date",
+      "purchaseDate": "Purchase Date",
+      "discount": "Discount",
+      "offTotal": "off your total",
+      "discountCode": "Discount Code",
+      "expiration": "Expiration",
+      "noExpiration": "No expiration",
+      "usageStatus": "Usage Status",
+      "alreadyUsed": "Already used",
+      "available": "Available"
+    },
+    "status": {
+      "active": "Active",
+      "used": "Used",
+      "expired": "Expired",
+      "disabled": "Disabled"
+    },
+    "info": {
+      "title": "Important Information",
+      "validity": "Vouchers are valid for 12 months from purchase date",
+      "redeemable": "Can be redeemed for accommodation at Rubikiai Lux",
+      "nonRefundable": "Non-refundable and cannot be exchanged for cash",
+      "sentByEmail": "Voucher code will be sent to your email immediately after purchase"
+    },
+    "modal": {
+      "titleCard": "Enter Your Email",
+      "titleBank": "Enter Your Email",
+      "description": "We'll send your voucher code to this email address immediately after payment",
+      "emailLabel": "Email Address",
+      "emailPlaceholder": "your@email.com",
+      "emailRequired": "Please enter a valid email address",
+      "orderSummary": "Order Summary",
+      "voucherAmount": "Voucher Amount",
+      "processing": "Processing...",
+      "continueToPayment": "Continue to Payment",
+      "continueToBankTransfer": "Continue to Bank Transfer",
+      "cancel": "Cancel"
+    },
+    "errors": {
+      "checkoutFailed": "Checkout failed",
+      "montonioFailed": "Bank transfer checkout failed",
+      "unexpectedResponse": "Unexpected response from server",
+      "noPaymentUrl": "No payment URL received",
+      "paymentFailed": "Payment failed"
+    }
   }
 }

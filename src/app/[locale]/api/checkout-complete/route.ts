@@ -35,7 +35,19 @@ export async function GET(
     }
 
     const resRef = db.collection("reservations").doc(reservationId);
-    const snap = await resRef.get();
+
+    // Retry mechanism for 0€ payments (webhook might not have fired yet)
+    let snap = await resRef.get();
+    let retries = 0;
+    const maxRetries = 5;
+    const retryDelay = 500; // 500ms between retries
+
+    while (!snap.exists && retries < maxRetries) {
+      await new Promise(resolve => setTimeout(resolve, retryDelay));
+      snap = await resRef.get();
+      retries++;
+    }
+
     if (!snap.exists) {
       return NextResponse.redirect(
         `${process.env.NEXT_PUBLIC_APP_URL}/${locale}/cancel?reservationId=${reservationId}&reason=not_found`

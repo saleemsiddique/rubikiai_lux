@@ -12,7 +12,6 @@ const images = [
   "/ezero-namelis/ezero-namelis (19).jpg",
   "/ezero-namelis/ezero-namelis (9).jpeg",
   "/ezero-namelis/ezero-namelis (5).jpeg",
-  "/ezero-namelis/ezero-namelis (16).jpeg",
   "/ezero-namelis/ezero-namelis (3).jpeg",
   "/ezero-namelis/ezero-namelis (4).jpeg",
   "/ezero-namelis/ezero-namelis (18).jpg",
@@ -73,7 +72,8 @@ export default async function EzeroNamelisPage() {
             tAmenities('microwave'),
             tAmenities('electricStove'),
             tAmenities('oven'),
-            tAmenities('coffeeMachine')
+            tAmenities('coffeeMachine'),
+            tAmenities('kettle'),
           ],
         },
         {
@@ -81,7 +81,10 @@ export default async function EzeroNamelisPage() {
           items: [
             tAmenities('towels'),
             tAmenities('hairDryer'),
-            tAmenities('shampooGel')
+            tAmenities('shampooGel'),
+            tAmenities('wc'),
+            tAmenities('showers'),
+            tAmenities('bathrobes'),
           ],
         },
         {

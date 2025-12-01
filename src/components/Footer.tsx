@@ -82,7 +82,8 @@ const Footer: React.FC = () => {
 
               <Link
                 href={`/${locale}/house-rules`}
-                className={`text-[var(--color-primary)] hover:text-white hover:translate-x-1 transition-all duration-200 font-normal flex items-center group`}
+                className={`text-[var(--color-primary)] hover:text-white hover:translate-x-1 transition-all duration-200 font-normal flex items-center group ${locale == 'lt' ? 'text-left md:text-center ' : ''
+                  }`}
               >
                 <span className="opacity-0 group-hover:opacity-100 transition-opacity mr-1">→</span>
                 {t('houseRules')}

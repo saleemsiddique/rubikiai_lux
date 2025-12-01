@@ -2,8 +2,27 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import admin from "@/lib/firebase-admin";
 import { redirect } from "next/navigation";
-import { useTranslations } from 'next-intl';
-import { getTranslations } from 'next-intl/server';
+import { Suspense } from "react";
+import { getTranslations } from "next-intl/server";
+
+/* 
+  Wrapper interno como Client Component para poder usar useSearchParams()
+  (está dentro del mismo archivo, pero aislado del componente principal que es Server)
+*/
+function SearchParamsSection() {
+  "use client";
+  const { useSearchParams } = require("next/navigation");
+  const params = useSearchParams();
+  const reason = params.get("reason");
+
+  if (!reason) return null;
+
+  return (
+    <div className="mb-4 text-xs text-neutral-600 bg-white border px-3 py-2 rounded-md shadow-sm">
+      Query param → <span className="font-medium">{reason}</span>
+    </div>
+  );
+}
 
 async function requireAdmin() {
   const session = (await cookies()).get("session")?.value;
@@ -24,28 +43,31 @@ async function requireAdmin() {
 
 export default async function AdminMenuPage() {
   const user = await requireAdmin();
-  const t = await getTranslations('admin');
-
-  async function logout() {
-    "use server";
-    redirect("/api/auth/session-logout");
-  }
+  const t = await getTranslations("admin");
 
   return (
     <main className="min-h-screen pt-24 bg-[var(--color-background-main)]">
       <section className="max-w-5xl mx-auto px-6 py-12">
+
+        {/* Suspense boundary SOLO para la parte del client */}
+        <Suspense fallback={<div className="text-xs text-neutral-400 mb-4">Loading params...</div>}>
+          <SearchParamsSection />
+        </Suspense>
+
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-[var(--color-primary-dark)]">
-            {t('menu.title')}
+            {t("menu.title")}
           </h1>
 
-          {/* Logout con petición POST */}
-          <button
-            onClick={logout}
-            className="rounded-md border px-3 py-2 text-sm hover:bg-neutral-50"
-          >
-            {t('common.closedSession')}
-          </button>
+          {/* Logout mediante POST seguro para SSR */}
+          <form action="/api/auth/session-logout" method="POST">
+            <button
+              type="submit"
+              className="rounded-md border px-3 py-2 text-sm bg-white hover:bg-neutral-50"
+            >
+              {t("common.closedSession")}
+            </button>
+          </form>
         </div>
 
         <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -53,49 +75,50 @@ export default async function AdminMenuPage() {
             href="/admin/bookings"
             className="rounded-xl border p-4 bg-white hover:bg-neutral-50"
           >
-            <div className="font-semibold">{t('menu.reservations')}</div>
-            <div className="text-xs text-neutral-600">{t('menu.reservationsDesc')}</div>
+            <div className="font-semibold">{t("menu.reservations")}</div>
+            <div className="text-xs text-neutral-600">{t("menu.reservationsDesc")}</div>
           </Link>
 
           <Link
             href="/admin/coupons"
             className="rounded-xl border p-4 bg-white hover:bg-neutral-50"
           >
-            <div className="font-semibold">{t('menu.coupons')}</div>
-            <div className="text-xs text-neutral-600">{t('menu.couponsDesc')}</div>
+            <div className="font-semibold">{t("menu.coupons")}</div>
+            <div className="text-xs text-neutral-600">{t("menu.couponsDesc")}</div>
           </Link>
 
           <Link
             href="/admin/discounts"
             className="rounded-xl border p-4 bg-white hover:bg-neutral-50"
           >
-            <div className="font-semibold">{t('menu.discounts')}</div>
-            <div className="text-xs text-neutral-600">{t('menu.discountsDesc')}</div>
+            <div className="font-semibold">{t("menu.discounts")}</div>
+            <div className="text-xs text-neutral-600">{t("menu.discountsDesc")}</div>
           </Link>
 
           <Link
             href="/admin/revenue"
             className="rounded-xl border p-4 bg-white hover:bg-neutral-50"
           >
-            <div className="font-semibold">{t('menu.revenue')}</div>
-            <div className="text-xs text-neutral-600">{t('menu.revenueDesc')}</div>
+            <div className="font-semibold">{t("menu.revenue")}</div>
+            <div className="text-xs text-neutral-600">{t("menu.revenueDesc")}</div>
           </Link>
 
           <Link
             href="/admin/houses"
             className="rounded-xl border p-4 bg-white hover:bg-neutral-50"
           >
-            <div className="font-semibold">{t('menu.houses')}</div>
-            <div className="text-xs text-neutral-600">{t('menu.housesDesc')}</div>
+            <div className="font-semibold">{t("menu.houses")}</div>
+            <div className="text-xs text-neutral-600">{t("menu.housesDesc")}</div>
           </Link>
         </div>
 
         <div className="mt-8 text-xs text-neutral-500">
-          {t('menu.sessionOf')}{" "}
+          {t("menu.sessionOf")}{" "}
           <span className="font-medium">
             {(user as any).email ?? (user as any).uid}
           </span>
         </div>
+
       </section>
     </main>
   );

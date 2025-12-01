@@ -77,7 +77,8 @@ export default async function Page({
             tAmenities('microwave'),
             tAmenities('electricStove'),
             tAmenities('oven'),
-            tAmenities('coffeeMachine')
+            tAmenities('coffeeMachine'),
+            tAmenities('kettle'),
           ],
         },
         {
@@ -85,7 +86,10 @@ export default async function Page({
           items: [
             tAmenities('towels'),
             tAmenities('hairDryer'),
-            tAmenities('shampooGel')
+            tAmenities('shampooGel'),
+            tAmenities('wc'),
+            tAmenities('showers'),
+            tAmenities('bathrobes')
           ],
         },
         {

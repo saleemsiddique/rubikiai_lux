@@ -137,7 +137,7 @@ export function BookingReminderEmailHtml_lt(params: BookingReminderParams): stri
             <!-- House Rules (LT version - kept in Lithuanian as per user's request) -->
             <tr>
               <td style="padding:6px 22px 0;">
-                <div style="font:700 18px Georgia, 'Times New Roman', serif;color:#214235;">Namų taisyklės</div>
+                <div style="font:700 18px Georgia, 'Times New Roman', serif;color:#214235;">Vidaus Tvarkos Taisyklės</div>
                 <div style="font:500 14px Inter,Arial,sans-serif;color:#6b7280;margin-top:6px;">Prašome atidžiai perskaityti</div>
               </td>
             </tr>

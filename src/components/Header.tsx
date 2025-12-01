@@ -3,24 +3,28 @@
 import React, { useEffect, useRef, useCallback, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { useTranslations, useLocale } from 'next-intl';
 
 export default function Header() {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [isLangOpen, setIsLangOpen] = useState(false);
   const pathname = usePathname();
   const locale = useLocale();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const t = useTranslations('nav');
   const drawerRef = useRef<HTMLDivElement | null>(null);
+  const langRef = useRef<HTMLDivElement | null>(null);
 
   // Refs for rAF scroll handling + hysteresis
   const lastYRef = useRef<number>(0);
   const tickingRef = useRef<boolean>(false);
   const scrolledRef = useRef<boolean>(false);
 
-  const SCROLL_DOWN_THRESHOLD = 60; // entra a scrolled
-  const SCROLL_UP_THRESHOLD = 40; // sale de scrolled
+  const SCROLL_DOWN_THRESHOLD = 60;
+  const SCROLL_UP_THRESHOLD = 40;
 
   const pageTitles: Record<string, string> = {
     [`/${locale}`]: t('inicio'),
@@ -42,8 +46,16 @@ export default function Header() {
     { name: t('contact'), href: `/${locale}/contact` },
   ];
 
+  const languages = [
+    { code: 'lt', label: 'LT' },
+    { code: 'en', label: 'EN' },
+    { code: 'ru', label: 'RUS' },
+  ];
+
   const toggle = useCallback(() => setIsOpen((v) => !v), []);
   const close = useCallback(() => setIsOpen(false), []);
+  const toggleLang = useCallback(() => setIsLangOpen((v) => !v), []);
+  const closeLang = useCallback(() => setIsLangOpen(false), []);
 
   // Check if we're on home page
   const isHomePage = pathname === `/${locale}`;
@@ -52,8 +64,24 @@ export default function Header() {
     pathname === `/${locale}/dupleksas` ||
     pathname === `/${locale}/ezero-namelis`;
 
+  // Devuelve el path actual SIN el prefijo de locale
+  const getPathWithoutLocale = (loc: string) => {
+    return pathname.replace(new RegExp(`^/${loc}`), '') || '/';
+  };
 
-  // --- Smooth rAF-based scroll handling with hysteresis ---
+  // Cambia el idioma preservando query string y hash
+  const switchLanguage = (newLocale: string) => {
+    const pathWithoutLocale = getPathWithoutLocale(locale);
+    const rawSearch = searchParams?.toString() ?? '';
+    const search = rawSearch ? `?${rawSearch}` : '';
+    const hash = typeof window !== 'undefined' ? window.location.hash : '';
+    const newPath = pathWithoutLocale === '/' ? `/${newLocale}` : `/${newLocale}${pathWithoutLocale}`;
+    
+    closeLang();
+    router.push(newPath + search + hash);
+  };
+
+  // Smooth rAF-based scroll handling with hysteresis
   useEffect(() => {
     function onScroll() {
       lastYRef.current = window.scrollY;
@@ -66,7 +94,6 @@ export default function Header() {
 
           if (!prev && y > SCROLL_DOWN_THRESHOLD) next = true;
           else if (prev && y < SCROLL_UP_THRESHOLD) next = false;
-          // else keep prev to avoid toggle when near threshold
 
           if (next !== prev) {
             scrolledRef.current = next;
@@ -77,9 +104,7 @@ export default function Header() {
       }
     }
 
-    // attach passive listener (cheap) + rAF decouples work
     window.addEventListener("scroll", onScroll, { passive: true });
-    // init state
     lastYRef.current = window.scrollY;
     if (window.scrollY > SCROLL_DOWN_THRESHOLD) {
       scrolledRef.current = true;
@@ -92,7 +117,8 @@ export default function Header() {
   // close drawer on navigation changes
   useEffect(() => {
     close();
-  }, [pathname, close]);
+    closeLang();
+  }, [pathname, close, closeLang]);
 
   // lock body overflow when drawer open
   useEffect(() => {
@@ -101,16 +127,14 @@ export default function Header() {
     return () => document.body.classList.remove("overflow-hidden");
   }, [isOpen]);
 
-  // detecta si estamos en pantallas "desktop" (md = 768px en Tailwind)
+  // detecta si estamos en pantallas "desktop"
   const [isDesktop, setIsDesktop] = useState<boolean>(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const mq = window.matchMedia("(min-width: 768px)");
     const handler = (e: MediaQueryListEvent | MediaQueryList) => setIsDesktop(e.matches);
-    // set initial
     setIsDesktop(mq.matches);
-    // compat: addEventListener en la spec moderna, addListener en navegadores viejos
     if (typeof mq.addEventListener === "function") mq.addEventListener("change", handler);
     else mq.addListener(handler);
     return () => {
@@ -119,15 +143,20 @@ export default function Header() {
     };
   }, []);
 
-
+  // Close menu/lang on Escape and outside click
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") close();
+      if (e.key === "Escape") {
+        close();
+        closeLang();
+      }
     }
     function onClick(e: MouseEvent) {
-      if (!drawerRef.current) return;
-      if (isOpen && !drawerRef.current.contains(e.target as Node)) {
+      if (drawerRef.current && isOpen && !drawerRef.current.contains(e.target as Node)) {
         close();
+      }
+      if (langRef.current && isLangOpen && !langRef.current.contains(e.target as Node)) {
+        closeLang();
       }
     }
     document.addEventListener("keydown", onKey);
@@ -136,9 +165,7 @@ export default function Header() {
       document.removeEventListener("keydown", onKey);
       document.removeEventListener("mousedown", onClick);
     };
-  }, [isOpen, close]);
-
-  const searchParams = useSearchParams();
+  }, [isOpen, isLangOpen, close, closeLang]);
 
   const hasQueryParamsHousePage = Boolean(
     searchParams?.has("start") ||
@@ -151,20 +178,18 @@ export default function Header() {
     (isHomePage && (isDesktop || !scrolled)) ||
     (isHousePage && (isDesktop || !scrolled) && !hasQueryParamsHousePage);
 
+  const currentLang = languages.find(l => l.code === locale) || languages[0];
+
   return (
     <>
       <header
-        // kept padding stable to avoid layout jumps (same padding both states)
         className={`fixed inset-x-0 top-0 z-50 transition-colors duration-400 ease-in-out`}
         style={{
-          // we transition properties that are GPU-friendly (background-color, backdrop-filter, box-shadow, opacity)
           WebkitBackfaceVisibility: "hidden",
           backfaceVisibility: "hidden",
           willChange: "background-color, box-shadow, backdrop-filter, opacity",
         }}
       >
-        {/* Visual container with consistent height to avoid layout jumps.
-            We layer a "visual" background that changes with scrolled state via classes. */}
         <div
           className={`max-w-screen-xl mx-auto px-4 sm:px-6 md:px-6 py-3 md:py-1 flex items-center justify-between transition-all duration-400`}
         >
@@ -204,15 +229,12 @@ export default function Header() {
             </span>
           </div>
 
-          {/* Logo: kept in DOM and positioned absolutely on small screens always (no layout toggles).
-    Visual changes (opacity/scale) handled via CSS transitions only. */}
           <div className="flex-1 flex justify-center items-center pointer-events-none p-1">
             <Link href={`/${locale}`} className="block pointer-events-auto">
               <div
                 className={`transform transition-all duration-400 will-change-transform will-change-opacity ${scrolled ? "opacity-100 scale-100" : "opacity-0 scale-95"
                   }`}
                 style={{
-                  // keep transform/opacity animated; avoid switching between absolute/relative
                   transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
                 }}
               >
@@ -222,38 +244,77 @@ export default function Header() {
                   width={120}
                   height={40}
                   priority
-                  className="h-auto drop-shadow-2xl w-22 md:w-28"
+                  className="h-auto drop-shadow-2xl w-22 md:w-28 ml-0 md:ml-[109px]"
                   style={{ transition: "all 400ms cubic-bezier(0.4,0,0.2,1)" }}
                 />
               </div>
             </Link>
           </div>
 
-          {/* RIGHT BUTTON - BOOK
-              Always in DOM; on mobile we toggle opacity/pointer-events so layout doesn't reflow. */}
-          <button
-            onClick={() => showMobileReservationButton && (window.location.href = `/${locale}/reservations`)}
-            disabled={!showMobileReservationButton}
-            className={`uppercase tracking-wider text-[10px] md:text-[14px] px-4 py-2 md:px-5 md:py-2.5 rounded font-semibold transition-all duration-300 ease-in-out flex items-center justify-center min-w-[84px] md:min-w-[100px] ${!showMobileReservationButton ? "cursor-default" : "cursor-pointer"
-              }`}
-          >
-            <span
-              className={`transition-all duration-300 rounded px-4 py-1 ${scrolled
-                ? "border-2 border-[var(--color-secondary)] text-[var(--color-secondary)] hover:bg-[var(--color-secondary)] hover:text-white"
-                : "border-2 border-white/80 md:border-[var(--color-secondary)] text-white md:text-[var(--color-secondary)] hover:bg-white md:hover:bg-[var(--color-secondary)] hover:text-[var(--color-secondary)] md:hover:text-white backdrop-blur-sm"
+          {/* RIGHT SECTION - Book Button + Language Selector */}
+          <div className="flex items-center gap-2 md:gap-3 min-w-[120px] md:min-w-[140px] justify-end">
+            {/* Book Button */}
+            <button
+              onClick={() => showMobileReservationButton && (window.location.href = `/${locale}/reservations`)}
+              disabled={!showMobileReservationButton}
+              className={`uppercase tracking-wider text-[10px] md:text-[14px] px-4 py-2 md:px-5 md:py-2.5 rounded font-semibold transition-all duration-300 ease-in-out items-center justify-center min-w-[84px] md:min-w-[100px] ${!showMobileReservationButton ? "cursor-default hidden md:flex" : "cursor-pointer flex"
                 }`}
-              style={{
-                opacity: showMobileReservationButton ? 1 : 0,
-                pointerEvents: showMobileReservationButton ? "auto" : "none",
-                transitionProperty: "opacity, transform",
-              }}
             >
-              {t('reserve')}
-            </span>
-          </button>
+              <span
+                className={`transition-all duration-300 rounded px-4 py-1 ${scrolled
+                  ? "border-2 border-[var(--color-secondary)] text-[var(--color-secondary)] hover:bg-[var(--color-secondary)] hover:text-white"
+                  : "border-2 border-white/80 md:border-[var(--color-secondary)] text-white md:text-[var(--color-secondary)] hover:bg-white md:hover:bg-[var(--color-secondary)] hover:text-[var(--color-secondary)] md:hover:text-white backdrop-blur-sm"
+                  }`}
+              >
+                {t('reserve')}
+              </span>
+            </button>
+
+            {/* Language Selector */}
+            <div ref={langRef} className="relative flex-shrink-0">
+              <button
+                onClick={toggleLang}
+                className={`flex items-center gap-1 px-2 py-1.5 md:px-2.5 md:py-2 rounded transition-all duration-300 ${
+                  scrolled
+                    ? "text-[var(--color-secondary)] hover:bg-[var(--color-secondary)]/10"
+                    : "text-white md:text-[var(--color-secondary)] hover:bg-white/10 md:hover:bg-[var(--color-secondary)]/10"
+                }`}
+                aria-expanded={isLangOpen}
+                aria-label="Select language"
+              >
+                <span className="text-xs md:text-sm font-semibold">{currentLang.label}</span>
+                <svg
+                  className={`w-3 h-3 md:w-4 md:h-4 transition-transform duration-200 ${isLangOpen ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {/* Dropdown */}
+              {isLangOpen && (
+                <div className="absolute right-0 mt-2 py-1 bg-[var(--color-background-main)] rounded shadow-lg border border-[var(--color-secondary)]/20 min-w-[80px] z-50">
+                  {languages.map((lang) => (
+                    <button
+                      key={lang.code}
+                      onClick={() => switchLanguage(lang.code)}
+                      className={`w-full text-left px-4 py-2 text-sm transition-colors ${
+                        lang.code === locale
+                          ? 'bg-[var(--color-secondary)]/10 text-[var(--color-primary-dark)] font-semibold'
+                          : 'text-[var(--color-secondary)] hover:bg-[var(--color-secondary)]/5'
+                      }`}
+                    >
+                      {lang.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
-        {/* Visual overlay that changes background + shadow based on scrolled (no layout changes) */}
         <div
           aria-hidden
           className={`absolute inset-0 pointer-events-none transition-all duration-400 ${scrolled

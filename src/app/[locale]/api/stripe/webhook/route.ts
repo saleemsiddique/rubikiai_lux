@@ -433,32 +433,25 @@ export async function POST(req: Request) {
       const includedBase = Number(session.metadata?.includedBase || 0);
       const extraGuests = Number(session.metadata?.extraGuests || 0);
 
-      // ✅ LEER CAMPOS SIMPLIFICADOS (NUEVOS)
-      const payNow = Number(session.metadata?.payNow ?? 0);
-      const payAtArrival = Number(session.metadata?.payAtArrival ?? 0);
-      const totalStay = Number(session.metadata?.totalStay ?? 0);
-      const grandTotal = Number(session.metadata?.grandTotal ?? totalStay);
-      const discountedGrandTotal = Number(session.metadata?.discountedGrandTotal ?? totalStay);
-
-      // campos legacy (para compatibilidad / fallback)
+      // ✅ LEER CAMPOS BASE (SIN DESCUENTO)
       const totalNightsOnly = Number(session.metadata?.totalNightsOnly || 0);
-      const firstNightCharge = Number(session.metadata?.firstNightCharge || 0);
+      const firstNightBase = Number(session.metadata?.firstNightCharge || 0);
+      const jacuzziFee = Number(session.metadata?.jacuzziFee || 0);
+      const jacuzziDays = Number(session.metadata?.jacuzziDays || 0);
+      const extrasTotal = Number(session.metadata?.extrasTotal || jacuzziFee);
+      const grandTotalBase = Number(session.metadata?.grandTotal || (totalNightsOnly + extrasTotal));
 
       const jacuzziEnabled = session.metadata?.jacuzziEnabled === "true";
-      const jacuzziFee = Number(session.metadata?.jacuzziFee || 0);
-      const jacuzziDays = Number(session.metadata?.jacuzziDays || 0); // ✅ NUEVO
-
       const currency = session.metadata?.currency || "EUR";
 
       const discountKind = session.metadata?.discountKind || "";
       const couponId = session.metadata?.couponId || "";
       const couponCode = session.metadata?.couponCode || "";
-      const couponAmountApplied = session.metadata?.couponAmountApplied || "";
+      const couponValue = Number(session.metadata?.couponValue || session.metadata?.couponAmountApplied || 0);
 
       const percentId = session.metadata?.percentId || "";
       const percentCode = session.metadata?.percentCode || "";
-      const percentValue = session.metadata?.percentValue || "";
-      const percentAmountApplied = session.metadata?.percentAmountApplied || "";
+      const percentValue = Number(session.metadata?.percentValue || 0);
 
       const app_user_id = session.metadata?.app_user_id || "";
 
@@ -475,10 +468,51 @@ export async function POST(req: Request) {
       const stripeCheckoutEmail =
         session.customer_details?.email || session.customer_email || null;
 
-      // ✅ CALCULAR amountPaid y paidInFull (MISMA LÓGICA QUE ADMIN/BOOKINGS)
-      const couponApplied = Number(couponAmountApplied || 0);
-      const amountPaid = couponApplied > 0 ? couponApplied : payNow;
-      const isPaidInFull = amountPaid >= grandTotal;
+      // ✅ APLICAR DESCUENTO (MISMA LÓGICA QUE ADMIN/BLOCK)
+      let discountedFirst = firstNightBase;
+      let discountedGrandTotal = grandTotalBase;
+      let amountApplied = 0;
+      let couponData: any = null;
+      let percentData: any = null;
+
+      if (discountKind === "coupon" && couponId && couponValue > 0) {
+        // Coupon: fixed euro amount off total
+        amountApplied = Math.min(couponValue, grandTotalBase);
+        const usedOnFirstNight = Math.min(amountApplied, firstNightBase);
+        discountedFirst = Math.max(0, firstNightBase - usedOnFirstNight);
+        discountedGrandTotal = Math.max(0, grandTotalBase - amountApplied);
+
+        couponData = {
+          code: couponCode,
+          type: "coupon",
+          value: couponValue,
+          applied: amountApplied,
+        };
+      } else if (discountKind === "percent" && percentId && percentValue > 0) {
+        // Percentage: applies only to first night
+        const percentVal = Math.min(100, Math.max(0, percentValue));
+        const discountOnFirstNight = (percentVal / 100) * firstNightBase;
+
+        amountApplied = discountOnFirstNight;
+        discountedFirst = Math.max(0, firstNightBase - discountOnFirstNight);
+        discountedGrandTotal = Math.max(0, grandTotalBase - discountOnFirstNight);
+
+        percentData = {
+          code: percentCode,
+          type: "percent",
+          percent: percentVal,
+          applied: amountApplied,
+        };
+      }
+
+      // ✅ CALCULAR CAMPOS SIMPLIFICADOS
+      const payNow = discountedFirst; // Reservation fee (con descuento)
+      const totalStay = discountedGrandTotal; // Grand total (con descuento)
+      const payAtArrival = Math.max(0, totalStay - payNow);
+
+      // ✅ CALCULAR amountPaid (lo que el cliente pagó con tarjeta)
+      const amountPaid = payNow;
+      const isPaidInFull = amountPaid >= grandTotalBase;
 
       // ✅ Crear/mergear reserva con campos simplificados
       await db.runTransaction(async (tx) => {
@@ -494,31 +528,38 @@ export async function POST(req: Request) {
           nights,
           guests: guestsNum,
 
-          // ✅ CAMPOS SIMPLIFICADOS (NUEVOS)
+          // ✅ CAMPOS SIMPLIFICADOS (RECALCULADOS)
           payNow,
           payAtArrival,
           totalStay,
-          grandTotal,
+
+          // ✅ CAMPOS DETALLADOS (para transparencia)
+          firstNightBase,
+          totalNightsOnly,
+          grandTotal: grandTotalBase,
+          discountedFirst,
           discountedGrandTotal,
+          amountApplied,
+          extrasTotal,
+
           amountPaid,
+          paidInFull: isPaidInFull,
 
           // campos legacy (mantener para compatibilidad)
           includedBase,
           extraGuests,
-          totalNightsOnly,
-          firstNightCharge,
 
           jacuzzi: jacuzziEnabled
-            ? { enabled: true, fee: jacuzziFee, days: jacuzziDays } // ✅ AÑADIDO days
+            ? { enabled: true, fee: jacuzziFee, days: jacuzziDays }
             : { enabled: false, fee: 0, days: 0 },
           jacuzziFee,
+          jacuzziDays,
 
           currency,
 
           status: "reserved",
           createdAt: existsAlready ? snap.data()?.createdAt || nowTs : nowTs,
           paidAt: nowTs,
-          paidInFull: isPaidInFull,
 
           stripeSessionId: session.id,
           stripePaymentIntentId: stripePaymentIntentId || null,
@@ -536,30 +577,28 @@ export async function POST(req: Request) {
           },
         };
 
-        // ✅ APLICAR DESCUENTOS (coupon o percent)
-        if (
-          discountKind === "coupon" &&
-          couponId &&
-          Number(couponAmountApplied) > 0
-        ) {
+        // ✅ APLICAR DESCUENTOS (coupon o percent) - con valores recalculados
+        if (discountKind === "coupon" && couponId && amountApplied > 0) {
           const couponBlock = await applyCouponInTx(tx, {
             couponId,
             couponCode,
-            couponAmountApplied,
+            couponAmountApplied: String(amountApplied),
             reservationId,
             checkoutSessionId: session.id,
           });
           baseReservationPayload.coupon = couponBlock;
-        } else if (discountKind === "percent" && percentId) {
+          baseReservationPayload.code = couponCode;
+        } else if (discountKind === "percent" && percentId && amountApplied > 0) {
           const percentBlock = await applyPercentDiscountInTx(tx, {
             percentId,
             percentCode,
-            percentValue,
-            percentAmountApplied,
+            percentValue: String(percentValue),
+            percentAmountApplied: String(amountApplied),
             reservationId,
             checkoutSessionId: session.id,
           });
           baseReservationPayload.percentDiscount = percentBlock;
+          baseReservationPayload.code = percentCode;
         }
 
         if (!existsAlready) {
@@ -575,14 +614,6 @@ export async function POST(req: Request) {
           stripeCheckoutEmail || customerEmailFromMeta || null;
         if (customerEmail) {
           console.log(`📧 Stripe webhook: sending confirmation email in locale: ${localeFromMeta}`);
-
-          // Calcular descuento aplicado (si hay cupón o porcentaje)
-          let discountApplied = 0;
-          if (discountKind === "coupon" && couponAmountApplied) {
-            discountApplied = Number(couponAmountApplied) || 0;
-          } else if (discountKind === "percent" && percentAmountApplied) {
-            discountApplied = Number(percentAmountApplied) || 0;
-          }
 
           await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/${localeFromMeta}/api/send-email`, {
             method: "POST",
@@ -600,11 +631,11 @@ export async function POST(req: Request) {
                 nights,
                 roomType: getHouseDisplayName(houseIds),
                 guests: guestsNum,
-                // ✅ NUEVOS CAMPOS SIMPLIFICADOS:
+                // ✅ NUEVOS CAMPOS SIMPLIFICADOS (RECALCULADOS):
                 paidNow: payNow,
                 payAtArrival: payAtArrival,
                 totalStay: totalStay,
-                discountApplied: discountApplied,
+                discountApplied: amountApplied,
                 currency,
                 hotelName: "Rubikiai Lux",
                 hotelContactEmail: "info@rubikiailux.lt",
@@ -673,12 +704,7 @@ export async function POST(req: Request) {
               paidNow: payNow,
               payAtArrival: payAtArrival,
               totalStay: totalStay,
-              discountApplied:
-                discountKind === "coupon"
-                  ? Number(couponAmountApplied || 0)
-                  : discountKind === "percent"
-                    ? Number(percentAmountApplied || 0)
-                    : 0,
+              discountApplied: amountApplied,
               currency,
               propertyName: rawValue || houseIds.join(", "),
               propertyId: houseIds.length === 1 ? houseIds[0] : undefined,

@@ -324,12 +324,12 @@ export async function POST(
           // Update coupon: subtract from remaining balance
           const couponRef = adminDb.collection("coupons").where("code", "==", discount.code).limit(1);
           const couponSnap = await couponRef.get();
-          
+
           if (!couponSnap.empty) {
             const couponDoc = couponSnap.docs[0];
             const currentRemaining = Number(couponDoc.data().remaining ?? 0);
             const newRemaining = Math.max(0, currentRemaining - amountApplied);
-            
+
             await couponDoc.ref.update({
               remaining: newRemaining,
               lastUsedAt: nowInLithuania(),
@@ -340,25 +340,48 @@ export async function POST(
                 usedBy: customerObj.email,
               }),
             });
-            
-            console.log(`✅ Coupon ${discount.code} updated: ${currentRemaining} → ${newRemaining}`);
+
+            // ✅ CREAR DOCUMENTO DE MOVIMIENTO (igual que webhooks de Stripe/Montonio)
+            const movRef = couponDoc.ref.collection("movements").doc();
+            await movRef.set({
+              type: "reservation",
+              reservationId,
+              amount: amountApplied,
+              createdAt: nowInLithuania(),
+              checkoutSessionId: "admin_block",
+              usedBy: customerObj.email,
+            });
+
+            console.log(`✅ Coupon ${discount.code} updated: ${currentRemaining} → ${newRemaining} (movement created)`);
           }
         } else if (discount.type === "percent" && discount.code) {
           // Update percentage discount: mark as used
           const percentRef = adminDb.collection("percentage_discounts").where("code", "==", discount.code).limit(1);
           const percentSnap = await percentRef.get();
-          
+
           if (!percentSnap.empty) {
             const percentDoc = percentSnap.docs[0];
-            
+
             await percentDoc.ref.update({
               used: true,
               usedAt: nowInLithuania(),
               usedBy: customerObj.email,
               usedInReservation: reservationId,
             });
-            
-            console.log(`✅ Percentage discount ${discount.code} marked as used`);
+
+            // ✅ CREAR DOCUMENTO DE MOVIMIENTO (igual que webhooks de Stripe/Montonio)
+            const movRef = percentDoc.ref.collection("movements").doc();
+            await movRef.set({
+              type: "reservation",
+              reservationId,
+              amountApplied: amountApplied,
+              percentValue: Number(discount.amount || 0),
+              createdAt: nowInLithuania(),
+              checkoutSessionId: "admin_block",
+              usedBy: customerObj.email,
+            });
+
+            console.log(`✅ Percentage discount ${discount.code} marked as used (movement created)`);
           }
         }
       } catch (discountUpdateError) {

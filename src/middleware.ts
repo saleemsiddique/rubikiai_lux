@@ -8,6 +8,6 @@ export default createMiddleware({
 });
 
 export const config = {
-  // Include API routes in the matcher so they get the locale prefix
-  matcher: ['/((?!_next|_vercel|.*\\..*).*)']
+  // Exclude Stripe webhooks and other external webhooks from locale handling
+  matcher: ['/((?!_next|_vercel|api/stripe/webhook|.*\\..*).*)']
 };

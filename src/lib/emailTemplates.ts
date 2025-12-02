@@ -47,6 +47,13 @@ export interface ReservationConfirmationParams {
   logoCid?: string;
 }
 
+export interface DiscountCodeParams {
+  code: string;
+  percent: number;
+  expiresAt: string; // YYYY-MM-DD
+  logoCid?: string;
+}
+
 /**
  * Dinamically load email template based on type and locale
  */
@@ -97,6 +104,23 @@ export async function getReservationConfirmationTemplate(locale: EmailLocale) {
       return ReservationConfirmationEmailHtml_ru;
     default:
       const { ReservationConfirmationEmailHtml_lt: defaultTemplate } = await import('@/app/[locale]/emails/ReservationConfirmationEmailHtml_lt');
+      return defaultTemplate;
+  }
+}
+
+export async function getDiscountCodeTemplate(locale: EmailLocale) {
+  switch (locale) {
+    case 'lt':
+      const { DiscountCodeEmailHtml_lt } = await import('@/app/[locale]/emails/DiscountCodeEmailHtml_lt');
+      return DiscountCodeEmailHtml_lt;
+    case 'en':
+      const { DiscountCodeEmailHtml_en } = await import('@/app/[locale]/emails/DiscountCodeEmailHtml_en');
+      return DiscountCodeEmailHtml_en;
+    case 'ru':
+      const { DiscountCodeEmailHtml_ru } = await import('@/app/[locale]/emails/DiscountCodeEmailHtml_ru');
+      return DiscountCodeEmailHtml_ru;
+    default:
+      const { DiscountCodeEmailHtml_lt: defaultTemplate } = await import('@/app/[locale]/emails/DiscountCodeEmailHtml_lt');
       return defaultTemplate;
   }
 }

@@ -23,6 +23,7 @@ export default function AdminDiscountsClient({
   const locale = useLocale();
   const [toEmail, setToEmail] = useState("");
   const [percent, setPercent] = useState("10"); // string, entero
+  const [emailLocale, setEmailLocale] = useState<"en" | "lt" | "ru">("lt"); // idioma del email
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -54,6 +55,7 @@ export default function AdminDiscountsClient({
         body: JSON.stringify({
           toEmail,
           percent: pInt,
+          emailLocale, // idioma del email a enviar
           // ya NO mandamos expiresAt ni code; el backend los genera
         }),
       });
@@ -84,7 +86,7 @@ export default function AdminDiscountsClient({
   return (
     <div className="mt-6">
       <div className="bg-white border rounded-2xl shadow-sm p-6 space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Email destino */}
           <div className="flex flex-col">
             <label className="text-xs text-neutral-600 font-medium">
@@ -128,6 +130,25 @@ export default function AdminDiscountsClient({
             />
             <div className="text-[11px] text-neutral-500 mt-1">
               {t('discounts.percentHelp')}
+            </div>
+          </div>
+
+          {/* Idioma del email */}
+          <div className="flex flex-col">
+            <label className="text-xs text-neutral-600 font-medium">
+              {t('discounts.emailLanguage')}
+            </label>
+            <select
+              className="mt-1 border rounded-md p-2 text-sm bg-white"
+              value={emailLocale}
+              onChange={(e) => setEmailLocale(e.target.value as "en" | "lt" | "ru")}
+            >
+              <option value="en">English</option>
+              <option value="lt">Lietuvių (Lithuanian)</option>
+              <option value="ru">Русский (Russian)</option>
+            </select>
+            <div className="text-[11px] text-neutral-500 mt-1">
+              {t('discounts.emailLanguageHelp')}
             </div>
           </div>
         </div>

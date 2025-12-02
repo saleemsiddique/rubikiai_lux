@@ -8,10 +8,10 @@ import {
   getCouponPurchaseTemplate,
   getReservationConfirmationTemplate,
   getBookingReminderTemplate,
+  getDiscountCodeTemplate,
   getEmailSubject,
   type EmailLocale
 } from "@/lib/emailTemplates";
-import { DiscountCodeEmailHtml } from "@/app/[locale]/emails/DiscountCodeEmailHtml";
 import { getTranslations } from 'next-intl/server';
 
 export const runtime = "nodejs";
@@ -232,6 +232,8 @@ export async function POST(
 
       case "discount_code": {
         const { code, percent, expiresAt } = body.data;
+
+        // Get subject line for this locale
         subject =
           locale === "en"
             ? `Your ${percent}% personal discount`
@@ -239,7 +241,10 @@ export async function POST(
               ? `Ваша персональная скидка ${percent}%`
               : `Tavo asmeninė ${percent}% nuolaida`;
 
-        html = DiscountCodeEmailHtml({
+        // Get and call the appropriate template function
+        const templateFn = await getDiscountCodeTemplate(locale);
+
+        html = templateFn({
           code,
           percent,
           expiresAt,

@@ -201,15 +201,12 @@ async function applyPercentDiscountInTx(
 
   const now = nowInLithuania();
 
-  // ✅ ESTRUCTURA IGUAL QUE COUPON
+  // ✅ ESTRUCTURA IGUAL QUE BLOCK (compatible con AdminBookingsClient)
   return {
-    id: percentId,
     code: percentCode,
+    type: "percent",
     percent: Number(percentValue) || 0,
-    amountApplied: Number(percentAmountApplied) || 0,
-    deductedAt: now,
-    createdAt: now,
-    checkoutSessionId,
+    applied: Number(percentAmountApplied) || 0,
   };
 }
 
@@ -567,7 +564,8 @@ export async function POST(req: Request) {
             reservationId,
             checkoutSessionId: session.id,
           });
-          baseReservationPayload.percentDiscount = percentBlock;
+          // ✅ Guardar como "coupon" para compatibilidad con block/AdminBookingsClient
+          baseReservationPayload.coupon = percentBlock;
         }
 
         if (!existsAlready) {

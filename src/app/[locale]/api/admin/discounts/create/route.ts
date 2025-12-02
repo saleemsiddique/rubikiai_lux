@@ -5,7 +5,7 @@ import admin, { adminDb } from "@/lib/firebase-admin";
 import { Resend } from "resend";
 import fs from "fs/promises";
 import path from "path";
-import { DiscountCodeEmailHtml } from "@/app/[locale]/emails/DiscountCodeEmailHtml";
+import { getDiscountCodeTemplate, type EmailLocale } from "@/lib/emailTemplates";
 import { nowInLithuania } from "@/app/[locale]/utils/date-server";
 
 export const runtime = "nodejs";
@@ -44,6 +44,7 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => ({}));
     const toEmail = String(body.toEmail || "").trim().toLowerCase();
     const percentRaw = body.percent;
+    const emailLocale: EmailLocale = body.emailLocale || "lt"; // idioma del email
 
     // validaciones de entrada mínimas
     if (!toEmail) {
@@ -115,14 +116,23 @@ export async function POST(req: Request) {
       logoAttachment = undefined;
     }
 
-    const html = DiscountCodeEmailHtml({
+    // Get the appropriate template based on emailLocale
+    const templateFn = await getDiscountCodeTemplate(emailLocale);
+
+    const html = templateFn({
       code,
       percent,
       expiresAt,
       logoCid,
     });
 
-    const subject = "Your personal discount for Rubikiai Lux";
+    // Get subject based on locale
+    const subject =
+      emailLocale === "en"
+        ? `Your ${percent}% personal discount - Rubikiai Lux`
+        : emailLocale === "ru"
+        ? `Ваша персональная скидка ${percent}% - Rubikiai Lux`
+        : `Tavo asmeninė ${percent}% nuolaida - Rubikiai Lux`;
 
     const { data, error } = await resend.emails.send({
       from: "Rubikiai Lux <noreply@rubikiai.lt>",

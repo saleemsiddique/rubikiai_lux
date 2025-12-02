@@ -1124,7 +1124,9 @@ export default function AdminBookingsClient() {
                                     // Total depende del tipo de descuento:
                                     // - Descuentos de porcentaje: Total = precio DESPUÉS del descuento (no es dinero recibido)
                                     // - Cupones de euros: Total = precio ANTES del descuento (el cupón es dinero recibido)
-                                    const totalFull = (r.coupon?.type === "percent")
+                                    // Verificar si es porcentaje: puede estar en coupon.type o en percentDiscount
+                                    const isPercentDiscount = (r.coupon?.type === "percent") || !!r.percentDiscount;
+                                    const totalFull = isPercentDiscount
                                       ? (r.discountedGrandTotal ?? r.totalStay ?? 0)
                                       : (r.grandTotal ?? r.total ?? r.totalStay ?? r.discountedGrandTotal ?? 0);
                                     const payNow = r.payNow ?? r.discountedFirst ?? r.firstNightCharge ?? 0;
@@ -1252,7 +1254,9 @@ export default function AdminBookingsClient() {
                                             // Total depende del tipo de descuento:
                                             // - Descuentos de porcentaje: Total = precio DESPUÉS del descuento (no es dinero recibido)
                                             // - Cupones de euros: Total = precio ANTES del descuento (el cupón es dinero recibido)
-                                            const totalFull = (r.coupon?.type === "percent")
+                                            // Verificar si es porcentaje: puede estar en coupon.type o en percentDiscount
+                                            const isPercentDiscount = (r.coupon?.type === "percent") || !!r.percentDiscount;
+                                            const totalFull = isPercentDiscount
                                               ? (r.discountedGrandTotal ?? r.totalStay ?? 0)
                                               : (r.grandTotal ?? r.total ?? r.totalStay ?? r.discountedGrandTotal ?? 0);
                                             const payNow = r.payNow ?? r.discountedFirst ?? r.firstNightCharge ?? 0;
@@ -1518,7 +1522,9 @@ export default function AdminBookingsClient() {
                                         // Total depende del tipo de descuento:
                                         // - Descuentos de porcentaje: Total = precio DESPUÉS del descuento (no es dinero recibido)
                                         // - Cupones de euros: Total = precio ANTES del descuento (el cupón es dinero recibido)
-                                        const totalFull = (r.coupon?.type === "percent")
+                                        // Verificar si es porcentaje: puede estar en coupon.type o en percentDiscount
+                                        const isPercentDiscount = (r.coupon?.type === "percent") || !!r.percentDiscount;
+                                        const totalFull = isPercentDiscount
                                           ? (r.discountedGrandTotal ?? r.totalStay ?? 0)
                                           : (r.grandTotal ?? r.total ?? r.totalStay ?? r.discountedGrandTotal ?? 0);
                                         const payNow = r.payNow ?? r.discountedFirst ?? r.firstNightCharge ?? 0;

@@ -277,48 +277,76 @@ export async function POST(
       );
     }
 
-    // 5. Core price (no jacuzzi)
-    const {
-      totalNightsOnly,
-      nights,
-      firstNightCharge,
-      includedBase,
-      extraGuests,
-    } = await calculateNightsCore(houseIds, startIso, endIso, guestsNum);
+    // ✅ 5. OBTENER PRECIOS DESDE LA API DE PRICING (igual que block)
+    const origin = new URL(req.url).origin;
+    const houseIdForPrice = houseIds.join("__");
 
-    // ✅ 6. Jacuzzi fee (multi-day calculation - MISMO CÓDIGO QUE MONTONIO)
-    let jacuzziFee = 0;
+    const priceRequestBody: any = {
+      houseId: houseIdForPrice,
+      startDate: startIso,
+      endDate: endIso,
+      guests: guestsNum,
+    };
+
+    // Añadir jacuzzi a la request si está habilitado
     let jacuzziEnabled = false;
     let jacuzziDays = 0;
-
     if (extras?.jacuzzi?.enabled) {
       jacuzziEnabled = true;
-      jacuzziDays = Number(extras?.jacuzzi?.days || 1);
-
-      // Validar que jacuzziDays no exceda nights
-      if (jacuzziDays > nights) {
-        jacuzziDays = nights;
-      }
-      if (jacuzziDays < 1) {
-        jacuzziDays = 1;
-      }
-
-      // IMPORTANT: use combined jacuzzi capacity (server currently assumes 2 per unit)
-      // If you need to count only houses that have jacuzzi, adapt resolveHouseIds to return flags.
-      const jacuzziExtraGuests = Math.max(0, guestsNum - 2 * houseIds.length);
-
-      // Primer día: 65€ por unidad + 10€ por guest extra (sobre capacidad combinada)
-      const firstDayFee = houseIds.length * JACUZZI_BASE_PRICE + jacuzziExtraGuests * JACUZZI_EXTRA_PRICE;
-
-      // Días adicionales: 45€ por unidad + 10€ por guest extra por día
-      const additionalDays = Math.max(0, jacuzziDays - 1);
-      const additionalDaysFee = additionalDays * (houseIds.length * 45 + jacuzziExtraGuests * JACUZZI_EXTRA_PRICE);
-
-      jacuzziFee = firstDayFee + additionalDaysFee;
+      jacuzziDays = Math.max(1, Number(extras?.jacuzzi?.days || 1));
+      priceRequestBody.jacuzzi = true;
+      priceRequestBody.jacuzziDays = jacuzziDays;
     }
 
-    // grandTotal = lodging + jacuzzi
-    const grandTotal = round2(totalNightsOnly + jacuzziFee);
+    let totalNightsOnly: number;
+    let nights: number;
+    let firstNightCharge: number;
+    let includedBase: number;
+    let extraGuests: number;
+    let jacuzziFee: number;
+    let grandTotal: number;
+    let extrasTotal: number;
+
+    try {
+      const priceRes = await fetch(`${origin}/${locale}/api/reservations/price`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(priceRequestBody),
+      });
+
+      if (!priceRes.ok) {
+        const txt = await priceRes.text().catch(() => "");
+        return NextResponse.json(
+          { error: `Price API error: ${txt || priceRes.statusText}` },
+          { status: 422 }
+        );
+      }
+
+      const priceJson: any = await priceRes.json();
+      if (priceJson?.error) {
+        return NextResponse.json(
+          { error: `Price API: ${priceJson.error}` },
+          { status: 422 }
+        );
+      }
+
+      // ✅ EXTRAER VALORES CORRECTOS DE LA API
+      nights = Number(priceJson.nights ?? 0);
+      includedBase = Number(priceJson.includedBase ?? 2);
+      extraGuests = Number(priceJson.extraGuests ?? 0);
+      firstNightCharge = Number(priceJson.first ?? 0);
+      totalNightsOnly = Number(priceJson.total ?? 0);
+      jacuzziFee = Number(priceJson.jacuzziFee ?? 0);
+      jacuzziDays = Number(priceJson.jacuzziDays ?? 0);
+      extrasTotal = Number(priceJson.extrasTotal ?? jacuzziFee);
+      grandTotal = Number(priceJson.grandTotal ?? (totalNightsOnly + extrasTotal));
+    } catch (error: any) {
+      console.error("Error calling price API:", error);
+      return NextResponse.json(
+        { error: `Failed to calculate pricing: ${error.message}` },
+        { status: 500 }
+      );
+    }
 
     // 7. Discount logic (server still validates discounts if provided)
     let effectiveDiscountAmount = 0;
@@ -598,7 +626,7 @@ export async function POST(
         jacuzziEnabled: jacuzziEnabled ? "true" : "false",
         jacuzziFee: String(jacuzziFee),
         jacuzziDays: String(jacuzziDays),
-        extrasTotal: String(jacuzziFee), // Total de extras (actualmente solo jacuzzi)
+        extrasTotal: String(extrasTotal), // Total de extras (actualmente solo jacuzzi)
         grandTotal: String(grandTotal),
         discountedGrandTotal: String(discountedGrandTotal),
 

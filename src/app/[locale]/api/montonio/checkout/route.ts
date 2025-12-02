@@ -189,6 +189,7 @@ export async function POST(
     let jacuzziFee: number = 0;
     let jacuzziEnabled: boolean = false;
     let jacuzziDays: number = 0;
+    let extrasTotal: number = 0;
     let grandTotal: number;
     let discountedFirst: number;
     let discountedGrandTotal: number;
@@ -205,44 +206,78 @@ export async function POST(
       totalStay = pricing.totalStay;
       payAtArrival = Math.max(0, totalStay - payNow);
 
-      // Aún necesitamos calcular algunos valores para metadata
-      const coreData = await calculateNightsCore(houseIds, startIso, endIso, guestsNum);
-      nights = coreData.nights;
-      totalNightsOnly = coreData.totalNightsOnly;
-      firstNightCharge = coreData.firstNightCharge;
-      includedBase = coreData.includedBase;
-      extraGuests = coreData.extraGuests;
+      // ✅ OBTENER PRECIOS CORRECTOS DESDE LA API DE PRICING (igual que block)
+      const origin = new URL(req.url).origin;
+      const houseIdForPrice = houseIds.join("__");
 
-      // Calcular jacuzzi para metadata
+      const priceRequestBody: any = {
+        houseId: houseIdForPrice,
+        startDate: startIso,
+        endDate: endIso,
+        guests: guestsNum,
+      };
+
+      // Añadir jacuzzi a la request si está habilitado
       if (extras?.jacuzzi?.enabled) {
-        jacuzziEnabled = true;
-        jacuzziDays = Number(extras?.jacuzzi?.days || 1);
-        if (jacuzziDays > nights) jacuzziDays = nights;
-        if (jacuzziDays < 1) jacuzziDays = 1;
-
-        // CORRECCIÓN: Para dual, capacidad base = 2 * número de casas
-        const jacuzziExtraGuests = Math.max(0, guestsNum - 2 * houseIds.length);
-        const firstDayFee = houseIds.length * 65 + (jacuzziExtraGuests * 10);
-        const additionalDays = Math.max(0, jacuzziDays - 1);
-        const additionalDaysFee = additionalDays * (houseIds.length * 45 + (jacuzziExtraGuests * 10));
-        jacuzziFee = firstDayFee + additionalDaysFee;
+        priceRequestBody.jacuzzi = true;
+        priceRequestBody.jacuzziDays = Math.max(1, Number(extras?.jacuzzi?.days || 1));
       }
 
-      // ✅ IMPORTANTE: grandTotal SIEMPRE debe ser el total SIN descuento
-      grandTotal = totalNightsOnly + jacuzziFee;
-      discountedFirst = payNow;
-      discountedGrandTotal = totalStay; // totalStay ya tiene el descuento aplicado
+      try {
+        const priceRes = await fetch(`${origin}/${locale}/api/reservations/price`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(priceRequestBody),
+        });
 
-      // Si hay descuento, calcular el effectiveDiscountAmount
-      // CORRECCIÓN: el descuento es la diferencia entre grandTotal (sin descuento) y totalStay (con descuento)
-      if (discount) {
-        effectiveDiscountAmount = Math.max(0, grandTotal - totalStay);
-        discountKindForMeta = discount.kind || "";
-        discountCodeForMeta = discount.code || "";
-        discountIdForMeta = discount.id || "";
-        if (discount.kind === "percent") {
-          percentValueForMeta = String(discount.value || "");
+        if (!priceRes.ok) {
+          const txt = await priceRes.text().catch(() => "");
+          return NextResponse.json(
+            { error: `Price API error: ${txt || priceRes.statusText}` },
+            { status: 422 }
+          );
         }
+
+        const priceJson: any = await priceRes.json();
+        if (priceJson?.error) {
+          return NextResponse.json(
+            { error: `Price API: ${priceJson.error}` },
+            { status: 422 }
+          );
+        }
+
+        // ✅ EXTRAER VALORES CORRECTOS DE LA API
+        nights = Number(priceJson.nights ?? 0);
+        includedBase = Number(priceJson.includedBase ?? 2);
+        extraGuests = Number(priceJson.extraGuests ?? 0);
+        firstNightCharge = Number(priceJson.first ?? 0);
+        totalNightsOnly = Number(priceJson.total ?? 0);
+        jacuzziFee = Number(priceJson.jacuzziFee ?? 0);
+        jacuzziDays = Number(priceJson.jacuzziDays ?? 0);
+        jacuzziEnabled = Boolean(extras?.jacuzzi?.enabled);
+        extrasTotal = Number(priceJson.extrasTotal ?? jacuzziFee);
+        grandTotal = Number(priceJson.grandTotal ?? (totalNightsOnly + extrasTotal));
+
+        // ✅ Valores con descuento vienen del frontend
+        discountedFirst = payNow;
+        discountedGrandTotal = totalStay;
+
+        // Calcular descuento aplicado
+        if (discount) {
+          effectiveDiscountAmount = Math.max(0, grandTotal - totalStay);
+          discountKindForMeta = discount.kind || "";
+          discountCodeForMeta = discount.code || "";
+          discountIdForMeta = discount.id || "";
+          if (discount.kind === "percent") {
+            percentValueForMeta = String(discount.value || "");
+          }
+        }
+      } catch (error: any) {
+        console.error("Error calling price API:", error);
+        return NextResponse.json(
+          { error: `Failed to calculate pricing: ${error.message}` },
+          { status: 500 }
+        );
       }
     } else {
       // ❌ FALLBACK: CALCULAR DESDE CERO (MODO LEGACY)
@@ -280,6 +315,7 @@ export async function POST(
         jacuzziFee = firstDayFee + additionalDaysFee;
       }
       // grandTotal = lodging + jacuzzi (full stay)
+      extrasTotal = jacuzziFee;
       grandTotal = totalNightsOnly + jacuzziFee;
 
       // discount logic (mirror Stripe)
@@ -410,7 +446,7 @@ export async function POST(
       jacuzziFee: String(jacuzziFee),
       jacuzziEnabled: jacuzziEnabled ? "true" : "false",
       jacuzziDays: String(jacuzziDays), // NUEVO CAMPO
-      extrasTotal: String(jacuzziFee), // Total de extras (actualmente solo jacuzzi)
+      extrasTotal: String(extrasTotal), // Total de extras (actualmente solo jacuzzi)
       grandTotal: String(grandTotal),
       discountedGrandTotal: String(discountedGrandTotal),
       currency: "EUR",

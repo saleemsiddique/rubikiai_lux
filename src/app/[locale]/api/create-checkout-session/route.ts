@@ -298,6 +298,9 @@ export async function POST(
       priceRequestBody.jacuzziDays = jacuzziDays;
     }
 
+    console.log("🔍 [create-checkout-session] extras:", extras);
+    console.log("🔍 [create-checkout-session] priceRequestBody:", priceRequestBody);
+
     let totalNightsOnly: number;
     let nights: number;
     let firstNightCharge: number;
@@ -340,6 +343,14 @@ export async function POST(
       jacuzziDays = Number(priceJson.jacuzziDays ?? 0);
       extrasTotal = Number(priceJson.extrasTotal ?? jacuzziFee);
       grandTotal = Number(priceJson.grandTotal ?? (totalNightsOnly + extrasTotal));
+
+      console.log("✅ [create-checkout-session] Valores de pricing API:", {
+        firstNightCharge,
+        totalNightsOnly,
+        jacuzziFee,
+        extrasTotal,
+        grandTotal,
+      });
     } catch (error: any) {
       console.error("Error calling price API:", error);
       return NextResponse.json(
@@ -396,8 +407,25 @@ export async function POST(
       }
 
       // cap coupon to remaining and grandTotal (NOT limited to first night)
+      console.log("🎫 [create-checkout-session] Cupón antes de límites:", {
+        discountValue: discount.value,
+        remaining,
+        grandTotal,
+        proposedBefore: proposed,
+      });
+
       proposed = Math.min(proposed, remaining, grandTotal);
+
+      console.log("🎫 [create-checkout-session] Cupón después de Math.min:", {
+        proposed,
+        firstNightCharge,
+      });
+
       proposed = adjustForStripeMin(firstNightCharge, proposed);
+
+      console.log("🎫 [create-checkout-session] Cupón final:", {
+        effectiveDiscountAmount: proposed,
+      });
 
       if (proposed > 0) {
         effectiveDiscountAmount = proposed;

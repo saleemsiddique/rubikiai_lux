@@ -223,6 +223,9 @@ export async function POST(
         priceRequestBody.jacuzziDays = Math.max(1, Number(extras?.jacuzzi?.days || 1));
       }
 
+      console.log("🔍 [montonio/checkout] extras:", extras);
+      console.log("🔍 [montonio/checkout] priceRequestBody:", priceRequestBody);
+
       try {
         const priceRes = await fetch(`${origin}/${locale}/api/reservations/price`, {
           method: "POST",
@@ -258,6 +261,14 @@ export async function POST(
         extrasTotal = Number(priceJson.extrasTotal ?? jacuzziFee);
         grandTotal = Number(priceJson.grandTotal ?? (totalNightsOnly + extrasTotal));
 
+        console.log("✅ [montonio/checkout] Valores de pricing API:", {
+          firstNightCharge,
+          totalNightsOnly,
+          jacuzziFee,
+          extrasTotal,
+          grandTotal,
+        });
+
         // ✅ Valores con descuento vienen del frontend
         discountedFirst = payNow;
         discountedGrandTotal = totalStay;
@@ -265,6 +276,14 @@ export async function POST(
         // Calcular descuento aplicado
         if (discount) {
           effectiveDiscountAmount = Math.max(0, grandTotal - totalStay);
+
+          console.log("🎫 [montonio/checkout] Descuento calculado:", {
+            grandTotal,
+            totalStay,
+            effectiveDiscountAmount,
+            discountKind: discount.kind,
+          });
+
           discountKindForMeta = discount.kind || "";
           discountCodeForMeta = discount.code || "";
           discountIdForMeta = discount.id || "";

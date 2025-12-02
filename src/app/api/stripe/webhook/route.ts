@@ -476,9 +476,12 @@ export async function POST(req: Request) {
         session.customer_details?.email || session.customer_email || null;
 
       // ✅ CALCULAR amountPaid y paidInFull (MISMA LÓGICA QUE ADMIN/BOOKINGS)
-      // amountPaid = cupón aplicado + efectivo pagado (total realmente pagado hasta ahora)
+      // REGLA: Si cupón < primera noche → Paid = primera noche (porque ya se pagó)
+      //        Si cupón ≥ primera noche → Paid = cupón aplicado
       const couponApplied = Number(couponAmountApplied || 0);
-      const amountPaid = couponApplied > 0 ? (couponApplied + payNow) : payNow;
+      const amountPaid = couponApplied > 0
+        ? (couponApplied >= firstNightCharge ? couponApplied : firstNightCharge)
+        : payNow;
       const isPaidInFull = amountPaid >= grandTotal;
 
       // ✅ Crear/mergear reserva con campos simplificados

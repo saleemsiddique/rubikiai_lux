@@ -286,10 +286,8 @@ export default function CheckoutDetailsClient() {
     const totalBeforeNoJacuzzi = priceData.total ?? 0;
     const fullStayBeforeWithJacuzzi = priceData.grandTotal ?? 0;
 
-    // "Full stay" depends on jacuzzi selection
-    const fullStayBefore = withJacuzzi
-      ? fullStayBeforeWithJacuzzi
-      : totalBeforeNoJacuzzi;
+    // "Full stay" - ALWAYS use grandTotal because it already includes/excludes jacuzzi based on the API request
+    const fullStayBefore = priceData.grandTotal ?? 0;
 
     // no discount applied
     if (!discountApplied || !discountData) {
@@ -722,10 +720,7 @@ export default function CheckoutDetailsClient() {
         // NUEVOS CAMPOS DE PRECIO SIMPLIFICADOS
         pricing: {
           payNow: payNowAfterDiscount ?? priceData.first ?? 0,
-          totalStay:
-            totalAfterDiscount ??
-            (withJacuzzi ? priceData.grandTotal : priceData.total) ??
-            0,
+          totalStay: totalAfterDiscount ?? priceData.grandTotal ?? 0,
           // payAtArrival se calcula en backend: totalStay - payNow
         },
 
@@ -814,10 +809,7 @@ export default function CheckoutDetailsClient() {
         // NUEVOS CAMPOS DE PRECIO SIMPLIFICADOS
         pricing: {
           payNow: payNowAfterDiscount ?? priceData.first ?? 0,
-          totalStay:
-            totalAfterDiscount ??
-            (withJacuzzi ? priceData.grandTotal : priceData.total) ??
-            0,
+          totalStay: totalAfterDiscount ?? priceData.grandTotal ?? 0,
           // payAtArrival se calcula en backend: totalStay - payNow
         },
 
@@ -1389,11 +1381,7 @@ export default function CheckoutDetailsClient() {
                         ? formatCurrency(totalAfterDiscount)
                         : priceData
                           ? // fallback if for some reason we don't have totalAfterDiscount
-                          formatCurrency(
-                            withJacuzzi
-                              ? priceData.grandTotal
-                              : priceData.total
-                          )
+                          formatCurrency(priceData.grandTotal)
                           : "—"}
                 </span>
               </div>

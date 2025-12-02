@@ -133,6 +133,7 @@ export async function POST(
       quantity,
       currency: "EUR",
       buyerEmail,
+      locale: locale || "lt", // Save locale for email fallback
       createdAt: nowInLithuania(),
       montonioOrderUuid: montonioUuid,
       montonioResponse: response.data || null,

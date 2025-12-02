@@ -43,6 +43,7 @@ export async function POST(
       quantity,
       currency: "EUR",
       buyerEmail: buyerEmail || null,
+      locale: locale || "lt", // Save locale for email fallback
       createdAt: now,
     });
 

@@ -595,6 +595,7 @@ export async function POST(req: Request) {
             const unitAmount =
               Number(metadataCandidate?.unitAmount || payload?.amount || 0) ||
               0;
+            const locale = metadataCandidate?.locale || "lt";
             tx.set(orderRef, {
               status: "processing",
               unitAmount,
@@ -605,6 +606,7 @@ export async function POST(req: Request) {
                 payload?.currency ||
                 "EUR"
               ).toUpperCase(),
+              locale,
               createdAt: nowInLithuania(),
               montonioOrderUuid: paymentUuid,
               buyerEmail: buyerEmail || null,
@@ -612,6 +614,7 @@ export async function POST(req: Request) {
             return {
               quantity,
               unitAmount,
+              locale,
               alreadyCompleted: false,
               buyerEmail: buyerEmail || null,
             };
@@ -621,6 +624,7 @@ export async function POST(req: Request) {
               return {
                 quantity: Number(data.quantity || 1),
                 unitAmount: Number(data.unitAmount || 0),
+                locale: data.locale || "lt",
                 alreadyCompleted: true,
                 buyerEmail: data.buyerEmail || null,
               };
@@ -634,6 +638,7 @@ export async function POST(req: Request) {
               0;
             // Preferir el buyerEmail ya almacenado en el doc si existe, si no usar el que venía en payload/metadata
             const effectiveBuyerEmail = data.buyerEmail || buyerEmail || null;
+            const locale = data.locale || metadataCandidate?.locale || "lt";
             tx.update(orderRef, {
               status: "processing",
               montonioOrderUuid: paymentUuid,
@@ -644,6 +649,7 @@ export async function POST(req: Request) {
             return {
               quantity,
               unitAmount,
+              locale,
               alreadyCompleted: false,
               buyerEmail: effectiveBuyerEmail,
             };
@@ -722,8 +728,8 @@ export async function POST(req: Request) {
 
         await batch.commit();
 
-        // Extract locale from metadata (defaults to 'lt')
-        const couponLocale = metadataCandidate?.locale || "lt";
+        // Extract locale from result (fallback to metadata, then 'lt')
+        const couponLocale = result.locale || metadataCandidate?.locale || "lt";
 
         // send email with codes (if buyerEmail present)
         if (buyerEmailFinal) {

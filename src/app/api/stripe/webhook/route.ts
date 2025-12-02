@@ -256,24 +256,27 @@ export async function POST(req: Request) {
             const quantity =
               parseInt(String(session.metadata?.quantity || "1"), 10) || 1;
             const unitAmount = Number(session.metadata?.unitAmount || 0) || 0;
+            const locale = session.metadata?.locale || "lt";
             tx.set(orderRef, {
               status: "processing",
               unitAmount,
               unitAmountCents: Math.round(unitAmount * 100),
               quantity,
               currency: "EUR",
+              locale,
               createdAt: nowInLithuania(),
               stripeSessionId: session.id,
               stripePaymentIntentId: paymentIntentId || null,
               buyerEmail: buyerEmail || null,
             });
-            return { quantity, unitAmount, alreadyCompleted: false };
+            return { quantity, unitAmount, locale, alreadyCompleted: false };
           } else {
             const data: any = snap.data();
             if (data.status === "completed") {
               return {
                 quantity: Number(data.quantity || 1),
                 unitAmount: Number(data.unitAmount || 0),
+                locale: data.locale || "lt",
                 alreadyCompleted: true,
               };
             }
@@ -283,6 +286,7 @@ export async function POST(req: Request) {
             const unitAmount = Number.isFinite(Number(data.unitAmount))
               ? Number(data.unitAmount)
               : Number(session.metadata?.unitAmount || 0) || 0;
+            const locale = data.locale || session.metadata?.locale || "lt";
 
             tx.update(orderRef, {
               status: "processing",
@@ -293,7 +297,7 @@ export async function POST(req: Request) {
               quantity,
             });
 
-            return { quantity, unitAmount, alreadyCompleted: false };
+            return { quantity, unitAmount, locale, alreadyCompleted: false };
           }
         });
 
@@ -307,7 +311,7 @@ export async function POST(req: Request) {
         );
         const quantity = result.quantity;
         const unitAmount = result.unitAmount;
-        const couponLocale = session.metadata?.locale || "lt";
+        const couponLocale = result.locale || session.metadata?.locale || "lt";
 
         const batch = db.batch();
         const createdCodes: Array<{ code: string; remaining: number }> = [];

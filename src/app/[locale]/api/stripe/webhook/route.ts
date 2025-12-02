@@ -510,8 +510,12 @@ export async function POST(req: Request) {
       const totalStay = discountedGrandTotal; // Grand total (con descuento)
       const payAtArrival = Math.max(0, totalStay - payNow);
 
-      // ✅ CALCULAR amountPaid (lo que el cliente pagó con tarjeta)
-      const amountPaid = payNow;
+      // ✅ CALCULAR amountPaid (MISMA LÓGICA QUE ADMIN/BLOCK)
+      // REGLA: Si cupón < primera noche → Paid = primera noche (porque ya se pagó)
+      //        Si cupón ≥ primera noche → Paid = cupón aplicado
+      const amountPaid = amountApplied > 0
+        ? (amountApplied >= firstNightBase ? amountApplied : firstNightBase)
+        : firstNightBase;
       const isPaidInFull = amountPaid >= grandTotalBase;
 
       // ✅ Crear/mergear reserva con campos simplificados

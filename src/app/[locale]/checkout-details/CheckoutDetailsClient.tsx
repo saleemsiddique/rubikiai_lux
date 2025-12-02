@@ -578,9 +578,8 @@ export default function CheckoutDetailsClient() {
     const firstNightBefore = priceData.first ?? 0;
     const totalBeforeNoJacuzzi = priceData.total ?? 0;
     const totalBeforeWithJacuzzi = priceData.grandTotal ?? 0;
-    const totalBefore = withJacuzzi
-      ? totalBeforeWithJacuzzi
-      : totalBeforeNoJacuzzi;
+    // ALWAYS use grandTotal because it already includes/excludes jacuzzi based on API request
+    const totalBefore = priceData.grandTotal ?? 0;
 
     if (!couponsAllowed) {
       setDiscountError(

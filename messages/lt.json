@@ -540,7 +540,7 @@
     "percentDiscountAppliedMessage": "{percent}% nuolaida buvo pritaikyta rezervacijos mokesčiui.",
     "couponAppliedMessage": "Kuponas buvo pritaikytas ({code}).",
     "youPayNow": "Mokate dabar {amount}.",
-    "restSettledAtArrival": "Likusi suma (ir džakuzio mokestis, jei pasirinkta) bus apmokėta atvykus.",
+    "restSettledAtArrival": "Likusi suma (ir jacuzzi mokestis, jei pasirinkta) bus apmokėta atvykus.",
     "continueToCheckout": "Tęsti mokėjimą",
     "fillYourDetails": "Užpildykite savo duomenis",
     "payByCard": "Mokėti kortele, AP, GP arba Paypal",

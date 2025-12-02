@@ -89,9 +89,9 @@ const STATUSES = ["reserved", "admin", "complete", "canceled"] as const;
 const CALENDAR_STATUSES = new Set(["reserved", "admin", "complete"]);
 
 const HOUSE_OPTIONS = [
-    { id: "L0TeFf2LmrWGAaAyS8NY", alias: "Ezero namelis" },
-    { id: "PZwbfMYlSXj61uYYJutg", alias: "Salia Elnić Aptvaro" },
-    { id: "oDzv9346CdaAsok162sX", alias: "Elnić Panorama" },
+    { id: "L0TeFf2LmrWGAaAyS8NY", alias: "Ežero Namelis" },
+    { id: "PZwbfMYlSXj61uYYJutg", alias: "Šalia Elnių Aptvaro" },
+    { id: "oDzv9346CdaAsok162sX", alias: "Elnių Panorama" },
     { id: "PZwbfMYlSXj61uYYJutg__oDzv9346CdaAsok162sX", alias: "Ambos Dupleksas (Dual)" },
 ];
 
@@ -99,7 +99,7 @@ const HOUSE_OPTIONS = [
 const DUPLEKSA_IDS = ["PZwbfMYlSXj61uYYJutg", "oDzv9346CdaAsok162sX"];
 
 const PROPERTY_NAME_MAP: Record<string, string> = {
-    "L0TeFf2LmrWGAaAyS8NY": "Ezero Namelis",
+    "L0TeFf2LmrWGAaAyS8NY": "Ežero Namelis",
     "PZwbfMYlSXj61uYYJutg": "N1",
     "oDzv9346CdaAsok162sX": "N2",
     "PZwbfMYlSXj61uYYJutg__oDzv9346CdaAsok162sX" : "N1 + N2"

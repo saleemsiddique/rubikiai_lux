@@ -29,14 +29,14 @@ const DuplexSelectionPage: React.FC = () => {
           <div className="bg-[var(--color-secondary)] p-4 md:p-6 text-center">
             <div className="w-12 h-1 bg-[var(--color-primary)] mb-3 mx-auto"></div>
             <h2 className="text-xl md:text-2xl font-bold text-white group-hover:text-[var(--color-primary)] transition-colors font-header">
-              Nr.1 - Šalia Elnių Aptvaro
+              {t('apartment1')}
             </h2>
           </div>
 
           <div className="relative block">
             <Image
               src="/dupleksas/1-dupleksas6.jpeg"
-              alt="Nr.1 - Šalia Elnių Aptvaro"
+              alt={t('apartment1')}
               width={800}
               height={600}
               className="w-full h-auto block transition-transform duration-500 group-hover:scale-102"
@@ -52,7 +52,7 @@ const DuplexSelectionPage: React.FC = () => {
           <div className="bg-[var(--color-secondary)] p-4 md:p-6 text-center">
             <div className="w-12 h-1 bg-[var(--color-primary)] mb-3 mx-auto"></div>
             <h2 className="text-xl md:text-2xl font-bold text-white group-hover:text-[var(--color-primary)] transition-colors font-header">
-              Nr.2 - Elnių Panorama
+              {t('apartment2')}
             </h2>
           </div>
 
@@ -60,7 +60,7 @@ const DuplexSelectionPage: React.FC = () => {
             {/* Mobile image */}
             <Image
               src="/dupleksas/2-dupleksas9.jpeg"
-              alt="Nr.2 - Elnių Panorama"
+              alt={t('apartment2')}
               width={800}
               height={600}
               className="w-full h-auto transition-transform duration-500 group-hover:scale-102 md:hidden"
@@ -68,7 +68,7 @@ const DuplexSelectionPage: React.FC = () => {
             {/* Desktop image */}
             <Image
               src="/dupleksas/2-dupleksas9.jpeg"
-              alt="Nr.2 - Elnių Panorama"
+              alt={t('apartment2')}
               width={800}
               height={600}
               className="w-full h-auto transition-transform duration-500 group-hover:scale-102 hidden md:block"

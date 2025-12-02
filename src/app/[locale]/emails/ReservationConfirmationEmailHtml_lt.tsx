@@ -24,9 +24,9 @@ export function ReservationConfirmationEmailHtml_lt(params: ReservationConfirmat
 
   // Mapping de IDs a nombres legibles
   const PROPERTY_NAME_MAP: Record<string, string> = {
-    "L0TeFf2LmrWGAaAyS8NY": "Ezero Namelis",
-    "PZwbfMYlSXj61uYYJutg": "Salia Elnių Aptvaro",
-    "oDzv9346CdaAsok162sX": "Salia Elnių Panorama",
+    "L0TeFf2LmrWGAaAyS8NY": "Ežero Namelis",
+    "PZwbfMYlSXj61uYYJutg": "Šalia Elnių Aptvaro",
+    "oDzv9346CdaAsok162sX": "Elnių Panorama",
   };
 
   const readableRoomType = PROPERTY_NAME_MAP[roomType] || roomType;

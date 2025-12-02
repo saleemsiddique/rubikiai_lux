@@ -23,9 +23,9 @@ export function ReservationConfirmationEmailHtml_ru(params: ReservationConfirmat
   } = params;
 
   const PROPERTY_NAME_MAP: Record<string, string> = {
-    "L0TeFf2LmrWGAaAyS8NY": "Ezero Namelis",
-    "PZwbfMYlSXj61uYYJutg": "Salia Elnių Aptvaro",
-    "oDzv9346CdaAsok162sX": "Salia Elnių Panorama",
+    "L0TeFf2LmrWGAaAyS8NY": "Домик у Озера",
+    "PZwbfMYlSXj61uYYJutg": "Рядом с оленьим загоном",
+    "oDzv9346CdaAsok162sX": "Панорама оленей",
   };
 
   const readableRoomType = PROPERTY_NAME_MAP[roomType] || roomType;

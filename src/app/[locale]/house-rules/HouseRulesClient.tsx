@@ -9,15 +9,37 @@ interface Props {
   introText: string;
   ezeroText: string;
   dupleksText: string;
+  ezeroNamelisTab: string;
+  dupleksasTab: string;
+  generalRules: string;
+  generalRulesSubtitle: string;
+  jacuzziRules: string;
+  jacuzziRulesSubtitle: string;
+  importantInfo: string;
+  warningTitle: string;
+  warningText: string;
 }
 
-export default function HouseRulesClient({ introText, ezeroText, dupleksText }: Props) {
+export default function HouseRulesClient({
+  introText,
+  ezeroText,
+  dupleksText,
+  ezeroNamelisTab,
+  dupleksasTab,
+  generalRules,
+  generalRulesSubtitle,
+  jacuzziRules,
+  jacuzziRulesSubtitle,
+  importantInfo,
+  warningTitle,
+  warningText,
+}: Props) {
   const [tab, setTab] = useState<Tab>("ezero");
 
   const renderRules = (text: string) => {
     const sections = text.split("---JACUZZI---");
-    const generalRules = sections[0].trim().split("\n\n");
-    const jacuzziRules = sections[1]?.trim().split("\n\n") || [];
+    const generalRulesList = sections[0].trim().split("\n\n");
+    const jacuzziRulesList = sections[1]?.trim().split("\n\n") || [];
 
     return (
       <div className="space-y-12">
@@ -25,13 +47,13 @@ export default function HouseRulesClient({ introText, ezeroText, dupleksText }: 
         <div>
           <div className="mb-8 pb-4 border-b-2 border-[var(--color-primary)]">
             <h3 className="text-2xl  text-[var(--color-primary-dark)]">
-              Bendrosios Taisyklės
+              {generalRules}
             </h3>
-            <p className="text-sm text-neutral-500 mt-1">General House Rules</p>
+            <p className="text-sm text-neutral-500 mt-1">{generalRulesSubtitle}</p>
           </div>
-          
+
           <div className="space-y-6">
-            {generalRules.map((rule, i) => (
+            {generalRulesList.map((rule, i) => (
               <div key={i} className="flex gap-5 items-start group">
                 <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center">
                   <span className="text-lg font-bold text-[var(--color-primary)]">
@@ -45,17 +67,17 @@ export default function HouseRulesClient({ introText, ezeroText, dupleksText }: 
         </div>
 
         {/* Reglas Jacuzzi */}
-        {jacuzziRules.length > 0 && (
+        {jacuzziRulesList.length > 0 && (
           <div>
             <div className="mb-8 pb-4 border-b-2 border-[var(--color-secondary)]">
               <h3 className="text-2xl  text-[var(--color-primary-dark)]">
-                Jacuzzi Taisyklės
+                {jacuzziRules}
               </h3>
-              <p className="text-sm text-neutral-500 mt-1">Jacuzzi Usage Rules</p>
+              <p className="text-sm text-neutral-500 mt-1">{jacuzziRulesSubtitle}</p>
             </div>
-            
+
             <div className="space-y-6">
-              {jacuzziRules.map((rule, i) => (
+              {jacuzziRulesList.map((rule, i) => (
                 <div key={i} className="flex gap-5 items-start group">
                   <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center">
                     <span className="text-lg font-bold text-[var(--color-secondary)]">
@@ -87,7 +109,7 @@ export default function HouseRulesClient({ introText, ezeroText, dupleksText }: 
                 : "bg-transparent text-white/80 font-semibold hover:text-white border-b-2 border-transparent hover:border-white/50"
             }`}
           >
-            Ežero Namelis
+            {ezeroNamelisTab}
           </button>
 
           <button
@@ -100,7 +122,7 @@ export default function HouseRulesClient({ introText, ezeroText, dupleksText }: 
                 : "bg-transparent text-white/80 font-semibold hover:text-white border-b-2 border-transparent hover:border-white/50"
             }`}
           >
-            Dupleksas
+            {dupleksasTab}
           </button>
         </div>
       </div>
@@ -109,7 +131,7 @@ export default function HouseRulesClient({ introText, ezeroText, dupleksText }: 
       <div className="px-8 md:px-12 pt-10">
         <div className="border border-[var(--color-primary)]/30 bg-[var(--color-background-main)] rounded-xl p-8">
           <h3 className="text-lg  font-bold text-[var(--color-primary-dark)] mb-4 tracking-wide">
-            Svarbi Informacija
+            {importantInfo}
           </h3>
           <p className="text-neutral-700 leading-relaxed text-[15px]">
             {introText}
@@ -120,14 +142,14 @@ export default function HouseRulesClient({ introText, ezeroText, dupleksText }: 
       {/* Content */}
       <div className="px-8 md:px-12 py-12">
         {tab === "ezero" ? renderRules(ezeroText) : renderRules(dupleksText)}
-        
+
         {/* Nota final */}
         <div className="mt-12 border-2 border-red-200 bg-red-50/50 rounded-xl p-8">
           <h3 className="text-lg  font-bold text-red-800 mb-4 tracking-wide">
-            Įspėjimas
+            {warningTitle}
           </h3>
           <p className="text-red-800/90 leading-relaxed text-[15px]">
-            Rubikiai LUX darbuotojai turi teisę iškeldinti iš apartamentų anksčiau nustatyto termino asmenis (be pinigų grąžinimo), kurie nesilaiko ir šiurkščiai pažeidžia vidaus tvarkos ir elgesio taisykles, taip pat reikalauti atlyginti padarytą žalą ir nuostolius pagal LR įstatymus.
+            {warningText}
           </p>
         </div>
       </div>

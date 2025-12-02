@@ -58,13 +58,13 @@ type CouponOrderRow = {
 
 // Opciones de casas
 const HOUSE_OPTIONS = [
-  { id: "L0TeFf2LmrWGAaAyS8NY", alias: "Ezero namelis" },
+  { id: "L0TeFf2LmrWGAaAyS8NY", alias: "Ežero Namelis" },
   { id: "PZwbfMYlSXj61uYYJutg", alias: "Šalia Elnių Aptvaro" },
   { id: "oDzv9346CdaAsok162sX", alias: "Elnių Panorama" },
 ];
 
 const PROPERTY_NAME_MAP: Record<string, string> = {
-  L0TeFf2LmrWGAaAyS8NY: "Ezero Namelis",
+  L0TeFf2LmrWGAaAyS8NY: "Ežero Namelis",
   PZwbfMYlSXj61uYYJutg: "N1",
   oDzv9346CdaAsok162sX: "N2",
   PZwbfMYlSXj61uYYJutg__oDzv9346CdaAsok162sX: "N1 + N2",

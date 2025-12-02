@@ -58,7 +58,7 @@ export default async function Page({
     <Suspense fallback={<HousePageFallback />}>
       <HousePage
         heroSrc="/dupleksas/2-dupleksas8.jpeg"
-        title="Nr.2 – Elnių Panorama"
+        title={t('apartment2')}
         subtitle={t('subtitle')}
         accommodates={ACCOMMODATES}
         size={t('size')}

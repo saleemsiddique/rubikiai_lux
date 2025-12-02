@@ -108,7 +108,7 @@ export default function HomePage() {
               minHeight: '100%',
             }}
           >
-            <source src="/home/video-reno.mp4" type="video/mp4" />
+            <source src="/home/rubikiailux-inicio.mp4" type="video/mp4" />
           </video>
         </div>
 

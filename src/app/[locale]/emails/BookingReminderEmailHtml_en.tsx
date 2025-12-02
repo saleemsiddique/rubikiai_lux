@@ -2,9 +2,9 @@ import { BookingReminderParams } from '@/lib/emailTemplates';
 import dayjs from "dayjs";
 
 const PROPERTY_NAME_MAP: Record<string, string> = {
-  "L0TeFf2LmrWGAaAyS8NY": "Ezero Namelis",
-  "PZwbfMYlSXj61uYYJutg": "Salia-Elniu-Aptvaro",
-  "oDzv9346CdaAsok162sX": "Salia-Elniu-Panorama",
+  "L0TeFf2LmrWGAaAyS8NY": "Lake House",
+  "PZwbfMYlSXj61uYYJutg": "Near Deer Enclosure",
+  "oDzv9346CdaAsok162sX": "Deer Panorama",
 };
 
 export function BookingReminderEmailHtml_en(params: BookingReminderParams): string {

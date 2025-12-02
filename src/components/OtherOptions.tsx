@@ -17,17 +17,17 @@ const OtherOptions: React.FC = () => {
 
   const otherProperties = [
     {
-      name: 'N°1 Šalia Elnių Aptvaro',
+      name: tHouses('apartment1'),
       path: '/dupleksas/salia-elniu-aptvaro',
       image: '/dupleksas/1-dupleksas10.jpeg',
     },
     {
-      name: 'N°2 Elnių Panorama',
+      name: tHouses('apartment2'),
       path: '/dupleksas/salia-elniu-panorama',
       image: '/dupleksas/2-dupleksas8.jpeg',
     },
     {
-      name: 'EŽERO NAMELIS',
+      name: tLake('title'),
       path: '/ezero-namelis',
       image: '/ezero-namelis/ezero-namelis (19).jpg',
     },

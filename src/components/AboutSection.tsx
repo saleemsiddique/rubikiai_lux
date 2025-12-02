@@ -132,7 +132,7 @@ const AboutSection: React.FC = () => {
                 {/* Background Image */}
                 <img
                   src="/ezero-namelis/ezero-namelis (14).jpeg"
-                  alt="Ežero Namelis"
+                  alt={t('ezeroNamelis')}
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                 />
 

@@ -259,6 +259,8 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
   const [selectedDepartureDates, setSelectedDepartureDates] = useState<Record<string, Date | null>>({});
   const [occupiedArrivalByHouse, setOccupiedArrivalByHouse] = useState<Record<string, string[]>>({});
   const [occupiedDepartureByHouse, setOccupiedDepartureByHouse] = useState<Record<string, string[]>>({});
+  const resultsRef = useRef<HTMLDivElement>(null);
+
 
   // Update isMobile on resize (client-only)
   useEffect(() => {
@@ -496,6 +498,8 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
     router.push(`${house.type === "dupleksas" ? `/dupleksas/${slug}` : `/${slug}`}?${q}`);
   };
 
+  // En la función searchHouses, reemplaza el setTimeout del scroll por esto:
+
   const searchHouses = async (sDateParam?: Date, eDateParam?: Date, guestsParam?: number, propertyTypeParam?: string) => {
     const sDate = sDateParam ?? startDate;
     const eDate = eDateParam ?? endDate;
@@ -550,6 +554,39 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
       setOccupiedDatesByHouse((prev) => ({ ...prev, ...occupiedMap }));
 
       recomputeHousesAvailability(sDate, eDate, results, { ...occupiedDatesByHouse, ...occupiedMap });
+
+      // 🔹 Scroll suave SOLO en móvil con animación más lenta y fluida
+      setTimeout(() => {
+        if (window.innerWidth < 768 && resultsRef.current) {
+          const targetPosition = resultsRef.current.getBoundingClientRect().top + window.pageYOffset - 80;
+          const startPosition = window.pageYOffset;
+          const distance = targetPosition - startPosition;
+          const duration = 1200; // 1.2 segundos (más lento y suave)
+          let start: number | null = null;
+
+          const easeInOutCubic = (t: number): number => {
+            return t < 0.5
+              ? 4 * t * t * t
+              : 1 - Math.pow(-2 * t + 2, 3) / 2;
+          };
+
+          const animation = (currentTime: number) => {
+            if (start === null) start = currentTime;
+            const timeElapsed = currentTime - start;
+            const progress = Math.min(timeElapsed / duration, 1);
+            const ease = easeInOutCubic(progress);
+
+            window.scrollTo(0, startPosition + distance * ease);
+
+            if (timeElapsed < duration) {
+              requestAnimationFrame(animation);
+            }
+          };
+
+          requestAnimationFrame(animation);
+        }
+      }, 200);
+
     } catch (err) {
       console.error("searchHouses error:", err);
       setHouses([]);
@@ -2113,7 +2150,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
         </button>
       </div>
 
-      <div className="mt-3 space-y-5">
+      <div ref={resultsRef} className="mt-3 space-y-5">
         {showResults && houses.length === 0 && (
           <div className="text-center text-gray-600">{t('noResults')}</div>
         )}

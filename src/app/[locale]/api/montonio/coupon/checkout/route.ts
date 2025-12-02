@@ -50,7 +50,7 @@ export async function POST(
       notificationUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/montonio/webhook`,
       currency: "EUR",
       grandTotal: parseFloat(grandTotal.toFixed(2)),
-      locale: "lt",
+      locale: locale || "lt", // Use user's locale for Montonio UI
       billingAddress: {
         firstName: buyerEmail.split("@")[0] || "Coupon",
         lastName: "Buyer",

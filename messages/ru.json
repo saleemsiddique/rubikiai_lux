@@ -587,7 +587,27 @@
     "couldNotVerifyReservation": "Не удалось проверить статус бронирования",
     "confirmationTakingLonger": "Подтверждение занимает больше времени, чем ожидалось",
     "errorVerifyingReservation": "Ошибка при проверке статуса бронирования",
-    "errorValidatingPayment": "Ошибка при проверке платежа"
+    "errorValidatingPayment": "Ошибка при проверке платежа",
+    "montonioReturn": {
+      "title": "Возврат с банковской оплаты",
+      "order": "Заказ:",
+      "tokenDetected": "В URL обнаружен order-token.",
+      "tokenStatus": "Статус использования токена:",
+      "checkingPaymentStatus": "Проверка статуса платежа… (попытка {tries})",
+      "paymentCompleted": "✓ Платеж завершен",
+      "thankYouRedirecting": "Спасибо — перенаправляем на квитанцию.",
+      "paymentProcessing": "⏳ Обработка платежа",
+      "awaitingConfirmation": "Ожидание подтверждения. Если вы не получите сертификат в течение 1 минуты, свяжитесь с поддержкой.",
+      "paymentPending": "⏱️ Платеж ожидает обработки",
+      "notifyByEmail": "Платеж ожидает обработки. Мы уведомим вас по электронной почте, когда он будет подтвержден.",
+      "paymentCanceled": "✕ Платеж отменен",
+      "paymentNotCompleted": "Платеж не был завершен. Если вы создали заказ по ошибке, проверьте свою панель управления или свяжитесь с поддержкой.",
+      "orderNotFound": "✕ Заказ не найден",
+      "orderNotFoundMessage": "Заказ не найден. Свяжитесь с поддержкой, указав ID заказа, если он у вас есть.",
+      "checkingStatus": "Проверка статуса…",
+      "backToPurchase": "← Вернуться к покупке",
+      "pending": "ожидание"
+    }
   },
   "admin": {
     "common": {

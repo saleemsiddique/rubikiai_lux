@@ -29,6 +29,9 @@ export async function POST(
 
     const unitAmountCents = Math.round(unitAmount * 100);
 
+    // Map locale to Stripe-supported locale (Stripe accepts: en, lt, ru among others)
+    const stripeLocale = ["en", "lt", "ru"].includes(locale) ? locale : "en";
+
     // Creamos orden 'pending'
     const orderRef = adminDb.collection("coupon_orders").doc();
     const now = nowInLithuania();
@@ -47,7 +50,7 @@ export async function POST(
       mode: "payment",
       customer_creation: "always",
       payment_method_types: ["card", "paypal"],
-      locale: locale, // Stripe UI locale
+      locale: stripeLocale, // Stripe UI locale (validated)
       line_items: [
         {
           price_data: {
@@ -66,7 +69,7 @@ export async function POST(
         orderId: orderRef.id,
         unitAmount: String(unitAmount),
         quantity: String(quantity),
-        locale: locale || "lt",
+        locale: locale || "lt", // Keep original locale for email sending
       },
       success_url: `${process.env.NEXT_PUBLIC_APP_URL}/${locale}/api/coupons/checkout-complete?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/${locale}/coupons/cancel?orderId=${orderRef.id}`,

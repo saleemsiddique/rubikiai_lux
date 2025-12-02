@@ -487,7 +487,27 @@
     "couldNotVerifyReservation": "Could not verify the reservation status",
     "confirmationTakingLonger": "The confirmation is taking longer than expected",
     "errorVerifyingReservation": "Error verifying the reservation status",
-    "errorValidatingPayment": "Error validating payment"
+    "errorValidatingPayment": "Error validating payment",
+    "montonioReturn": {
+      "title": "Returning from bank payment",
+      "order": "Order:",
+      "tokenDetected": "order-token detected in URL.",
+      "tokenStatus": "Token consumption status:",
+      "checkingPaymentStatus": "Checking payment status… (attempt {tries})",
+      "paymentCompleted": "✓ Payment completed",
+      "thankYouRedirecting": "Thank you — redirecting to receipt.",
+      "paymentProcessing": "⏳ Payment processing",
+      "awaitingConfirmation": "Awaiting confirmation. If you don't receive your coupon within 1 minute, contact support.",
+      "paymentPending": "⏱️ Payment pending",
+      "notifyByEmail": "Payment is pending. We will notify you by email when confirmed.",
+      "paymentCanceled": "✕ Payment canceled",
+      "paymentNotCompleted": "Payment was not completed. If you created an order by mistake, check your dashboard or contact support.",
+      "orderNotFound": "✕ Order not found",
+      "orderNotFoundMessage": "Order was not found. Contact support with your order ID if you have it.",
+      "checkingStatus": "Checking status…",
+      "backToPurchase": "← Back to purchase",
+      "pending": "pending"
+    }
   },
   "admin": {
     "common": {

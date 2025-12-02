@@ -613,7 +613,27 @@
     "couldNotVerifyReservation": "Nepavyko patikrinti rezervacijos būsenos",
     "confirmationTakingLonger": "Patvirtinimas užtrunka ilgiau nei tikėtasi",
     "errorVerifyingReservation": "Klaida tikrinant rezervacijos būseną",
-    "errorValidatingPayment": "Klaida tikrinant mokėjimą"
+    "errorValidatingPayment": "Klaida tikrinant mokėjimą",
+    "montonioReturn": {
+      "title": "Grįžtama iš banko mokėjimo",
+      "order": "Užsakymas:",
+      "tokenDetected": "URL aptiktas order-token.",
+      "tokenStatus": "Token sunaudojimo būsena:",
+      "checkingPaymentStatus": "Tikrinama mokėjimo būsena… (bandymas {tries})",
+      "paymentCompleted": "✓ Mokėjimas baigtas",
+      "thankYouRedirecting": "Ačiū — peradresuojame į kvitą.",
+      "paymentProcessing": "⏳ Mokėjimas apdorojamas",
+      "awaitingConfirmation": "Laukiama patvirtinimo. Jei per 1 minutę negaunate kupono, susisiekite su palaikymu.",
+      "paymentPending": "⏱️ Mokėjimas laukiantis",
+      "notifyByEmail": "Mokėjimas laukiantis. Informuosime el. paštu, kai bus patvirtintas.",
+      "paymentCanceled": "✕ Mokėjimas atšauktas",
+      "paymentNotCompleted": "Mokėjimas nebuvo baigtas. Jei sukūrėte užsakymą per klaidą, patikrinkite savo skydelį arba susisiekite su palaikymu.",
+      "orderNotFound": "✕ Užsakymas nerastas",
+      "orderNotFoundMessage": "Užsakymas nerastas. Susisiekite su palaikymu nurodydami užsakymo ID, jei jį turite.",
+      "checkingStatus": "Tikrinama būsena…",
+      "backToPurchase": "← Grįžti į pirkimą",
+      "pending": "laukiantis"
+    }
   },
   "admin": {
     "common": {

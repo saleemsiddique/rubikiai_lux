@@ -2,11 +2,12 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useLocale } from 'next-intl';
-import { Link } from "lucide-react";
+import { useLocale, useTranslations } from 'next-intl';
+import Link from "next/link";
 
 export default function ReturnClient() {
   const locale = useLocale();
+  const t = useTranslations('paymentPages.montonioReturn');
   const search = useSearchParams();
   const router = useRouter();
   const orderId = search?.get("orderId") ?? null;
@@ -109,19 +110,19 @@ export default function ReturnClient() {
   return (
     <div className="min-h-screen flex items-center justify-center p-4" style={{ background: '#f4efe9' }}>
       <div className="p-8 max-w-2xl w-full bg-white rounded-xl shadow-xl">
-        <h2 className="text-2xl font-bold mb-4 text-gray-800">Volviendo del pago por banco</h2>
+        <h2 className="text-2xl font-bold mb-4 text-gray-800">{t('title')}</h2>
 
         <p className="mb-4 text-gray-600">
-          Orden: <span className="font-mono font-semibold text-gray-800">{orderId ?? "—"}</span>
+          {t('order')} <span className="font-mono font-semibold text-gray-800">{orderId ?? "—"}</span>
         </p>
 
         {orderToken && (
           <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
             <div className="text-sm text-blue-800">
-              Se detectó <span className="font-mono font-semibold">order-token</span> en la URL.
+              {t('tokenDetected')}
             </div>
             <div className="text-xs text-blue-600 mt-1">
-              Estado consumo token: <span className="font-semibold">{consumeResult ?? "pendiente"}</span>
+              {t('tokenStatus')} <span className="font-semibold">{consumeResult ?? t('pending')}</span>
             </div>
           </div>
         )}
@@ -129,65 +130,65 @@ export default function ReturnClient() {
         {loading && (
           <div className="flex items-center gap-3 text-gray-600 mb-4">
             <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-600"></div>
-            <p className="text-sm">Comprobando el estado del pago… (intento {tries})</p>
+            <p className="text-sm">{t('checkingPaymentStatus', { tries })}</p>
           </div>
         )}
 
         {status === "completed" && (
           <div className="p-4 bg-emerald-50 rounded-lg border border-emerald-200">
-            <h3 className="font-semibold text-emerald-800">✓ Pago completado</h3>
+            <h3 className="font-semibold text-emerald-800">{t('paymentCompleted')}</h3>
             <p className="text-emerald-700 text-sm mt-1">
-              Gracias — te redirigimos al comprobante.
+              {t('thankYouRedirecting')}
             </p>
           </div>
         )}
 
         {status === "processing" && (
           <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-            <h3 className="font-semibold text-yellow-800">⏳ Pago en proceso</h3>
+            <h3 className="font-semibold text-yellow-800">{t('paymentProcessing')}</h3>
             <p className="text-yellow-700 text-sm mt-1">
-              Esperando confirmación. Si no recibes el cupón en 1 minuto, contacta con soporte.
+              {t('awaitingConfirmation')}
             </p>
           </div>
         )}
 
         {status === "pending" && (
           <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <h3 className="font-semibold text-blue-800">⏱️ Pago pendiente</h3>
+            <h3 className="font-semibold text-blue-800">{t('paymentPending')}</h3>
             <p className="text-blue-700 text-sm mt-1">
-              El pago está pendiente. Te notificaremos por correo cuando se confirme.
+              {t('notifyByEmail')}
             </p>
           </div>
         )}
 
         {status === "canceled" && (
           <div className="p-4 bg-rose-50 rounded-lg border border-rose-200">
-            <h3 className="font-semibold text-rose-800">✕ Pago cancelado</h3>
+            <h3 className="font-semibold text-rose-800">{t('paymentCanceled')}</h3>
             <p className="text-rose-700 text-sm mt-1">
-              No se ha completado el pago. Si creaste una orden por error, revisa en tu panel o contacta con soporte.
+              {t('paymentNotCompleted')}
             </p>
           </div>
         )}
 
         {status === "not_found" && (
           <div className="p-4 bg-rose-50 rounded-lg border border-rose-200">
-            <h3 className="font-semibold text-rose-800">✕ Orden no encontrada</h3>
+            <h3 className="font-semibold text-rose-800">{t('orderNotFound')}</h3>
             <p className="text-rose-700 text-sm mt-1">
-              No se ha encontrado la orden. Contacta con soporte indicando el identificador si lo tienes.
+              {t('orderNotFoundMessage')}
             </p>
           </div>
         )}
 
         {!status && !loading && (
-          <p className="text-gray-600">Comprobando estado…</p>
+          <p className="text-gray-600">{t('checkingStatus')}</p>
         )}
 
         <div className="mt-6 pt-6 border-t">
           <Link
-            href="/coupons"
+            href={`/${locale}/coupons`}
             className="text-blue-600 hover:text-blue-800 underline font-medium"
           >
-            ← Volver a compra
+            {t('backToPurchase')}
           </Link>
         </div>
       </div>

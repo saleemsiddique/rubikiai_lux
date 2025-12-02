@@ -102,6 +102,7 @@ const PROPERTY_NAME_MAP: Record<string, string> = {
     "L0TeFf2LmrWGAaAyS8NY": "Ezero Namelis",
     "PZwbfMYlSXj61uYYJutg": "N1",
     "oDzv9346CdaAsok162sX": "N2",
+    "PZwbfMYlSXj61uYYJutg__oDzv9346CdaAsok162sX" : "N1 + N2"
 };
 
 /* ---------- Date helpers (LOCAL) ---------- */

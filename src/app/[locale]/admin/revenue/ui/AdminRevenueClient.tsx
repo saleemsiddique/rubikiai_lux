@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import { formatLithuaniaTime, toLithuaniaISO } from "@/app/[locale]/utils/date";
-import { useTranslations } from 'next-intl';
+import { useTranslations } from "next-intl";
 
 type ReservationRow = {
   id: string;
@@ -64,9 +64,10 @@ const HOUSE_OPTIONS = [
 ];
 
 const PROPERTY_NAME_MAP: Record<string, string> = {
-  "L0TeFf2LmrWGAaAyS8NY": "Ezero Namelis",
-  "PZwbfMYlSXj61uYYJutg": "N1",
-  "oDzv9346CdaAsok162sX": "N2",
+  L0TeFf2LmrWGAaAyS8NY: "Ezero Namelis",
+  PZwbfMYlSXj61uYYJutg: "N1",
+  oDzv9346CdaAsok162sX: "N2",
+  PZwbfMYlSXj61uYYJutg__oDzv9346CdaAsok162sX: "N1 + N2",
 };
 
 function todayISO() {
@@ -97,7 +98,7 @@ async function readError(res: Response) {
 }
 
 export default function AdminRevenueClient() {
-  const t = useTranslations('admin');
+  const t = useTranslations("admin");
   const today = todayISO();
   const monthAgo = addDaysISO(today, -30);
 
@@ -132,7 +133,10 @@ export default function AdminRevenueClient() {
         p.set("status", resStatuses.join(","));
         if (houseId) p.set("houseId", houseId);
 
-        const resR = await fetch(`/api/admin/revenue/reservations?${p.toString()}`, { cache: "no-store" });
+        const resR = await fetch(
+          `/api/admin/revenue/reservations?${p.toString()}`,
+          { cache: "no-store" }
+        );
         if (!resR.ok) throw new Error(await readError(resR));
         const jr = await resR.json();
         const allResults: ReservationRow[] = jr.results || [];
@@ -156,11 +160,14 @@ export default function AdminRevenueClient() {
           if (!ci && !co) return false;
 
           // checkIn inside range
-          if (ci && startIso && endIso && ci >= startIso && ci <= endIso) return true;
+          if (ci && startIso && endIso && ci >= startIso && ci <= endIso)
+            return true;
           // checkOut inside range
-          if (co && startIso && endIso && co >= startIso && co <= endIso) return true;
+          if (co && startIso && endIso && co >= startIso && co <= endIso)
+            return true;
           // reservation encloses the whole interval (checkIn <= start && checkOut >= end)
-          if (ci && co && startIso && endIso && ci <= startIso && co >= endIso) return true;
+          if (ci && co && startIso && endIso && ci <= startIso && co >= endIso)
+            return true;
 
           return false;
         };
@@ -179,7 +186,10 @@ export default function AdminRevenueClient() {
         p2.set("by", "completedAt");
         p2.set("status", "completed");
 
-        const resC = await fetch(`/api/admin/revenue/coupon-orders?${p2.toString()}`, { cache: "no-store" });
+        const resC = await fetch(
+          `/api/admin/revenue/coupon-orders?${p2.toString()}`,
+          { cache: "no-store" }
+        );
         if (!resC.ok) throw new Error(await readError(resC));
         const jc = await resC.json();
         setOrders(jc.results || []);
@@ -215,10 +225,15 @@ export default function AdminRevenueClient() {
       totalContracted += totalFull;
 
       // Calcular lo que realmente se ha cobrado (MISMA LÓGICA QUE AdminBookingsClient)
-      const amountPaidValue = (r as any).amountPaid != null ? num((r as any).amountPaid) : null;
+      const amountPaidValue =
+        (r as any).amountPaid != null ? num((r as any).amountPaid) : null;
       const actuallyPaid = (r as any).paidInFull
         ? totalFull
-        : (amountPaidValue != null ? amountPaidValue : ((r as any).paidAt ? payNow : 0));
+        : amountPaidValue != null
+          ? amountPaidValue
+          : (r as any).paidAt
+            ? payNow
+            : 0;
 
       totalCollected += actuallyPaid;
       totalPending += Math.max(0, totalFull - actuallyPaid);
@@ -241,7 +256,8 @@ export default function AdminRevenueClient() {
   // Métrica combinada
   const combined = useMemo(() => {
     const collected = resMetrics.totalCollected + couponMetrics.couponsRevenue;
-    const contracted = resMetrics.totalContracted + couponMetrics.couponsRevenue;
+    const contracted =
+      resMetrics.totalContracted + couponMetrics.couponsRevenue;
     const pending = resMetrics.totalPending;
     return { collected, contracted, pending };
   }, [resMetrics, couponMetrics]);
@@ -253,29 +269,40 @@ export default function AdminRevenueClient() {
       const wb = XLSX.utils.book_new();
 
       // Sheet: Reservations
-      const resData = reservations.map((r) => ({
-        id: r.id,
-        status: r.status,
-        checkin: r.checkIn,
-        checkout: r.checkOut,
-        nights: r.nights,
-        guests: r.guests,
-        customer: r.customerEmail ?? r.email ?? "",
-        name: r.name ?? "",
-        phone: r.phone ?? "",
-        currency: r.currency,
-        totalNightsOnly: num(r.totalNightsOnly),
-        jacuzziFee: num(r.jacuzziFee),
-        totalFull: num((r as any).grandTotal ?? r.totalStay),
-        totalStay: num(r.totalStay),
-        payNow: num(r.payNow),
-        payAtArrival: num(r.payAtArrival),
-        amountPaid: num((r as any).amountPaid ?? 0),
-        stripeSessionId: r.stripeSessionId ?? "",
-        montonioOrderUuid: r.montonioOrderUuid ?? "",
-        paidAt: toLithuaniaISO(r.paidAtIso),
-        createdAt: toLithuaniaISO(r.createdAtIso),
-      }));
+      const resData = reservations.map((r) => {
+        const houseName =
+          r.houseIds && r.houseIds.length > 1
+            ? r.houseIds
+                .map((id: string) => PROPERTY_NAME_MAP[id] || id)
+                .join(" + ")
+            : PROPERTY_NAME_MAP[r.houseId || r.houseIds?.[0] || ""] ||
+              r.houseId ||
+              r.houseIds?.[0] ||
+              "—";
+
+        return {
+          id: r.id,
+          house: houseName,
+          status: r.status,
+          checkin: r.checkIn,
+          checkout: r.checkOut,
+          nights: r.nights,
+          guests: r.guests,
+          customer: r.customerEmail ?? r.email ?? "",
+          name: r.name ?? "",
+          phone: r.phone ?? "",
+          currency: r.currency,
+          totalNightsOnly: num(r.totalNightsOnly),
+          jacuzziFee: num(r.jacuzziFee),
+          totalFull: num((r as any).grandTotal ?? r.totalStay),
+          amountPaid: num((r as any).amountPaid ?? 0),
+          payAtArrival: num(r.payAtArrival),
+          stripeSessionId: r.stripeSessionId ?? "",
+          montonioOrderUuid: r.montonioOrderUuid ?? "",
+          paidAt: toLithuaniaISO(r.paidAtIso),
+          createdAt: toLithuaniaISO(r.createdAtIso),
+        };
+      });
       const wsRes = XLSX.utils.json_to_sheet(resData);
       XLSX.utils.book_append_sheet(wb, wsRes, "Reservations");
 
@@ -327,7 +354,9 @@ export default function AdminRevenueClient() {
       {/* Filtros */}
       <div className="bg-white border rounded-xl p-4 grid grid-cols-1 md:grid-cols-4 gap-3">
         <div className="flex flex-col">
-          <label className="text-xs text-neutral-600">{t('revenue.filters.from')}</label>
+          <label className="text-xs text-neutral-600">
+            {t("revenue.filters.from")}
+          </label>
           <input
             type="date"
             value={start}
@@ -336,7 +365,9 @@ export default function AdminRevenueClient() {
           />
         </div>
         <div className="flex flex-col">
-          <label className="text-xs text-neutral-600">{t('revenue.filters.to')}</label>
+          <label className="text-xs text-neutral-600">
+            {t("revenue.filters.to")}
+          </label>
           <input
             type="date"
             value={end}
@@ -345,13 +376,15 @@ export default function AdminRevenueClient() {
           />
         </div>
         <div className="flex flex-col">
-          <label className="text-xs text-neutral-600">{t('revenue.filters.house')}</label>
+          <label className="text-xs text-neutral-600">
+            {t("revenue.filters.house")}
+          </label>
           <select
             value={houseId}
             onChange={(e) => setHouseId(e.target.value)}
             className="mt-1 border rounded-md p-2"
           >
-            <option value="">{t('common.allHouses')}</option>
+            <option value="">{t("common.allHouses")}</option>
             {HOUSE_OPTIONS.map((h) => (
               <option key={h.id} value={h.id}>
                 {h.alias}
@@ -362,7 +395,9 @@ export default function AdminRevenueClient() {
 
         <div className="md:col-span-4 flex flex-col md:flex-row flex-wrap gap-2 items-center">
           <div className="flex flex-wrap items-center gap-2 text-sm">
-            <label className="text-xs text-neutral-600">{t('revenue.filters.reservationStates')}</label>
+            <label className="text-xs text-neutral-600">
+              {t("revenue.filters.reservationStates")}
+            </label>
 
             {["reserved", "complete", "admin", "canceled"].map((s) => {
               const checked = resStatuses.includes(s);
@@ -394,7 +429,7 @@ export default function AdminRevenueClient() {
               disabled={loading}
               className="w-full md:w-auto rounded-md bg-[var(--color-primary)] text-white px-4 py-2 text-sm font-semibold disabled:opacity-60"
             >
-              {loading ? t('common.loading') : t('common.search')}
+              {loading ? t("common.loading") : t("common.search")}
             </button>
 
             <button
@@ -404,7 +439,7 @@ export default function AdminRevenueClient() {
               }
               className="w-full md:w-auto rounded-md border px-3 py-2 text-sm hover:bg-neutral-50 disabled:opacity-60"
             >
-              {t('revenue.filters.exportExcel')}
+              {t("revenue.filters.exportExcel")}
             </button>
           </div>
         </div>
@@ -419,17 +454,18 @@ export default function AdminRevenueClient() {
       {/* Tabs */}
       <div className="mt-4 flex gap-2 overflow-x-auto">
         {[
-          { key: "all", label: t('revenue.tabs.all') },
-          { key: "reservations", label: t('revenue.tabs.reservations') },
-          { key: "coupons", label: t('revenue.tabs.coupons') },
+          { key: "all", label: t("revenue.tabs.all") },
+          { key: "reservations", label: t("revenue.tabs.reservations") },
+          { key: "coupons", label: t("revenue.tabs.coupons") },
         ].map((tabItem) => (
           <button
             key={tabItem.key}
             onClick={() => setTab(tabItem.key as any)}
-            className={`px-3 py-1 rounded-md border text-sm ${tab === tabItem.key
-              ? "bg-[var(--color-primary)] text-white"
-              : "bg-white hover:bg-neutral-50"
-              }`}
+            className={`px-3 py-1 rounded-md border text-sm ${
+              tab === tabItem.key
+                ? "bg-[var(--color-primary)] text-white"
+                : "bg-white hover:bg-neutral-50"
+            }`}
           >
             {tabItem.label}
           </button>
@@ -439,41 +475,71 @@ export default function AdminRevenueClient() {
       {/* Resumen */}
       <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
         <div className="bg-white border rounded-xl p-4">
-          <div className="text-xs text-neutral-600">{t('revenue.summary.reservations')}</div>
-          <div className="mt-1 text-lg font-semibold">{t('revenue.summary.reservationsCount', { count: resMetrics.count })}</div>
+          <div className="text-xs text-neutral-600">
+            {t("revenue.summary.reservations")}
+          </div>
+          <div className="mt-1 text-lg font-semibold">
+            {t("revenue.summary.reservationsCount", {
+              count: resMetrics.count,
+            })}
+          </div>
           <div className="text-xs text-neutral-600 mt-1">
-            {t('revenue.summary.totalContracted')} <b>{resMetrics.totalContracted.toFixed(2)} €</b>
+            {t("revenue.summary.totalContracted")}{" "}
+            <b>{resMetrics.totalContracted.toFixed(2)} €</b>
           </div>
           <div className="text-xs text-neutral-600">
-            {t('revenue.summary.collectedNow')} <b>{resMetrics.totalCollected.toFixed(2)} €</b>
+            {t("revenue.summary.collectedNow")}{" "}
+            <b>{resMetrics.totalCollected.toFixed(2)} €</b>
           </div>
           <div className="text-xs text-neutral-600">
-            {t('revenue.summary.pendingArrival')} <b>{resMetrics.totalPending.toFixed(2)} €</b>
+            {t("revenue.summary.pendingArrival")}{" "}
+            <b>{resMetrics.totalPending.toFixed(2)} €</b>
           </div>
         </div>
 
         <div className="bg-white border rounded-xl p-4">
-          <div className="text-xs text-neutral-600">{t('revenue.summary.coupons')}</div>
-          <div className="mt-1 text-lg font-semibold">{t('revenue.summary.ordersCount', { count: couponMetrics.ordersCount })}</div>
           <div className="text-xs text-neutral-600">
-            {t('revenue.summary.couponRevenue')} <b>{couponMetrics.couponsRevenue.toFixed(2)} €</b>
+            {t("revenue.summary.coupons")}
+          </div>
+          <div className="mt-1 text-lg font-semibold">
+            {t("revenue.summary.ordersCount", {
+              count: couponMetrics.ordersCount,
+            })}
+          </div>
+          <div className="text-xs text-neutral-600">
+            {t("revenue.summary.couponRevenue")}{" "}
+            <b>{couponMetrics.couponsRevenue.toFixed(2)} €</b>
           </div>
         </div>
 
         <div className="bg-white border rounded-xl p-4">
-          <div className="text-xs text-neutral-600">{t('revenue.summary.combined')}</div>
-          <div className="mt-1 text-lg font-semibold">{t('revenue.summary.collectedLabel')} {combined.collected.toFixed(2)} €</div>
-          <div className="text-xs text-neutral-600">{t('revenue.summary.contractual')} {combined.contracted.toFixed(2)} €</div>
-          <div className="text-xs text-neutral-600">{t('revenue.summary.pending')} {combined.pending.toFixed(2)} €</div>
+          <div className="text-xs text-neutral-600">
+            {t("revenue.summary.combined")}
+          </div>
+          <div className="mt-1 text-lg font-semibold">
+            {t("revenue.summary.collectedLabel")}{" "}
+            {combined.collected.toFixed(2)} €
+          </div>
+          <div className="text-xs text-neutral-600">
+            {t("revenue.summary.contractual")} {combined.contracted.toFixed(2)}{" "}
+            €
+          </div>
+          <div className="text-xs text-neutral-600">
+            {t("revenue.summary.pending")} {combined.pending.toFixed(2)} €
+          </div>
         </div>
       </div>
 
       {/* Tabla de reservas */}
       {(tab === "all" || tab === "reservations") && (
         <div className="mt-6 bg-white border rounded-xl overflow-hidden">
-          <div className="px-4 py-3 border-b text-sm font-semibold">{t('revenue.table.reservations')}</div>
+          <div className="px-4 py-3 border-b text-sm font-semibold">
+            {t("revenue.table.reservations")}
+          </div>
           {reservations.length === 0 ? (
-            <div className="p-4 text-sm text-neutral-600">{t('common.noResults')}</div>
+            <div className="p-4 text-sm text-neutral-600">
+              {t("common.noResults")}
+            </div>
           ) : (
             <>
               {/* MOBILE: Card list */}
@@ -487,14 +553,28 @@ export default function AdminRevenueClient() {
 
                   const houseName =
                     r.houseIds && r.houseIds.length > 1
-                      ? r.houseIds.map((id: string) => PROPERTY_NAME_MAP[id] || id).join(" + ")
-                      : PROPERTY_NAME_MAP[r.houseId || r.houseIds?.[0] || ""] || r.houseId || r.houseIds?.[0] || "—";
+                      ? r.houseIds
+                          .map((id: string) => PROPERTY_NAME_MAP[id] || id)
+                          .join(" + ")
+                      : PROPERTY_NAME_MAP[r.houseId || r.houseIds?.[0] || ""] ||
+                        r.houseId ||
+                        r.houseIds?.[0] ||
+                        "—";
 
                   // Total = precio completo (antes de descuentos)
                   const totalFull = num((r as any).grandTotal ?? r.totalStay);
                   const payNow = num(r.payNow);
-                  const amountPaidValue = (r as any).amountPaid != null ? num((r as any).amountPaid) : null;
-                  const actuallyPaid = (r as any).paidInFull ? totalFull : (amountPaidValue != null ? amountPaidValue : ((r as any).paidAt ? payNow : 0));
+                  const amountPaidValue =
+                    (r as any).amountPaid != null
+                      ? num((r as any).amountPaid)
+                      : null;
+                  const actuallyPaid = (r as any).paidInFull
+                    ? totalFull
+                    : amountPaidValue != null
+                      ? amountPaidValue
+                      : (r as any).paidAt
+                        ? payNow
+                        : 0;
                   const pending = Math.max(0, totalFull - actuallyPaid);
 
                   return (
@@ -511,17 +591,27 @@ export default function AdminRevenueClient() {
                           <div className="mt-2 text-xs text-neutral-700">
                             <div>{r.customerEmail ?? r.email ?? "—"}</div>
                             <div className="mt-1">
-                              <span className="mr-2">{r.guests ?? "—"} huéspedes</span>
-                              <span className="text-neutral-500">({r.nights ?? "?"}n)</span>
+                              <span className="mr-2">
+                                {r.guests ?? "—"} huéspedes
+                              </span>
+                              <span className="text-neutral-500">
+                                ({r.nights ?? "?"}n)
+                              </span>
                             </div>
                           </div>
                         </div>
 
                         <div className="text-right">
-                          <div className="text-sm font-semibold">{totalFull.toFixed(2)}€</div>
-                          <div className="text-xs text-neutral-600 mt-1">Paid: {actuallyPaid.toFixed(2)}€</div>
+                          <div className="text-sm font-semibold">
+                            {totalFull.toFixed(2)}€
+                          </div>
+                          <div className="text-xs text-neutral-600 mt-1">
+                            Paid: {actuallyPaid.toFixed(2)}€
+                          </div>
                           {pending > 0 && (
-                            <div className="text-xs text-orange-600">Pending: {pending.toFixed(2)}€</div>
+                            <div className="text-xs text-orange-600">
+                              Pending: {pending.toFixed(2)}€
+                            </div>
                           )}
                         </div>
                       </div>
@@ -530,11 +620,15 @@ export default function AdminRevenueClient() {
                         <div className="flex items-center gap-2">
                           <StatusPill s={r.status} />
                           {r.paidAtIso && (
-                            <div className="text-[11px] text-green-600">✓ Paid</div>
+                            <div className="text-[11px] text-green-600">
+                              ✓ Paid
+                            </div>
                           )}
                         </div>
 
-                        <div className="text-xs text-neutral-600">{paymentMethod}</div>
+                        <div className="text-xs text-neutral-600">
+                          {paymentMethod}
+                        </div>
                       </div>
                     </div>
                   );
@@ -546,15 +640,31 @@ export default function AdminRevenueClient() {
                 <table className="min-w-full text-sm">
                   <thead className="bg-neutral-50 text-neutral-700">
                     <tr>
-                      <th className="px-3 py-2 text-left">{t('revenue.table.dates')}</th>
-                      <th className="px-3 py-2 text-left">{t('common.status')}</th>
-                      <th className="px-3 py-2 text-left">{t('common.house')}</th>
-                      <th className="px-3 py-2 text-left">{t('revenue.table.guests')}</th>
+                      <th className="px-3 py-2 text-left">
+                        {t("revenue.table.dates")}
+                      </th>
+                      <th className="px-3 py-2 text-left">
+                        {t("common.status")}
+                      </th>
+                      <th className="px-3 py-2 text-left">
+                        {t("common.house")}
+                      </th>
+                      <th className="px-3 py-2 text-left">
+                        {t("revenue.table.guests")}
+                      </th>
                       <th className="px-3 py-2 text-left">Email</th>
-                      <th className="px-3 py-2 text-right">{t('revenue.table.totalContract')}</th>
-                      <th className="px-3 py-2 text-right">{t('revenue.table.collected')}</th>
-                      <th className="px-3 py-2 text-right">{t('revenue.table.pending')}</th>
-                      <th className="px-3 py-2 text-left">{t('revenue.table.payment')}</th>
+                      <th className="px-3 py-2 text-right">
+                        {t("revenue.table.totalContract")}
+                      </th>
+                      <th className="px-3 py-2 text-right">
+                        {t("revenue.table.collected")}
+                      </th>
+                      <th className="px-3 py-2 text-right">
+                        {t("revenue.table.pending")}
+                      </th>
+                      <th className="px-3 py-2 text-left">
+                        {t("revenue.table.payment")}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -567,31 +677,59 @@ export default function AdminRevenueClient() {
 
                       const houseName =
                         r.houseIds && r.houseIds.length > 1
-                          ? r.houseIds.map((id: string) => PROPERTY_NAME_MAP[id] || id).join(" + ")
-                          : PROPERTY_NAME_MAP[r.houseId || r.houseIds?.[0] || ""] || r.houseId || r.houseIds?.[0] || "—";
+                          ? r.houseIds
+                              .map((id: string) => PROPERTY_NAME_MAP[id] || id)
+                              .join(" + ")
+                          : PROPERTY_NAME_MAP[
+                              r.houseId || r.houseIds?.[0] || ""
+                            ] ||
+                            r.houseId ||
+                            r.houseIds?.[0] ||
+                            "—";
 
                       // Total = precio completo (antes de descuentos)
-                      const totalFull = num((r as any).grandTotal ?? r.totalStay);
+                      const totalFull = num(
+                        (r as any).grandTotal ?? r.totalStay
+                      );
                       const payNow = num(r.payNow);
-                      const amountPaidValue = (r as any).amountPaid != null ? num((r as any).amountPaid) : null;
-                      const actuallyPaid = (r as any).paidInFull ? totalFull : (amountPaidValue != null ? amountPaidValue : ((r as any).paidAt ? payNow : 0));
+                      const amountPaidValue =
+                        (r as any).amountPaid != null
+                          ? num((r as any).amountPaid)
+                          : null;
+                      const actuallyPaid = (r as any).paidInFull
+                        ? totalFull
+                        : amountPaidValue != null
+                          ? amountPaidValue
+                          : (r as any).paidAt
+                            ? payNow
+                            : 0;
                       const pending = Math.max(0, totalFull - actuallyPaid);
 
                       return (
                         <tr key={r.id} className="border-t">
                           <td className="px-3 py-2">
                             {r.checkIn} → {r.checkOut}{" "}
-                            <span className="text-[10px] text-neutral-500">({r.nights ?? "?"}n)</span>
+                            <span className="text-[10px] text-neutral-500">
+                              ({r.nights ?? "?"}n)
+                            </span>
                           </td>
                           <td className="px-3 py-2">
                             <StatusPill s={r.status} />
                           </td>
                           <td className="px-3 py-2">{houseName}</td>
                           <td className="px-3 py-2">{r.guests ?? "—"}</td>
-                          <td className="px-3 py-2">{r.customerEmail ?? r.email ?? "—"}</td>
-                          <td className="px-3 py-2 text-right">{totalFull.toFixed(2)}€</td>
-                          <td className="px-3 py-2 text-right">{actuallyPaid.toFixed(2)}€</td>
-                          <td className="px-3 py-2 text-right">{pending.toFixed(2)}€</td>
+                          <td className="px-3 py-2">
+                            {r.customerEmail ?? r.email ?? "—"}
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            {totalFull.toFixed(2)}€
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            {actuallyPaid.toFixed(2)}€
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            {pending.toFixed(2)}€
+                          </td>
                           <td className="px-3 py-2 text-xs">{paymentMethod}</td>
                         </tr>
                       );
@@ -607,9 +745,13 @@ export default function AdminRevenueClient() {
       {/* Tabla cupones */}
       {(tab === "all" || tab === "coupons") && (
         <div className="mt-6 bg-white border rounded-xl overflow-hidden">
-          <div className="px-4 py-3 border-b text-sm font-semibold">{t('revenue.table.couponsSold')}</div>
+          <div className="px-4 py-3 border-b text-sm font-semibold">
+            {t("revenue.table.couponsSold")}
+          </div>
           {orders.length === 0 ? (
-            <div className="p-4 text-sm text-neutral-600">{t('common.noResults')}</div>
+            <div className="p-4 text-sm text-neutral-600">
+              {t("common.noResults")}
+            </div>
           ) : (
             <>
               {/* MOBILE: Card list */}
@@ -618,13 +760,27 @@ export default function AdminRevenueClient() {
                   <div key={o.id} className="p-4">
                     <div className="flex items-start justify-between">
                       <div>
-                        <div className="text-sm font-semibold">{formatLithuaniaTime(o.completedAtIso || o.createdAtIso, { dateOnly: true })}</div>
-                        <div className="text-xs text-neutral-600 mt-1">{o.buyerEmail ?? "—"}</div>
-                        <div className="text-xs text-neutral-600 mt-1">Cant.: {o.quantity} · Unit: {o.unitAmount.toFixed(2)} {o.currency}</div>
+                        <div className="text-sm font-semibold">
+                          {formatLithuaniaTime(
+                            o.completedAtIso || o.createdAtIso,
+                            { dateOnly: true }
+                          )}
+                        </div>
+                        <div className="text-xs text-neutral-600 mt-1">
+                          {o.buyerEmail ?? "—"}
+                        </div>
+                        <div className="text-xs text-neutral-600 mt-1">
+                          Cant.: {o.quantity} · Unit: {o.unitAmount.toFixed(2)}{" "}
+                          {o.currency}
+                        </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-sm font-semibold">{o.revenue.toFixed(2)}€</div>
-                        <div className="text-xs text-neutral-600 mt-1">{o.status}</div>
+                        <div className="text-sm font-semibold">
+                          {o.revenue.toFixed(2)}€
+                        </div>
+                        <div className="text-xs text-neutral-600 mt-1">
+                          {o.status}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -636,22 +792,43 @@ export default function AdminRevenueClient() {
                 <table className="min-w-full text-sm">
                   <thead className="bg-neutral-50 text-neutral-700">
                     <tr>
-                      <th className="px-3 py-2 text-left">{t('revenue.table.date')}</th>
-                      <th className="px-3 py-2 text-left">{t('revenue.table.buyer')}</th>
-                      <th className="px-3 py-2 text-left">{t('revenue.table.quantity')}</th>
-                      <th className="px-3 py-2 text-left">{t('revenue.table.unit')}</th>
-                      <th className="px-3 py-2 text-right">{t('revenue.table.revenue')}</th>
-                      <th className="px-3 py-2 text-left">{t('common.status')}</th>
+                      <th className="px-3 py-2 text-left">
+                        {t("revenue.table.date")}
+                      </th>
+                      <th className="px-3 py-2 text-left">
+                        {t("revenue.table.buyer")}
+                      </th>
+                      <th className="px-3 py-2 text-left">
+                        {t("revenue.table.quantity")}
+                      </th>
+                      <th className="px-3 py-2 text-left">
+                        {t("revenue.table.unit")}
+                      </th>
+                      <th className="px-3 py-2 text-right">
+                        {t("revenue.table.revenue")}
+                      </th>
+                      <th className="px-3 py-2 text-left">
+                        {t("common.status")}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {orders.map((o) => (
                       <tr key={o.id} className="border-t">
-                        <td className="px-3 py-2">{formatLithuaniaTime(o.completedAtIso || o.createdAtIso, { dateOnly: true })}</td>
+                        <td className="px-3 py-2">
+                          {formatLithuaniaTime(
+                            o.completedAtIso || o.createdAtIso,
+                            { dateOnly: true }
+                          )}
+                        </td>
                         <td className="px-3 py-2">{o.buyerEmail ?? "—"}</td>
                         <td className="px-3 py-2">{o.quantity}</td>
-                        <td className="px-3 py-2">{o.unitAmount.toFixed(2)} {o.currency}</td>
-                        <td className="px-3 py-2 text-right">{o.revenue.toFixed(2)}€</td>
+                        <td className="px-3 py-2">
+                          {o.unitAmount.toFixed(2)} {o.currency}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          {o.revenue.toFixed(2)}€
+                        </td>
                         <td className="px-3 py-2">{o.status}</td>
                       </tr>
                     ))}

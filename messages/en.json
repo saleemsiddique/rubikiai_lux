@@ -360,6 +360,7 @@
   },
   "checkoutDetails": {
     "title": "Reservation information",
+    "loading": "Loading…",
     "yourDetails": "Your details",
     "firstName": "First name",
     "firstNamePlaceholder": "Your first name",

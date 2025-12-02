@@ -486,6 +486,7 @@
   },
   "checkoutDetails": {
     "title": "Rezervacijos informacija",
+    "loading": "Kraunama…",
     "yourDetails": "Jūsų duomenys",
     "firstName": "Vardas",
     "firstNamePlaceholder": "Jūsų vardas",

@@ -460,6 +460,7 @@
   },
   "checkoutDetails": {
     "title": "Информация о бронировании",
+    "loading": "Загрузка…",
     "yourDetails": "Ваши данные",
     "firstName": "Имя",
     "firstNamePlaceholder": "Ваше имя",

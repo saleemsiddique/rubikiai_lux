@@ -218,8 +218,12 @@ export default function AdminRevenueClient() {
 
     reservations.forEach((r) => {
       count++;
-      // Total = precio completo (antes de descuentos)
-      const totalFull = num((r as any).grandTotal ?? r.totalStay);
+      // Total depende del tipo de descuento:
+      // - Descuentos de porcentaje: Total = precio DESPUÉS del descuento (no es dinero recibido)
+      // - Cupones de euros: Total = precio ANTES del descuento (el cupón es dinero recibido)
+      const totalFull = ((r as any).coupon?.type === "percent")
+        ? num((r as any).discountedGrandTotal ?? r.totalStay)
+        : num((r as any).grandTotal ?? r.totalStay);
       const payNow = num(r.payNow);
 
       totalContracted += totalFull;
@@ -294,7 +298,9 @@ export default function AdminRevenueClient() {
           currency: r.currency,
           totalNightsOnly: num(r.totalNightsOnly),
           jacuzziFee: num(r.jacuzziFee),
-          totalFull: num((r as any).grandTotal ?? r.totalStay),
+          totalFull: ((r as any).coupon?.type === "percent")
+            ? num((r as any).discountedGrandTotal ?? r.totalStay)
+            : num((r as any).grandTotal ?? r.totalStay),
           amountPaid: num((r as any).amountPaid ?? 0),
           payAtArrival: num(r.payAtArrival),
           stripeSessionId: r.stripeSessionId ?? "",
@@ -561,8 +567,12 @@ export default function AdminRevenueClient() {
                         r.houseIds?.[0] ||
                         "—";
 
-                  // Total = precio completo (antes de descuentos)
-                  const totalFull = num((r as any).grandTotal ?? r.totalStay);
+                  // Total depende del tipo de descuento:
+                  // - Descuentos de porcentaje: Total = precio DESPUÉS del descuento (no es dinero recibido)
+                  // - Cupones de euros: Total = precio ANTES del descuento (el cupón es dinero recibido)
+                  const totalFull = ((r as any).coupon?.type === "percent")
+                    ? num((r as any).discountedGrandTotal ?? r.totalStay)
+                    : num((r as any).grandTotal ?? r.totalStay);
                   const payNow = num(r.payNow);
                   const amountPaidValue =
                     (r as any).amountPaid != null
@@ -678,10 +688,12 @@ export default function AdminRevenueClient() {
                             r.houseIds?.[0] ||
                             "—";
 
-                      // Total = precio completo (antes de descuentos)
-                      const totalFull = num(
-                        (r as any).grandTotal ?? r.totalStay
-                      );
+                      // Total depende del tipo de descuento:
+                      // - Descuentos de porcentaje: Total = precio DESPUÉS del descuento (no es dinero recibido)
+                      // - Cupones de euros: Total = precio ANTES del descuento (el cupón es dinero recibido)
+                      const totalFull = ((r as any).coupon?.type === "percent")
+                        ? num((r as any).discountedGrandTotal ?? r.totalStay)
+                        : num((r as any).grandTotal ?? r.totalStay);
                       const payNow = num(r.payNow);
                       const amountPaidValue =
                         (r as any).amountPaid != null

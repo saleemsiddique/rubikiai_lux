@@ -511,12 +511,24 @@ export async function POST(req: Request) {
       const payAtArrival = Math.max(0, totalStay - payNow);
 
       // ✅ CALCULAR amountPaid (MISMA LÓGICA QUE ADMIN/BLOCK)
-      // REGLA: Si cupón < primera noche → Paid = primera noche (porque ya se pagó)
-      //        Si cupón ≥ primera noche → Paid = cupón aplicado
-      const amountPaid = amountApplied > 0
-        ? (amountApplied >= firstNightBase ? amountApplied : firstNightBase)
-        : firstNightBase;
-      const isPaidInFull = amountPaid >= grandTotalBase;
+      // IMPORTANTE: Los descuentos de porcentaje NO son dinero recibido, solo reducen el precio.
+      // Los cupones de euros SÍ son dinero recibido (comprado previamente).
+      let amountPaid: number;
+      let isPaidInFull: boolean;
+
+      if (discountKind === "percent" && percentId && amountApplied > 0) {
+        // Descuento de porcentaje: solo se ha pagado lo que realmente se cobró (después del descuento)
+        amountPaid = discountedFirst;
+        isPaidInFull = amountPaid >= discountedGrandTotal;
+      } else {
+        // Cupón de euros: el cupón es dinero recibido, se aplica la lógica original
+        // REGLA: Si cupón < primera noche → Paid = primera noche (porque ya se pagó)
+        //        Si cupón ≥ primera noche → Paid = cupón aplicado
+        amountPaid = amountApplied > 0
+          ? (amountApplied >= firstNightBase ? amountApplied : firstNightBase)
+          : firstNightBase;
+        isPaidInFull = amountPaid >= grandTotalBase;
+      }
 
       // ✅ Crear/mergear reserva con campos simplificados
       await db.runTransaction(async (tx) => {

@@ -238,13 +238,24 @@ export async function POST(
     const payAtArrival = Math.max(0, totalStay - payNow);
 
     // ✅ ADMIN BLOCKS: Por defecto se marca como pagado la primera noche
-    // REGLA: Si cupón < primera noche → Paid = primera noche (porque ya se pagó)
-    //        Si cupón ≥ primera noche → Paid = cupón aplicado
-    const amountPaidByClient = amountApplied > 0
-      ? (amountApplied >= firstNightBase ? amountApplied : firstNightBase)
-      : firstNightBase;
-    // paidInFull solo si se ha pagado el TOTAL COMPLETO (antes de descuento)
-    const isPaidInFull = amountPaidByClient >= grandTotalBase;
+    // IMPORTANTE: Los descuentos de porcentaje NO son dinero recibido, solo reducen el precio.
+    // Los cupones de euros SÍ son dinero recibido (comprado previamente).
+    let amountPaidByClient: number;
+    let isPaidInFull: boolean;
+
+    if (discount?.type === "percent") {
+      // Descuento de porcentaje: solo se ha pagado lo que realmente se cobró (después del descuento)
+      amountPaidByClient = discountedFirst;
+      isPaidInFull = amountPaidByClient >= discountedGrandTotal;
+    } else {
+      // Cupón de euros: el cupón es dinero recibido, se aplica la lógica original
+      // REGLA: Si cupón < primera noche → Paid = primera noche (porque ya se pagó)
+      //        Si cupón ≥ primera noche → Paid = cupón aplicado
+      amountPaidByClient = amountApplied > 0
+        ? (amountApplied >= firstNightBase ? amountApplied : firstNightBase)
+        : firstNightBase;
+      isPaidInFull = amountPaidByClient >= grandTotalBase;
+    }
 
     // Build customer object
     const customerObj: any = {

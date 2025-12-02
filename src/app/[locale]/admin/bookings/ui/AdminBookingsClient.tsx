@@ -1121,8 +1121,12 @@ export default function AdminBookingsClient() {
                                     const customerName = r.name || r.customer?.name || "—";
                                     const customerEmail = r.customerEmail || r.email || r.customer?.email || "—";
 
-                                    // Total = precio completo de la reserva (antes de descuentos)
-                                    const totalFull = r.grandTotal ?? r.total ?? r.totalStay ?? r.discountedGrandTotal ?? 0;
+                                    // Total depende del tipo de descuento:
+                                    // - Descuentos de porcentaje: Total = precio DESPUÉS del descuento (no es dinero recibido)
+                                    // - Cupones de euros: Total = precio ANTES del descuento (el cupón es dinero recibido)
+                                    const totalFull = (r.coupon?.type === "percent")
+                                      ? (r.discountedGrandTotal ?? r.totalStay ?? 0)
+                                      : (r.grandTotal ?? r.total ?? r.totalStay ?? r.discountedGrandTotal ?? 0);
                                     const payNow = r.payNow ?? r.discountedFirst ?? r.firstNightCharge ?? 0;
                                     // Calcular lo que REALMENTE se ha pagado
                                     const actuallyPaid = r.paidInFull ? totalFull : (r.amountPaid ?? (r.paidAt ? payNow : 0));
@@ -1245,8 +1249,12 @@ export default function AdminBookingsClient() {
                                             const customerName = r.name || r.customer?.name || "—";
                                             const customerEmail = r.customerEmail || r.email || r.customer?.email || "—";
 
-                                            // Total = precio completo de la reserva (antes de descuentos)
-                                            const totalFull = r.grandTotal ?? r.total ?? r.totalStay ?? r.discountedGrandTotal ?? 0;
+                                            // Total depende del tipo de descuento:
+                                            // - Descuentos de porcentaje: Total = precio DESPUÉS del descuento (no es dinero recibido)
+                                            // - Cupones de euros: Total = precio ANTES del descuento (el cupón es dinero recibido)
+                                            const totalFull = (r.coupon?.type === "percent")
+                                              ? (r.discountedGrandTotal ?? r.totalStay ?? 0)
+                                              : (r.grandTotal ?? r.total ?? r.totalStay ?? r.discountedGrandTotal ?? 0);
                                             const payNow = r.payNow ?? r.discountedFirst ?? r.firstNightCharge ?? 0;
                                             // Calcular lo que REALMENTE se ha pagado
                                             const actuallyPaid = r.paidInFull ? totalFull : (r.amountPaid ?? (r.paidAt ? payNow : 0));
@@ -1507,8 +1515,12 @@ export default function AdminBookingsClient() {
                                     {(dayMap.get(selectedDay) || []).map((r) => {
                                         const customerName = r.name || r.customer?.name || "—";
                                         const customerEmail = r.customerEmail || r.email || r.customer?.email || "—";
-                                        // Total = precio completo de la reserva (antes de descuentos)
-                                        const totalFull = r.grandTotal ?? r.total ?? r.totalStay ?? r.discountedGrandTotal ?? 0;
+                                        // Total depende del tipo de descuento:
+                                        // - Descuentos de porcentaje: Total = precio DESPUÉS del descuento (no es dinero recibido)
+                                        // - Cupones de euros: Total = precio ANTES del descuento (el cupón es dinero recibido)
+                                        const totalFull = (r.coupon?.type === "percent")
+                                          ? (r.discountedGrandTotal ?? r.totalStay ?? 0)
+                                          : (r.grandTotal ?? r.total ?? r.totalStay ?? r.discountedGrandTotal ?? 0);
                                         const payNow = r.payNow ?? r.discountedFirst ?? r.firstNightCharge ?? 0;
                                         const actuallyPaid = r.paidInFull ? totalFull : (r.amountPaid ?? (r.paidAt ? payNow : 0));
                                         const jacuzziDays = r.jacuzzi?.days ?? 0;

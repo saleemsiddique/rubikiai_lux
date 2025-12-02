@@ -617,15 +617,6 @@ export default function AdminRevenueClient() {
                       </div>
 
                       <div className="mt-3 flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <StatusPill s={r.status} />
-                          {r.paidAtIso && (
-                            <div className="text-[11px] text-green-600">
-                              ✓ Paid
-                            </div>
-                          )}
-                        </div>
-
                         <div className="text-xs text-neutral-600">
                           {paymentMethod}
                         </div>

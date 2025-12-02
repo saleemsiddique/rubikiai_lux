@@ -447,6 +447,8 @@ export async function POST(
     // This ensures Stripe charges exactly the "Charge now" shown in the UI.
     let payNow: number;
     let totalStay: number;
+    let discountedFirst: number; // first night after discount
+    let discountedGrandTotal: number; // grand total after discount
 
     if (
       pricingFromClient &&
@@ -502,10 +504,14 @@ export async function POST(
       // OK: aceptamos los valores del cliente (ya validados más arriba)
       payNow = clientPayNow;
       totalStay = clientTotalStay;
+
+      // Calculate discounted values properly
+      discountedFirst = clientPayNow; // what's actually charged now
+      discountedGrandTotal = clientTotalStay; // total after discount
     } else {
       // fallback to server-calculated values (apply discount on firstNightCharge)
-      const discountedFirst = Math.max(0, round2(firstNightCharge - effectiveDiscountAmount));
-      const discountedGrandTotal = Math.max(0, round2(grandTotal - effectiveDiscountAmount));
+      discountedFirst = Math.max(0, round2(firstNightCharge - effectiveDiscountAmount));
+      discountedGrandTotal = Math.max(0, round2(grandTotal - effectiveDiscountAmount));
 
       payNow = discountedFirst;
       totalStay = discountedGrandTotal;
@@ -588,12 +594,12 @@ export async function POST(
         // legacy fields (for compatibility)
         totalNightsOnly: String(totalNightsOnly),
         firstNightCharge: String(firstNightCharge),
-        discountedFirst: String(payNow),
+        discountedFirst: String(discountedFirst),
         jacuzziEnabled: jacuzziEnabled ? "true" : "false",
         jacuzziFee: String(jacuzziFee),
         jacuzziDays: String(jacuzziDays),
         grandTotal: String(grandTotal),
-        discountedGrandTotal: String(Math.max(0, round2(grandTotal - effectiveDiscountAmount))),
+        discountedGrandTotal: String(discountedGrandTotal),
 
         currency: "EUR",
 

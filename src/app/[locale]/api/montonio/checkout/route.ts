@@ -220,10 +220,11 @@ export async function POST(
         if (jacuzziDays > nights) jacuzziDays = nights;
         if (jacuzziDays < 1) jacuzziDays = 1;
 
-        const jacuzziExtraGuests = Math.max(0, guestsNum - 2);
-        const firstDayFee = 65 + (jacuzziExtraGuests * 10);
+        // CORRECCIÓN: Para dual, capacidad base = 2 * número de casas
+        const jacuzziExtraGuests = Math.max(0, guestsNum - 2 * houseIds.length);
+        const firstDayFee = houseIds.length * 65 + (jacuzziExtraGuests * 10);
         const additionalDays = Math.max(0, jacuzziDays - 1);
-        const additionalDaysFee = additionalDays * (45 + (jacuzziExtraGuests * 10));
+        const additionalDaysFee = additionalDays * (houseIds.length * 45 + (jacuzziExtraGuests * 10));
         jacuzziFee = firstDayFee + additionalDaysFee;
       }
 
@@ -233,8 +234,9 @@ export async function POST(
       discountedGrandTotal = totalStay; // totalStay ya tiene el descuento aplicado
 
       // Si hay descuento, calcular el effectiveDiscountAmount
+      // CORRECCIÓN: el descuento es la diferencia entre grandTotal (sin descuento) y totalStay (con descuento)
       if (discount) {
-        effectiveDiscountAmount = Math.max(0, firstNightCharge - payNow);
+        effectiveDiscountAmount = Math.max(0, grandTotal - totalStay);
         discountKindForMeta = discount.kind || "";
         discountCodeForMeta = discount.code || "";
         discountIdForMeta = discount.id || "";
@@ -265,14 +267,15 @@ export async function POST(
           jacuzziDays = 1;
         }
 
-        const jacuzziExtraGuests = Math.max(0, guestsNum - 2);
+        // CORRECCIÓN: Para dual, capacidad base = 2 * número de casas
+        const jacuzziExtraGuests = Math.max(0, guestsNum - 2 * houseIds.length);
 
-        // Primer día: 65€ + 10€ por guest extra
-        const firstDayFee = 65 + (jacuzziExtraGuests * 10);
+        // Primer día: 65€ por casa + 10€ por guest extra
+        const firstDayFee = houseIds.length * 65 + (jacuzziExtraGuests * 10);
 
-        // Días adicionales: 45€ + 10€ por guest extra cada día
+        // Días adicionales: 45€ por casa + 10€ por guest extra cada día
         const additionalDays = Math.max(0, jacuzziDays - 1);
-        const additionalDaysFee = additionalDays * (45 + (jacuzziExtraGuests * 10));
+        const additionalDaysFee = additionalDays * (houseIds.length * 45 + (jacuzziExtraGuests * 10));
 
         jacuzziFee = firstDayFee + additionalDaysFee;
       }

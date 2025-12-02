@@ -8,6 +8,6 @@ export default createMiddleware({
 });
 
 export const config = {
-  // Exclude Stripe webhooks and other external webhooks from locale handling
-  matcher: ['/((?!_next|_vercel|api/stripe/webhook|.*\\..*).*)']
+  // Exclude Stripe and Montonio webhooks from locale handling
+  matcher: ['/((?!_next|_vercel|api/stripe/webhook|api/montonio/webhook|.*\\..*).*)']
 };

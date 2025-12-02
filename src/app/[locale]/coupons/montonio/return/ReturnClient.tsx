@@ -25,7 +25,7 @@ export default function ReturnClient() {
     (async () => {
       try {
         setConsumeResult("sending");
-        const endpoint = `/${locale}/api/montonio/webhook?order-token=${encodeURIComponent(orderToken)}`;
+        const endpoint = `/api/montonio/webhook?order-token=${encodeURIComponent(orderToken)}`;
         const res = await fetch(endpoint, { method: "POST" });
         if (!mounted) return;
 

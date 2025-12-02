@@ -227,9 +227,10 @@ export async function POST(
         jacuzziFee = firstDayFee + additionalDaysFee;
       }
 
-      grandTotal = totalStay; // totalStay ya incluye todo (con o sin jacuzzi, con descuentos)
+      // ✅ IMPORTANTE: grandTotal SIEMPRE debe ser el total SIN descuento
+      grandTotal = totalNightsOnly + jacuzziFee;
       discountedFirst = payNow;
-      discountedGrandTotal = totalStay;
+      discountedGrandTotal = totalStay; // totalStay ya tiene el descuento aplicado
 
       // Si hay descuento, calcular el effectiveDiscountAmount
       if (discount) {

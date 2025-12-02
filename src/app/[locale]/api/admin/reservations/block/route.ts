@@ -237,10 +237,12 @@ export async function POST(
     const totalStay = discountedGrandTotal; // Grand total (con descuento)
     const payAtArrival = Math.max(0, totalStay - payNow);
 
-    // ✅ ADMIN BLOCKS: Por defecto se marca como pagado
-    // Si hay cupón, se marca como pagado todo lo que el cupón haya cubierto
-    // Si no hay cupón, se marca como pagado la primera noche (porque el admin ya recibió el pago)
-    const amountPaidByClient = amountApplied > 0 ? amountApplied : firstNightBase;
+    // ✅ ADMIN BLOCKS: Por defecto se marca como pagado la primera noche
+    // REGLA: Si cupón < primera noche → Paid = primera noche (porque ya se pagó)
+    //        Si cupón ≥ primera noche → Paid = cupón aplicado
+    const amountPaidByClient = amountApplied > 0
+      ? (amountApplied >= firstNightBase ? amountApplied : firstNightBase)
+      : firstNightBase;
     // paidInFull solo si se ha pagado el TOTAL COMPLETO (antes de descuento)
     const isPaidInFull = amountPaidByClient >= grandTotalBase;
 

@@ -929,7 +929,8 @@ export async function POST(req: Request) {
           payAtArrival,
           totalStay,
           grandTotal,
-          discountedGrandTotal,
+          discountedFirst,           // ✅ Reservation fee con descuento
+          discountedGrandTotal,      // ✅ Grand total con descuento
           amountPaid,
 
           // campos legacy (opcional, por compatibilidad):
@@ -963,6 +964,8 @@ export async function POST(req: Request) {
         };
 
         // APPLY COUPON OR PERCENT within same transaction
+        // ✅ Los valores de descuento ya vienen aplicados desde el cliente (payNow, totalStay)
+        // Solo necesitamos guardar la info del cupón/descuento y actualizar Firestore
         if (
           discountKind === "coupon" &&
           couponId &&
@@ -976,24 +979,9 @@ export async function POST(req: Request) {
             reservationId,
             checkoutSessionId: montonioOrderUuid || "montonio",
           });
+          // ✅ Solo guardar info del cupón, NO modificar discountedFirst/discountedGrandTotal
+          // porque ya vienen con el descuento aplicado desde el cliente
           baseReservationPayload.coupon = couponBlock;
-
-          if (
-            !couponBlock.deductionError &&
-            Number(couponBlock.amountApplied) > 0
-          ) {
-            const applied = Number(couponBlock.amountApplied || 0);
-            baseReservationPayload.discountedFirst = Math.max(
-              0,
-              (baseReservationPayload.discountedFirst || discountedFirst) -
-              applied
-            );
-            baseReservationPayload.discountedGrandTotal = Math.max(
-              0,
-              (baseReservationPayload.discountedGrandTotal ||
-                discountedGrandTotal) - applied
-            );
-          }
         } else if (discountKind === "percent" && percentId) {
           console.log(
             "📊 Aplicando descuento porcentual (webhook):",
@@ -1007,30 +995,14 @@ export async function POST(req: Request) {
             percentId,
             percentCode,
             percentValue,
-            percentAmountApplied, // <-- usar el nuevo campo
+            percentAmountApplied,
             reservationId,
             checkoutSessionId: montonioOrderUuid || "montonio",
           });
 
-          // ✅ Guardar como "coupon" para compatibilidad con block/AdminBookingsClient
+          // ✅ Solo guardar info del descuento, NO modificar discountedFirst/discountedGrandTotal
+          // porque ya vienen con el descuento aplicado desde el cliente
           baseReservationPayload.coupon = percentBlock;
-
-          if (
-            !percentBlock.deductionError &&
-            Number(percentBlock.applied) > 0
-          ) {
-            const applied = Number(percentBlock.applied || 0);
-            baseReservationPayload.discountedFirst = Math.max(
-              0,
-              (baseReservationPayload.discountedFirst || discountedFirst) -
-              applied
-            );
-            baseReservationPayload.discountedGrandTotal = Math.max(
-              0,
-              (baseReservationPayload.discountedGrandTotal ||
-                discountedGrandTotal) - applied
-            );
-          }
         }
 
         if (!existsAlready) {

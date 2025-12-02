@@ -439,6 +439,7 @@ export async function POST(req: Request) {
       const payAtArrival = Number(session.metadata?.payAtArrival ?? 0);
       const totalStay = Number(session.metadata?.totalStay ?? 0);
       const grandTotal = Number(session.metadata?.grandTotal ?? totalStay);
+      const discountedFirst = Number(session.metadata?.discountedFirst ?? payNow);
       const discountedGrandTotal = Number(session.metadata?.discountedGrandTotal ?? totalStay);
 
       // campos legacy (para compatibilidad / fallback)
@@ -504,7 +505,8 @@ export async function POST(req: Request) {
           payAtArrival,
           totalStay,
           grandTotal,
-          discountedGrandTotal,
+          discountedFirst,           // ✅ Reservation fee con descuento
+          discountedGrandTotal,      // ✅ Grand total con descuento
           amountPaid,
 
           // campos legacy (mantener para compatibilidad)

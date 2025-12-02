@@ -598,6 +598,7 @@ export async function POST(
         jacuzziEnabled: jacuzziEnabled ? "true" : "false",
         jacuzziFee: String(jacuzziFee),
         jacuzziDays: String(jacuzziDays),
+        extrasTotal: String(jacuzziFee), // Total de extras (actualmente solo jacuzzi)
         grandTotal: String(grandTotal),
         discountedGrandTotal: String(discountedGrandTotal),
 

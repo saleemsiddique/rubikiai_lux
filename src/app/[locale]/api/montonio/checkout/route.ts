@@ -406,9 +406,13 @@ export async function POST(
       // campos legacy (mantener por compatibilidad si quieres):
       totalNightsOnly: String(totalNightsOnly),
       firstNightCharge: String(firstNightCharge),
+      discountedFirst: String(discountedFirst),
       jacuzziFee: String(jacuzziFee),
       jacuzziEnabled: jacuzziEnabled ? "true" : "false",
-      jacuzziDays: String(jacuzziDays), // NUEVO CAMPO      grandTotal: String(grandTotal),
+      jacuzziDays: String(jacuzziDays), // NUEVO CAMPO
+      extrasTotal: String(jacuzziFee), // Total de extras (actualmente solo jacuzzi)
+      grandTotal: String(grandTotal),
+      discountedGrandTotal: String(discountedGrandTotal),
       currency: "EUR",
 
       // descuentos

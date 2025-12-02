@@ -303,18 +303,35 @@ export default function CheckoutDetailsClient() {
       // available credit (already chosen / Stripe-adjusted when we applied)
       const availableCredit = appliedEuroDiscount;
 
-      // how much does that reduce "pay now"?
-      const { used: usedNow, payNow } = applyCreditToFirstNight(
-        firstNightBefore,
-        availableCredit
-      );
+      // ✅ CORREGIDO: aplicar cupón al TOTAL COMPLETO (igual que admin/block)
+      // amountApplied = cuánto del cupón se usa en total
+      const amountApplied = Math.min(availableCredit, fullStayBefore);
 
-      // reduce total stay by ALL available credit (not just what was used on first night)
-      const totalCreditToUse = Math.min(availableCredit, fullStayBefore);
-      const totalAfter = Math.max(0, fullStayBefore - totalCreditToUse);
+      // De eso, cuánto se usa específicamente en la primera noche
+      const usedOnFirstNight = Math.min(amountApplied, firstNightBefore);
+
+      // Primera noche CON descuento
+      const discountedFirst = Math.max(0, firstNightBefore - usedOnFirstNight);
+
+      // Total CON descuento (resta TODA la cantidad aplicada, no solo lo usado en primera noche)
+      const totalAfter = Math.max(0, fullStayBefore - amountApplied);
+
+      // Aplicar regla de Stripe mínimo (0.50€) sobre lo que se cobra ahora
+      const cents = toCents(discountedFirst);
+      let payNow = discountedFirst;
+
+      if (cents > 0 && cents < STRIPE_MIN_CENTS) {
+        // Si queda entre 0.01€ y 0.49€, ajustar a 0.50€ o 0.00€
+        const target50 = fromCents(STRIPE_MIN_CENTS); // 0.50€
+        if (target50 <= firstNightBefore) {
+          payNow = target50;
+        } else {
+          payNow = 0;
+        }
+      }
 
       return {
-        effectiveDiscountUsedNow: totalCreditToUse,
+        effectiveDiscountUsedNow: amountApplied,
         payNowAfterDiscount: payNow,
         totalAfterDiscount: totalAfter,
       };

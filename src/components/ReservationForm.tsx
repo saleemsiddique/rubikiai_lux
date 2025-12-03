@@ -53,6 +53,36 @@ export const EXTRA_GUEST_PRICE = 40;
 const MAX_GUESTS_GLOBAL = 8;
 
 /* ---------------- Helpers ---------------- */
+const HOUSE_TITLE_TRANSLATIONS: Record<string, Record<string, string>> = {
+  "Ežero Namelis": {
+    lt: "Ežero Namelis",
+    en: "Lake House",
+    ru: "Домик у озера"
+  },
+  "Nr.1 - Šalia Elnių Aptvaro": {
+    lt: "Nr.1 - Šalia Elnių Aptvaro",
+    en: "No.1 - Near the Deer Enclosure",
+    ru: "№1 - Рядом с вольером оленей"
+  },
+  "Nr.2 – Elnių Panorama": {
+    lt: "Nr.2 – Elnių Panorama",
+    en: "No.2 - Deer Panorama",
+    ru: "№2 - Панорама оленей"
+  }
+};
+
+function translateHouseTitle(originalTitle: string | undefined, locale: string): string {
+  if (!originalTitle) return "";
+
+  // Si existe traducción para este título, usarla
+  if (HOUSE_TITLE_TRANSLATIONS[originalTitle]) {
+    return HOUSE_TITLE_TRANSLATIONS[originalTitle][locale] || originalTitle;
+  }
+
+  // Si no hay traducción, devolver el original
+  return originalTitle;
+}
+
 function isDuoId(id?: string) {
   return !!id && id.includes("__");
 }
@@ -2197,7 +2227,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                       <img
                         key={img.key}
                         src={img.url}
-                        alt={img.alt ?? house.name}
+                        alt={img.alt ?? translateHouseTitle(house.name, locale)}
                         loading="lazy"
                         className="w-full h-full object-cover transition-transform duration-700 hover:scale-110"
                       />
@@ -2208,7 +2238,7 @@ export default function ReservationForm({ onReserve, showResults = true }: Reser
                 <div className="flex-1 p-6 md:p-8 flex flex-col justify-between">
                   <div>
                     <h3 className="text-3xl font-extrabold text-[var(--color-primary-dark)] leading-tight mb-2">
-                      {house.name}
+                      {translateHouseTitle(house.name, locale)}
                     </h3>
                     <p className="text-base font-medium text-gray-500 mb-4">
                       {t('pricingForGuests', { guests: guests })}

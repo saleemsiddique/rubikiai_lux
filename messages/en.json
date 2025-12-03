@@ -715,13 +715,18 @@
           "pricePerNight": "Price €/night",
           "applyRange": "Apply range",
           "clear": "Clear",
-          "applyingRange": "Applying…"
+          "applyingRange": "Applying…",
+          "savingDay": "Saving…"
         },
+        "applyingRange": "Applying…",
         "singleDay": {
           "title": "Adjust a specific day",
+          "editingSpecialPrice": "Editing special price",
           "date": "Date",
           "pricePerNight": "Price €/night",
           "saveDay": "Save day",
+          "updatePrice": "Update price",
+          "cancelEdit": "Cancel edit",
           "clear": "Clear",
           "savingDay": "Saving…"
         },

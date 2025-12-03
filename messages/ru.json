@@ -815,13 +815,18 @@
           "pricePerNight": "Цена €/ночь",
           "applyRange": "Применить диапазон",
           "clear": "Очистить",
-          "applyingRange": "Применение…"
+          "applyingRange": "Применение…",
+          "savingDay": "Сохранение…"
         },
+        "applyingRange": "Применение…",
         "singleDay": {
           "title": "Настроить конкретный день",
+          "editingSpecialPrice": "Редактирование специальной цены",
           "date": "Дата",
           "pricePerNight": "Цена €/ночь",
           "saveDay": "Сохранить день",
+          "updatePrice": "Обновить цену",
+          "cancelEdit": "Отменить редактирование",
           "clear": "Очистить",
           "savingDay": "Сохранение…"
         },

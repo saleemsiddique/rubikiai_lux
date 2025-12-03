@@ -841,13 +841,18 @@
           "pricePerNight": "Kaina €/naktis",
           "applyRange": "Taikyti intervalą",
           "clear": "Išvalyti",
-          "applyingRange": "Taikoma…"
+          "applyingRange": "Taikoma…",
+          "savingDay": "Išsaugoma…"
         },
+        "applyingRange": "Taikoma…",
         "singleDay": {
           "title": "Koreguoti konkrečią dieną",
+          "editingSpecialPrice": "Redaguojama speciali kaina",
           "date": "Data",
           "pricePerNight": "Kaina €/naktis",
           "saveDay": "Išsaugoti dieną",
+          "updatePrice": "Atnaujinti kainą",
+          "cancelEdit": "Atšaukti redagavimą",
           "clear": "Išvalyti",
           "savingDay": "Išsaugoma…"
         },

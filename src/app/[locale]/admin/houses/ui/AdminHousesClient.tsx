@@ -126,6 +126,7 @@ export default function AdminHousesClient() {
   // día individual
   const [specialDate, setSpecialDate] = useState<string>(""); // YYYY-MM-DD
   const [specialPrice, setSpecialPrice] = useState<string>(""); // string del input
+  const [editingSpecialDate, setEditingSpecialDate] = useState<string | null>(null); // fecha que se está editando
 
   const [specialSaving, setSpecialSaving] = useState(false);
   const [specialMsg, setSpecialMsg] = useState<string | null>(null);
@@ -218,6 +219,7 @@ export default function AdminHousesClient() {
       setRangePrice("");
       setSpecialDate("");
       setSpecialPrice("");
+      setEditingSpecialDate(null);
       setSpecialMsg(null);
 
       // limpiar temporadas
@@ -471,8 +473,8 @@ export default function AdminHousesClient() {
 
   // ===== API helper para precios especiales =====
   const postSpecialPrices = useCallback(
-    async (payload: any, successMsg: string, errorMsg: string) => {
-      if (!house) return;
+    async (payload: any, successMsg: string, errorMsg: string): Promise<boolean> => {
+      if (!house) return false;
       try {
         setSpecialSaving(true);
         setSpecialMsg(null);
@@ -488,11 +490,13 @@ export default function AdminHousesClient() {
         const updated: House = await res.json();
         setHouse(updated);
         setSpecialMsg(successMsg);
+        return true;
       } catch (e: any) {
         console.error("[admin/houses] special error:", e);
         setSpecialMsg(
           `${errorMsg}: ${e?.message || "Operación no completada"}`
         );
+        return false;
       } finally {
         setSpecialSaving(false);
       }
@@ -551,7 +555,7 @@ export default function AdminHousesClient() {
   }, [house, rangeStart, rangeEnd, postSpecialPrices, t]);
 
   // ===== GUARDAR DÍA INDIVIDUAL =====
-  const handleSaveSingleDay = useCallback(() => {
+  const handleSaveSingleDay = useCallback(async () => {
     if (!house) return;
     const d = specialDate.trim();
     const raw = specialPrice.trim();
@@ -566,7 +570,7 @@ export default function AdminHousesClient() {
       return;
     }
 
-    postSpecialPrices(
+    const success = await postSpecialPrices(
       {
         upsert: { [d]: num },
       },
@@ -574,7 +578,10 @@ export default function AdminHousesClient() {
       t('houses.specialPrices.savingDay')
     );
 
-    setSpecialPrice("");
+    if (success) {
+      setSpecialPrice("");
+      setEditingSpecialDate(null);
+    }
   }, [house, specialDate, specialPrice, postSpecialPrices, t]);
 
   // ===== ELIMINAR DÍA INDIVIDUAL =====
@@ -1151,9 +1158,11 @@ export default function AdminHousesClient() {
                   </div>
 
                   {/* ---- DÍA INDIVIDUAL ---- */}
-                  <div className="mt-6 border rounded-md p-3">
+                  <div className="mt-6 border rounded-md p-3 bg-neutral-50">
                     <div className="text-xs uppercase tracking-wider text-neutral-600 mb-2">
-                      {t('houses.specialPrices.singleDay.title')}
+                      {editingSpecialDate !== null
+                        ? t('houses.specialPrices.singleDay.editingSpecialPrice')
+                        : t('houses.specialPrices.singleDay.title')}
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1165,7 +1174,8 @@ export default function AdminHousesClient() {
                           type="date"
                           value={specialDate}
                           onChange={(e) => setSpecialDate(e.target.value)}
-                          className="mt-1 w-full rounded-md border p-2 text-base"
+                          disabled={editingSpecialDate !== null}
+                          className="mt-1 w-full rounded-md border p-2 text-base disabled:bg-neutral-100 disabled:cursor-not-allowed"
                         />
                       </div>
 
@@ -1192,14 +1202,34 @@ export default function AdminHousesClient() {
                         disabled={specialSaving}
                         className="rounded-md bg-[var(--color-primary)] text-white px-4 py-2 text-sm font-semibold hover:opacity-95 disabled:opacity-60"
                       >
-                        {specialSaving ? t('common.saving') : t('houses.specialPrices.singleDay.saveDay')}
+                        {specialSaving
+                          ? t('common.saving')
+                          : editingSpecialDate !== null
+                            ? t('houses.specialPrices.singleDay.updatePrice')
+                            : t('houses.specialPrices.singleDay.saveDay')}
                       </button>
+
+                      {editingSpecialDate !== null && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSpecialDate("");
+                            setSpecialPrice("");
+                            setEditingSpecialDate(null);
+                            setSpecialMsg(null);
+                          }}
+                          className="rounded-md border px-4 py-2 text-sm hover:bg-neutral-50"
+                        >
+                          {t('houses.specialPrices.singleDay.cancelEdit')}
+                        </button>
+                      )}
 
                       <button
                         type="button"
                         onClick={() => {
                           setSpecialDate("");
                           setSpecialPrice("");
+                          setEditingSpecialDate(null);
                           setSpecialMsg(null);
                         }}
                         className="rounded-md border px-4 py-2 text-sm hover:bg-neutral-50"
@@ -1238,16 +1268,6 @@ export default function AdminHousesClient() {
                                 </span>
                               </div>
                               <div className="flex gap-2 self-end sm:self-auto">
-                                <button
-                                  type="button"
-                                  className="text-xs rounded-md border px-3 py-1 hover:bg-neutral-50 whitespace-nowrap"
-                                  onClick={() => {
-                                    setSpecialDate(iso);
-                                    setSpecialPrice(String(price));
-                                  }}
-                                >
-                                  {t('common.edit')}
-                                </button>
                                 <button
                                   type="button"
                                   className="text-xs rounded-md border px-3 py-1 hover:bg-red-50 text-red-700 whitespace-nowrap"

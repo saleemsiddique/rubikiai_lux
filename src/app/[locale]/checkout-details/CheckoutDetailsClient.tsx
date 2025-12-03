@@ -422,7 +422,7 @@ export default function CheckoutDetailsClient() {
       if (savedData.discountCode) setDiscountCode(savedData.discountCode);
     }
   }, []); // ← Array vacío = solo se ejecuta al montar
-  
+
   // Fetch price (with or without jacuzzi AND jacuzzi days)
   useEffect(() => {
     let isActive = true; // Flag para prevenir actualizaciones de estado si el efecto se limpia
@@ -1331,6 +1331,7 @@ export default function CheckoutDetailsClient() {
 
         {/* RIGHT COLUMN: summary */}
         <aside className="lg:col-span-1 space-y-6">
+          {/* Your Stay section */}
           <div className="bg-gray-50 rounded-2xl border border-gray-200 shadow-xl p-6">
             <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
               <svg
@@ -1376,66 +1377,96 @@ export default function CheckoutDetailsClient() {
                 <span className="font-medium">{guests}</span>
               </div>
 
-              {withJacuzzi && priceData && (
-                <div className="flex justify-between text-[var(--color-primary-dark)] font-semibold">
-                  <span>{t('jacuzzi')}</span>
-                  <span>+{formatCurrency(jacuzziFeeShown)}</span>
-                </div>
-              )}
+              {/* Reservation Summary - Price Breakdown */}
+              {priceData && !loadingPrice && !priceError && (
+                <>
+                  <hr className="my-4 border-gray-300" />
 
-              <hr className="my-4 border-gray-300" />
+                  <div className="font-semibold text-gray-800 mb-3">
+                    {t('reservationSummary')}
+                  </div>
 
-              {/* 1. Final total for the stay (after discount) */}
-              <div className="flex justify-between text-base font-bold text-gray-900">
-                <span>{t('totalForStay')}</span>
-                <span>
-                  {loadingPrice
-                    ? "..."
-                    : priceError
-                      ? "—"
-                      : totalAfterDiscount != null
-                        ? formatCurrency(totalAfterDiscount)
-                        : priceData
-                          ? // fallback if for some reason we don't have totalAfterDiscount
-                          formatCurrency(priceData.grandTotal)
-                          : "—"}
-                </span>
-              </div>
+                  {/* Accommodation */}
+                  <div className="flex justify-between items-start">
+                    <span className="text-gray-600">
+                      {t('accommodationNights')} ({nights} {nights > 1 ? t('nights') : t('night')})
+                    </span>
+                    <span className="font-medium text-gray-900">
+                      {formatCurrency(priceData.total ?? 0)}
+                    </span>
+                  </div>
 
-              {/* 2. Charge now (highlighted) */}
-              <div className="mt-4 p-3 rounded-md bg-[var(--color-primary)]/10 border-l-4 border-[var(--color-primary)]">
-                <div className="text-xs text-gray-600">{t('chargeNow')}</div>
-
-                <div className="text-2xl font-bold text-[var(--color-primary)-dark]">
-                  {loadingPrice
-                    ? "..."
-                    : priceError
-                      ? "—"
-                      : payNowAfterDiscount != null
-                        ? formatCurrency(payNowAfterDiscount)
-                        : priceData?.first != null
-                          ? formatCurrency(priceData.first)
-                          : "—"}
-                </div>
-
-                {/* mini breakdown if discount applied */}
-                {discountApplied &&
-                  discountData &&
-                  !loadingPrice &&
-                  !priceError &&
-                  effectiveDiscountUsedNow > 0 && (
-                    <div className="mt-2 text-xs text-gray-600 leading-relaxed">
-                      {discountData.kind === "percent"
-                        ? t('percentDiscountAppliedMessage', { percent: discountData.percentDoc?.percent })
-                        : t('couponAppliedMessage', { code: discountData.coupon?.code || "" })}{" "}
-                      {t('youPayNow', { amount: formatCurrency(payNowAfterDiscount ?? 0) })}
+                  {/* Extra guests */}
+                  {priceData.extraGuests > 0 && (
+                    <div className="flex justify-between items-start text-gray-500 text-xs">
+                      <span>
+                        {t('extraGuestsIncluded')} ({priceData.extraGuests})
+                      </span>
+                      <span>{t('includedInTotal')}</span>
                     </div>
                   )}
 
-                <div className="mt-2 text-[11px] text-gray-600 leading-relaxed">
-                  {t('restSettledAtArrival')}
-                </div>
-              </div>
+                  {/* Jacuzzi */}
+                  {withJacuzzi && jacuzziFeeShown > 0 && (
+                    <div className="flex justify-between items-start">
+                      <span className="text-gray-600">
+                        {t('jacuzziItem')} ({jacuzziDays} {jacuzziDays > 1 ? t('days') : t('day')})
+                      </span>
+                      <span className="font-medium text-gray-900">
+                        {formatCurrency(jacuzziFeeShown)}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Total */}
+                  <div className="border-t border-gray-300 pt-3 flex justify-between items-start">
+                    <span className="font-semibold text-gray-900">{t('totalPrice')}</span>
+                    <span className="font-semibold text-gray-900">
+                      {formatCurrency(priceData.grandTotal ?? 0)}
+                    </span>
+                  </div>
+
+                  {/* Discount applied */}
+                  {discountApplied && effectiveDiscountUsedNow > 0 && (
+                    <>
+                      <div className="flex justify-between items-start text-green-600">
+                        <span>{t('discountAppliedLabel')}</span>
+                        <span>-{formatCurrency(effectiveDiscountUsedNow)}</span>
+                      </div>
+                      <div className="border-t border-gray-300 pt-3 flex justify-between items-start">
+                        <span className="font-semibold text-[var(--color-primary)]">
+                          {t('totalAfterDiscountLabel')}
+                        </span>
+                        <span className="font-semibold text-[var(--color-primary)]">
+                          {formatCurrency(totalAfterDiscount ?? 0)}
+                        </span>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Payment breakdown */}
+                  <div className="border-t border-gray-300 pt-3 mt-3 space-y-2">
+                    <div className="flex justify-between items-start text-[var(--color-primary-dark)]">
+                      <span className="font-semibold">{t('reservationFeePayNow')}</span>
+                      <span className="font-bold">
+                        {formatCurrency(payNowAfterDiscount ?? priceData.first ?? 0)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-start text-gray-600">
+                      <span>{t('payAtArrivalLabel')}</span>
+                      <span>
+                        {formatCurrency(
+                          Math.max(
+                            0,
+                            (totalAfterDiscount ?? priceData.grandTotal ?? 0) -
+                            (payNowAfterDiscount ?? priceData.first ?? 0)
+                          )
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                </>
+              )}
 
               {/* pricing fetch error */}
               {priceError && (
@@ -1443,7 +1474,6 @@ export default function CheckoutDetailsClient() {
               )}
             </div>
           </div>
-
           {payNowAmount === 0 ? (
             <button
               disabled={!canSubmit}

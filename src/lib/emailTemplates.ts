@@ -131,7 +131,7 @@ export async function getDiscountCodeTemplate(locale: EmailLocale) {
 export function getEmailSubject(type: EmailType, locale: EmailLocale, params?: any): string {
   const subjects = {
     'booking-reminder': {
-      lt: `Priminimasapie jūsų rezervaciją - ${params?.houseName || 'Rubikiai Lux'}`,
+      lt: `Priminimas apie jūsų rezervaciją - ${params?.houseName || 'Rubikiai Lux'}`,
       en: `Reminder about your reservation - ${params?.houseName || 'Rubikiai Lux'}`,
       ru: `Напоминание о вашем бронировании - ${params?.houseName || 'Rubikiai Lux'}`,
     },

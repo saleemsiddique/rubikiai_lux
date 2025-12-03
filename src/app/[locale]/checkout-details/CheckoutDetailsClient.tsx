@@ -337,34 +337,33 @@ export default function CheckoutDetailsClient() {
       };
     }
 
-    // ---- percent: discount applies ONLY to Reservation fee ----
+    // ---- percent: discount calculated on totalNightsOnly (same logic as admin) ----
     if (discountData.kind === "percent" && discountData.percentDoc) {
-      const pct = Number(discountData.percentDoc.percent ?? 0) / 100;
-      const pctClamped = Math.min(Math.max(pct, 0), 1); // [0,1]
+      const percentValue = Number(discountData.percentDoc.percent ?? 0);
+      const pctClamped = Math.min(Math.max(percentValue, 0), 100); // [0,100]
 
-      // discount only on Reservation fee
-      const discountOnFirstNight = firstNightBefore * pctClamped;
-      const firstNightAfterPct = firstNightBefore - discountOnFirstNight;
+      // ✅ NUEVA LÓGICA: Porcentaje se calcula sobre totalNightsOnly (casas con días, sin jacuzzi)
+      // priceData.total = totalNightsOnly (lodging + extra guests, no jacuzzi)
+      const discountAmount = ((pctClamped / 100) * totalBeforeNoJacuzzi);
 
-      // total after discount: subtract ONLY what we subtracted from Reservation fee
-      const totalAfterOnlyFirstNightDiscount = Math.max(
-        0,
-        fullStayBefore - discountOnFirstNight
-      );
+      // Aplicar descuento primero a la primera noche
+      const usedOnFirstNight = Math.min(discountAmount, firstNightBefore);
+      const discountedFirst = Math.max(0, firstNightBefore - usedOnFirstNight);
+
+      // El total se reduce por el monto completo del descuento
+      const totalAfter = Math.max(0, fullStayBefore - discountAmount);
 
       // enforce Stripe "no 0.01€-0.49€" rule on pay-now amount
-      const cents = toCents(firstNightAfterPct);
+      const cents = toCents(discountedFirst);
       if (cents > 0 && cents < STRIPE_MIN_CENTS) {
         // Option A: snap to 0.50€
         const target50 = fromCents(STRIPE_MIN_CENTS); // 0.50
         if (target50 <= firstNightBefore) {
+          const adjustedDiscount = firstNightBefore - target50;
           return {
-            effectiveDiscountUsedNow: firstNightBefore - target50,
+            effectiveDiscountUsedNow: adjustedDiscount,
             payNowAfterDiscount: target50,
-            totalAfterDiscount: Math.max(
-              0,
-              fullStayBefore - (firstNightBefore - target50)
-            ),
+            totalAfterDiscount: Math.max(0, fullStayBefore - adjustedDiscount),
           };
         }
 
@@ -376,11 +375,11 @@ export default function CheckoutDetailsClient() {
         };
       }
 
-      // Normal case: pay firstNightAfterPct now
+      // Normal case: pay discountedFirst now
       return {
-        effectiveDiscountUsedNow: discountOnFirstNight,
-        payNowAfterDiscount: firstNightAfterPct,
-        totalAfterDiscount: totalAfterOnlyFirstNightDiscount,
+        effectiveDiscountUsedNow: discountAmount,
+        payNowAfterDiscount: discountedFirst,
+        totalAfterDiscount: totalAfter,
       };
     }
 
@@ -673,9 +672,10 @@ export default function CheckoutDetailsClient() {
         return;
       }
 
-      // calculo para mostrar "estás ahorrando X€ ahora"
-      const approxUsed = (p / 100) * firstNightBefore;
-      setAppliedEuroDiscount(approxUsed);
+      // ✅ CORREGIDO: calculo sobre totalNightsOnly (igual que admin)
+      // priceData.total = totalNightsOnly (lodging + extra guests, no jacuzzi)
+      const discountAmount = (p / 100) * totalBeforeNoJacuzzi;
+      setAppliedEuroDiscount(discountAmount);
 
       // ✅ OK: aplicamos
       setDiscountApplied(true);

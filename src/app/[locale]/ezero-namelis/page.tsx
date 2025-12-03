@@ -47,7 +47,7 @@ export default async function EzeroNamelisPage() {
     <Suspense fallback={<HousePageFallback />}>
       <HousePage
         heroSrc="/ezero-namelis/ezero-namelis (19).jpg"
-        title="EŽERO NAMELIS"
+        title={t('title')}
         subtitle={t('subtitle')}
         accommodates={2}
         size={t('size')}

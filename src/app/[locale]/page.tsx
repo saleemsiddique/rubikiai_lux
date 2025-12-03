@@ -2,15 +2,11 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import dynamic from 'next/dynamic';
 import AboutSection from '@/components/AboutSection';
 import { useTranslations, useLocale } from 'next-intl';
 
-const ReservationForm = dynamic(() => import('@/components/ReservationForm'), { ssr: false });
-
 export default function HomePage() {
   const [scrollY, setScrollY] = useState(0);
-  const [activeSection, setActiveSection] = useState(0);
   const [isMounted, setIsMounted] = useState(false);
   const [isImageVisible, setIsImageVisible] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -108,7 +104,7 @@ export default function HomePage() {
               minHeight: '100%',
             }}
           >
-            <source src="/home/rubikiailux-inicio.mp4" type="video/mp4" />
+            <source src="/home/rubikiailux_home.mp4" type="video/mp4" />
           </video>
         </div>
 

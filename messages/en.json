@@ -806,7 +806,9 @@
       },
       "success": "Discount created and sent successfully to {email}. ID: {id}",
       "warning": "Code created ({id}) but the email could NOT be sent automatically.\nCheck percentage_discounts in Firestore.",
-      "errorSending": "Error: {message}"
+      "errorSending": "Error: {message}",
+      "emailLanguage": "Email language",
+      "emailLanguageHelp": "Select the language in which the email will be sent."
     },
     "revenue": {
       "title": "Revenue",

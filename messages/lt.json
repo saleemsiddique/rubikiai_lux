@@ -932,7 +932,9 @@
       },
       "success": "Nuolaida sėkmingai sukurta ir išsiųsta {email}. ID: {id}",
       "warning": "Kodas sukurtas ({id}), bet el. laiškas NEPAVYKO išsiųsti automatiškai.\nPatikrinkite percentage_discounts Firestore.",
-      "errorSending": "Klaida: {message}"
+      "errorSending": "Klaida: {message}",
+      "emailLanguage": "El. laiško kalba",
+      "emailLanguageHelp": "Pasirinkite kalbą, kuria bus siunčiamas el. laiškas."
     },
     "revenue": {
       "title": "Pajamos",

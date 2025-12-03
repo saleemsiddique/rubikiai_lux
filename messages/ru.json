@@ -906,7 +906,9 @@
       },
       "success": "Скидка успешно создана и отправлена на {email}. ID: {id}",
       "warning": "Код создан ({id}), но письмо НЕ УДАЛОСЬ отправить автоматически.\nПроверьте percentage_discounts в Firestore.",
-      "errorSending": "Ошибка: {message}"
+      "errorSending": "Ошибка: {message}",
+      "emailLanguage": "Язык письма",
+      "emailLanguageHelp": "Выберите язык, на котором будет отправлено письмо."
     },
     "revenue": {
       "title": "Доход",

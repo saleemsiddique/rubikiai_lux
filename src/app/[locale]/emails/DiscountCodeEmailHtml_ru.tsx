@@ -40,6 +40,10 @@ export function DiscountCodeEmailHtml_ru(params: any): string {
                       ${expiresAt ? `Действителен до ${expiresAt}.` : ''}
                     </p>
 
+                    <p style="color: #888; font-size: 14px; margin: 10px 0; font-style: italic;">
+                      *Скидка применяется к общей стоимости проживания.
+                    </p>
+
                     <p style="color: #999; font-size: 12px; margin: 30px 0 0 0;">
                       © ${new Date().getFullYear()} Rubikiai Lux. Все права защищены.
                     </p>

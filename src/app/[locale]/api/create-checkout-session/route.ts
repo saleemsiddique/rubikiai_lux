@@ -482,8 +482,10 @@ export async function POST(
         }
       }
 
-      let proposed = firstNightCharge * pct;
+      // ✅ NUEVA LÓGICA: Calcular descuento sobre totalNightsOnly (casas con días, sin jacuzzi)
+      let proposed = totalNightsOnly * pct;
 
+      // Limitar al grandTotal
       if (proposed > grandTotal) {
         proposed = grandTotal;
       }

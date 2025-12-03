@@ -309,10 +309,16 @@ function PriceSummaryBlock({
             discountedGrandTotal = Math.max(0, grandTotal - totalCreditToUse);
             discountAmount = totalCreditToUse;
         } else if (discountData.kind === 'percent') {
-            // Percentage: applies only to first night
+            // ✅ NUEVA LÓGICA: Porcentaje se calcula sobre totalNightsOnly (casas con días, sin jacuzzi)
             const percentValue = appliedDiscount;
-            discountAmount = ((percentValue / 100) * (priceData.first || 0));
-            discountedFirst = Math.max(0, (priceData.first || 0) - discountAmount);
+            discountAmount = ((percentValue / 100) * (priceData.total || 0)); // total = totalNightsOnly
+
+            // Aplicar descuento primero a la primera noche
+            const firstNight = priceData.first || 0;
+            const usedOnFirstNight = Math.min(discountAmount, firstNight);
+            discountedFirst = Math.max(0, firstNight - usedOnFirstNight);
+
+            // El total se reduce por el monto completo del descuento
             discountedGrandTotal = Math.max(0, (priceData.grandTotal || 0) - discountAmount);
         }
     }

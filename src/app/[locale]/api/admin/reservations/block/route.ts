@@ -213,13 +213,18 @@ export async function POST(
           };
           codeFromDiscount = discount.code;
         } else if (discount.type === "percent") {
-          // Percentage: applies only to first night
+          // ✅ NUEVA LÓGICA: Calcular descuento sobre totalNightsOnly (casas con días, sin jacuzzi)
           const percentValue = Math.min(100, Math.max(0, discountAmount));
-          const discountOnFirstNight = (percentValue / 100) * firstNightBase;
+          const discountOnTotalNights = (percentValue / 100) * totalNightsOnly;
 
-          amountApplied = discountOnFirstNight;
-          discountedFirst = Math.max(0, firstNightBase - discountOnFirstNight);
-          discountedGrandTotal = Math.max(0, grandTotalBase - discountOnFirstNight);
+          amountApplied = discountOnTotalNights;
+
+          // Aplicar descuento primero a la primera noche
+          const usedOnFirstNight = Math.min(amountApplied, firstNightBase);
+          discountedFirst = Math.max(0, firstNightBase - usedOnFirstNight);
+
+          // El total se reduce por el monto completo del descuento
+          discountedGrandTotal = Math.max(0, grandTotalBase - amountApplied);
 
           couponData = {
             code: discount.code,

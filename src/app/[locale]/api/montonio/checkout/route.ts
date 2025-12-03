@@ -410,8 +410,8 @@ export async function POST(
             { status: 400 }
           );
 
-        // apply only to Reservation fee
-        let proposed = firstNightCharge * pct;
+        // ✅ NUEVA LÓGICA: Calcular descuento sobre totalNightsOnly (casas con días, sin jacuzzi)
+        let proposed = totalNightsOnly * pct;
         if (proposed > grandTotal) proposed = grandTotal;
         proposed = adjustForStripeMin(firstNightCharge, proposed);
 

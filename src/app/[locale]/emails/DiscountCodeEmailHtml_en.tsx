@@ -40,6 +40,10 @@ export function DiscountCodeEmailHtml_en(params: any): string {
                       ${expiresAt ? `Valid until ${expiresAt}.` : ''}
                     </p>
 
+                    <p style="color: #888; font-size: 14px; margin: 10px 0; font-style: italic;">
+                      *The discount applies to the total accommodation cost.
+                    </p>
+
                     <p style="color: #999; font-size: 12px; margin: 30px 0 0 0;">
                       © ${new Date().getFullYear()} Rubikiai Lux. All rights reserved.
                     </p>

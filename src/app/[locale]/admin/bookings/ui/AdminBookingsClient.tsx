@@ -436,7 +436,7 @@ export default function AdminBookingsClient() {
     const [blockCustomerPhone, setBlockCustomerPhone] = useState<string>("");
     const [blockArrivalTime, setBlockArrivalTime] = useState<string>("");
     const [blockComment, setBlockComment] = useState<string>("");
-    const [blockEmailLocale, setBlockEmailLocale] = useState<string>("en"); // Language for confirmation email
+    const [blockEmailLocale, setBlockEmailLocale] = useState<string>("lt"); // Language for confirmation email
 
     // Jacuzzi options
     const [blockWithJacuzzi, setBlockWithJacuzzi] = useState<boolean>(false);
@@ -951,7 +951,7 @@ export default function AdminBookingsClient() {
             setBlockCustomerPhone("");
             setBlockArrivalTime("");
             setBlockComment("");
-            setBlockEmailLocale("en");
+            setBlockEmailLocale("lt");
             setBlockWithJacuzzi(false);
             setBlockJacuzziDays(1);
             setBlockDiscountCode("");
@@ -1789,8 +1789,8 @@ export default function AdminBookingsClient() {
                                         onChange={(e) => setBlockEmailLocale(e.target.value)}
                                         className="w-full border rounded-md p-2 mt-1"
                                     >
-                                        <option value="en">English</option>
                                         <option value="lt">Lithuanian (Lietuvių)</option>
+                                        <option value="en">English</option>
                                         <option value="ru">Russian (Русский)</option>
                                     </select>
                                 </div>

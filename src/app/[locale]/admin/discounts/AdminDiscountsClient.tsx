@@ -143,8 +143,8 @@ export default function AdminDiscountsClient({
               value={emailLocale}
               onChange={(e) => setEmailLocale(e.target.value as "en" | "lt" | "ru")}
             >
-              <option value="en">English</option>
               <option value="lt">Lietuvių (Lithuanian)</option>
+              <option value="en">English</option>
               <option value="ru">Русский (Russian)</option>
             </select>
             <div className="text-[11px] text-neutral-500 mt-1">

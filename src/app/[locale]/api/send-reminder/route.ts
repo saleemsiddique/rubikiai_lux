@@ -169,8 +169,8 @@ const html = templateFn({
 
   const sendArgs: any = {
     from: params.fromName
-      ? `${params.fromName} <noreply@rubikiai.lt>`
-      : "Rubikiai Lux <noreply@rubikiai.lt>",
+      ? `${params.fromName} <noreply@rubikiailux.lt>`
+      : "Rubikiai Lux <noreply@rubikiailux.lt>",
     to: params.to,
     subject,
     html,

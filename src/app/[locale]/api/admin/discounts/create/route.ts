@@ -135,7 +135,7 @@ export async function POST(req: Request) {
         : `Tavo asmeninė ${percent}% nuolaida - Rubikiai Lux`;
 
     const { data, error } = await resend.emails.send({
-      from: "Rubikiai Lux <noreply@rubikiai.lt>",
+      from: "Rubikiai Lux <noreply@rubikiailux.lt>",
       to: toEmail,
       subject,
       html,

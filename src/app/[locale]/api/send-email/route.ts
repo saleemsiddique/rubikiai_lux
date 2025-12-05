@@ -362,8 +362,8 @@ export async function POST(
     }
 
     const fromDisplay = body.fromName
-      ? `${body.fromName} <noreply@rubikiai.lt>`
-      : "Rubikiai Lux <noreply@rubikiai.lt>";
+      ? `${body.fromName} <noreply@rubikiailux.lt>`
+      : "Rubikiai Lux <noreply@rubikiailux.lt>";
 
     const sendArgs: any = {
       from: fromDisplay,

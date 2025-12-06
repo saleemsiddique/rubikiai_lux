@@ -18,7 +18,7 @@
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.554.0",
     "micro": "^10.0.1",
-    "next": "15.5.2",
+    "next": "15.5.7",
     "next-intl": "^4.5.6",
     "react": "19.1.0",
     "react-datepicker": "^8.7.0",
@@ -35,7 +35,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "15.5.2",
+    "eslint-config-next": "15.5.7",
     "sharp": "^0.34.5",
     "tailwindcss": "^4",
     "typescript": "^5"

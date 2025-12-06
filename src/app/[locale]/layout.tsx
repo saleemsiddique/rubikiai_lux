@@ -5,6 +5,7 @@ import { getMessages, getTranslations, setRequestLocale } from 'next-intl/server
 import { notFound } from 'next/navigation';
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import PWAInstaller from "@/components/PWAInstaller";
 import { HouseProvider } from "@/context/HouseContext";
 import { locales } from "@/i18n/config";
 
@@ -26,6 +27,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     description: t('defaultDescription'),
     icons: {
       icon: "/Logotipas.PNG",
+      apple: "/apple-icon.png",
+    },
+    manifest: "/manifest.json",
+    themeColor: "#000000",
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: "default",
+      title: "Rubikiai Lux",
+    },
+    viewport: {
+      width: "device-width",
+      initialScale: 1,
+      maximumScale: 1,
+      userScalable: false,
     },
   };
 }
@@ -46,6 +61,7 @@ export default async function LocaleLayout({ children, params }: Props) {
       <body className="min-h-screen flex flex-col">
         <NextIntlClientProvider messages={messages}>
           <HouseProvider>
+            <PWAInstaller />
             <Header />
             <main className="flex-1">{children}</main>
             <Footer />

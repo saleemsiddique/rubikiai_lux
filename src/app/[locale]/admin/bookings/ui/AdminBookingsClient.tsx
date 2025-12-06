@@ -102,7 +102,7 @@ const PROPERTY_NAME_MAP: Record<string, string> = {
     "L0TeFf2LmrWGAaAyS8NY": "Ežero Namelis",
     "PZwbfMYlSXj61uYYJutg": "N1",
     "oDzv9346CdaAsok162sX": "N2",
-    "PZwbfMYlSXj61uYYJutg__oDzv9346CdaAsok162sX" : "N1 + N2"
+    "PZwbfMYlSXj61uYYJutg__oDzv9346CdaAsok162sX": "N1 + N2"
 };
 
 /* ---------- Date helpers (LOCAL) ---------- */
@@ -984,14 +984,7 @@ export default function AdminBookingsClient() {
                         <button
                             type="button"
                             onClick={() => {
-                                if (
-                                    typeof window !== "undefined" &&
-                                    window.history.length > 1
-                                ) {
-                                    router.back();
-                                } else {
-                                    router.push("/admin/menu");
-                                }
+                                router.push("/admin/menu");
                             }}
                             className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-neutral-50"
                             aria-label="Back"
@@ -1102,14 +1095,14 @@ export default function AdminBookingsClient() {
                 {/* Table / Mobile Cards */}
                 <div className="mt-6 bg-white border rounded-xl overflow-hidden">
                     <div className="px-4 py-3 border-b text-sm font-semibold flex items-center justify-between">
-                        <div>Results</div>
+                        <div>{t('bookings.results.title')}</div>
                         <div className="text-xs text-neutral-500">
-                            {rows.length} total
+                            {rows.length} {t('bookings.results.total')}
                         </div>
                     </div>
                     {loading ? (
                         <div className="p-4 text-sm text-neutral-600">
-                            Loading…
+                            {t('common.loading')}
                         </div>
                     ) : err ? (
                         <div className="p-4 text-sm text-red-600 whitespace-pre-wrap">
@@ -1117,7 +1110,7 @@ export default function AdminBookingsClient() {
                         </div>
                     ) : rows.length === 0 ? (
                         <div className="p-4 text-sm text-neutral-600">
-                            No results
+                            {t('bookings.results.noResults')}
                         </div>
                     ) : (
                         <>
@@ -1133,8 +1126,8 @@ export default function AdminBookingsClient() {
                                     // Verificar si es porcentaje: puede estar en coupon.type o en percentDiscount
                                     const isPercentDiscount = (r.coupon?.type === "percent") || !!r.percentDiscount;
                                     const totalFull = isPercentDiscount
-                                      ? (r.discountedGrandTotal ?? r.totalStay ?? 0)
-                                      : (r.grandTotal ?? r.total ?? r.totalStay ?? r.discountedGrandTotal ?? 0);
+                                        ? (r.discountedGrandTotal ?? r.totalStay ?? 0)
+                                        : (r.grandTotal ?? r.total ?? r.totalStay ?? r.discountedGrandTotal ?? 0);
                                     const payNow = r.payNow ?? r.discountedFirst ?? r.firstNightCharge ?? 0;
                                     // Calcular lo que REALMENTE se ha pagado
                                     const actuallyPaid = r.paidInFull ? totalFull : (r.amountPaid ?? (r.paidAt ? payNow : 0));
@@ -1164,22 +1157,22 @@ export default function AdminBookingsClient() {
                                                             {r.status}
                                                         </span>
                                                         {r.paidInFull && (
-                                                            <span className="text-[11px] text-green-600">✓ Paid</span>
+                                                            <span className="text-[11px] text-green-600">✓ {t('bookings.table.paid')}</span>
                                                         )}
                                                         {r.extraGuests ? (
-                                                            <span className="text-[11px] text-neutral-500">+{r.extraGuests} extra</span>
+                                                            <span className="text-[11px] text-neutral-500">+{r.extraGuests} {t('bookings.table.extraGuests')}</span>
                                                         ) : null}
                                                         {r.jacuzzi?.enabled && (
-                                                            <span className="text-[11px] text-neutral-500">Jacuzzi {jacuzziDays > 0 ? `(${jacuzziDays}d)` : ''}</span>
+                                                            <span className="text-[11px] text-neutral-500">{t('bookings.table.jacuzzi')} {jacuzziDays > 0 ? `(${jacuzziDays}d)` : ''}</span>
                                                         )}
                                                     </div>
                                                 </div>
 
                                                 <div className="w-32 text-right">
                                                     <div className="text-sm font-semibold">{totalFull.toFixed(2)}€</div>
-                                                    <div className="text-xs text-neutral-600 mt-1">Paid: {actuallyPaid.toFixed(2)}€</div>
+                                                    <div className="text-xs text-neutral-600 mt-1">{t('bookings.table.paid')}: {actuallyPaid.toFixed(2)}€</div>
                                                     {actuallyPaid < totalFull && (
-                                                        <div className="text-xs text-orange-600">Pending: {(totalFull - actuallyPaid).toFixed(2)}€</div>
+                                                        <div className="text-xs text-orange-600">{t('bookings.table.pending')}: {(totalFull - actuallyPaid).toFixed(2)}€</div>
                                                     )}
                                                 </div>
                                             </div>
@@ -1203,32 +1196,32 @@ export default function AdminBookingsClient() {
 
                                                 <button
                                                     onClick={async () => {
-                                                        if (!confirm("Mark as fully paid and complete?")) return;
+                                                        if (!confirm(t('bookings.actions.markPaidComplete'))) return;
                                                         try {
                                                             await updateStatus(r.id, "complete", true);
                                                         } catch (er: any) {
-                                                            alert(er?.message || "Error");
+                                                            alert(er?.message || t('bookings.table.error'));
                                                         }
                                                     }}
                                                     disabled={r.status === "complete" || r.status === "canceled"}
                                                     className="rounded-md border px-3 py-2 text-xs hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                                 >
-                                                    Fully Paid
+                                                    {t('bookings.table.fullyPaid')}
                                                 </button>
 
                                                 <button
                                                     onClick={async () => {
-                                                        if (!confirm("Cancel reservation?")) return;
+                                                        if (!confirm(t('bookings.actions.cancelReservation'))) return;
                                                         try {
                                                             await updateStatus(r.id, "canceled");
                                                         } catch (er: any) {
-                                                            alert(er?.message || "Error");
+                                                            alert(er?.message || t('bookings.table.error'));
                                                         }
                                                     }}
                                                     className="rounded-md border px-3 py-2 text-xs hover:bg-neutral-50"
                                                     disabled={r.status === "complete" || r.status === "canceled"}
                                                 >
-                                                    Cancel
+                                                    {t('bookings.table.cancel')}
                                                 </button>
                                             </div>
                                         </div>
@@ -1241,15 +1234,15 @@ export default function AdminBookingsClient() {
                                 <table className="min-w-full text-sm">
                                     <thead className="bg-neutral-50 text-neutral-700">
                                         <tr>
-                                            <th className="px-3 py-2 text-left">Dates</th>
-                                            <th className="px-3 py-2 text-left">Status</th>
-                                            <th className="px-3 py-2 text-left">House</th>
-                                            <th className="px-3 py-2 text-left">Customer</th>
-                                            <th className="px-3 py-2 text-left">Email</th>
-                                            <th className="px-3 py-2 text-left">Guests</th>
-                                            <th className="px-3 py-2 text-right">Total</th>
-                                            <th className="px-3 py-2 text-right">Paid</th>
-                                            <th className="px-3 py-2">Actions</th>
+                                            <th className="px-3 py-2 text-left">{t('bookings.table.dates')}</th>
+                                            <th className="px-3 py-2 text-left">{t('bookings.table.status')}</th>
+                                            <th className="px-3 py-2 text-left">{t('bookings.table.house')}</th>
+                                            <th className="px-3 py-2 text-left">{t('bookings.table.customer')}</th>
+                                            <th className="px-3 py-2 text-left">{t('bookings.table.email')}</th>
+                                            <th className="px-3 py-2 text-left">{t('bookings.table.guests')}</th>
+                                            <th className="px-3 py-2 text-right">{t('bookings.table.total')}</th>
+                                            <th className="px-3 py-2 text-right">{t('bookings.table.paid')}</th>
+                                            <th className="px-3 py-2">{t('bookings.table.actions')}</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -1263,8 +1256,8 @@ export default function AdminBookingsClient() {
                                             // Verificar si es porcentaje: puede estar en coupon.type o en percentDiscount
                                             const isPercentDiscount = (r.coupon?.type === "percent") || !!r.percentDiscount;
                                             const totalFull = isPercentDiscount
-                                              ? (r.discountedGrandTotal ?? r.totalStay ?? 0)
-                                              : (r.grandTotal ?? r.total ?? r.totalStay ?? r.discountedGrandTotal ?? 0);
+                                                ? (r.discountedGrandTotal ?? r.totalStay ?? 0)
+                                                : (r.grandTotal ?? r.total ?? r.totalStay ?? r.discountedGrandTotal ?? 0);
                                             const payNow = r.payNow ?? r.discountedFirst ?? r.firstNightCharge ?? 0;
                                             // Calcular lo que REALMENTE se ha pagado
                                             const actuallyPaid = r.paidInFull ? totalFull : (r.amountPaid ?? (r.paidAt ? payNow : 0));
@@ -1283,7 +1276,7 @@ export default function AdminBookingsClient() {
                                                             {r.status}
                                                         </span>
                                                         {r.paidInFull && (
-                                                            <span className="ml-1 text-[10px] text-green-600">✓ Paid</span>
+                                                            <span className="ml-1 text-[10px] text-green-600">✓ {t('bookings.table.paid')}</span>
                                                         )}
                                                     </td>
                                                     <td className="px-3 py-2">
@@ -1314,7 +1307,7 @@ export default function AdminBookingsClient() {
                                                         {totalFull.toFixed(2)}€
                                                         {r.jacuzzi?.enabled && (
                                                             <div className="text-[10px] text-neutral-500">
-                                                                +{r.jacuzziFee ?? 0}€ jacuzzi
+                                                                +{r.jacuzziFee ?? 0}€ {t('bookings.table.jacuzzi').toLowerCase()}
                                                                 {jacuzziDays > 0 && ` (${jacuzziDays}d)`}
                                                             </div>
                                                         )}
@@ -1323,7 +1316,7 @@ export default function AdminBookingsClient() {
                                                         {actuallyPaid.toFixed(2)}€
                                                         {actuallyPaid < totalFull && (
                                                             <div className="text-[10px] text-orange-600">
-                                                                Pending: {(totalFull - actuallyPaid).toFixed(2)}€
+                                                                {t('bookings.table.pending')}: {(totalFull - actuallyPaid).toFixed(2)}€
                                                             </div>
                                                         )}
                                                     </td>
@@ -1352,11 +1345,11 @@ export default function AdminBookingsClient() {
 
                                                             <button
                                                                 onClick={async () => {
-                                                                    if (!confirm("Mark as fully paid and complete?")) return;
+                                                                    if (!confirm(t('bookings.actions.markPaidComplete'))) return;
                                                                     try {
                                                                         await updateStatus(r.id, "complete", true);
                                                                     } catch (er: any) {
-                                                                        alert(er?.message || "Error");
+                                                                        alert(er?.message || t('bookings.table.error'));
                                                                     }
                                                                 }}
                                                                 disabled={
@@ -1365,16 +1358,16 @@ export default function AdminBookingsClient() {
                                                                 }
                                                                 className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                                             >
-                                                                Fully Paid
+                                                                {t('bookings.table.fullyPaid')}
                                                             </button>
 
                                                             <button
                                                                 onClick={async () => {
-                                                                    if (!confirm("Cancel reservation?")) return;
+                                                                    if (!confirm(t('bookings.actions.cancelReservation'))) return;
                                                                     try {
                                                                         await updateStatus(r.id, "canceled");
                                                                     } catch (er: any) {
-                                                                        alert(er?.message || "Error");
+                                                                        alert(er?.message || t('bookings.table.error'));
                                                                     }
                                                                 }}
                                                                 className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1383,7 +1376,7 @@ export default function AdminBookingsClient() {
                                                                     r.status === "canceled"
                                                                 }
                                                             >
-                                                                Cancel
+                                                                {t('bookings.table.cancel')}
                                                             </button>
                                                         </div>
                                                     </td>
@@ -1402,7 +1395,7 @@ export default function AdminBookingsClient() {
                     {/* Calendar */}
                     <div className="lg:col-span-2 bg-white border rounded-xl p-4">
                         <div className="flex items-center justify-between mb-3">
-                            <div className="font-semibold">Global Calendar</div>
+                            <div className="font-semibold">{t('bookings.calendar.title')}</div>
                             <div className="flex items-center gap-2">
                                 <button
                                     className="rounded-md border px-2 py-1 text-xs"
@@ -1412,12 +1405,12 @@ export default function AdminBookingsClient() {
                                         setCalYear(d.getFullYear());
                                         setCalMonth(d.getMonth());
                                     }}
-                                    aria-label="Previous month"
+                                    aria-label={t('bookings.calendar.prevMonth')}
                                 >
                                     ←
                                 </button>
                                 <div className="text-sm">
-                                    {new Date(calYear, calMonth, 1).toLocaleString(undefined, {
+                                    {new Date(calYear, calMonth, 1).toLocaleString(locale, {
                                         month: "long",
                                         year: "numeric",
                                     })}
@@ -1430,7 +1423,7 @@ export default function AdminBookingsClient() {
                                         setCalYear(d.getFullYear());
                                         setCalMonth(d.getMonth());
                                     }}
-                                    aria-label="Next month"
+                                    aria-label={t('bookings.calendar.nextMonth')}
                                 >
                                     →
                                 </button>
@@ -1438,14 +1431,22 @@ export default function AdminBookingsClient() {
                         </div>
 
                         <div className="grid grid-cols-7 gap-2 text-xs text-neutral-600 mb-1">
-                            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
-                                <div key={d} className="text-center">{d}</div>
+                            {[
+                                t('bookings.calendar.mon'),
+                                t('bookings.calendar.tue'),
+                                t('bookings.calendar.wed'),
+                                t('bookings.calendar.thu'),
+                                t('bookings.calendar.fri'),
+                                t('bookings.calendar.sat'),
+                                t('bookings.calendar.sun')
+                            ].map((d, i) => (
+                                <div key={i} className="text-center">{d}</div>
                             ))}
                         </div>
 
                         {occLoading && (
                             <div className="text-xs text-neutral-600 mb-2">
-                                Loading…
+                                {t('common.loading')}
                             </div>
                         )}
                         {occErr && (
@@ -1519,7 +1520,7 @@ export default function AdminBookingsClient() {
 
                         {selectedDay && (
                             <div className="mt-4 border-t pt-3">
-                                <div className="text-sm font-semibold">Reservations on {selectedDay}</div>
+                                <div className="text-sm font-semibold">{t('bookings.calendar.reservationsOn')} {selectedDay}</div>
 
                                 <div className="mt-2 grid gap-2">
                                     {(dayMap.get(selectedDay) || []).map((r) => {
@@ -1531,8 +1532,8 @@ export default function AdminBookingsClient() {
                                         // Verificar si es porcentaje: puede estar en coupon.type o en percentDiscount
                                         const isPercentDiscount = (r.coupon?.type === "percent") || !!r.percentDiscount;
                                         const totalFull = isPercentDiscount
-                                          ? (r.discountedGrandTotal ?? r.totalStay ?? 0)
-                                          : (r.grandTotal ?? r.total ?? r.totalStay ?? r.discountedGrandTotal ?? 0);
+                                            ? (r.discountedGrandTotal ?? r.totalStay ?? 0)
+                                            : (r.grandTotal ?? r.total ?? r.totalStay ?? r.discountedGrandTotal ?? 0);
                                         const payNow = r.payNow ?? r.discountedFirst ?? r.firstNightCharge ?? 0;
                                         const actuallyPaid = r.paidInFull ? totalFull : (r.amountPaid ?? (r.paidAt ? payNow : 0));
                                         const jacuzziDays = r.jacuzzi?.days ?? 0;
@@ -1541,60 +1542,60 @@ export default function AdminBookingsClient() {
                                             <div key={r.id} className="rounded-md border p-2 text-xs bg-white">
                                                 <div className="font-semibold">{r.checkIn} → {r.checkOut} <span className="ml-1">({r.status})</span></div>
 
-                                                <div>Stay: {r.houseIds && r.houseIds.length > 1 ? r.houseIds.map((id: string) => PROPERTY_NAME_MAP[id] || id).join(" + ") : (PROPERTY_NAME_MAP[r.houseId || r.houseIds?.[0] || ""] || r.houseId || r.houseIds?.[0] || "—")}</div>
+                                                <div>{t('bookings.calendar.stay')}: {r.houseIds && r.houseIds.length > 1 ? r.houseIds.map((id: string) => PROPERTY_NAME_MAP[id] || id).join(" + ") : (PROPERTY_NAME_MAP[r.houseId || r.houseIds?.[0] || ""] || r.houseId || r.houseIds?.[0] || "—")}</div>
 
-                                                <div>Guest: {customerName}</div>
+                                                <div>{t('bookings.calendar.guest')}: {customerName}</div>
                                                 <div>Email: {customerEmail}</div>
 
                                                 {(r.phone || r.customer?.phone) && (
-                                                    <div>Phone: {r.phone || r.customer?.phone}</div>
+                                                    <div>{t('bookings.calendar.phone')}: {r.phone || r.customer?.phone}</div>
                                                 )}
 
                                                 <div>
-                                                    Guests: {r.guests ?? "—"}{r.extraGuests ? ` (+${r.extraGuests} extra)` : ""}
+                                                    {t('bookings.table.guests')}: {r.guests ?? "—"}{r.extraGuests ? ` (+${r.extraGuests} ${t('bookings.table.extraGuests')})` : ""}
                                                 </div>
 
                                                 <div>
-                                                    Total: {totalFull.toFixed(2)}€
+                                                    {t('bookings.calendar.total')}: {totalFull.toFixed(2)}€
                                                     {r.jacuzzi?.enabled && (
-                                                        <span> (+{r.jacuzziFee ?? 0}€ jacuzzi{jacuzziDays > 0 && ` ${jacuzziDays}d`})</span>
+                                                        <span> (+{r.jacuzziFee ?? 0}€ {t('bookings.table.jacuzzi').toLowerCase()}{jacuzziDays > 0 && ` ${jacuzziDays}d`})</span>
                                                     )}
                                                 </div>
 
                                                 <div>
-                                                    Paid: {actuallyPaid.toFixed(2)}€
+                                                    {t('bookings.calendar.paid')}: {actuallyPaid.toFixed(2)}€
                                                     {actuallyPaid < totalFull && (
-                                                        <span className="text-orange-600"> (Pending: {(totalFull - actuallyPaid).toFixed(2)}€)</span>
+                                                        <span className="text-orange-600"> ({t('bookings.calendar.pending')}: {(totalFull - actuallyPaid).toFixed(2)}€)</span>
                                                     )}
                                                 </div>
 
                                                 {(r.arrivalTime || r.customer?.arrivalTime) && (
-                                                    <div>Arrival time: {r.arrivalTime || r.customer?.arrivalTime}</div>
+                                                    <div>{t('bookings.calendar.arrivalTime')}: {r.arrivalTime || r.customer?.arrivalTime}</div>
                                                 )}
 
                                                 {(r.comment || r.customer?.comment) && (
-                                                    <div className="mt-1 text-neutral-600">Comment: {r.comment || r.customer?.comment}</div>
+                                                    <div className="mt-1 text-neutral-600">{t('bookings.calendar.comment')}: {r.comment || r.customer?.comment}</div>
                                                 )}
 
                                                 {r.adminNote && (
-                                                    <div className="mt-1 text-neutral-600">Admin note: {r.adminNote}</div>
+                                                    <div className="mt-1 text-neutral-600">{t('bookings.calendar.adminNote')}: {r.adminNote}</div>
                                                 )}
 
                                                 <div className="mt-2 flex gap-2">
                                                     <button
                                                         onClick={async () => {
-                                                            if (!confirm("Mark as fully paid and complete?")) return;
+                                                            if (!confirm(t('bookings.actions.markPaidComplete'))) return;
 
                                                             try {
                                                                 await updateStatus(r.id, "complete", true);
                                                             } catch (er: any) {
-                                                                alert(er?.message || "Error");
+                                                                alert(er?.message || t('bookings.table.error'));
                                                             }
                                                         }}
                                                         disabled={r.status === "complete" || r.status === "canceled"}
                                                         className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                                     >
-                                                        Fully Paid
+                                                        {t('bookings.table.fullyPaid')}
                                                     </button>
 
                                                     <button
@@ -1602,12 +1603,12 @@ export default function AdminBookingsClient() {
                                                             try {
                                                                 await updateStatus(r.id, "canceled");
                                                             } catch (e: any) {
-                                                                alert(e?.message || "Error");
+                                                                alert(e?.message || t('bookings.table.error'));
                                                             }
                                                         }}
                                                         className="rounded-md border px-2 py-1 hover:bg-neutral-50 text-xs"
                                                     >
-                                                        Cancel
+                                                        {t('bookings.table.cancel')}
                                                     </button>
                                                 </div>
                                             </div>
@@ -1620,10 +1621,10 @@ export default function AdminBookingsClient() {
 
                     {/* Block form */}
                     <div className="bg-white border rounded-xl p-4">
-                        <div className="font-semibold mb-2">Block dates</div>
+                        <div className="font-semibold mb-2">{t('bookings.block.title')}</div>
                         <div className="grid gap-3 text-sm">
                             <div>
-                                <label className="text-xs text-neutral-600">From *</label>
+                                <label className="text-xs text-neutral-600">{t('bookings.block.from')}</label>
                                 <input
                                     type="date"
                                     value={blockStart}
@@ -1640,7 +1641,7 @@ export default function AdminBookingsClient() {
                             </div>
 
                             <div>
-                                <label className="text-xs text-neutral-600">To *</label>
+                                <label className="text-xs text-neutral-600">{t('bookings.block.to')}</label>
                                 <input
                                     type="date"
                                     value={blockEnd}
@@ -1651,13 +1652,13 @@ export default function AdminBookingsClient() {
                             </div>
 
                             <div>
-                                <label className="text-xs text-neutral-600">House *</label>
+                                <label className="text-xs text-neutral-600">{t('bookings.block.house')}</label>
                                 <select
                                     value={blockHouseId}
                                     onChange={(e) => setBlockHouseId(e.target.value)}
                                     className="w-full border rounded-md p-2 mt-1"
                                 >
-                                    <option value="">— Select —</option>
+                                    <option value="">{t('bookings.block.select')}</option>
                                     {HOUSE_OPTIONS.map((h) => {
                                         // Only show dual option if 5+ guests
                                         if (h.id === "PZwbfMYlSXj61uYYJutg__oDzv9346CdaAsok162sX" && blockGuests < 5) {
@@ -1675,20 +1676,20 @@ export default function AdminBookingsClient() {
                                                 disabled={shouldDisable}
                                             >
                                                 {h.alias}
-                                                {shouldDisable ? " (5+ guests require dual booking)" : ""}
+                                                {shouldDisable ? ` ${t('bookings.block.dualBookingRequired')}` : ""}
                                             </option>
                                         );
                                     })}
                                 </select>
                                 {blockGuests >= 5 && (
                                     <div className="text-xs text-[var(--color-primary)] mt-1">
-                                        ℹ️ For 5+ guests, both dupleks must be booked together
+                                        {t('bookings.block.dualBookingInfo')}
                                     </div>
                                 )}
                             </div>
 
                             <div>
-                                <label className="text-xs text-neutral-600">Guests *</label>
+                                <label className="text-xs text-neutral-600">{t('bookings.block.guests')}</label>
                                 <input
                                     type="number"
                                     min={1}
@@ -1720,49 +1721,49 @@ export default function AdminBookingsClient() {
                                             setBlockHouseId("");
                                         }
                                     }}
-                                    placeholder="Enter number of guests"
+                                    placeholder={t('bookings.block.guestsPlaceholder')}
                                     className="w-full border rounded-md p-2 mt-1"
                                 />
                             </div>
 
                             <div className="border-t pt-3 mt-2">
-                                <div className="text-xs font-semibold text-neutral-700 mb-2">Customer information *</div>
+                                <div className="text-xs font-semibold text-neutral-700 mb-2">{t('bookings.block.customerInfo')}</div>
 
                                 <div className="mb-2">
-                                    <label className="text-xs text-neutral-600">Name *</label>
+                                    <label className="text-xs text-neutral-600">{t('bookings.block.name')}</label>
                                     <input
                                         type="text"
                                         value={blockCustomerName}
                                         onChange={(e) => setBlockCustomerName(e.target.value)}
-                                        placeholder="Customer name"
+                                        placeholder={t('bookings.block.namePlaceholder')}
                                         className="w-full border rounded-md p-2 mt-1"
                                     />
                                 </div>
 
                                 <div className="mb-2">
-                                    <label className="text-xs text-neutral-600">Email *</label>
+                                    <label className="text-xs text-neutral-600">{t('bookings.block.email')}</label>
                                     <input
                                         type="email"
                                         value={blockCustomerEmail}
                                         onChange={(e) => setBlockCustomerEmail(e.target.value)}
-                                        placeholder="email@example.com"
+                                        placeholder={t('bookings.block.emailPlaceholder')}
                                         className="w-full border rounded-md p-2 mt-1"
                                     />
                                 </div>
 
                                 <div className="mb-2">
-                                    <label className="text-xs text-neutral-600">Phone</label>
+                                    <label className="text-xs text-neutral-600">{t('bookings.block.phone')}</label>
                                     <input
                                         type="tel"
                                         value={blockCustomerPhone}
                                         onChange={(e) => setBlockCustomerPhone(e.target.value)}
-                                        placeholder="+34 600 000 000"
+                                        placeholder={t('bookings.block.phonePlaceholder')}
                                         className="w-full border rounded-md p-2 mt-1"
                                     />
                                 </div>
 
                                 <div className="mb-2">
-                                    <label className="text-xs text-neutral-600">Arrival time</label>
+                                    <label className="text-xs text-neutral-600">{t('bookings.block.arrivalTime')}</label>
                                     <input
                                         type="time"
                                         value={blockArrivalTime}
@@ -1772,33 +1773,33 @@ export default function AdminBookingsClient() {
                                 </div>
 
                                 <div>
-                                    <label className="text-xs text-neutral-600">Comment</label>
+                                    <label className="text-xs text-neutral-600">{t('bookings.block.comment')}</label>
                                     <textarea
                                         value={blockComment}
                                         onChange={(e) => setBlockComment(e.target.value)}
                                         rows={2}
-                                        placeholder="Additional comments"
+                                        placeholder={t('bookings.block.commentPlaceholder')}
                                         className="w-full border rounded-md p-2 mt-1"
                                     />
                                 </div>
 
                                 <div className="mb-2">
-                                    <label className="text-xs text-neutral-600">Email language *</label>
+                                    <label className="text-xs text-neutral-600">{t('bookings.block.emailLanguage')}</label>
                                     <select
                                         value={blockEmailLocale}
                                         onChange={(e) => setBlockEmailLocale(e.target.value)}
                                         className="w-full border rounded-md p-2 mt-1"
                                     >
-                                        <option value="lt">Lithuanian (Lietuvių)</option>
-                                        <option value="en">English</option>
-                                        <option value="ru">Russian (Русский)</option>
+                                        <option value="lt">{t('bookings.block.lithuanian')}</option>
+                                        <option value="en">{t('bookings.block.english')}</option>
+                                        <option value="ru">{t('bookings.block.russian')}</option>
                                     </select>
                                 </div>
                             </div>
 
                             {/* Jacuzzi section */}
                             <div className="border-t pt-3 mt-2">
-                                <div className="text-xs font-semibold text-neutral-700 mb-2">Extras</div>
+                                <div className="text-xs font-semibold text-neutral-700 mb-2">{t('bookings.block.extras')}</div>
 
                                 <label className="flex items-start gap-3 cursor-pointer mb-2">
                                     <input
@@ -1811,14 +1812,14 @@ export default function AdminBookingsClient() {
                                         }}
                                     />
                                     <div className="flex-1">
-                                        <div className="text-sm font-medium text-gray-900">Private jacuzzi</div>
-                                        <div className="text-xs text-gray-600">First day: 65€ (up to 2 guests, +10€/extra). Additional days: 45€/day (+10€/extra)</div>
+                                        <div className="text-sm font-medium text-gray-900">{t('bookings.block.privateJacuzzi')}</div>
+                                        <div className="text-xs text-gray-600">{t('bookings.block.jacuzziPricing')}</div>
                                     </div>
                                 </label>
 
                                 {blockWithJacuzzi && nights > 0 && (
                                     <div className="mt-2 flex items-center gap-3 pl-7">
-                                        <label className="text-xs font-medium text-gray-700">Number of days:</label>
+                                        <label className="text-xs font-medium text-gray-700">{t('bookings.block.numberOfDays')}</label>
                                         <div className="flex items-center gap-2">
                                             <button
                                                 type="button"
@@ -1838,20 +1839,20 @@ export default function AdminBookingsClient() {
                                                 +
                                             </button>
                                         </div>
-                                        <span className="text-xs text-gray-500">(max: {nights} {nights === 1 ? "night" : "nights"})</span>
+                                        <span className="text-xs text-gray-500">({t('bookings.block.max')}: {nights} {nights === 1 ? t('bookings.table.night') : t('bookings.table.nights_plural')})</span>
                                     </div>
                                 )}
                             </div>
 
                             {/* Discount section */}
                             <div className="border-t pt-3 mt-2">
-                                <div className="text-xs font-semibold text-neutral-700 mb-2">Discount (optional)</div>
+                                <div className="text-xs font-semibold text-neutral-700 mb-2">{t('bookings.block.discount')}</div>
 
                                 <div className="flex flex-col gap-2">
                                     <input
                                         type="text"
                                         className="w-full border rounded-md p-2"
-                                        placeholder="Enter discount code"
+                                        placeholder={t('bookings.block.discountPlaceholder')}
                                         value={blockDiscountCode}
                                         onChange={(e) => setBlockDiscountCode(e.target.value)}
                                     />
@@ -1863,7 +1864,7 @@ export default function AdminBookingsClient() {
                                             disabled={!blockDiscountCode.trim() || blockDiscountLookupLoading}
                                             className="flex-1 px-3 py-2 rounded-md bg-[var(--color-primary)] text-white text-xs font-semibold disabled:opacity-60"
                                         >
-                                            {blockDiscountLookupLoading ? "Checking…" : "Lookup"}
+                                            {blockDiscountLookupLoading ? t('bookings.block.checking') : t('bookings.block.lookup')}
                                         </button>
 
                                         {blockDiscountData && (
@@ -1872,7 +1873,7 @@ export default function AdminBookingsClient() {
                                                 onClick={handleClearDiscount}
                                                 className="px-3 py-2 rounded-md border text-xs font-semibold"
                                             >
-                                                Clear
+                                                {t('bookings.block.clear')}
                                             </button>
                                         )}
                                     </div>
@@ -1887,10 +1888,10 @@ export default function AdminBookingsClient() {
                                         {blockDiscountData.kind === "coupon" && blockDiscountData.coupon && (
                                             <>
                                                 <div className="font-medium">
-                                                    Code: {blockDiscountData.coupon.code} <span className="text-gray-500">({blockDiscountData.state})</span>
+                                                    {t('bookings.block.code')} {blockDiscountData.coupon.code} <span className="text-gray-500">({blockDiscountData.state})</span>
                                                 </div>
                                                 <div>
-                                                    Remaining balance: <span className="font-semibold">€{Number(blockDiscountData.coupon.remaining ?? 0).toFixed(2)}</span>
+                                                    {t('bookings.block.remainingBalance')} <span className="font-semibold">€{Number(blockDiscountData.coupon.remaining ?? 0).toFixed(2)}</span>
                                                 </div>
 
                                                 {!blockDiscountApplied ? (
@@ -1899,11 +1900,11 @@ export default function AdminBookingsClient() {
                                                         onClick={handleApplyDiscount}
                                                         className="mt-2 px-3 py-1.5 rounded-md bg-[var(--color-primary)] text-white text-xs font-semibold"
                                                     >
-                                                        Apply discount
+                                                        {t('bookings.block.applyDiscount')}
                                                     </button>
                                                 ) : (
                                                     <div className="mt-2 p-2 rounded-md bg-green-50 border border-green-200">
-                                                        Discount applied: €{blockAppliedEuroDiscount.toFixed(2)}
+                                                        {t('bookings.block.discountApplied')} €{blockAppliedEuroDiscount.toFixed(2)}
                                                         <button
                                                             type="button"
                                                             onClick={() => {
@@ -1912,7 +1913,7 @@ export default function AdminBookingsClient() {
                                                             }}
                                                             className="ml-2 underline"
                                                         >
-                                                            Undo
+                                                            {t('bookings.block.undo')}
                                                         </button>
                                                     </div>
                                                 )}
@@ -1922,16 +1923,16 @@ export default function AdminBookingsClient() {
                                         {blockDiscountData.kind === "percent" && blockDiscountData.percentDoc && (
                                             <>
                                                 <div className="font-medium">
-                                                    Code: {blockDiscountData.percentDoc.code} <span className="text-gray-500">({blockDiscountData.state})</span>
+                                                    {t('bookings.block.code')} {blockDiscountData.percentDoc.code} <span className="text-gray-500">({blockDiscountData.state})</span>
                                                 </div>
                                                 <div>
-                                                    Discount: <span className="font-semibold">{blockDiscountData.percentDoc.percent}% off (Reservation fee only)</span>
+                                                    {t('bookings.block.discount_percent')} <span className="font-semibold">{blockDiscountData.percentDoc.percent}% {t('bookings.block.offReservationFeeOnly')}</span>
                                                 </div>
                                                 {blockDiscountData.percentDoc.expiresAt && (
-                                                    <div className="text-gray-500">Expires: {blockDiscountData.percentDoc.expiresAt}</div>
+                                                    <div className="text-gray-500">{t('bookings.block.expires')} {blockDiscountData.percentDoc.expiresAt}</div>
                                                 )}
                                                 {blockDiscountData.percentDoc.used && (
-                                                    <div className="text-red-600">(Already used)</div>
+                                                    <div className="text-red-600">{t('bookings.block.alreadyUsed')}</div>
                                                 )}
 
                                                 {!blockDiscountApplied ? (
@@ -1940,11 +1941,11 @@ export default function AdminBookingsClient() {
                                                         onClick={handleApplyDiscount}
                                                         className="mt-2 px-3 py-1.5 rounded-md bg-[var(--color-primary)] text-white text-xs font-semibold"
                                                     >
-                                                        Apply discount
+                                                        {t('bookings.block.applyDiscount')}
                                                     </button>
                                                 ) : (
                                                     <div className="mt-2 p-2 rounded-md bg-green-50 border border-green-200">
-                                                        Discount applied: {blockAppliedEuroDiscount}%
+                                                        {t('bookings.block.discountApplied')} {blockAppliedEuroDiscount}%
                                                         <button
                                                             type="button"
                                                             onClick={() => {
@@ -1953,7 +1954,7 @@ export default function AdminBookingsClient() {
                                                             }}
                                                             className="ml-2 underline"
                                                         >
-                                                            Undo
+                                                            {t('bookings.block.undo')}
                                                         </button>
                                                     </div>
                                                 )}
@@ -1989,7 +1990,7 @@ export default function AdminBookingsClient() {
                                 disabled={blockBusy}
                                 className="mt-2 rounded-md bg-[var(--color-primary)] text-white px-4 py-2 text-sm font-semibold hover:opacity-95 disabled:opacity-60 w-full"
                             >
-                                {blockBusy ? "Creating…" : "Block"}
+                                {blockBusy ? t('bookings.block.creating') : t('bookings.block.block')}
                             </button>
 
                             {blockMsg && (

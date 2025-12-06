@@ -1846,7 +1846,12 @@ export default function AdminBookingsClient() {
 
                             {/* Discount section */}
                             <div className="border-t pt-3 mt-2">
-                                <div className="text-xs font-semibold text-neutral-700 mb-2">{t('bookings.block.discount')}</div>
+                                <div className="text-xs font-semibold text-neutral-700 mb-2 flex gap-2">
+                                    {t('bookings.block.discount')}
+                                    <small className="block font-normal text-[var(--color-primary)] mt-1">
+                                        {t('bookings.block.adminCodeReminder')}
+                                    </small>
+                                </div>
 
                                 <div className="flex flex-col gap-2">
                                     <input

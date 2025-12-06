@@ -671,6 +671,7 @@
         "numberOfDays": "Number of days:",
         "max": "max",
         "discount": "Discount (optional)",
+        "adminCodeReminder": "Admin code: TMX3-9QXZ",
         "discountPlaceholder": "Enter discount code",
         "checking": "Checking…",
         "lookup": "Lookup",

@@ -378,12 +378,17 @@ export async function POST(
           if (!percentSnap.empty) {
             const percentDoc = percentSnap.docs[0];
 
-            await percentDoc.ref.update({
-              used: true,
-              usedAt: nowInLithuania(),
-              usedBy: customerObj.email,
-              usedInReservation: reservationId,
-            });
+            // ✅ EXCEPCIÓN: El código TMX3-9QXZ nunca se marca como usado (código fijo del admin)
+            const isAdminFixedCode = discount.code === "TMX3-9QXZ";
+
+            if (!isAdminFixedCode) {
+              await percentDoc.ref.update({
+                used: true,
+                usedAt: nowInLithuania(),
+                usedBy: customerObj.email,
+                usedInReservation: reservationId,
+              });
+            }
 
             // ✅ CREAR DOCUMENTO DE MOVIMIENTO (igual que webhooks de Stripe/Montonio)
             const movRef = percentDoc.ref.collection("movements").doc();
@@ -397,7 +402,7 @@ export async function POST(
               usedBy: customerObj.email,
             });
 
-            console.log(`✅ Percentage discount ${discount.code} marked as used (movement created)`);
+            console.log(`✅ Percentage discount ${discount.code} ${isAdminFixedCode ? '(admin fixed code - not marked as used)' : 'marked as used'} (movement created)`);
           }
         }
       } catch (discountUpdateError) {

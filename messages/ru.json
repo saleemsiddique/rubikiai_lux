@@ -771,6 +771,7 @@
         "numberOfDays": "Количество дней:",
         "max": "макс",
         "discount": "Скидка (опционально)",
+        "adminCodeReminder": "Код администратора: TMX3-9QXZ",
         "discountPlaceholder": "Введите код скидки",
         "checking": "Проверка…",
         "lookup": "Проверить",

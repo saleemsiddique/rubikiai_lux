@@ -1,4 +1,4 @@
-const CACHE_NAME = 'rubikiai-lux-v2';
+const CACHE_NAME = 'rubikiai-lux-v3';
 const urlsToCache = [
   '/',
   '/manifest.json',
@@ -39,6 +39,12 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   // Ignorar peticiones de navegación para evitar problemas con redirecciones
   if (event.request.mode === 'navigate') {
+    return;
+  }
+
+  // Ignorar peticiones a /api/ para que NO se cacheen y lleguen al servidor
+  const url = new URL(event.request.url);
+  if (url.pathname.startsWith('/api/')) {
     return;
   }
 

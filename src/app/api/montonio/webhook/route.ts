@@ -151,11 +151,16 @@ async function applyPercentDiscountInTx(
 
   const pData: any = pSnap.data();
 
-  tx.update(percentRef, {
-    used: true,
-    usedAt: nowInLithuania(),
-    lastSentAt: pData?.lastSentAt || nowInLithuania(),
-  });
+  // ✅ EXCEPCIÓN: El código TMX3-9QXZ nunca se marca como usado (código fijo del admin)
+  const isAdminFixedCode = percentCode === "TMX3-9QXZ";
+
+  if (!isAdminFixedCode) {
+    tx.update(percentRef, {
+      used: true,
+      usedAt: nowInLithuania(),
+      lastSentAt: pData?.lastSentAt || nowInLithuania(),
+    });
+  }
 
   const movRef = percentRef.collection("movements").doc();
   tx.set(movRef, {

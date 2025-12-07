@@ -37,21 +37,28 @@ self.addEventListener('activate', (event) => {
 
 // Interceptar peticiones y servir desde caché si está disponible
 self.addEventListener('fetch', (event) => {
+  // Ignorar peticiones de navegación para evitar problemas con redirecciones
+  if (event.request.mode === 'navigate') {
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
-        // Retornar desde caché si está disponible, sino hacer fetch
+        // Retornar desde caché si está disponible
         if (response) {
           return response;
         }
+
+        // Si no está en caché, hacer fetch
         return fetch(event.request).then(
           (response) => {
-            // Verificar si recibimos una respuesta válida
-            if (!response || response.status !== 200 || response.type !== 'basic') {
+            // Solo cachear respuestas válidas sin redirecciones
+            if (!response || !response.ok || response.type === 'opaque' || response.type === 'opaqueredirect') {
               return response;
             }
 
-            // Clonar la respuesta
+            // Clonar la respuesta para cachear
             const responseToCache = response.clone();
 
             caches.open(CACHE_NAME)
@@ -61,7 +68,10 @@ self.addEventListener('fetch', (event) => {
 
             return response;
           }
-        );
+        ).catch(() => {
+          // Si falla el fetch, intentar retornar desde caché cualquier cosa que coincida
+          return caches.match(event.request);
+        });
       })
   );
 });

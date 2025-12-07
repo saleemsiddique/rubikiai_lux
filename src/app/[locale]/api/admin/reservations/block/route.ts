@@ -327,6 +327,8 @@ export async function POST(
 
       houseIds: targetHouseIds,
       houseId: targetHouseIds[0],
+
+      locale: customerLocale,
     };
 
     const ref = await adminDb.collection("reservations").add(payload);

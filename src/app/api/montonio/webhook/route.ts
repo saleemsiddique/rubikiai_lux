@@ -960,6 +960,8 @@ export async function POST(req: Request) {
             comment: comment || null,
             userId: app_user_id || null,
           },
+
+          locale: localeFromMeta,
           updatedAt: nowInLithuania(),
         };
 

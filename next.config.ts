@@ -7,14 +7,16 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       {
-        source: '/:path*',
+        // Excluir rutas que contengan /api/ en cualquier parte (ej: /lt/api/send-email)
+        // También excluir _next/ y archivos estáticos
+        source: '/:path((?!.*\\/api\\/).*)',
         has: [
           {
             type: 'host',
             value: 'rubikiailux.lt',
           },
         ],
-        destination: 'https://www.rubikiailux.lt/:path*',
+        destination: 'https://www.rubikiailux.lt/:path',
         permanent: true, // 301 redirect
       },
     ];

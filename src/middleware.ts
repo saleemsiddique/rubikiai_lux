@@ -6,6 +6,7 @@ const intlMiddleware = createMiddleware({
   locales,
   defaultLocale,
   localePrefix: 'always',
+  localeDetection: false, // Desactiva la detección automática del idioma del navegador
 });
 
 export default function middleware(req: NextRequest) {

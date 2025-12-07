@@ -22,9 +22,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: 'metadata' });
 
+  const title = t('defaultTitle');
+  const description = t('defaultDescription');
+  const siteUrl = 'https://www.rubikiailux.lt';
+  const ogImage = `${siteUrl}/rubikiai-logo.png`;
+
   return {
-    title: t('defaultTitle'),
-    description: t('defaultDescription'),
+    title,
+    description,
     icons: {
       icon: "/Logotipas.PNG",
       apple: "/apple-icon.png",
@@ -41,6 +46,36 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       initialScale: 1,
       maximumScale: 1,
       userScalable: false,
+    },
+    openGraph: {
+      title,
+      description,
+      url: `${siteUrl}/${locale}`,
+      siteName: 'Rubikiai Lux',
+      images: [
+        {
+          url: ogImage,
+          width: 1200,
+          height: 630,
+          alt: title,
+        },
+      ],
+      locale: locale,
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: [ogImage],
+    },
+    alternates: {
+      canonical: `${siteUrl}/${locale}`,
+      languages: {
+        'lt': `${siteUrl}/lt`,
+        'en': `${siteUrl}/en`,
+        'ru': `${siteUrl}/ru`,
+      },
     },
   };
 }

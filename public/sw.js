@@ -1,4 +1,4 @@
-const CACHE_NAME = 'rubikiai-lux-v1';
+const CACHE_NAME = 'rubikiai-lux-v2';
 const urlsToCache = [
   '/',
   '/manifest.json',

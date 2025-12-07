@@ -25,6 +25,6 @@ export default function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // Exclude Stripe and Montonio webhooks from locale handling
-  matcher: ['/((?!_next|_vercel|api/stripe/webhook|api/montonio/webhook|.*\\..*).*)']
+  // Exclude webhooks and cron jobs from locale handling
+  matcher: ['/((?!_next|_vercel|api/stripe/webhook|api/montonio/webhook|api/send-reminder|.*\\..*).*)']
 };

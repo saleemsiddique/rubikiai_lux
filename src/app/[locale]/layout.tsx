@@ -49,7 +49,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     },
     openGraph: {
       title,
-      description,
       url: `${siteUrl}/${locale}`,
       siteName: 'Rubikiai Lux',
       images: [
@@ -66,7 +65,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     twitter: {
       card: 'summary_large_image',
       title,
-      description,
       images: [ogImage],
     },
     alternates: {

@@ -1,5 +1,6 @@
 import { BookingReminderParams } from '@/lib/emailTemplates';
 import dayjs from "dayjs";
+import 'dayjs/locale/ru';
 
 const PROPERTY_NAME_MAP: Record<string, string> = {
   "L0TeFf2LmrWGAaAyS8NY": "Домик у Озера",
@@ -19,8 +20,8 @@ export function BookingReminderEmailHtml_ru(params: BookingReminderParams): stri
     logoCid = "rubikiai-logo",
   } = params;
 
-  const checkInFmt = dayjs(checkIn).format("dddd, MMMM D, YYYY");
-  const checkOutFmt = checkOut ? dayjs(checkOut).format("dddd, MMMM D, YYYY") : "";
+  const checkInFmt = dayjs(checkIn).locale('ru').format("dddd, MMMM D, YYYY");
+  const checkOutFmt = checkOut ? dayjs(checkOut).locale('ru').format("dddd, MMMM D, YYYY") : "";
   const shortDate = dayjs(checkIn).format("DD/MM/YYYY");
   const displayName = PROPERTY_NAME_MAP[houseName] || houseName;
 

@@ -94,7 +94,7 @@ export default async function LocaleLayout({ children, params }: Props) {
     <html lang={locale}>
       <body className="min-h-screen flex flex-col">
         {/* Google Analytics */}
-        {process.env.NEXT_PUBLIC_GA_ID && (
+        {process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID && (
           <>
             <Script
               src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID}`}
@@ -105,7 +105,7 @@ export default async function LocaleLayout({ children, params }: Props) {
                 window.dataLayer = window.dataLayer || [];
                 function gtag(){dataLayer.push(arguments);}
                 gtag('js', new Date());
-                gtag('config', '${process.env.NEXT_PUBLIC_GA_ID}');
+                gtag('config', '${process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID}');
               `}
             </Script>
           </>

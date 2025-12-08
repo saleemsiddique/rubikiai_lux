@@ -134,7 +134,7 @@
       "guests": "Guests",
       "searching": "Searching...",
       "search": "Search",
-      "noResults": "No results. Select dates or change amount of guests and click \"Search\".",
+      "noResults": "Select dates or change amount of guests and click \"Search\".",
       "maximumGuests": "Maximum Guests",
       "pricingForGuests": "{guests, plural, =1 {Pricing for: # guest} other {Pricing for: # guests}}",
       "selectedDates": "Selected dates",

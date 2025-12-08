@@ -137,7 +137,7 @@
       "guests": "Svečiai",
       "searching": "Ieškoma...",
       "search": "Ieškoti",
-      "noResults": "Rezultatų nerasta. Pasirinkite datas arba pakeiskite svečių skaičių ir spauskite „Ieškoti“.",
+      "noResults": "Pasirinkite datas arba pakeiskite svečių skaičių ir spauskite „Ieškoti“.",
       "maximumGuests": "Maksimalus svečių skaičius",
       "pricingForGuests": "{guests, plural, =1 {Kaina: # svečiui} other {Kaina: # svečiams}}",
       "selectedDates": "Pasirinktos datos",

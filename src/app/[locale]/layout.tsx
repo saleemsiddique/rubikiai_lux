@@ -1,5 +1,6 @@
 import React from "react";
 import type { Metadata } from "next";
+import Script from "next/script";
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages, getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
@@ -91,6 +92,24 @@ export default async function LocaleLayout({ children, params }: Props) {
   return (
     <html lang={locale}>
       <body className="min-h-screen flex flex-col">
+        {/* Google Analytics */}
+        {process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID && (
+          <>
+            <Script
+              src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID}`}
+              strategy="afterInteractive"
+            />
+            <Script id="google-analytics" strategy="afterInteractive">
+              {`
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', '${process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID}');
+              `}
+            </Script>
+          </>
+        )}
+
         <NextIntlClientProvider messages={messages}>
           <HouseProvider>
             <PWAInstaller />

@@ -3,7 +3,6 @@ import type { Metadata } from "next";
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages, getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
-import { Analytics } from '@vercel/analytics/react';
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import PWAInstaller from "@/components/PWAInstaller";
@@ -100,7 +99,6 @@ export default async function LocaleLayout({ children, params }: Props) {
             <Footer />
           </HouseProvider>
         </NextIntlClientProvider>
-        <Analytics />
       </body>
     </html>
   );

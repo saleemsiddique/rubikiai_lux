@@ -812,6 +812,25 @@ export default function AdminBookingsClient() {
                 throw new Error(detail);
             }
 
+            // Actualizar el estado local inmediatamente para feedback instantáneo
+            setRows(prevRows =>
+                prevRows.map(r =>
+                    r.id === id
+                        ? { ...r, status, ...(paidInFull ? { paidInFull: true } : {}) }
+                        : r
+                )
+            );
+
+            // También actualizar occReservations si la reserva está ahí
+            setOccReservations(prevOcc =>
+                prevOcc.map(r =>
+                    r.id === id
+                        ? { ...r, status, ...(paidInFull ? { paidInFull: true } : {}) }
+                        : r
+                )
+            );
+
+            // Luego hacer el fetch completo en segundo plano
             await fetchList();
             await fetchMonthOccupancy();
         } catch (e: any) {

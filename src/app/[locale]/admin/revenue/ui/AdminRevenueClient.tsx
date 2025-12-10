@@ -141,38 +141,15 @@ export default function AdminRevenueClient() {
         const jr = await resR.json();
         const allResults: ReservationRow[] = jr.results || [];
 
-        // --- Filtrado cliente: quedarnos con reservas donde checkIn o checkOut estén en el rango,
-        // o que la reserva englobe por completo el rango seleccionado ---
-        const toIso = (s?: string | null) => {
-          if (!s) return null;
-          // normalize to YYYY-MM-DD (handles timestamps like 2025-12-01T13:00:00Z)
-          return s.length >= 10 ? s.slice(0, 10) : s;
+        // --- Filtrado cliente: misma lógica que admin/bookings ---
+        // Función overlaps: checkOut es EXCLUSIVA
+        const overlaps = (aStart: string, aEnd: string, bStart: string, bEnd: string) => {
+          return aStart < bEnd && aEnd > bStart;
         };
 
-        const startIso = toIso(start) ?? null; // start y end ya vienen en YYYY-MM-DD
-        const endIso = toIso(end) ?? null;
-
-        const overlapsRange = (r: ReservationRow) => {
-          const ci = toIso(r.checkIn);
-          const co = toIso(r.checkOut);
-
-          // If neither date present, skip (cannot determine)
-          if (!ci && !co) return false;
-
-          // checkIn inside range
-          if (ci && startIso && endIso && ci >= startIso && ci <= endIso)
-            return true;
-          // checkOut inside range
-          if (co && startIso && endIso && co >= startIso && co <= endIso)
-            return true;
-          // reservation encloses the whole interval (checkIn <= start && checkOut >= end)
-          if (ci && co && startIso && endIso && ci <= startIso && co >= endIso)
-            return true;
-
-          return false;
-        };
-
-        const filtered = allResults.filter(overlapsRange);
+        const filtered = allResults.filter(r =>
+          overlaps(String(r.checkIn), String(r.checkOut), start, end || "9999-12-31")
+        );
         setReservations(filtered);
       } else {
         setReservations([]);
@@ -219,11 +196,17 @@ export default function AdminRevenueClient() {
     reservations.forEach((r) => {
       count++;
       // Total depende del tipo de descuento:
-      // - Descuentos de porcentaje: Total = precio DESPUÉS del descuento (no es dinero recibido)
+      // - Descuentos de porcentaje: Total = precio ANTES del descuento - (precio * porcentaje / 100)
       // - Cupones de euros: Total = precio ANTES del descuento (el cupón es dinero recibido)
-      const totalFull = ((r as any).coupon?.type === "percent")
-        ? num((r as any).discountedGrandTotal ?? r.totalStay)
-        : num((r as any).grandTotal ?? r.totalStay);
+      const coupon = (r as any).coupon;
+      const grandTotal = num((r as any).grandTotal ?? r.totalStay);
+
+      let totalFull = grandTotal;
+      if (coupon?.type === "percent" && coupon?.percent) {
+        const discountAmount = grandTotal * (num(coupon.percent) / 100);
+        totalFull = grandTotal - discountAmount;
+      }
+
       const payNow = num(r.payNow);
 
       totalContracted += totalFull;
@@ -284,6 +267,15 @@ export default function AdminRevenueClient() {
               r.houseIds?.[0] ||
               "—";
 
+        const coupon = (r as any).coupon;
+        const grandTotal = num((r as any).grandTotal ?? r.totalStay);
+
+        let totalFull = grandTotal;
+        if (coupon?.type === "percent" && coupon?.percent) {
+          const discountAmount = grandTotal * (num(coupon.percent) / 100);
+          totalFull = grandTotal - discountAmount;
+        }
+
         return {
           id: r.id,
           house: houseName,
@@ -298,9 +290,7 @@ export default function AdminRevenueClient() {
           currency: r.currency,
           totalNightsOnly: num(r.totalNightsOnly),
           jacuzziFee: num(r.jacuzziFee),
-          totalFull: ((r as any).coupon?.type === "percent")
-            ? num((r as any).discountedGrandTotal ?? r.totalStay)
-            : num((r as any).grandTotal ?? r.totalStay),
+          totalFull: totalFull,
           amountPaid: num((r as any).amountPaid ?? 0),
           payAtArrival: num(r.payAtArrival),
           stripeSessionId: r.stripeSessionId ?? "",
@@ -568,11 +558,17 @@ export default function AdminRevenueClient() {
                         "—";
 
                   // Total depende del tipo de descuento:
-                  // - Descuentos de porcentaje: Total = precio DESPUÉS del descuento (no es dinero recibido)
+                  // - Descuentos de porcentaje: Total = precio ANTES del descuento - (precio * porcentaje / 100)
                   // - Cupones de euros: Total = precio ANTES del descuento (el cupón es dinero recibido)
-                  const totalFull = ((r as any).coupon?.type === "percent")
-                    ? num((r as any).discountedGrandTotal ?? r.totalStay)
-                    : num((r as any).grandTotal ?? r.totalStay);
+                  const coupon = (r as any).coupon;
+                  const grandTotal = num((r as any).grandTotal ?? r.totalStay);
+
+                  let totalFull = grandTotal;
+                  if (coupon?.type === "percent" && coupon?.percent) {
+                    const discountAmount = grandTotal * (num(coupon.percent) / 100);
+                    totalFull = grandTotal - discountAmount;
+                  }
+
                   const payNow = num(r.payNow);
                   const amountPaidValue =
                     (r as any).amountPaid != null
@@ -689,11 +685,17 @@ export default function AdminRevenueClient() {
                             "—";
 
                       // Total depende del tipo de descuento:
-                      // - Descuentos de porcentaje: Total = precio DESPUÉS del descuento (no es dinero recibido)
+                      // - Descuentos de porcentaje: Total = precio ANTES del descuento - (precio * porcentaje / 100)
                       // - Cupones de euros: Total = precio ANTES del descuento (el cupón es dinero recibido)
-                      const totalFull = ((r as any).coupon?.type === "percent")
-                        ? num((r as any).discountedGrandTotal ?? r.totalStay)
-                        : num((r as any).grandTotal ?? r.totalStay);
+                      const coupon = (r as any).coupon;
+                      const grandTotal = num((r as any).grandTotal ?? r.totalStay);
+
+                      let totalFull = grandTotal;
+                      if (coupon?.type === "percent" && coupon?.percent) {
+                        const discountAmount = grandTotal * (num(coupon.percent) / 100);
+                        totalFull = grandTotal - discountAmount;
+                      }
+
                       const payNow = num(r.payNow);
                       const amountPaidValue =
                         (r as any).amountPaid != null

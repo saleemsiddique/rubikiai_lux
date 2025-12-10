@@ -10,6 +10,11 @@ function bad(msg: string, code = 400) {
   return NextResponse.json({ error: msg }, { status: code });
 }
 
+function overlaps(aStart: string, aEnd: string, bStart: string, bEnd: string) {
+  // checkOut es EXCLUSIVA
+  return aStart < bEnd && aEnd > bStart;
+}
+
 function parseDateISO(d: string) {
   // "YYYY-MM-DD" -> Date local 00:00
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d);
@@ -72,7 +77,7 @@ export async function GET(req: Request) {
     const url = new URL(req.url);
     const start = url.searchParams.get("start") || "";
     const end = url.searchParams.get("end") || "";
-    const byRaw = (url.searchParams.get("by") || "createdAt");
+    const byRaw = url.searchParams.get("by") || "";
     const by = String(byRaw).toLowerCase();
     const statusesRaw = url.searchParams.get("status") || "reserved,complete";
     const houseId = url.searchParams.get("houseId") || "";
@@ -115,27 +120,12 @@ export async function GET(req: Request) {
         q = q.where("houseId", "==", houseId);
       }
 
-      if (by === "createdat" || by === "paidat") {
-        const field = by === "createdat" ? "createdAt" : "paidAt";
-        // createdAt / paidAt suelen ser Timestamps -> rango por Date/Timestamp
-        q = q
-          .where(field, ">=", startD)
-          .where(field, "<", endExclusive)
-          .orderBy(field, "desc");
-      } else if (by === "checkin" || by === "checkout") {
-        const field = by === "checkin" ? "checkIn" : "checkOut";
-        // checkIn/checkOut son strings "YYYY-MM-DD", lexicográfico funciona
-        const startStr = toISODateLocal(startD);
-        const endStrExclusive = toISODateLocal(endExclusive);
-        q = q
-          .where(field, ">=", startStr)
-          .where(field, "<", endStrExclusive)
-          .orderBy(field, "desc");
-      } else {
-        return bad("Invalid 'by' parameter", 400);
-      }
+      // Filtro inicial por checkIn para reducir resultados (igual que bookings/list)
+      // checkIn <= end (para capturar reservas que terminan después del inicio del rango)
+      q = q.where("checkIn", "<=", end);
+      q = q.orderBy("checkIn", "asc").limit(limit);
 
-      const snap = await q.limit(limit).get();
+      const snap = await q.get();
       for (const doc of snap.docs) {
         // Evitar sobrescribir si el mismo doc sale en varios queries
         if (!resultsMap.has(doc.id)) resultsMap.set(doc.id, { id: doc.id, ...doc.data() });
@@ -158,7 +148,7 @@ export async function GET(req: Request) {
         guests: Number(r.guests ?? 0),
         houseId: r.houseId || null,
         houseIds: Array.isArray(r.houseIds) ? r.houseIds : null,
-        
+
         // customer map + flatten fields
         customer: customerMap,
         customerEmail: r.customerEmail ?? emailFlatten,
@@ -175,17 +165,20 @@ export async function GET(req: Request) {
         grandTotal: typeof r.grandTotal === "number" ? r.grandTotal : Number(r.totalStay ?? r.totalNightsOnly ?? 0),
         totalStay: Number(r.totalStay ?? r.totalNightsOnly ?? 0),
 
+        // cupón de descuento
+        coupon: r.coupon ?? null,
+
         // jacuzzi
         jacuzzi: r.jacuzzi ?? null,
         jacuzziFee: Number(r.jacuzziFee ?? (r.jacuzzi?.fee ?? 0)),
-        
+
         // extras
         includedBase: Number(r.includedBase ?? 2),
         extraGuests: Number(r.extraGuests ?? 0),
 
         // primeras noches / cargos
         firstNightCharge: typeof r.firstNightCharge === "number" ? r.firstNightCharge : null,
-        
+
         // nuevos campos de pago
         payNow: typeof r.payNow === "number" ? r.payNow : null,
         payAtArrival: typeof r.payAtArrival === "number" ? r.payAtArrival : null,
@@ -196,7 +189,7 @@ export async function GET(req: Request) {
         stripeCustomerId: r.stripeCustomerId ?? null,
         stripePaymentIntentId: r.stripePaymentIntentId ?? null,
         stripeSessionId: r.stripeSessionId ?? null,
-        
+
         // montonio
         montonioOrderUuid: r.montonioOrderUuid ?? null,
         montonioNotification: r.montonioNotification ?? null,
@@ -209,29 +202,17 @@ export async function GET(req: Request) {
       };
     });
 
-    // Orden por campo elegido (desc)
-    cleaned.sort((a: any, b: any) => {
-      const fa =
-        by === "createdat"
-          ? a.createdAtIso
-          : by === "paidat"
-          ? a.paidAtIso
-          : by === "checkin"
-          ? a.checkIn
-          : a.checkOut;
-      const fb =
-        by === "createdat"
-          ? b.createdAtIso
-          : by === "paidat"
-          ? b.paidAtIso
-          : by === "checkin"
-          ? b.checkIn
-          : b.checkOut;
-      // nulls -> come last
-      return String(fb || "").localeCompare(String(fa || ""));
+    // Filtro de solapamiento (igual que bookings/list)
+    const filtered = cleaned.filter(r =>
+      overlaps(String(r.checkIn), String(r.checkOut), start, end || "9999-12-31")
+    );
+
+    // Orden por checkIn (asc)
+    filtered.sort((a: any, b: any) => {
+      return String(a.checkIn || "").localeCompare(String(b.checkIn || ""));
     });
 
-    return NextResponse.json({ results: cleaned });
+    return NextResponse.json({ results: filtered });
   } catch (e: any) {
     console.error("[revenue/reservations] error:", e);
     return bad(e?.message || "server_error", 500);

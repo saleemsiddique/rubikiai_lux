@@ -10,10 +10,11 @@ function bad(msg: string, code = 400) {
   return NextResponse.json({ error: msg }, { status: code });
 }
 
-function overlaps(aStart: string, aEnd: string, bStart: string, bEnd: string) {
-  // checkOut es EXCLUSIVA
-  return aStart < bEnd && aEnd > bStart;
-}
+// NOTA: Esta función ya no se usa en revenue, se filtra solo por checkIn
+// function overlaps(aStart: string, aEnd: string, bStart: string, bEnd: string) {
+//   // checkOut es EXCLUSIVA
+//   return aStart < bEnd && aEnd > bStart;
+// }
 
 function parseDateISO(d: string) {
   // "YYYY-MM-DD" -> Date local 00:00
@@ -202,10 +203,11 @@ export async function GET(req: Request) {
       };
     });
 
-    // Filtro de solapamiento (igual que bookings/list)
-    const filtered = cleaned.filter(r =>
-      overlaps(String(r.checkIn), String(r.checkOut), start, end || "9999-12-31")
-    );
+    // Filtro solo por checkIn dentro del rango (específico para revenue)
+    const filtered = cleaned.filter(r => {
+      const checkIn = String(r.checkIn);
+      return checkIn >= start && checkIn <= (end || "9999-12-31");
+    });
 
     // Orden por checkIn (asc)
     filtered.sort((a: any, b: any) => {

@@ -141,15 +141,11 @@ export default function AdminRevenueClient() {
         const jr = await resR.json();
         const allResults: ReservationRow[] = jr.results || [];
 
-        // --- Filtrado cliente: misma lógica que admin/bookings ---
-        // Función overlaps: checkOut es EXCLUSIVA
-        const overlaps = (aStart: string, aEnd: string, bStart: string, bEnd: string) => {
-          return aStart < bEnd && aEnd > bStart;
-        };
-
-        const filtered = allResults.filter(r =>
-          overlaps(String(r.checkIn), String(r.checkOut), start, end || "9999-12-31")
-        );
+        // --- Filtrado cliente: solo por checkIn dentro del rango ---
+        const filtered = allResults.filter(r => {
+          const checkIn = String(r.checkIn);
+          return checkIn >= start && checkIn <= (end || "9999-12-31");
+        });
         setReservations(filtered);
       } else {
         setReservations([]);

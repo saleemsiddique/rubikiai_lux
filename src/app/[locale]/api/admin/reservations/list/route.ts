@@ -175,9 +175,12 @@ export async function GET(req: Request) {
 
     let rows: Reservation[] = snap.docs.map(d => normalizeDoc(d));
 
-    // Filtro de solapamiento en servidor (checkOut > start)
+    // Filtro por checkIn dentro del rango (como admin/revenue)
     if (start) {
-      rows = rows.filter(r => overlaps(String(r.checkIn), String(r.checkOut), start, end || "9999-12-31"));
+      rows = rows.filter(r => {
+        const checkIn = String(r.checkIn);
+        return checkIn >= start && checkIn <= (end || "9999-12-31");
+      });
     }
 
     // Si NO pudimos usar "in" arriba (por ser >10), aplica filtro aquí

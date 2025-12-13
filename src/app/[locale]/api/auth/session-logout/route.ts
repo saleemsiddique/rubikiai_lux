@@ -13,8 +13,13 @@ export async function POST(req: Request) {
   cookieStore.delete("session");
   console.log("[session-logout] Cookie borrada");
 
+  // Extraer locale de la URL
+  const reqUrl = new URL(req.url);
+  const pathSegments = reqUrl.pathname.split('/').filter(Boolean);
+  const locale = pathSegments[0] || 'lt'; // Default a 'lt' si no hay locale
+
   // Redirigir al login de admin con parámetro logout
-  const url = new URL("/admin", req.url);
+  const url = new URL(`/${locale}/admin`, req.url);
   url.searchParams.set("reason", "logout");
   console.log("[session-logout] Redirigiendo a:", url.toString());
   return NextResponse.redirect(url, { status: 303 });
@@ -25,7 +30,12 @@ export async function GET(req: Request) {
   const cookieStore = await cookies();
   cookieStore.delete("session");
 
-  const url = new URL("/admin", req.url);
+  // Extraer locale de la URL
+  const reqUrl = new URL(req.url);
+  const pathSegments = reqUrl.pathname.split('/').filter(Boolean);
+  const locale = pathSegments[0] || 'lt'; // Default a 'lt' si no hay locale
+
+  const url = new URL(`/${locale}/admin`, req.url);
   url.searchParams.set("reason", "logout");
   return NextResponse.redirect(url, { status: 303 });
 }

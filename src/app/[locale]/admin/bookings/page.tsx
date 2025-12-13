@@ -4,19 +4,21 @@ import admin from "@/lib/firebase-admin";
 import { redirect } from "next/navigation";
 import AdminBookingsClient from "./ui/AdminBookingsClient";
 
-async function requireAdmin() {
+async function requireAdmin(locale: string) {
   const session = (await cookies()).get("session")?.value;
-  if (!session) redirect("/admin?reason=login");
+  if (!session) redirect(`/${locale}/admin?reason=login`);
   try {
     const decoded = await admin.auth().verifySessionCookie(session, false);
-    if (!(decoded as any).admin) redirect("/admin?reason=forbidden");
+    if (!(decoded as any).admin) redirect(`/${locale}/admin?reason=forbidden`);
     return decoded;
   } catch {
-    redirect("/admin?reason=expired");
+    redirect(`/${locale}/admin?reason=expired`);
   }
 }
 
 export default async function AdminBookingsPage() {
-  await requireAdmin();
+  const { getLocale } = await import('next-intl/server');
+  const locale = await getLocale();
+  await requireAdmin(locale);
   return <AdminBookingsClient />;
 }

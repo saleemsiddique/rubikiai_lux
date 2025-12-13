@@ -70,7 +70,7 @@ export default function AdminLoginClient() {
         console.log("[AdminLoginClient] session-check data:", data);
         if (!abort && data?.isAuthenticated && data?.isAdmin) {
           console.log("[AdminLoginClient] Sesión válida detectada, redirigiendo a /admin/menu");
-          router.replace("/admin/menu");
+          router.replace(`/${locale}/admin/menu`);
         }
       } catch (e) {
         console.log("[AdminLoginClient] Error en session-check:", e);
@@ -103,7 +103,7 @@ export default function AdminLoginClient() {
         return;
       }
 
-      router.replace("/admin/menu");
+      router.replace(`/${locale}/admin/menu`);
     } catch (e: any) {
       setErr(e?.message ?? "Error de acceso");
     } finally {

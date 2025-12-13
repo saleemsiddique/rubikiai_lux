@@ -3,24 +3,25 @@ import { cookies } from "next/headers";
 import admin from "@/lib/firebase-admin";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { getTranslations } from "next-intl/server";
+import { getTranslations, getLocale } from "next-intl/server";
 import SearchParamsSection from "./SeatchParamsSection";
 
-async function requireAdmin() {
+async function requireAdmin(locale: string) {
   const session = (await cookies()).get("session")?.value;
-  if (!session) redirect("/admin?reason=login");
+  if (!session) redirect(`/${locale}/admin?reason=login`);
 
   try {
     const decoded = await admin.auth().verifySessionCookie(session, false);
-    if (!(decoded as any).admin) redirect("/admin?reason=forbidden");
+    if (!(decoded as any).admin) redirect(`/${locale}/admin?reason=forbidden`);
     return decoded;
   } catch {
-    redirect("/admin?reason=expired");
+    redirect(`/${locale}/admin?reason=expired`);
   }
 }
 
 export default async function AdminMenuPage() {
-  const user = await requireAdmin();
+  const locale = await getLocale();
+  const user = await requireAdmin(locale);
   const t = await getTranslations("admin");
 
   return (
@@ -38,7 +39,7 @@ export default async function AdminMenuPage() {
           </h1>
 
           {/* Logout seguro SSR */}
-          <form action="/api/auth/session-logout" method="POST">
+          <form action={`/${locale}/api/auth/session-logout`} method="POST">
             <button
               type="submit"
               className="rounded-md border px-3 py-2 text-sm bg-white hover:bg-neutral-50"
@@ -49,27 +50,27 @@ export default async function AdminMenuPage() {
         </div>
 
         <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <Link href="/admin/bookings" className="rounded-xl border p-4 bg-white hover:bg-neutral-50">
+          <Link href={`/${locale}/admin/bookings`} className="rounded-xl border p-4 bg-white hover:bg-neutral-50">
             <div className="font-semibold">{t("menu.reservations")}</div>
             <div className="text-xs text-neutral-600">{t("menu.reservationsDesc")}</div>
           </Link>
 
-          <Link href="/admin/coupons" className="rounded-xl border p-4 bg-white hover:bg-neutral-50">
+          <Link href={`/${locale}/admin/coupons`} className="rounded-xl border p-4 bg-white hover:bg-neutral-50">
             <div className="font-semibold">{t("menu.coupons")}</div>
             <div className="text-xs text-neutral-600">{t("menu.couponsDesc")}</div>
           </Link>
 
-          <Link href="/admin/discounts" className="rounded-xl border p-4 bg-white hover:bg-neutral-50">
+          <Link href={`/${locale}/admin/discounts`} className="rounded-xl border p-4 bg-white hover:bg-neutral-50">
             <div className="font-semibold">{t("menu.discounts")}</div>
             <div className="text-xs text-neutral-600">{t("menu.discountsDesc")}</div>
           </Link>
 
-          <Link href="/admin/revenue" className="rounded-xl border p-4 bg-white hover:bg-neutral-50">
+          <Link href={`/${locale}/admin/revenue`} className="rounded-xl border p-4 bg-white hover:bg-neutral-50">
             <div className="font-semibold">{t("menu.revenue")}</div>
             <div className="text-xs text-neutral-600">{t("menu.revenueDesc")}</div>
           </Link>
 
-          <Link href="/admin/houses" className="rounded-xl border p-4 bg-white hover:bg-neutral-50">
+          <Link href={`/${locale}/admin/houses`} className="rounded-xl border p-4 bg-white hover:bg-neutral-50">
             <div className="font-semibold">{t("menu.houses")}</div>
             <div className="text-xs text-neutral-600">{t("menu.housesDesc")}</div>
           </Link>

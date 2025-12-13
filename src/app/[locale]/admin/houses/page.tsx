@@ -4,22 +4,23 @@ import admin from "@/lib/firebase-admin";
 import { redirect } from "next/navigation";
 import AdminHousesClient from "./ui/AdminHousesClient";
 import Link from "next/link";
-import { getTranslations } from 'next-intl/server';
+import { getTranslations, getLocale } from 'next-intl/server';
 
-async function requireAdmin() {
+async function requireAdmin(locale: string) {
   const session = (await cookies()).get("session")?.value;
-  if (!session) redirect("/admin?reason=login");
+  if (!session) redirect(`/${locale}/admin?reason=login`);
   try {
     const decoded = await admin.auth().verifySessionCookie(session, false);
-    if (!(decoded as any).admin) redirect("/admin?reason=forbidden");
+    if (!(decoded as any).admin) redirect(`/${locale}/admin?reason=forbidden`);
     return decoded;
   } catch {
-    redirect("/admin?reason=expired");
+    redirect(`/${locale}/admin?reason=expired`);
   }
 }
 
 export default async function AdminHousesPage() {
-  await requireAdmin();
+  const locale = await getLocale();
+  await requireAdmin(locale);
   const t = await getTranslations('admin');
 
   return (
@@ -28,7 +29,7 @@ export default async function AdminHousesPage() {
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-[var(--color-primary-dark)]">{t('menu.houses')}</h1>
           <Link
-            href="/admin/menu"
+            href={`/${locale}/admin/menu`}
             className="rounded-md border px-3 py-2 text-sm hover:bg-neutral-50"
           >
             {t('common.back')}

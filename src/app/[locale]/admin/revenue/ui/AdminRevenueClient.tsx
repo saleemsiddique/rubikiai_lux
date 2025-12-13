@@ -109,6 +109,7 @@ export default function AdminRevenueClient() {
   // Por defecto: solo lo económicamente relevante
   const [resStatuses, setResStatuses] = useState<string[]>([
     "reserved",
+    "admin",
     "complete",
   ]);
 

@@ -1023,7 +1023,7 @@ export default function AdminBookingsClient() {
                         <button
                             type="button"
                             onClick={() => {
-                                router.push("/admin/menu");
+                                router.push(`/${locale}/admin/menu`);
                             }}
                             className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-neutral-50"
                             aria-label="Back"

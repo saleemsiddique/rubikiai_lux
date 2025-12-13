@@ -251,6 +251,24 @@ function PriceSummaryBlock({
 
                 if (!res.ok) {
                     const errorText = await res.text();
+
+                    // Handle 409 "dates unavailable" error specifically (expected error, no need to log)
+                    if (res.status === 409) {
+                        let errorData;
+                        try {
+                            errorData = JSON.parse(errorText);
+                        } catch {
+                            errorData = null;
+                        }
+
+                        if (errorData?.error && errorData.error.toLowerCase().includes('unavailable')) {
+                            setError('DATES_UNAVAILABLE');
+                            setLoading(false);
+                            return;
+                        }
+                    }
+
+                    // Log unexpected errors
                     console.error('?? [PriceSummary] Error response:', errorText);
                     throw new Error(`Price fetch failed: ${res.status} - ${errorText}`);
                 }
@@ -281,7 +299,13 @@ function PriceSummaryBlock({
         return (
             <div className="border-t pt-3 mt-2">
                 <div className="bg-red-50 border border-red-200 rounded-md p-3 text-xs text-red-700">
-                    <span className="font-semibold">{t('bookings.priceSummary.errorCalculating')}</span> {error}
+                    {error === 'DATES_UNAVAILABLE' ? (
+                        <div>{t('bookings.priceSummary.datesUnavailable')}</div>
+                    ) : (
+                        <div>
+                            <span className="font-semibold">{t('bookings.priceSummary.errorCalculating')}</span> {error}
+                        </div>
+                    )}
                 </div>
             </div>
         );
@@ -1062,7 +1086,11 @@ export default function AdminBookingsClient() {
                         <input
                             type="date"
                             value={rangeStart}
-                            onChange={(e) => setRangeStart(e.target.value)}
+                            onChange={(e) => {
+                                setRangeStart(e.target.value);
+                                // Always set "to" to next day when "from" changes
+                                setRangeEnd(addDaysISO(e.target.value, 1));
+                            }}
                             className="mt-1 border rounded-md p-2"
                         />
                     </div>
@@ -1074,7 +1102,16 @@ export default function AdminBookingsClient() {
                         <input
                             type="date"
                             value={rangeEnd}
-                            onChange={(e) => setRangeEnd(e.target.value)}
+                            min={addDaysISO(rangeStart, 1)}
+                            onChange={(e) => {
+                                const newValue = e.target.value;
+                                // Ensure "To" is never before "From"
+                                if (newValue && rangeStart && newValue <= rangeStart) {
+                                    setRangeEnd(addDaysISO(rangeStart, 1));
+                                } else {
+                                    setRangeEnd(newValue);
+                                }
+                            }}
                             className="mt-1 border rounded-md p-2"
                         />
                     </div>

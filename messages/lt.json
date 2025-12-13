@@ -841,7 +841,8 @@
         "reservationFee": "Rezervacijos mokestis (mokėti dabar)",
         "payAtArrival": "Mokėti atvykus",
         "loadingPrice": "Kraunama kainų suvestinė...",
-        "errorCalculating": "Kainos skaičiavimo klaida:"
+        "errorCalculating": "Kainos skaičiavimo klaida:",
+        "datesUnavailable": "Pasirinktas namelis pasirinktoms datoms nėra prieinamas. Prašome pasirinkti kitas datas arba kitą objektą."
       },
       "results": {
         "title": "Rezultatai",

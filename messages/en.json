@@ -715,7 +715,8 @@
         "reservationFee": "Reservation fee (pay now)",
         "payAtArrival": "Pay at arrival",
         "loadingPrice": "Loading price summary...",
-        "errorCalculating": "Price calculation error:"
+        "errorCalculating": "Price calculation error:",
+        "datesUnavailable": "The selected accommodation is not available for the chosen dates. Please select different dates or another property."
       },
       "results": {
         "title": "Results",

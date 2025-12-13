@@ -240,10 +240,11 @@ function PriceSummaryBlock({
 
                 console.log('?? [PriceSummary] Calling price API with:', body);
 
-                const res = await fetch(`/${locale}/api/reservations/price`, {
+                const res = await fetch(`/${locale}/api/reservations/price?_t=${Date.now()}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(body),
+                    cache: 'no-store',
                 });
 
                 console.log('?? [PriceSummary] Response status:', res.status);
@@ -266,7 +267,7 @@ function PriceSummaryBlock({
         };
 
         fetchPrice();
-    }, [houseId, startDate, endDate, guests, jacuzziEnabled, jacuzziDays]);
+    }, [houseId, startDate, endDate, guests, jacuzziEnabled, jacuzziDays, locale]);
 
     if (loading) {
         return (
@@ -465,6 +466,8 @@ export default function AdminBookingsClient() {
             if (rangeEnd) params.set("end", rangeEnd);
             if (houseId) params.set("houseId", houseId);
             params.set("limit", "1000");
+            // Force fresh query with timestamp
+            params.set("_t", Date.now().toString());
 
             console.time("[UI] list fetch");
             const res = await fetchWithTimeout(
@@ -485,6 +488,11 @@ export default function AdminBookingsClient() {
         } finally {
             setLoading(false);
         }
+    };
+
+    /* ---------- Refresh all data ---------- */
+    const refreshAll = async () => {
+        await Promise.all([fetchList(), fetchMonthOccupancy()]);
     };
 
     /* ---------- Fetch occupancy ---------- */
@@ -533,6 +541,8 @@ export default function AdminBookingsClient() {
             params.set("start", monthStart);
             params.set("end", monthEndExclusive);
             if (houseId) params.set("houseId", houseId);
+            // Force fresh query with timestamp
+            params.set("_t", Date.now().toString());
 
             console.time("[UI] occupancy fetch");
             const res = await fetchWithTimeout(
@@ -556,15 +566,17 @@ export default function AdminBookingsClient() {
         }
     };
 
+    // Fetch initial data and reload when locale changes
     useEffect(() => {
         fetchList();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [locale]);
 
+    // Reload calendar when month/year/house changes
     useEffect(() => {
         fetchMonthOccupancy();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [calYear, calMonth, houseId]);
+    }, [calYear, calMonth, houseId, locale]);
 
     /* ---------- Day map ---------- */
     const dayMap = useMemo(() => {
@@ -643,6 +655,8 @@ export default function AdminBookingsClient() {
             params.set("start", startISO);
             params.set("end", endISO);
             params.set("houseId", singleHouseId);
+            // Force fresh query with timestamp
+            params.set("_t", Date.now().toString());
 
             const res = await fetchWithTimeout(
                 `/${locale}/api/admin/reservations/occupancy?${params.toString()}`,
@@ -692,7 +706,7 @@ export default function AdminBookingsClient() {
 
         try {
             const res = await fetchWithTimeout(
-                `/${locale}/api/coupons/lookup?code=${encodeURIComponent(blockDiscountCode)}`,
+                `/${locale}/api/coupons/lookup?code=${encodeURIComponent(blockDiscountCode)}&_t=${Date.now()}`,
                 {},
                 20000
             );
@@ -812,25 +826,7 @@ export default function AdminBookingsClient() {
                 throw new Error(detail);
             }
 
-            // Actualizar el estado local inmediatamente para feedback instantáneo
-            setRows(prevRows =>
-                prevRows.map(r =>
-                    r.id === id
-                        ? { ...r, status, ...(paidInFull ? { paidInFull: true } : {}) }
-                        : r
-                )
-            );
-
-            // También actualizar occReservations si la reserva está ahí
-            setOccReservations(prevOcc =>
-                prevOcc.map(r =>
-                    r.id === id
-                        ? { ...r, status, ...(paidInFull ? { paidInFull: true } : {}) }
-                        : r
-                )
-            );
-
-            // Luego hacer el fetch completo en segundo plano
+            // Always fetch fresh data from database after any change
             await fetchList();
             await fetchMonthOccupancy();
         } catch (e: any) {
@@ -1020,7 +1016,7 @@ export default function AdminBookingsClient() {
 
                     <div className="flex items-center gap-2 w-full sm:w-auto">
                         <button
-                            onClick={fetchList}
+                            onClick={refreshAll}
                             disabled={loading}
                             className="rounded-md border px-3 py-2 text-sm hover:bg-neutral-50 disabled:opacity-60 w-full sm:w-auto text-center"
                         >
@@ -1103,7 +1099,7 @@ export default function AdminBookingsClient() {
 
                     <div className="md:col-span-4 flex gap-2">
                         <button
-                            onClick={fetchList}
+                            onClick={refreshAll}
                             className="rounded-md bg-[var(--color-primary)] text-white px-4 py-2 text-sm font-semibold hover:opacity-95 w-full md:w-auto"
                         >
                             {t('common.search')}

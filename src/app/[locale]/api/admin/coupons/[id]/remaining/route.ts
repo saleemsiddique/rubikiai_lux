@@ -22,7 +22,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
 
     let decoded: admin.auth.DecodedIdToken;
     try {
-      decoded = await admin.auth().verifySessionCookie(session, true);
+      decoded = await admin.auth().verifySessionCookie(session, false);
     } catch {
       return NextResponse.json({ error: "invalid_session" }, { status: 401 });
     }

@@ -352,7 +352,15 @@ export default function AdminRevenueClient() {
           <input
             type="date"
             value={start}
-            onChange={(e) => setStart(e.target.value)}
+            onChange={(e) => {
+              const newStart = e.target.value;
+              setStart(newStart);
+              // Solo actualizar "To" si "From" se pasa del "To"
+              if (newStart >= end) {
+                const nextDay = addDaysISO(newStart, 1);
+                setEnd(nextDay);
+              }
+            }}
             className="mt-1 border rounded-md p-2"
           />
         </div>
@@ -363,7 +371,14 @@ export default function AdminRevenueClient() {
           <input
             type="date"
             value={end}
-            onChange={(e) => setEnd(e.target.value)}
+            min={start} // Prevenir que "To" sea anterior a "From"
+            onChange={(e) => {
+              const newEnd = e.target.value;
+              // Validar que "To" no sea anterior a "From"
+              if (newEnd >= start) {
+                setEnd(newEnd);
+              }
+            }}
             className="mt-1 border rounded-md p-2"
           />
         </div>

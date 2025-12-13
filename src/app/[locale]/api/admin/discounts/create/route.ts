@@ -24,7 +24,7 @@ function randomCode() {
 async function requireAdmin() {
   const session = (await cookies()).get("session")?.value;
   if (!session) throw new Error("unauthorized");
-  const decoded = await admin.auth().verifySessionCookie(session, true);
+  const decoded = await admin.auth().verifySessionCookie(session, false);
   if (!(decoded as any).admin) throw new Error("forbidden");
   return decoded;
 }

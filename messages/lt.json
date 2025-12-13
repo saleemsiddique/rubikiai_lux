@@ -705,7 +705,8 @@
       "signingIn": "Prisijungiama…",
       "reasonLogin": "Prašome prisijungti, kad tęsti.",
       "reasonForbidden": "Prieiga uždrausta. Jūsų vartotojas nėra administratorius.",
-      "reasonExpired": "Sesija baigėsi. Prašome prisijungti iš naujo."
+      "reasonExpired": "Sesija baigėsi. Prašome prisijungti iš naujo.",
+      "reasonLogout": "Sesija sėkmingai uždaryta."
     },
     "menu": {
       "title": "Administratorius · Meniu",

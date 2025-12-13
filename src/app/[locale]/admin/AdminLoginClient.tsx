@@ -30,41 +30,58 @@ export default function AdminLoginClient() {
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Mover la lógica del reason a useEffect para evitar hidratación
+  // Manejo de reason y auto-check combinados en un solo useEffect
   useEffect(() => {
     const reason = search?.get("reason");
+    console.log("[AdminLoginClient] useEffect ejecutado, reason:", reason);
+
+    // Mostrar mensajes según el reason
     if (reason) {
       const friendlyMsg =
         reason === "login" ? t('login.reasonLogin') :
         reason === "forbidden" ? t('login.reasonForbidden') :
         reason === "expired" ? t('login.reasonExpired') :
+        reason === "logout" ? t('login.reasonLogout') :
         null;
       setErr(friendlyMsg);
     }
-  }, [search, t]);
 
-  useEffect(() => {
+    // Si es logout, cerrar Firebase y NO hacer auto-check
+    if (reason === "logout") {
+      console.log("[AdminLoginClient] Detectado logout, cerrando Firebase y bloqueando auto-check");
+      clientAuth.signOut().catch(() => {});
+      return; // Salir sin hacer auto-check
+    }
+
+    // Auto-check solo si NO es logout
+    console.log("[AdminLoginClient] No es logout, ejecutando auto-check");
     let abort = false;
     const check = async () => {
       try {
-        const res = await fetch(`/${locale}/api/auth/session-check`, { 
-          method: "GET", 
-          credentials: "same-origin" 
+        console.log("[AdminLoginClient] Iniciando session-check...");
+        const res = await fetch(`/${locale}/api/auth/session-check`, {
+          method: "GET",
+          credentials: "same-origin",
+          cache: "no-store" // Evitar caché
         });
+        console.log("[AdminLoginClient] session-check response:", res.ok);
         if (!res.ok) return;
         const data = await res.json().catch(() => ({}));
+        console.log("[AdminLoginClient] session-check data:", data);
         if (!abort && data?.isAuthenticated && data?.isAdmin) {
+          console.log("[AdminLoginClient] Sesión válida detectada, redirigiendo a /admin/menu");
           router.replace("/admin/menu");
         }
-      } catch {
-        /* noop */
+      } catch (e) {
+        console.log("[AdminLoginClient] Error en session-check:", e);
       }
     };
     check();
+
     return () => {
       abort = true;
     };
-  }, [router]);
+  }, [router, locale, search, t]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

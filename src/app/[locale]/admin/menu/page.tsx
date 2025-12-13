@@ -11,7 +11,7 @@ async function requireAdmin() {
   if (!session) redirect("/admin?reason=login");
 
   try {
-    const decoded = await admin.auth().verifySessionCookie(session, true);
+    const decoded = await admin.auth().verifySessionCookie(session, false);
     if (!(decoded as any).admin) redirect("/admin?reason=forbidden");
     return decoded;
   } catch {

@@ -579,7 +579,8 @@
       "signingIn": "Signing in…",
       "reasonLogin": "Please sign in to continue.",
       "reasonForbidden": "Access denied. Your user is not an administrator.",
-      "reasonExpired": "Session expired. Please sign in again."
+      "reasonExpired": "Session expired. Please sign in again.",
+      "reasonLogout": "Session closed successfully."
     },
     "menu": {
       "title": "Admin · Menu",

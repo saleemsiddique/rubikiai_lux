@@ -1087,9 +1087,12 @@ export default function AdminBookingsClient() {
                             type="date"
                             value={rangeStart}
                             onChange={(e) => {
-                                setRangeStart(e.target.value);
-                                // Always set "to" to next day when "from" changes
-                                setRangeEnd(addDaysISO(e.target.value, 1));
+                                const newStart = e.target.value;
+                                setRangeStart(newStart);
+                                // Solo actualizar "To" si "From" se pasa del "To"
+                                if (newStart >= rangeEnd) {
+                                    setRangeEnd(addDaysISO(newStart, 1));
+                                }
                             }}
                             className="mt-1 border rounded-md p-2"
                         />
@@ -1102,14 +1105,12 @@ export default function AdminBookingsClient() {
                         <input
                             type="date"
                             value={rangeEnd}
-                            min={addDaysISO(rangeStart, 1)}
+                            min={rangeStart}
                             onChange={(e) => {
-                                const newValue = e.target.value;
-                                // Ensure "To" is never before "From"
-                                if (newValue && rangeStart && newValue <= rangeStart) {
-                                    setRangeEnd(addDaysISO(rangeStart, 1));
-                                } else {
-                                    setRangeEnd(newValue);
+                                const newEnd = e.target.value;
+                                // Validar que "To" no sea anterior a "From"
+                                if (newEnd >= rangeStart) {
+                                    setRangeEnd(newEnd);
                                 }
                             }}
                             className="mt-1 border rounded-md p-2"
@@ -1682,10 +1683,11 @@ export default function AdminBookingsClient() {
                                     value={blockStart}
                                     min={toISO(new Date())}
                                     onChange={(e) => {
-                                        setBlockStart(e.target.value);
-                                        // Automatically set checkout to next day if it's before or equal to new checkin
-                                        if (blockEnd <= e.target.value) {
-                                            setBlockEnd(addDaysISO(e.target.value, 1));
+                                        const newStart = e.target.value;
+                                        setBlockStart(newStart);
+                                        // Solo actualizar "To" si "From" se pasa del "To"
+                                        if (newStart >= blockEnd) {
+                                            setBlockEnd(addDaysISO(newStart, 1));
                                         }
                                     }}
                                     className="w-full border rounded-md p-2 mt-1"
@@ -1697,8 +1699,14 @@ export default function AdminBookingsClient() {
                                 <input
                                     type="date"
                                     value={blockEnd}
-                                    min={addDaysISO(blockStart, 1)}
-                                    onChange={(e) => setBlockEnd(e.target.value)}
+                                    min={blockStart}
+                                    onChange={(e) => {
+                                        const newEnd = e.target.value;
+                                        // Validar que "To" no sea anterior a "From"
+                                        if (newEnd >= blockStart) {
+                                            setBlockEnd(newEnd);
+                                        }
+                                    }}
                                     className="w-full border rounded-md p-2 mt-1"
                                 />
                             </div>

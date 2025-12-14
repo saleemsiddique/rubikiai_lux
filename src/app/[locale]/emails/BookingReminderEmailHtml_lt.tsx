@@ -20,8 +20,8 @@ export function BookingReminderEmailHtml_lt(params: BookingReminderParams): stri
     logoCid = "rubikiai-logo",
   } = params;
 
-  const checkInFmt = dayjs(checkIn).locale('lt').format("dddd, MMMM D, YYYY");
-  const checkOutFmt = checkOut ? dayjs(checkOut).locale('lt').format("dddd, MMMM D, YYYY") : "";
+  const checkInFmt = dayjs(checkIn).locale('lt').format("MMMM D, YYYY");
+  const checkOutFmt = checkOut ? dayjs(checkOut).locale('lt').format("MMMM D, YYYY") : "";
   const shortDate = dayjs(checkIn).format("DD/MM/YYYY");
   const displayName = PROPERTY_NAME_MAP[houseName] || houseName;
 

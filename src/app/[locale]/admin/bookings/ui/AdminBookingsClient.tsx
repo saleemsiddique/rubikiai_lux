@@ -88,6 +88,11 @@ type Reservation = {
 const STATUSES = ["reserved", "admin", "complete", "canceled"] as const;
 const CALENDAR_STATUSES = new Set(["reserved", "admin", "complete"]);
 
+// Helper function to display status: 'complete' -> 'paid' for UI only
+const displayStatus = (status: string | undefined): string => {
+    return (status === 'complete' ? 'paid' : status) || 'unknown';
+};
+
 const HOUSE_OPTIONS = [
     { id: "L0TeFf2LmrWGAaAyS8NY", alias: "Ežero Namelis" },
     { id: "PZwbfMYlSXj61uYYJutg", alias: "Šalia Elnių Aptvaro" },
@@ -1070,7 +1075,7 @@ export default function AdminBookingsClient() {
                         >
                             {STATUSES.map((s) => (
                                 <option key={s} value={s}>
-                                    {s}
+                                    {displayStatus(s)}
                                 </option>
                             ))}
                         </select>
@@ -1207,7 +1212,7 @@ export default function AdminBookingsClient() {
 
                                                     <div className="mt-2 text-xs flex flex-wrap gap-2 items-center">
                                                         <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px]">
-                                                            {r.status}
+                                                            {displayStatus(r.status)}
                                                         </span>
                                                         {r.paidInFull && (
                                                             <span className="text-[11px] text-green-600">✓ {t('bookings.table.paid')}</span>
@@ -1243,7 +1248,7 @@ export default function AdminBookingsClient() {
                                                     }}
                                                 >
                                                     {STATUSES.map((s) => (
-                                                        <option key={s} value={s}>{s}</option>
+                                                        <option key={s} value={s}>{displayStatus(s)}</option>
                                                     ))}
                                                 </select>
 
@@ -1326,7 +1331,7 @@ export default function AdminBookingsClient() {
                                                     </td>
                                                     <td className="px-3 py-2">
                                                         <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px]">
-                                                            {r.status}
+                                                            {displayStatus(r.status)}
                                                         </span>
                                                         {r.paidInFull && (
                                                             <span className="ml-1 text-[10px] text-green-600">✓ {t('bookings.table.paid')}</span>
@@ -1391,7 +1396,7 @@ export default function AdminBookingsClient() {
                                                             >
                                                                 {STATUSES.map((s) => (
                                                                     <option key={s} value={s}>
-                                                                        {s}
+                                                                        {displayStatus(s)}
                                                                     </option>
                                                                 ))}
                                                             </select>
@@ -1593,7 +1598,7 @@ export default function AdminBookingsClient() {
 
                                         return (
                                             <div key={r.id} className="rounded-md border p-2 text-xs bg-white">
-                                                <div className="font-semibold">{r.checkIn} → {r.checkOut} <span className="ml-1">({r.status})</span></div>
+                                                <div className="font-semibold">{r.checkIn} → {r.checkOut} <span className="ml-1">({displayStatus(r.status)})</span></div>
 
                                                 <div>{t('bookings.calendar.stay')}: {r.houseIds && r.houseIds.length > 1 ? r.houseIds.map((id: string) => PROPERTY_NAME_MAP[id] || id).join(" + ") : (PROPERTY_NAME_MAP[r.houseId || r.houseIds?.[0] || ""] || r.houseId || r.houseIds?.[0] || "—")}</div>
 

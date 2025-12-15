@@ -70,6 +70,11 @@ const PROPERTY_NAME_MAP: Record<string, string> = {
   PZwbfMYlSXj61uYYJutg__oDzv9346CdaAsok162sX: "N1 + N2",
 };
 
+// Helper function to display status: 'complete' -> 'paid' for UI only
+const displayStatus = (status: string): string => {
+  return status === 'complete' ? 'paid' : status;
+};
+
 function todayISO() {
   const d = new Date();
   const y = d.getFullYear();
@@ -276,7 +281,7 @@ export default function AdminRevenueClient() {
         return {
           id: r.id,
           house: houseName,
-          status: r.status,
+          status: displayStatus(r.status),
           checkin: r.checkIn,
           checkout: r.checkOut,
           nights: r.nights,
@@ -338,7 +343,7 @@ export default function AdminRevenueClient() {
 
   const StatusPill = ({ s }: { s: string }) => (
     <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px]">
-      {s}
+      {displayStatus(s)}
     </span>
   );
 
@@ -425,7 +430,7 @@ export default function AdminRevenueClient() {
                       )
                     }
                   />
-                  {s}
+                  {displayStatus(s)}
                 </label>
               );
             })}

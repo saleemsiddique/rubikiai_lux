@@ -53,7 +53,8 @@ async function requireAdmin() {
 const ALLOWED_STATUSES = new Set([
   "reserved", // pagada / confirmada
   "admin", // bloqueo interno sin pago
-  "complete", // estancia finalizada/cobro final cerrado
+  "paid", // estancia finalizada/cobro final cerrado
+  "complete", // backward compatibility (antiguo status, equivalente a paid)
   "canceled", // cancelada
 ]);
 
@@ -63,7 +64,7 @@ const ALLOWED_STATUSES = new Set([
  *  - start=YYYY-MM-DD (inclusive, por campo "by")
  *  - end=YYYY-MM-DD (inclusive) -> internamente se hace exclusivo +1 día
  *  - by=createdAt|paidAt|checkIn|checkOut (default: createdAt)
- *  - status=reserved,complete (por defecto esas dos; deben ser válidos según ALLOWED_STATUSES)
+ *  - status=reserved,paid,complete (por defecto esas; deben ser válidos según ALLOWED_STATUSES)
  *  - houseId=... (opcional)
  *  - limit=2000 (opcional, seguridad; hard cap 5000)
  */
@@ -80,7 +81,7 @@ export async function GET(req: Request) {
     const end = url.searchParams.get("end") || "";
     const byRaw = url.searchParams.get("by") || "";
     const by = String(byRaw).toLowerCase();
-    const statusesRaw = url.searchParams.get("status") || "reserved,complete";
+    const statusesRaw = url.searchParams.get("status") || "reserved,paid,complete";
     const houseId = url.searchParams.get("houseId") || "";
     const limit = Math.min(
       parseInt(url.searchParams.get("limit") || "2000", 10),

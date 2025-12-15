@@ -85,8 +85,8 @@ type Reservation = {
     [k: string]: any;
 };
 
-const STATUSES = ["reserved", "admin", "complete", "canceled"] as const;
-const CALENDAR_STATUSES = new Set(["reserved", "admin", "complete"]);
+const STATUSES = ["reserved", "admin", "paid", "canceled"] as const;
+const CALENDAR_STATUSES = new Set(["reserved", "admin", "paid", "complete"]);
 
 const HOUSE_OPTIONS = [
     { id: "L0TeFf2LmrWGAaAyS8NY", alias: "Ežero Namelis" },
@@ -653,7 +653,7 @@ export default function AdminBookingsClient() {
         return m;
     }, [occReservations, monthStart, monthEndExclusive]);
 
-    const BLOCKING_STATES = new Set(["reserved", "complete", "admin"]);
+    const BLOCKING_STATES = new Set(["reserved", "paid", "complete", "admin"]);
 
     function rangesOverlap(
         aStart: string,
@@ -898,7 +898,7 @@ export default function AdminBookingsClient() {
             );
             if (hasConflict) {
                 throw new Error(
-                    "The selected dates overlap with an existing reservation (reserved / complete / admin)."
+                    "The selected dates overlap with an existing reservation (reserved / paid / complete / admin)."
                 );
             }
 
@@ -1251,12 +1251,12 @@ export default function AdminBookingsClient() {
                                                     onClick={async () => {
                                                         if (!confirm(t('bookings.actions.markPaidComplete'))) return;
                                                         try {
-                                                            await updateStatus(r.id, "complete", true);
+                                                            await updateStatus(r.id, "paid", true);
                                                         } catch (er: any) {
                                                             alert(er?.message || t('bookings.table.error'));
                                                         }
                                                     }}
-                                                    disabled={r.status === "complete" || r.status === "canceled"}
+                                                    disabled={r.status === "paid" || r.status === "canceled"}
                                                     className="rounded-md border px-3 py-2 text-xs hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                                 >
                                                     {t('bookings.table.fullyPaid')}
@@ -1272,7 +1272,7 @@ export default function AdminBookingsClient() {
                                                         }
                                                     }}
                                                     className="rounded-md border px-3 py-2 text-xs hover:bg-neutral-50"
-                                                    disabled={r.status === "complete" || r.status === "canceled"}
+                                                    disabled={r.status === "paid" || r.status === "canceled"}
                                                 >
                                                     {t('bookings.table.cancel')}
                                                 </button>
@@ -1400,13 +1400,13 @@ export default function AdminBookingsClient() {
                                                                 onClick={async () => {
                                                                     if (!confirm(t('bookings.actions.markPaidComplete'))) return;
                                                                     try {
-                                                                        await updateStatus(r.id, "complete", true);
+                                                                        await updateStatus(r.id, "paid", true);
                                                                     } catch (er: any) {
                                                                         alert(er?.message || t('bookings.table.error'));
                                                                     }
                                                                 }}
                                                                 disabled={
-                                                                    r.status === "complete" ||
+                                                                    r.status === "paid" ||
                                                                     r.status === "canceled"
                                                                 }
                                                                 className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1425,7 +1425,7 @@ export default function AdminBookingsClient() {
                                                                 }}
                                                                 className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                                                 disabled={
-                                                                    r.status === "complete" ||
+                                                                    r.status === "paid" ||
                                                                     r.status === "canceled"
                                                                 }
                                                             >
@@ -1640,12 +1640,12 @@ export default function AdminBookingsClient() {
                                                             if (!confirm(t('bookings.actions.markPaidComplete'))) return;
 
                                                             try {
-                                                                await updateStatus(r.id, "complete", true);
+                                                                await updateStatus(r.id, "paid", true);
                                                             } catch (er: any) {
                                                                 alert(er?.message || t('bookings.table.error'));
                                                             }
                                                         }}
-                                                        disabled={r.status === "complete" || r.status === "canceled"}
+                                                        disabled={r.status === "paid" || r.status === "canceled"}
                                                         className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                                     >
                                                         {t('bookings.table.fullyPaid')}

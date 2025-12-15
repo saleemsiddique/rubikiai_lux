@@ -106,10 +106,11 @@ export default function AdminRevenueClient() {
   const [start, setStart] = useState<string>(monthAgo);
   const [end, setEnd] = useState<string>(today);
 
-  // Por defecto: solo lo económicamente relevante
+  // Por defecto: solo lo económicamente relevante (incluye "complete" para compatibilidad)
   const [resStatuses, setResStatuses] = useState<string[]>([
     "reserved",
     "admin",
+    "paid",
     "complete",
   ]);
 
@@ -407,8 +408,12 @@ export default function AdminRevenueClient() {
               {t("revenue.filters.reservationStates")}
             </label>
 
-            {["reserved", "complete", "admin", "canceled"].map((s) => {
-              const checked = resStatuses.includes(s);
+            {["reserved", "paid", "admin", "canceled"].map((s) => {
+              // Cuando es "paid", marcamos como checked si está "paid" O "complete" en el array
+              const checked = s === "paid"
+                ? (resStatuses.includes("paid") || resStatuses.includes("complete"))
+                : resStatuses.includes(s);
+
               return (
                 <label
                   key={s}
@@ -418,11 +423,20 @@ export default function AdminRevenueClient() {
                     type="checkbox"
                     checked={checked}
                     onChange={(e) =>
-                      setResStatuses((prev) =>
-                        e.target.checked
-                          ? Array.from(new Set([...prev, s]))
-                          : prev.filter((x) => x !== s)
-                      )
+                      setResStatuses((prev) => {
+                        if (s === "paid") {
+                          // Si marcamos/desmarcamos "paid", debemos agregar/quitar tanto "paid" como "complete"
+                          if (e.target.checked) {
+                            return Array.from(new Set([...prev, "paid", "complete"]));
+                          } else {
+                            return prev.filter((x) => x !== "paid" && x !== "complete");
+                          }
+                        } else {
+                          return e.target.checked
+                            ? Array.from(new Set([...prev, s]))
+                            : prev.filter((x) => x !== s);
+                        }
+                      })
                     }
                   />
                   {s}

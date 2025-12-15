@@ -8,7 +8,8 @@ import { nowInLithuania } from "@/app/[locale]/utils/date-server";
 const ALLOWED = new Set([
   "reserved", // reserva confirmada (pago de entrada hecho)
   "admin",    // bloqueo manual interno
-  "complete", // estancia finalizada / cobro final completado
+  "paid",     // estancia finalizada / cobro final completado
+  "complete", // backward compatibility (antiguo status, equivalente a paid)
   "canceled", // cancelada
 ]);
 
@@ -119,8 +120,8 @@ export async function POST(
       updatedAt: nowInLithuania(),
     };
 
-    // si marcamos "complete" o paidInFull, dejamos constancia de que está pagado
-    if (paidInFull === true || status === "complete") {
+    // si marcamos "paid", "complete" o paidInFull, dejamos constancia de que está pagado
+    if (paidInFull === true || status === "paid" || status === "complete") {
       data.paidInFull = true;
       data.paidAt = nowInLithuania();
     }

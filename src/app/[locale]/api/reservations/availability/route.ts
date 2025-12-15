@@ -68,7 +68,7 @@ export async function POST(
     const reservationsRef = adminDb.collection("reservations");
 
     // Estados que bloquean fechas en el calendario / disponibilidad
-    const OCCUPIED_STATUSES = new Set(["reserved", "admin", "complete"]);
+    const OCCUPIED_STATUSES = new Set(["reserved", "admin", "paid", "complete"]);
 
     const availabilityPromises = houses.map(async (house) => {
       // obtenemos reservas tanto por `houseId` como por `houseIds array-contains`

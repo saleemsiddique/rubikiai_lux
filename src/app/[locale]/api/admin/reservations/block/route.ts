@@ -96,7 +96,7 @@ export async function POST(
     }
 
     // Check for conflicts
-    const blockingStatuses = ["reserved", "complete", "admin"];
+    const blockingStatuses = ["reserved", "paid", "complete", "admin"];
     const reservationsRef = adminDb.collection("reservations");
 
     const conflictPromises = targetHouseIds.map(async (hid) => {
@@ -127,7 +127,7 @@ export async function POST(
     const conflictsArray = await Promise.all(conflictPromises);
     if (conflictsArray.some(Boolean)) {
       return Response.json({
-        error: "Date range overlaps an existing reservation (reserved/complete/admin)"
+        error: "Date range overlaps an existing reservation (reserved/paid/complete/admin)"
       }, { status: 409 });
     }
 

@@ -122,7 +122,7 @@ function adjustForStripeMin(firstNightBefore: number, discountTry: number) {
 /* ---------------- Firestore helpers ---------------- */
 function shouldIncludeReservation(res: any) {
   const status = String(res?.status ?? "").toLowerCase();
-  return status === "admin" || status === "reserved" || status === "complete";
+  return status === "admin" || status === "reserved" || status === "paid" || status === "complete";
 }
 
 async function fetchReservationsForId(id: string) {

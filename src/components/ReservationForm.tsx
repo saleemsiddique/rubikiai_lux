@@ -234,7 +234,7 @@ async function fetchReservations(houseId: string) {
 
 function shouldIncludeReservation(res: any) {
   const status = String(res?.status ?? "").toLowerCase();
-  return status === "admin" || status === "reserved" || status === "complete";
+  return status === "admin" || status === "reserved" || status === "paid" || status === "complete";
 }
 
 type HouseImage = { key: string; url: string; alt?: string };

@@ -205,13 +205,13 @@ export async function GET(_req: NextRequest) {
 
     // Caso 1: checkIn guardado como string "YYYY-MM-DD" (interpretado como día UTC)
     const qStr = reservationsRef
-      .where("status", "==", "reserved")
+      .where("status", "in", ["reserved", "admin"])
       .where("checkIn", "==", targetYMD)
       .get();
 
     // Caso 2: checkIn guardado como Timestamp -> rango [start, end) en UTC
     const qTs = reservationsRef
-      .where("status", "==", "reserved")
+      .where("status", "in", ["reserved", "admin"])
       .where("checkIn", ">=", start)
       .where("checkIn", "<", end)
       .get();

@@ -60,6 +60,11 @@ function utcDayBounds(days: number) {
 // ------------ helpers de email / resend ------------
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+/** Delay helper to avoid rate limiting */
+function delay(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 function guessGuestName(email: string): string {
   const local = (email || "").split("@")[0] || "Guest";
   return local
@@ -240,7 +245,10 @@ export async function GET(_req: NextRequest) {
     let skipped = 0;
     const results: Array<{ id: string; to: string; ok: boolean; error?: string; locale?: string }> = [];
 
-    for (const [, doc] of docsById) {
+    const docsArray = Array.from(docsById.entries());
+
+    for (let i = 0; i < docsArray.length; i++) {
+      const [, doc] = docsArray[i];
       const d = doc.data() as any;
       const to: string | undefined = d.customerEmail;
 
@@ -283,6 +291,11 @@ export async function GET(_req: NextRequest) {
 
         sent++;
         results.push({ id: doc.id, to, ok: true, locale: lang });
+
+        // Add delay between emails to avoid rate limiting (skip delay after last email)
+        if (i < docsArray.length - 1) {
+          await delay(1500); // 1.5 second delay
+        }
       } catch (e: any) {
         skipped++;
         results.push({ id: doc.id, to, ok: false, error: e?.message || "Unknown error" });

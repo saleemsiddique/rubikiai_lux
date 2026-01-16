@@ -19,7 +19,8 @@ const ContactPage: React.FC = () => {
           </h1>
 
           {/* Contact Form */}
-          <form action="https://getform.io/f/bjjrddeb" method="POST" className="space-y-10">
+          <form action="https://api.web3forms.com/submit" method="POST" className="space-y-10">
+            <input type="hidden" name="access_key" value="518742e5-be0c-47dc-8777-5700b663fcc2"/>
             {/* Name Input */}
             <div>
               <label htmlFor="name" className="block text-base mb-2">

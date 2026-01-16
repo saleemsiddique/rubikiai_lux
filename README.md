@@ -25,7 +25,7 @@ CURRENT (Working)              YOUR SETUP (New)
 Developer's Firebase    →      Your new Firebase
 Developer's Vercel      →      Your new Vercel
 Developer's Resend      →      Your new Resend
-rubikiailux.lt (LIVE)   →      your-project.vercel.app (testing)
+rubikiailux.lt (LIVE)   →      rubikiailux.lt (LIVE)
 ```
 
 ### ⚠️ IMPORTANT: Do NOT Touch DNS Until the Final Step!
@@ -207,7 +207,7 @@ You will need to create accounts on these services (all have free tiers):
 
 **✅ Keep this browser tab open**
 
-⚠️ **About Stripe and Montonio**: These payment systems are **already configured** with the owner's account. You do NOT need to create accounts for them unless you want to use your own payment accounts (see Sections 7 and 8).
+⚠️ **About Stripe and Montonio**: These payment systems are **already configured** with the owner's account. You do NOT need to create accounts for them unless you want to change the accounts (see Sections 7 and 8).
 
 ---
 
@@ -327,15 +327,6 @@ OWNER_EMAIL=info@rubikiailux.lt
 # Used ONCE to create the first admin account via /admin/bootstrap
 # Change this after creating admin account for security
 ADMIN_BOOTSTRAP_TOKEN=create_a_random_secure_string_here
-
-# ═══════════════════════════════════════════════════════════════════════
-# CRON JOBS (Optional but recommended)
-# ═══════════════════════════════════════════════════════════════════════
-# Secret to protect the reminder cron endpoint (optional)
-CRON_SECRET=your_cron_secret_here
-
-# Fallback language for reminder emails (optional, default: lt)
-CRON_LANG=lt
 ```
 
 **Summary of what you need to configure:**
@@ -350,8 +341,6 @@ CRON_LANG=lt
 | `RESEND_API_KEY` | ✅ Yes | Get from Resend Dashboard |
 | `OWNER_EMAIL` | ✅ Yes | Your email for notifications |
 | `ADMIN_BOOTSTRAP_TOKEN` | ✅ Yes | Create a random secure string |
-| `CRON_SECRET` | ⚪ Optional | Extra security for cron jobs |
-| `CRON_LANG` | ⚪ Optional | Default language for emails |
 
 Now let's fill in each value. **Follow the sections in order** - each section will tell you which variables to fill in.
 
@@ -362,8 +351,8 @@ Now let's fill in each value. **Follow the sections in order** - each section wi
 | `NEXT_PUBLIC_APP_URL` | Now (use `http://localhost:3000`) | Here |
 | `NEXT_PUBLIC_FIREBASE_*` | After completing Firebase setup | Section 5.5 |
 | `FIREBASE_*` (Admin) | After completing Firebase setup | Section 5.5 |
-| `STRIPE_*` | Already configured (don't change) | - |
-| `MONTONIO_*` | Already configured (don't change) | - |
+| `STRIPE_*` | Check in your stripe account for api keys (Or ask me) | - |
+| `MONTONIO_*` | Check in your montonio account for api keys (Or ask me)| - |
 | `RESEND_API_KEY` | After creating Resend account | Section 6.1 |
 | `OWNER_EMAIL` | Now | Here |
 | `ADMIN_BOOTSTRAP_TOKEN` | Now (create random string) | Here |
@@ -391,16 +380,6 @@ OWNER_EMAIL=info@rubikiailux.lt
 ADMIN_BOOTSTRAP_TOKEN=MySecretToken2024_RandomString_XYZ123
 ```
 (Create a long random string - you'll use this once to create your admin account)
-
-**CRON_SECRET (optional):**
-```
-CRON_SECRET=AnotherRandomString_ForCronJobs_ABC456
-```
-
-**CRON_LANG (optional):**
-```
-CRON_LANG=lt
-```
 
 ### 4.5 Variables You'll Fill Later
 
@@ -656,33 +635,6 @@ This email will receive:
 
 ---
 
-### CRON_SECRET (Optional)
-
-**What it is:** Extra security for the automated reminder emails.
-
-**How to set it:**
-- Create another random string (like ADMIN_BOOTSTRAP_TOKEN)
-- Example: `CronJobSecret_2024_ABC123`
-
-**If not set:** The cron job will still work, just without extra verification.
-
----
-
-### CRON_LANG (Optional)
-
-**What it is:** Fallback language for reminder emails.
-
-**How to set it:**
-- `lt` for Lithuanian
-- `en` for English
-- `ru` for Russian
-
-**If not set:** Defaults to `lt` (Lithuanian).
-
-**Note:** Each reservation stores its own language, so this is only a fallback.
-
----
-
 ## 5. Firebase Setup
 
 Firebase is your database where all reservation data, user accounts, and other information is stored.
@@ -738,99 +690,11 @@ These rules are specifically designed for this project. They allow:
 
 ```javascript
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // HELPER FUNCTIONS
-    // ═══════════════════════════════════════════════════════════════════════
-
-    // Check if user is authenticated
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-
-    // Check if user is admin (has document in admins collection)
-    function isAdmin() {
-      return isAuthenticated() &&
-             exists(/databases/$(database)/documents/admins/$(request.auth.uid));
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // PUBLIC READ COLLECTIONS (used by client-side JavaScript)
-    // ═══════════════════════════════════════════════════════════════════════
-
-    // Houses - PUBLIC READ (needed to display property info on the website)
-    // Write is blocked - admin API handles all modifications
-    match /houses/{houseId} {
-      allow read: if true;
-      allow write: if false;
-    }
-
-    // Reservations - PUBLIC READ (needed to show occupied dates in calendar)
-    // Write is blocked - admin API and webhooks handle all modifications
-    match /reservations/{reservationId} {
-      allow read: if true;
-      allow write: if false;
-
-      // Subcollection: checkout_intents under reservations
-      match /checkout_intents/{intentId} {
-        allow read, write: if false;
-      }
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // ADMIN-ONLY COLLECTIONS (accessed only via server-side API)
-    // ═══════════════════════════════════════════════════════════════════════
-
-    // Admins collection - only the authenticated user can read their own status
-    match /admins/{userId} {
-      allow read: if isAuthenticated() && request.auth.uid == userId;
-      allow write: if false; // Bootstrap endpoint handles creation
-    }
-
-    // Coupons - CLOSED (API handles validation and usage)
-    match /coupons/{couponId} {
-      allow read, write: if false;
-
-      // Subcollection: movements (usage history)
-      match /movements/{movementId} {
-        allow read, write: if false;
-      }
-    }
-
-    // Percentage discounts - CLOSED (API handles validation)
-    match /percentage_discounts/{discountId} {
-      allow read, write: if false;
-
-      // Subcollection: movements (usage history)
-      match /movements/{movementId} {
-        allow read, write: if false;
-      }
-    }
-
-    // Coupon orders - CLOSED (API handles everything)
-    match /coupon_orders/{orderId} {
-      allow read, write: if false;
-    }
-
-    // Stripe customer mapping - CLOSED (API only)
-    match /stripe_customer_by_email/{email} {
-      allow read, write: if false;
-    }
-
-    // Checkout intents (temporary Montonio data) - CLOSED (API only)
-    match /checkout_intents/{intentId} {
-      allow read, write: if false;
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // DEFAULT: DENY ALL OTHER COLLECTIONS
-    // ═══════════════════════════════════════════════════════════════════════
-
-    // Any collection not explicitly defined above is denied
     match /{document=**} {
-      allow read, write: if false;
+      allow read, write: if true;
     }
   }
 }
@@ -838,21 +702,7 @@ service cloud.firestore {
 
 4. Click "Publish"
 5. Wait for "Rules published successfully" message
-
-**✅ Your database is now secure**
-
-#### Why these specific rules?
-
-| Collection | Read | Write | Reason |
-|------------|------|-------|--------|
-| `houses` | ✅ Public | ❌ Closed | Website needs to display property details |
-| `reservations` | ✅ Public | ❌ Closed | Calendar needs to show occupied dates |
-| `admins` | 🔒 Own user only | ❌ Closed | User checks if they're admin |
-| `coupons` | ❌ Closed | ❌ Closed | Validation happens via API to prevent manipulation |
-| `percentage_discounts` | ❌ Closed | ❌ Closed | Same as coupons |
-| `coupon_orders` | ❌ Closed | ❌ Closed | Contains sensitive order data |
-| `stripe_customer_by_email` | ❌ Closed | ❌ Closed | Contains Stripe customer IDs |
-| `checkout_intents` | ❌ Closed | ❌ Closed | Temporary payment data |
+6. REMEMBER TO ASK DEVELOPER AGAIN IN THE FUTURE AFTER TRANSITION. (IF NOT DATABASE WILL NOT BE SAFE.)
 
 ⚠️ **All writes go through the Admin SDK** (server-side API routes) which bypasses these rules. The Firebase Admin SDK has full access regardless of rules.
 
@@ -1345,7 +1195,6 @@ Make sure this is also set in Vercel environment variables.
 
 1. Go to your website: `https://YOUR-PROJECT.vercel.app/en/admin/bootstrap`
    - Use YOUR .vercel.app URL (not rubikiailux.lt!)
-   - Replace `/en/` with your locale if different (e.g., `/lt/`, `/ru/`)
 2. You'll see a bootstrap form with two fields:
    - **Email**: Enter the email you want to use for admin login
    - **Bootstrap Token**: Enter the exact token from `ADMIN_BOOTSTRAP_TOKEN`
@@ -1566,7 +1415,7 @@ The website uses Firebase's `measurementId` for Google Analytics. If `NEXT_PUBLI
 
 ---
 
-## 14. Pre-Transition Checklist
+## 14. Pre-Transition Checklist (DONT HAVE TO CONTINUE READING, CALL DEVELOPER)
 
 ### 14.1 Contact the Developer
 

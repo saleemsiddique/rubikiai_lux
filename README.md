@@ -1935,7 +1935,7 @@ If you receive a security warning from GitHub or npm:
 
 ### What You Own
 
-- ✅ Complete source code
+- ✅ Complete source code (Original developer too for curriculum use only)
 - ✅ All design and assets
 - ✅ Database structure and data
 - ✅ Email templates

@@ -1,4 +1,4 @@
-# 🏠 RubikiAI Lux - Complete Setup Guide
+# 🏠 RubikiAI Lux - Production Migration Guide
 
 ---
 
@@ -6,7 +6,7 @@
 
 ### The Website is CURRENTLY LIVE and Working
 
-**The website https://rubikiailux.lt is currently running and functional** using the developer's accounts (Firebase, Vercel, Stripe, Montonio, Resend).
+**The website https://rubikiailux.lt is currently running and functional** using the developer's accounts for certain services (Firebase, Vercel, Resend).
 
 **This means:**
 - ✅ Customers can make reservations RIGHT NOW
@@ -14,19 +14,22 @@
 - ✅ Emails are being sent
 - ✅ Everything works
 
-### Your Goal: Set Up a PARALLEL System
+### Your Goal: Take Complete Control of Production
 
-You will set up your own accounts and configuration as a **completely separate, parallel system**. This does NOT affect the current live website.
+You will migrate ALL services to your own accounts and take full control of the production website.
 
-**Think of it like this:**
+**Services you need to migrate:**
 ```
-CURRENT (Working)              YOUR SETUP (New)
-─────────────────              ────────────────
-Developer's Firebase    →      Your new Firebase
-Developer's Vercel      →      Your new Vercel
-Developer's Resend      →      Your new Resend
-rubikiailux.lt (LIVE)   →      rubikiailux.lt (LIVE)
+DEVELOPER'S ACCOUNTS     →     YOUR ACCOUNTS
+────────────────────           ────────────────
+Developer's Firebase     →     Your Firebase (new)
+Developer's Vercel       →     Your Vercel (new)
+Developer's Resend       →     Your Resend (new)
 ```
+
+**Services already in YOUR accounts:**
+- ✅ **Stripe** - Already configured with your account
+- ✅ **Montonio** - Already configured with your account
 
 ### ⚠️ IMPORTANT: Do NOT Touch DNS Until the Final Step!
 
@@ -38,26 +41,23 @@ If you change DNS records before everything is ready:
 - ❌ Payments will fail
 - ❌ You will lose business
 
-### The Correct Order (Summary)
+### The Migration Process (Summary)
 
 | Phase | What You Do | Affects Live Site? |
 |-------|-------------|-------------------|
 | **Phase 1** | Create accounts (GitHub, Firebase, Vercel, Resend) | ❌ No |
 | **Phase 2** | Install project locally, configure everything | ❌ No |
-| **Phase 3** | Deploy to YOUR Vercel (get a `.vercel.app` URL) | ❌ No |
-| **Phase 4** | Test EVERYTHING on your `.vercel.app` URL | ❌ No |
-| **Phase 5** | Create your admin account, verify all works | ❌ No |
-| **Phase 6** | **FINAL TRANSITION** - Coordinate with developer | ✅ YES |
+| **Phase 3** | Deploy to Vercel with your domain | ❌ No (until DNS change) |
+| **Phase 4** | **FINAL TRANSITION** - Coordinate with developer | ✅ YES |
 
-### Phase 6: The Final Transition (Last Step)
+### Phase 4: The Final Transition
 
-**Only when EVERYTHING is working perfectly on your `.vercel.app` URL:**
+**When everything is configured and ready:**
 
 1. **Contact the developer** to coordinate the transition
 2. **Import the database** (developer will export fresh data)
 3. **Change DNS records** in Hostinger (this switches the live site to YOUR servers)
-4. **Update Stripe/Montonio webhooks** to point to your domain
-5. **Verify everything works** on the real domain
+4. **Verify everything works** on the real domain
 
 **This transition should take less than 1 hour if everything is prepared.**
 
@@ -88,43 +88,42 @@ This means:
 
 ## 📋 Table of Contents
 
-### Phase 1-2: Setup (Does NOT affect live site)
+### Phase 1: Account Setup (Does NOT affect live site)
 1. [Prerequisites](#1-prerequisites)
 2. [Required Services Setup](#2-required-services-setup)
+
+### Phase 2: Configuration (Does NOT affect live site)
 3. [Project Installation](#3-project-installation)
 4. [Environment Variables Configuration](#4-environment-variables-configuration)
 5. [Firebase Setup](#5-firebase-setup) *(Create project, rules, indexes - NO data import yet)*
-6. [Resend Email Setup](#6-resend-email-setup) *(Get API key only - NO DNS changes yet)*
+6. [Resend Email Setup](#6-resend-email-setup) *(Get API key - NO DNS changes yet)*
+7. [Stripe Payment Configuration](#7-stripe-payment-configuration) *(Your existing account)*
+8. [Montonio Payment Configuration](#8-montonio-payment-configuration) *(Your existing account)*
 
-### Phase 3: Deployment (Does NOT affect live site)
-7. [Stripe Payment Setup](#7-stripe-payment-setup) *(Already configured)*
-8. [Montonio Payment Setup](#8-montonio-payment-setup) *(Already configured)*
-9. [Vercel Deployment](#9-vercel-deployment) *(Deploy to .vercel.app URL)*
-
-### Phase 4-5: Testing (Does NOT affect live site)
+### Phase 3: Deployment (Does NOT affect live site until DNS change)
+9. [Vercel Deployment](#9-vercel-deployment)
 10. [Admin Account Setup](#10-admin-account-setup)
-11. [Testing Everything](#11-testing-everything)
-12. [Automated Tasks (Cron Jobs)](#12-automated-tasks-cron-jobs)
-13. [Google Analytics Setup](#13-google-analytics-setup)
+11. [Automated Tasks (Cron Jobs)](#11-automated-tasks-cron-jobs)
+12. [Google Analytics Setup (Optional)](#12-google-analytics-setup-optional)
 
-### Phase 6: FINAL TRANSITION (Affects live site - do LAST!)
-14. [Pre-Transition Checklist](#14-pre-transition-checklist)
-15. [Database Import](#15-database-import)
-16. [Domain Configuration (DNS Changes)](#16-domain-configuration-dns-changes)
-17. [Final Verification](#17-final-verification)
+### Phase 4: FINAL TRANSITION (Affects live site - coordinate with developer!)
+13. [Pre-Transition Checklist](#13-pre-transition-checklist)
+14. [Database Import](#14-database-import)
+15. [Domain Configuration (DNS Changes)](#15-domain-configuration-dns-changes)
+16. [Final Verification](#16-final-verification)
 
 ### Reference Sections
-18. [Troubleshooting](#18-troubleshooting)
-19. [Important Files and Folders](#19-important-files-and-folders)
-20. [Going Live Checklist](#20-going-live-checklist)
-21. [Maintenance and Updates](#21-maintenance-and-updates)
-22. [Important Notes](#22-important-notes)
-23. [Final Words](#23-final-words)
-24. [Glossary of Technical Terms](#24-glossary-of-technical-terms)
-25. [How to Modify Translations](#25-how-to-modify-translations)
-26. [Managing Your Website (Admin Panel)](#26-managing-your-website-admin-panel)
-27. [Common Tasks (Quick Reference)](#27-common-tasks-quick-reference)
-28. [Quick Start Summary](#28-quick-start-summary-one-page-reference)
+17. [Troubleshooting](#17-troubleshooting)
+18. [Important Files and Folders](#18-important-files-and-folders)
+19. [Going Live Checklist](#19-going-live-checklist)
+20. [Maintenance and Updates](#20-maintenance-and-updates)
+21. [Important Notes](#21-important-notes)
+22. [Final Words](#22-final-words)
+23. [Glossary of Technical Terms](#23-glossary-of-technical-terms)
+24. [How to Modify Translations](#24-how-to-modify-translations)
+25. [Managing Your Website (Admin Panel)](#25-managing-your-website-admin-panel)
+26. [Common Tasks (Quick Reference)](#26-common-tasks-quick-reference)
+27. [Quick Start Summary](#27-quick-start-summary-one-page-reference)
 
 ---
 
@@ -142,7 +141,7 @@ Before starting, make sure you have:
 - A code editor (VS Code recommended) - [Download here](https://code.visualstudio.com/)
 
 ### Accounts You MUST Create
-You will need to create accounts on these services (all have free tiers):
+You will need to create accounts on these services:
 
 1. **GitHub** - https://github.com/ (to store your code and connect with Vercel)
 2. **Firebase** - https://firebase.google.com/ (database and authentication)
@@ -150,9 +149,9 @@ You will need to create accounts on these services (all have free tiers):
 4. **Resend** - https://resend.com/ (email sending)
 5. **Hostinger** - You already have this (domain provider)
 
-**⚠️ You do NOT need to create accounts for:**
-- **Stripe** - Already configured with owner's account
-- **Montonio** - Already configured with owner's account
+**Accounts you already have:**
+- ✅ **Stripe** - You will use your existing Stripe account
+- ✅ **Montonio** - You will use your existing Montonio account
 
 ⚠️ **IMPORTANT**: Keep all passwords and API keys in a secure place. You'll need them later.
 
@@ -206,8 +205,6 @@ You will need to create accounts on these services (all have free tiers):
 7. Complete the setup
 
 **✅ Keep this browser tab open**
-
-⚠️ **About Stripe and Montonio**: These payment systems are **already configured** with the owner's account. You do NOT need to create accounts for them unless you want to change the accounts (see Sections 7 and 8).
 
 ---
 
@@ -274,7 +271,8 @@ Copy and paste this entire template into your `.env.local` file.
 # ═══════════════════════════════════════════════════════════════════════
 # APPLICATION URL
 # ═══════════════════════════════════════════════════════════════════════
-# Change this to your domain after deployment
+# Use http://localhost:3000 for local development
+# After deployment, change to https://rubikiailux.lt
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -298,20 +296,22 @@ FIREBASE_CLIENT_EMAIL=
 FIREBASE_PRIVATE_KEY=
 
 # ═══════════════════════════════════════════════════════════════════════
-# STRIPE PAYMENT GATEWAY
-# ⚠️ ALREADY CONFIGURED - Don't change unless using your own account
+# STRIPE PAYMENT GATEWAY (Production - Your Account)
+# Get from your Stripe Dashboard → Developers → API Keys
+# ⚠️ Contact developer if you need assistance locating these
 # ═══════════════════════════════════════════════════════════════════════
-STRIPE_SECRET_KEY=sk_live_... (already configured in Vercel)
-STRIPE_WEBHOOK_SECRET=whsec_... (already configured in Vercel)
+STRIPE_SECRET_KEY=sk_live_...
+STRIPE_WEBHOOK_SECRET=whsec_...
 
 # ═══════════════════════════════════════════════════════════════════════
-# MONTONIO PAYMENT GATEWAY
-# ⚠️ ALREADY CONFIGURED - Don't change unless using your own account
+# MONTONIO PAYMENT GATEWAY (Production - Your Account)
+# Get from your Montonio Dashboard
+# ⚠️ Contact developer if you need assistance locating these
 # ═══════════════════════════════════════════════════════════════════════
 MONTONIO_ENVIRONMENT=production
-MONTONIO_ACCESS_KEY=your_access_key (already configured in Vercel)
-MONTONIO_SECRET_KEY=your_secret_key (already configured in Vercel)
-MONTONIO_WEBHOOK_SECRET=your_webhook_secret (already configured in Vercel)
+MONTONIO_ACCESS_KEY=your_access_key
+MONTONIO_SECRET_KEY=your_secret_key
+MONTONIO_WEBHOOK_SECRET=your_webhook_secret
 
 # ═══════════════════════════════════════════════════════════════════════
 # EMAIL SERVICE (Resend)
@@ -336,8 +336,8 @@ ADMIN_BOOTSTRAP_TOKEN=create_a_random_secure_string_here
 | `NEXT_PUBLIC_APP_URL` | ✅ Yes | Your domain URL |
 | `NEXT_PUBLIC_FIREBASE_*` | ✅ Yes | Get from Firebase Console |
 | `FIREBASE_*` (Admin) | ✅ Yes | Get from Firebase Service Account |
-| `STRIPE_*` | ❌ No | Already configured |
-| `MONTONIO_*` | ❌ No | Already configured |
+| `STRIPE_*` | ✅ Yes | Get from YOUR Stripe Dashboard |
+| `MONTONIO_*` | ✅ Yes | Get from YOUR Montonio Dashboard |
 | `RESEND_API_KEY` | ✅ Yes | Get from Resend Dashboard |
 | `OWNER_EMAIL` | ✅ Yes | Your email for notifications |
 | `ADMIN_BOOTSTRAP_TOKEN` | ✅ Yes | Create a random secure string |
@@ -351,13 +351,11 @@ Now let's fill in each value. **Follow the sections in order** - each section wi
 | `NEXT_PUBLIC_APP_URL` | Now (use `http://localhost:3000`) | Here |
 | `NEXT_PUBLIC_FIREBASE_*` | After completing Firebase setup | Section 5.5 |
 | `FIREBASE_*` (Admin) | After completing Firebase setup | Section 5.5 |
-| `STRIPE_*` | Check in your stripe account for api keys (Or ask me) | - |
-| `MONTONIO_*` | Check in your montonio account for api keys (Or ask me)| - |
+| `STRIPE_*` | Get from your Stripe Dashboard | Section 7 |
+| `MONTONIO_*` | Get from your Montonio Dashboard | Section 8 |
 | `RESEND_API_KEY` | After creating Resend account | Section 6.1 |
 | `OWNER_EMAIL` | Now | Here |
 | `ADMIN_BOOTSTRAP_TOKEN` | Now (create random string) | Here |
-| `CRON_SECRET` | Now (optional) | Here |
-| `CRON_LANG` | Now (optional) | Here |
 
 ### 4.4 Variables You Can Fill Now
 
@@ -519,21 +517,21 @@ FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBg...very long st
 
 ### STRIPE_SECRET_KEY
 
-**What it is:** Secret key to process Stripe payments.
+**What it is:** Secret key to process Stripe payments from YOUR Stripe account.
 
-**⚠️ ALREADY CONFIGURED** - You don't need to change this unless using your own Stripe account.
-
-**If you need to get your own (Section 7.2):**
+**How to get it (Section 7.1):**
 
 1. Go to https://dashboard.stripe.com/
 2. Log in to your Stripe account
-3. In the top right, make sure you're in **LIVE mode** (or TEST mode for testing)
+3. In the top right, make sure you're in **LIVE mode** (not Test mode)
 4. Click **"Developers"** in the top menu
 5. Click **"API keys"**
 6. Find **"Secret key"** and click **"Reveal"**
-7. Copy the key (starts with `sk_live_` or `sk_test_`)
+7. Copy the key (starts with `sk_live_...`)
 
 **Example:** `sk_live_51ABC...xyz`
+
+⚠️ **Keep this secret!** Never share it publicly.
 
 ---
 
@@ -541,13 +539,11 @@ FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBg...very long st
 
 **What it is:** Secret to verify that webhook calls really come from Stripe.
 
-**⚠️ ALREADY CONFIGURED** - You don't need to change this unless using your own Stripe account.
-
-**If you need to get your own (Section 7.2):**
+**How to get it (Section 7.2):**
 
 1. Go to https://dashboard.stripe.com/
 2. Click **"Developers"** → **"Webhooks"**
-3. Click on your webhook endpoint
+3. Look for existing webhook or create one pointing to `https://rubikiailux.lt/api/stripe/webhook`
 4. Find **"Signing secret"** and click **"Reveal"**
 5. Copy the secret (starts with `whsec_`)
 
@@ -557,21 +553,21 @@ FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBg...very long st
 
 ### MONTONIO_* Variables
 
-**What they are:** Credentials for Montonio bank transfer payments.
+**What they are:** Credentials for Montonio bank transfer payments from YOUR Montonio account.
 
-**⚠️ ALREADY CONFIGURED** - You don't need to change these unless using your own Montonio account.
-
-**If you need to get your own (Section 8.2):**
+**How to get them (Section 8.1):**
 
 1. Log in to your Montonio merchant dashboard
-2. Go to **Settings** or **API** section
-3. Find your:
+2. Go to **Settings** or **API/Integration** section
+3. Make sure you're in **PRODUCTION mode** (not Sandbox)
+4. Copy these credentials:
    - **Access Key** → `MONTONIO_ACCESS_KEY`
    - **Secret Key** → `MONTONIO_SECRET_KEY`
    - **Webhook Secret** → `MONTONIO_WEBHOOK_SECRET`
-4. For environment:
-   - Testing: `MONTONIO_ENVIRONMENT=sandbox`
-   - Production: `MONTONIO_ENVIRONMENT=production`
+5. For environment, use:
+   - `MONTONIO_ENVIRONMENT=production`
+
+⚠️ **Contact developer if you need help locating these.**
 
 ---
 
@@ -906,9 +902,9 @@ Resend sends all the confirmation emails, reminders, and notifications to your c
 7. **Copy the API key immediately** (you won't see it again)
 8. Paste it in your `.env.local` as `RESEND_API_KEY`
 
-### 6.2 Add Your Domain in Resend (DO NOT Change DNS Yet!)
+### 6.2 Add Your Domain in Resend (NO DNS Changes Yet!)
 
-⚠️ **IMPORTANT**: You will add the domain in Resend to see what DNS records are needed, but you will **NOT change any DNS records yet**. DNS changes happen in **Phase 6 (Final Transition)**.
+⚠️ **IMPORTANT**: You will add the domain in Resend to see what DNS records are needed, but you will **NOT change any DNS records yet**. DNS changes happen in **Phase 4 (Final Transition)**.
 
 1. In Resend, click on "Domains" in the left sidebar
 2. Click "Add Domain"
@@ -916,150 +912,95 @@ Resend sends all the confirmation emails, reminders, and notifications to your c
 4. Click "Add"
 5. You'll see DNS records that need to be added - **SAVE THESE FOR LATER**
 
-### 6.3 Note the DNS Records (DO NOT ADD YET!)
+### 6.3 Note the DNS Records (Will Add During Migration)
 
 Resend will show you 3 DNS records:
 - **SPF Record** (Type: TXT)
 - **DKIM Record** (Type: TXT)
 - **DMARC Record** (Type: TXT)
 
-📝 **Write these down or take a screenshot** - you'll need them in Phase 6.
+📝 **Write these down or take a screenshot** - you'll need them in Phase 4.
 
 ⚠️ **DO NOT add these DNS records in Hostinger yet!**
 
-**Why?** The current DNS records are pointing to the developer's servers. If you change them now:
-- ❌ The live website will stop working
-- ❌ Emails from the current system will fail
-- ❌ You will lose business
+**Continue to Section 7** - DNS changes happen during the final migration.
 
-### 6.4 Testing Emails Without Domain Verification
-
-**For testing on your `.vercel.app` URL:**
-- Resend allows sending a limited number of emails from their test domain
-- OR you can use a different test domain if you have one
-- The real domain (`rubikiailux.lt`) will be verified in Phase 6
-
-**Continue to Section 7** - DNS changes happen in Phase 6.
-
-**✅ Resend account is ready. Domain verification will be completed in Phase 6.**
+**✅ Resend account is ready. Domain will be verified during migration.**
 
 ---
 
-## 7. Stripe Payment Setup
+## 7. Stripe Payment Configuration
 
-### Understanding the Current Situation
+Stripe is already configured with **YOUR account** and is currently receiving payments.
 
-| System | Stripe Account | Webhook URL | Status |
-|--------|---------------|-------------|--------|
-| **Live site** (rubikiailux.lt) | Developer's account | Points to live site | ✅ Working |
-| **Your new system** (.vercel.app) | YOUR account | Points to YOUR .vercel.app | 🔧 You configure |
+### 7.1 Get Your Stripe API Keys
 
-**The developer's Stripe will keep working on the live site until the final transition.**
+You need to get your API keys from your existing Stripe account:
 
-### 7.1 Get Stripe Credentials for YOUR System
+1. Log in to your Stripe Dashboard: https://dashboard.stripe.com/
+2. Make sure you're in **LIVE mode** (not Test mode) - check the toggle in the top right
+3. Go to **Developers** → **API keys**
+4. Copy your **Secret key** (starts with `sk_live_...`)
+   - Click "Reveal test key token" if needed
+   - **Keep this secret!** Never share it publicly
 
-You need to get Stripe credentials that will work with YOUR Vercel deployment.
+### 7.2 Get Your Webhook Secret
 
-**Option A: Use the Developer's Credentials (Recommended for testing)**
+The webhook secret is used to verify that payment notifications are really from Stripe:
 
-Ask the developer for the Stripe credentials. They will provide:
-- `STRIPE_SECRET_KEY`
-- `STRIPE_WEBHOOK_SECRET`
+1. In Stripe Dashboard, go to **Developers** → **Webhooks**
+2. Look for an existing webhook pointing to `rubikiailux.lt`
+   - If it exists: Click on it → Find "Signing secret" → Click "Reveal"
+   - If it doesn't exist yet: You'll create it during the final transition (Phase 4)
+3. Copy the webhook secret (starts with `whsec_...`)
 
-You'll add these to YOUR Vercel environment variables. The webhook will be configured in Phase 6.
-
-**Option B: Create Your Own Stripe Account**
-
-If you want payments to go directly to YOUR bank account:
-
-1. Go to https://stripe.com/
-2. Click "Sign up"
-3. Complete business verification
-4. Once verified, go to **Developers** → **API keys**
-5. Copy your **Secret key** (`sk_live_...` or `sk_test_...`)
-
-### 7.2 Set Up Webhook for Testing (Your .vercel.app URL)
-
-⚠️ **For testing ONLY** - you'll change this to the real domain in Phase 6.
-
-1. Go to **Developers** → **Webhooks**
-2. Click "Add endpoint"
-3. **Endpoint URL**: `https://YOUR-PROJECT.vercel.app/api/stripe/webhook`
-   - Use your `.vercel.app` URL, NOT `rubikiailux.lt`
-4. **Events to send** - Select these:
-   - `checkout.session.completed`
-   - `payment_intent.succeeded`
-   - `payment_intent.payment_failed`
-   - `charge.refunded`
-5. Click "Add endpoint"
-6. Click "Reveal" next to **Signing secret**
-7. Copy the `whsec_...` value
+⚠️ **If no webhook exists yet**, use a placeholder for now. You'll create the webhook in Phase 4.
 
 ### 7.3 Add to Your Environment Variables
 
-Add these to your `.env.local`:
+Add these to your `.env.local` file:
 ```env
-STRIPE_SECRET_KEY=sk_live_... (or sk_test_...)
-STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_SECRET_KEY=sk_live_xxxxxxxxxxxxx
+STRIPE_WEBHOOK_SECRET=whsec_xxxxxxxxxxxxx
 ```
 
-**⚠️ Phase 6 Reminder**: The webhook URL will be changed to `https://rubikiailux.lt/api/stripe/webhook` during the final transition.
+⚠️ **Contact the developer if you need help locating these credentials.**
 
-**✅ Stripe is configured for testing. Webhook URL will be updated in Phase 6.**
+**✅ Stripe configuration ready**
 
 ---
 
-## 8. Montonio Payment Setup
+## 8. Montonio Payment Configuration
 
-### Understanding the Current Situation
+Montonio is already configured with **YOUR account** and is currently receiving payments.
 
-| System | Montonio Account | Webhook URL | Status |
-|--------|-----------------|-------------|--------|
-| **Live site** (rubikiailux.lt) | Developer's account | Points to live site | ✅ Working |
-| **Your new system** (.vercel.app) | YOUR account | Points to YOUR .vercel.app | 🔧 You configure |
+### 8.1 Get Your Montonio API Keys
 
-**The developer's Montonio will keep working on the live site until the final transition.**
+You need to get your API keys from your existing Montonio merchant account:
 
-### 8.1 Get Montonio Credentials for YOUR System
+1. Log in to your Montonio merchant dashboard
+2. Go to **Settings** or **API/Integration** section
+3. Make sure you're in **PRODUCTION mode** (not Sandbox)
+4. Copy these credentials:
+   - **Access Key** → `MONTONIO_ACCESS_KEY`
+   - **Secret Key** → `MONTONIO_SECRET_KEY`
+   - **Webhook Secret** → `MONTONIO_WEBHOOK_SECRET`
 
-**Option A: Use the Developer's Credentials (Recommended for testing)**
+⚠️ **If you can't find these**, contact Montonio support or the developer for assistance.
 
-Ask the developer for the Montonio credentials. They will provide:
-- `MONTONIO_ACCESS_KEY`
-- `MONTONIO_SECRET_KEY`
-- `MONTONIO_WEBHOOK_SECRET`
+### 8.2 Add to Your Environment Variables
 
-**Option B: Create Your Own Montonio Merchant Account**
-
-If you want payments to go directly to YOUR bank account:
-
-1. Go to https://montonio.com/
-2. Contact them to create a merchant account
-3. Complete business verification (may take several days)
-4. Get your API credentials from the merchant dashboard
-
-### 8.2 Set Up Webhook for Testing (Your .vercel.app URL)
-
-⚠️ **For testing ONLY** - you'll change this to the real domain in Phase 6.
-
-1. In your Montonio dashboard, go to webhook settings
-2. Set the webhook URL: `https://YOUR-PROJECT.vercel.app/api/montonio/webhook`
-   - Use your `.vercel.app` URL, NOT `rubikiailux.lt`
-3. Enable notifications for payment status changes
-
-### 8.3 Add to Your Environment Variables
-
-Add these to your `.env.local`:
+Add these to your `.env.local` file:
 ```env
 MONTONIO_ENVIRONMENT=production
-MONTONIO_ACCESS_KEY=your_access_key
-MONTONIO_SECRET_KEY=your_secret_key
-MONTONIO_WEBHOOK_SECRET=your_webhook_secret
+MONTONIO_ACCESS_KEY=your_access_key_here
+MONTONIO_SECRET_KEY=your_secret_key_here
+MONTONIO_WEBHOOK_SECRET=your_webhook_secret_here
 ```
 
-**⚠️ Phase 6 Reminder**: The webhook URL will be changed to `https://rubikiailux.lt/api/montonio/webhook` during the final transition.
+⚠️ **Contact the developer if you need help locating these credentials.**
 
-**✅ Montonio is configured for testing. Webhook URL will be updated in Phase 6.**
+**✅ Montonio configuration ready**
 
 ---
 
@@ -1067,18 +1008,9 @@ MONTONIO_WEBHOOK_SECRET=your_webhook_secret
 
 Vercel is where your website will be hosted and accessible to the world.
 
-### ⚠️ IMPORTANT: You Will Get a .vercel.app URL
-
-In this section, you will deploy your project and get a URL like:
-```
-https://your-project-name.vercel.app
-```
-
-**You will use this URL for testing.** The custom domain (rubikiailux.lt) will be connected in **Phase 6 (Final Transition)**.
-
-⚠️ **DO NOT add the custom domain in Vercel yet!** This will be done during the final transition.
-
 ⚠️ **CRITICAL**: This project is specifically built for Vercel. Using other hosting providers (AWS, Google Cloud, traditional servers) will require significant code changes.
+
+⚠️ **IMPORTANT**: In this section, you will deploy the project to Vercel. The website will NOT be publicly accessible until you change the DNS records in **Phase 4 (Final Transition)**.
 
 ### 9.1 Install Vercel CLI (Optional but Recommended)
 
@@ -1151,36 +1083,46 @@ Vercel should auto-detect these, but verify:
 3. You'll see "Congratulations! Your project has been deployed!"
 4. Click "Visit" to see your website
 
-### 9.7 Update NEXT_PUBLIC_APP_URL
+### 9.7 Add Your Domain (Do NOT Change DNS Yet!)
 
-1. Copy your Vercel deployment URL (e.g., `https://rubikiai-lux.vercel.app`)
-2. In Vercel project dashboard, go to "Settings" → "Environment Variables"
-3. Find `NEXT_PUBLIC_APP_URL`
-4. Click "Edit"
-5. Change value to your Vercel URL (e.g., `https://rubikiai-lux.vercel.app`)
-6. Save
-7. Go to "Deployments" → Click "..." on latest deployment → "Redeploy"
+⚠️ **IMPORTANT**: You will add the domain in Vercel, but you will NOT change DNS records yet. The DNS change happens in Phase 4.
 
-**✅ Your website is now live on your .vercel.app URL!**
+1. In your Vercel project dashboard, click **"Settings"**
+2. Click **"Domains"** in the left sidebar
+3. Type `rubikiailux.lt` and click **"Add"**
+4. Vercel will show you DNS records that need to be added
+5. **DO NOT add these DNS records in Hostinger yet!**
+6. Also add `www.rubikiailux.lt` as a redirect to `rubikiailux.lt`
 
-Your site is now accessible at something like `https://your-project.vercel.app`.
+### 9.8 Update NEXT_PUBLIC_APP_URL
+
+1. In Vercel project dashboard, go to "Settings" → "Environment Variables"
+2. Find `NEXT_PUBLIC_APP_URL`
+3. Click "Edit"
+4. Change value to `https://rubikiailux.lt`
+5. Save
+6. Go to "Deployments" → Click "..." on latest deployment → "Redeploy"
+
+**✅ Vercel is now configured with your domain!**
+
+⚠️ **The website is NOT publicly accessible yet** - it won't work until you change DNS records in Phase 4.
 
 **Next steps:**
-- Test the website thoroughly (Section 11)
 - Create your admin account (Section 10)
-- After everything works → Proceed to Phase 6 (Final Transition)
+- Configure cron jobs (Section 11)
+- When ready → Proceed to Phase 4 (Final Transition)
 
 ---
 
 ## 10. Admin Account Setup
 
-You need to create your first admin account to access the admin panel.
+You need to create your first admin account to access the admin panel after the migration.
 
-⚠️ **Use your .vercel.app URL** - NOT rubikiailux.lt!
+⚠️ **You can create the admin account now locally, or wait until after the DNS migration in Phase 4.**
 
 ### 10.1 Set Bootstrap Token
 
-In your `.env.local` (and Vercel environment variables), set `ADMIN_BOOTSTRAP_TOKEN` to a random, secure string:
+In your `.env.local` and Vercel environment variables, set `ADMIN_BOOTSTRAP_TOKEN` to a random, secure string:
 
 Example:
 ```env
@@ -1191,10 +1133,11 @@ ADMIN_BOOTSTRAP_TOKEN=super_secret_token_12345_nobody_can_guess
 
 Make sure this is also set in Vercel environment variables.
 
-### 10.2 Create Admin Account
+### 10.2 Create Admin Account (After DNS Migration)
 
-1. Go to your website: `https://YOUR-PROJECT.vercel.app/en/admin/bootstrap`
-   - Use YOUR .vercel.app URL (not rubikiailux.lt!)
+**Wait until Phase 4 is complete** (DNS changed and website is live), then:
+
+1. Go to `https://rubikiailux.lt/en/admin/bootstrap`
 2. You'll see a bootstrap form with two fields:
    - **Email**: Enter the email you want to use for admin login
    - **Bootstrap Token**: Enter the exact token from `ADMIN_BOOTSTRAP_TOKEN`
@@ -1206,7 +1149,7 @@ Make sure this is also set in Vercel environment variables.
 
 ### 10.3 Test Admin Login
 
-1. Go to `https://YOUR-PROJECT.vercel.app/en/admin`
+1. Go to `https://rubikiailux.lt/en/admin`
 2. Enter your email and password
 3. You should see the admin dashboard
 
@@ -1222,81 +1165,11 @@ Make sure this is also set in Vercel environment variables.
 
 ---
 
-## 11. Testing Everything (On Your .vercel.app URL)
-
-Before proceeding to Phase 6 (Final Transition), test EVERYTHING on your `.vercel.app` URL.
-
-⚠️ **ALL testing happens on your .vercel.app URL** - NOT on rubikiailux.lt!
-
-### 11.1 Frontend Testing
-
-- [ ] Visit your website: `https://YOUR-PROJECT.vercel.app`
-- [ ] Navigate through all pages
-- [ ] Switch languages (LT, EN, RU)
-- [ ] Check all images load
-- [ ] Check mobile responsiveness (use Chrome DevTools → F12 → Toggle device toolbar)
-
-### 11.2 Booking Flow Testing
-
-- [ ] Select a house
-- [ ] Choose check-in/check-out dates
-- [ ] Fill booking form
-- [ ] Test payment with Stripe test card:
-  - Card number: `4242 4242 4242 4242`
-  - Expiry: Any future date
-  - CVC: Any 3 digits
-  - ZIP: Any 5 digits
-- [ ] Complete booking
-- [ ] Check if confirmation email arrives
-- [ ] Check if booking appears in admin panel
-
-### 11.3 Admin Panel Testing
-
-- [ ] Log in to admin: `https://YOUR-PROJECT.vercel.app/en/admin`
-- [ ] View all reservations
-- [ ] Edit a reservation
-- [ ] Test creating/editing coupons
-- [ ] Log out
-
-### 11.4 Email Testing
-
-⚠️ **Note**: Emails from `rubikiailux.lt` won't work yet (DNS not configured). For testing:
-- Use Resend's test sending feature, OR
-- Emails will fully work after Phase 6 DNS configuration
-
-### 11.5 Payment Testing
-
-**Stripe:**
-- [ ] Test successful payment: `4242 4242 4242 4242`
-- [ ] Test declined payment: `4000 0000 0000 0002`
-- [ ] Check webhook receives events (check Vercel logs)
-
-**Montonio:**
-- [ ] Test payment in sandbox mode
-- [ ] Check payment status updates
-
-### 11.6 What Must Work Before Phase 6
-
-Before proceeding to Phase 6 (Final Transition), verify:
-
-| Feature | Status |
-|---------|--------|
-| Website loads correctly | ✅ Must work |
-| All pages accessible | ✅ Must work |
-| Booking form works | ✅ Must work |
-| Stripe payment completes | ✅ Must work |
-| Admin panel accessible | ✅ Must work |
-| Can create/view reservations | ✅ Must work |
-
-**If any of these don't work, FIX THEM before Phase 6!**
-
----
-
-## 12. Automated Tasks (Cron Jobs)
+## 11. Automated Tasks (Cron Jobs)
 
 The website automatically sends reminder emails to customers 7 days before their check-in date.
 
-### 12.1 How It Works
+### 11.1 How It Works
 
 - **Cron job** = Automated task that runs on a schedule
 - This project uses **Vercel Cron Jobs**
@@ -1304,7 +1177,7 @@ The website automatically sends reminder emails to customers 7 days before their
 - It checks for any reservations with check-in date exactly 7 days from now
 - Sends a reminder email to each customer
 
-### 12.2 Configuration
+### 11.2 Configuration
 
 The cron job is already configured in `vercel.json`:
 
@@ -1326,46 +1199,33 @@ The cron job is already configured in `vercel.json`:
 - Second `*` = every month
 - Third `*` = every day of week
 
-### 12.3 Vercel Cron Setup
+### 11.3 Vercel Cron Setup
 
 1. In Vercel project dashboard, go to "Settings"
 2. Click "Cron Jobs" in the left sidebar
 3. You should see: `/api/send-reminder` with schedule `0 9 * * *`
 4. If not, your deployment might have failed - check deployment logs
 
-### 12.4 Testing the Cron Job
-
-To test if the reminder emails work:
-
-1. Create a test reservation in your admin panel
-2. Set the check-in date to exactly 7 days from today
-3. Wait until 9:00 AM UTC the next day (or trigger manually - see below)
-4. Check if the customer received the reminder email
-
-**Manual trigger** (for testing):
-- Visit: `https://rubikiailux.lt/api/send-reminder`
-- This will run the cron job immediately (only works if you're logged in as admin)
-
-### 12.5 Monitoring
+### 11.4 Monitoring
 
 - Check Vercel deployment logs to see if cron jobs are running
 - In Vercel dashboard → "Deployments" → Click on a deployment → "Functions" → Look for `/api/send-reminder`
 
 ⚠️ **IMPORTANT**: Vercel's free tier includes cron jobs, but they only run on production deployments.
 
-**✅ Automated reminders are now working**
+**✅ Automated reminders are configured**
 
 ---
 
-## 13. Google Analytics Setup
+## 12. Google Analytics Setup (Optional)
 
 Google Analytics tracks visitor behavior on your website.
 
-### 13.1 How It Works
+### 12.1 How It Works
 
 The website uses Firebase's `measurementId` for Google Analytics. If `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID` is set, analytics will automatically be enabled.
 
-### 13.2 Enable Google Analytics in Firebase
+### 12.2 Enable Google Analytics in Firebase
 
 1. Go to Firebase Console
 2. Click the gear icon ⚙️ → "Project settings"
@@ -1378,10 +1238,10 @@ The website uses Firebase's `measurementId` for Google Analytics. If `NEXT_PUBLI
 9. Copy the `measurementId` (looks like `G-XXXXXXXXXX`)
 10. Add it to your `.env.local` and Vercel environment variables as `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID`
 
-### 13.3 Verify Analytics is Working
+### 12.3 Verify Analytics is Working
 
 1. Redeploy your website
-2. Visit your website
+2. After DNS migration is complete, visit your website
 3. Go to https://analytics.google.com/
 4. Select your property
 5. Go to "Realtime" → You should see your visit
@@ -1392,7 +1252,7 @@ The website uses Firebase's `measurementId` for Google Analytics. If `NEXT_PUBLI
 
 ---
 
-# 🔴 PHASE 6: FINAL TRANSITION
+# 🔴 PHASE 4: FINAL TRANSITION
 
 ---
 
@@ -1404,20 +1264,20 @@ The website uses Firebase's `measurementId` for Google Analytics. If `NEXT_PUBLI
 |-------------|-------|
 | Firebase project created and configured | ☐ |
 | Resend account created, API key obtained | ☐ |
-| Vercel deployment working on .vercel.app | ☐ |
-| Admin account created and working | ☐ |
-| All tests passing (Section 11) | ☐ |
-| Everything works on your .vercel.app URL | ☐ |
+| Vercel deployment configured | ☐ |
+| All environment variables set in Vercel | ☐ |
+| Stripe and Montonio credentials configured | ☐ |
+| Domain added in Vercel (but DNS NOT changed) | ☐ |
 
 **If ANY of these are not checked, GO BACK and complete them first!**
 
-**⚠️ PHASE 6 WILL AFFECT THE LIVE WEBSITE!**
+**⚠️ PHASE 4 WILL AFFECT THE LIVE WEBSITE!**
 
 ---
 
-## 14. Pre-Transition Checklist (DONT HAVE TO CONTINUE READING, CALL DEVELOPER)
+## 13. Pre-Transition Checklist (COORDINATE WITH DEVELOPER)
 
-### 14.1 Contact the Developer
+### 13.1 Contact the Developer
 
 **Before making any DNS changes, contact the developer to coordinate:**
 
@@ -1428,7 +1288,7 @@ The website uses Firebase's `measurementId` for Google Analytics. If `NEXT_PUBLI
 2. The developer will export a FRESH database backup
 3. You will both be available during the transition (in case issues arise)
 
-### 14.2 What the Developer Will Provide
+### 13.2 What the Developer Will Provide
 
 The developer will send you:
 - `firestore-backup.json` - The most recent database export
@@ -1440,7 +1300,7 @@ The developer will send you:
 - All coupons and discounts
 - Everything needed to run the website
 
-### 14.3 What You Need Ready
+### 13.3 What You Need Ready
 
 Before the transition call:
 
@@ -1452,20 +1312,22 @@ Before the transition call:
 | Resend DNS records saved (from Section 6.3) | ☐ |
 | `firestore-backup.json` file received from developer | ☐ |
 | Firebase `serviceAccountKey.json` file ready | ☐ |
+| Stripe webhook ready to be configured | ☐ |
+| Montonio webhook ready to be configured | ☐ |
 
 ---
 
-## 15. Database Import
+## 14. Database Import
 
 ⚠️ **Only do this step when the developer tells you to!**
 
-### 15.1 Prepare the Files
+### 14.1 Prepare the Files
 
 1. Make sure you have received `firestore-backup.json` from the developer
 2. Make sure you have your Firebase `serviceAccountKey.json` file
 3. Place both files in your project folder
 
-### 15.2 Create the Import Script
+### 14.2 Create the Import Script
 
 Create a new file called `import-data.js` in your project folder:
 
@@ -1532,7 +1394,7 @@ async function importData() {
 importData();
 ```
 
-### 15.3 Run the Import
+### 14.3 Run the Import
 
 In your terminal (make sure you're in the project folder):
 
@@ -1554,7 +1416,7 @@ Importing collection: reservations
 ✅ Import completed successfully!
 ```
 
-### 15.4 Verify the Import
+### 14.4 Verify the Import
 
 1. Go to Firebase Console → Firestore Database
 2. You should see collections like `houses`, `reservations`, etc.
@@ -1568,24 +1430,18 @@ Importing collection: reservations
 
 ---
 
-## 16. Domain Configuration (DNS Changes)
+## 15. Domain Configuration (DNS Changes)
 
 ⚠️ **THIS STEP WILL REDIRECT THE LIVE WEBSITE TO YOUR SERVERS!**
 
 **Only proceed when:**
-- Database import is complete (Section 15)
+- Database import is complete (Section 14)
 - Developer has confirmed you can proceed
+- You have Stripe and Montonio webhooks ready
 
-### 16.1 Add Domain in Vercel
+⚠️ **You should have already added the domain in Vercel in Section 9.7**
 
-1. In your Vercel project dashboard, click **"Settings"**
-2. Click **"Domains"** in the left sidebar
-3. Type `rubikiailux.lt` and click **"Add"**
-4. Also add `www.rubikiailux.lt`
-5. Choose **"Redirect www.rubikiailux.lt → rubikiailux.lt"**
-6. (Optional) Add `rubikiai.lt` and `www.rubikiai.lt` with redirect
-
-### 16.2 Change DNS Records in Hostinger
+### 15.1 Change DNS Records in Hostinger
 
 **⚠️ THIS IS THE POINT OF NO RETURN - The live site will switch to your servers!**
 
@@ -1611,7 +1467,7 @@ Importing collection: reservations
 | Points to | `cname.vercel-dns.com` |
 | TTL | `3600` |
 
-### 16.3 Add Resend DNS Records
+### 15.2 Add Resend DNS Records
 
 Now add the Resend DNS records you saved from Section 6.3:
 
@@ -1621,7 +1477,7 @@ Now add the Resend DNS records you saved from Section 6.3:
 | TXT | `resend._domainkey` | (your DKIM record from Resend) |
 | TXT | `_dmarc` | (your DMARC record from Resend) |
 
-### 16.4 Summary of All DNS Records
+### 15.3 Summary of All DNS Records
 
 Your DNS settings should now look like this:
 
@@ -1633,16 +1489,16 @@ Your DNS settings should now look like this:
 | TXT | `resend._domainkey` | `p=MIG...` | Resend DKIM |
 | TXT | `_dmarc` | `v=DMARC1...` | Resend DMARC |
 
-### 16.5 (If using rubikiai.lt) Repeat for Secondary Domain
+### 15.4 (If using rubikiai.lt) Repeat for Secondary Domain
 
 1. Go to **"Domains"** → **"Manage"** next to `rubikiai.lt`
 2. Add the same A and CNAME records
 
 ---
 
-## 17. Final Verification
+## 16. Final Verification
 
-### 17.1 Wait for DNS Propagation
+### 16.1 Wait for DNS Propagation
 
 DNS changes can take **10 minutes to 24 hours** to propagate worldwide.
 
@@ -1653,53 +1509,63 @@ DNS changes can take **10 minutes to 24 hours** to propagate worldwide.
 4. Click "Search"
 5. When most locations show `76.76.21.21`, your DNS is propagated
 
-### 17.2 Verify Domain in Vercel
+### 16.2 Verify Domain in Vercel
 
 1. Go to Vercel → Settings → Domains
 2. Click "Refresh" next to your domain
 3. Wait for the green checkmark ✓
 4. Vercel will automatically issue SSL certificates
 
-### 17.3 Verify Resend Domain
+### 16.3 Verify Resend Domain
 
 1. Go to Resend dashboard → Domains
 2. Click "Verify Records"
 3. Wait for the green checkmark ✓
 
-### 17.4 Update NEXT_PUBLIC_APP_URL
-
-1. In Vercel → Settings → Environment Variables
-2. Find `NEXT_PUBLIC_APP_URL`
-3. Change from `https://your-project.vercel.app` to `https://rubikiailux.lt`
-4. Save and **Redeploy**
-
-### 17.5 Update Stripe Webhook URL
+### 16.4 Configure Stripe Webhook
 
 1. Go to Stripe Dashboard → Developers → Webhooks
-2. Find your webhook (pointing to .vercel.app)
-3. Click "Update details"
-4. Change URL to: `https://rubikiailux.lt/api/stripe/webhook`
+2. If webhook already exists: Edit it and change URL to `https://rubikiailux.lt/api/stripe/webhook`
+3. If no webhook exists: Click "Add endpoint"
+   - **Endpoint URL**: `https://rubikiailux.lt/api/stripe/webhook`
+   - **Events to send**: Select these:
+     - `checkout.session.completed`
+     - `payment_intent.succeeded`
+     - `payment_intent.payment_failed`
+     - `charge.refunded`
+   - Click "Add endpoint"
+4. Get the signing secret (starts with `whsec_...`)
+5. Update `STRIPE_WEBHOOK_SECRET` in Vercel if it changed
+6. Redeploy if needed
+
+### 16.5 Configure Montonio Webhook
+
+1. Go to your Montonio merchant dashboard
+2. Find webhook settings
+3. Set webhook URL to: `https://rubikiailux.lt/api/montonio/webhook`
+4. Enable notifications for payment status changes
 5. Save
 
-### 17.6 Update Montonio Webhook URL
+### 16.6 Create Admin Account
 
-1. Go to your Montonio dashboard
-2. Find webhook settings
-3. Change URL to: `https://rubikiailux.lt/api/montonio/webhook`
-4. Save
+Now that the site is live, create your admin account:
 
-### 17.7 Final Tests on Live Domain
+1. Go to `https://rubikiailux.lt/en/admin/bootstrap`
+2. Enter your email and the `ADMIN_BOOTSTRAP_TOKEN`
+3. Follow the steps in Section 10.2
+
+### 16.7 Final Tests on Live Domain
 
 - [ ] Visit `https://rubikiailux.lt` - website loads
 - [ ] Visit `https://www.rubikiailux.lt` - redirects to rubikiailux.lt
 - [ ] Check padlock icon 🔒 (SSL working)
 - [ ] Log in to admin panel
-- [ ] Check reservations are visible
-- [ ] Test a booking (use Stripe test card)
+- [ ] Check reservations are visible (imported from database)
+- [ ] Test a real booking with real payment
 - [ ] Check confirmation email arrives
-- [ ] Check email is from `info@rubikiailux.lt` (not Resend test domain)
+- [ ] Check email is from `info@rubikiailux.lt`
 
-### 17.8 Inform the Developer
+### 16.8 Inform the Developer
 
 Once everything is working:
 
@@ -1725,7 +1591,7 @@ From this point forward:
 
 ---
 
-## 18. Troubleshooting
+## 17. Troubleshooting
 
 ### Common Issues and Solutions
 
@@ -1820,7 +1686,7 @@ If you can't solve an issue:
 
 ---
 
-## 19. Important Files and Folders
+## 18. Important Files and Folders
 
 ### Project Structure
 
@@ -1946,17 +1812,9 @@ These are the URLs that payment providers use to notify your website:
 
 ---
 
-## 20. Going Live Checklist
+## 19. Going Live Checklist
 
-Use this checklist to verify everything is working before announcing your website.
-
-### Already Done (No Action Needed)
-
-These are already configured and working:
-
-- [x] **Stripe** - Already in LIVE mode with owner's account
-- [x] **Montonio** - Already in PRODUCTION mode with owner's account
-- [x] **Webhooks** - Already configured and receiving payments
+Use this checklist to verify everything is configured before the migration.
 
 ### What YOU Need to Configure
 
@@ -1975,9 +1833,19 @@ These are already configured and working:
 
 - [ ] Create Resend account
 - [ ] Get API key
-- [ ] **Verify your domain** (Section 6.2-6.3)
-- [ ] Wait for DNS propagation (up to 24 hours)
 - [ ] Add `RESEND_API_KEY` to Vercel
+- [ ] Note the DNS records (will add during migration)
+
+#### Stripe Configuration (Required)
+
+- [ ] Get API keys from your Stripe Dashboard
+- [ ] Add `STRIPE_SECRET_KEY` to Vercel
+- [ ] Have `STRIPE_WEBHOOK_SECRET` ready (will configure during migration)
+
+#### Montonio Configuration (Required)
+
+- [ ] Get API keys from your Montonio Dashboard
+- [ ] Add `MONTONIO_ACCESS_KEY`, `MONTONIO_SECRET_KEY`, `MONTONIO_WEBHOOK_SECRET` to Vercel
 
 #### Vercel Deployment (Required)
 
@@ -1985,52 +1853,42 @@ These are already configured and working:
 - [ ] Connect GitHub repository
 - [ ] Add ALL environment variables to Vercel
 - [ ] Deploy the project
-- [ ] Update `NEXT_PUBLIC_APP_URL` with your Vercel URL
+- [ ] Add domain in Vercel (but don't change DNS yet)
+- [ ] Update `NEXT_PUBLIC_APP_URL` to `https://rubikiailux.lt`
 
-#### Domain (Required)
+#### Pre-Migration Ready (Required)
 
-- [ ] Add domain in Vercel
-- [ ] Configure DNS records in Hostinger (Section 10.2)
-- [ ] Wait for DNS propagation
-- [ ] Verify SSL certificate is active (padlock icon)
-- [ ] Update `NEXT_PUBLIC_APP_URL` to your domain
+- [ ] All environment variables configured in Vercel
+- [ ] Cron jobs configured in Vercel
+- [ ] Have `firestore-backup.json` from developer
+- [ ] Coordinate transition time with developer
 
-#### Admin Account (Required)
+### Post-Migration Verification
 
-- [ ] Set `ADMIN_BOOTSTRAP_TOKEN` in Vercel
-- [ ] Go to `/en/admin/bootstrap`
-- [ ] Create your admin account
-- [ ] Test login at `/en/admin`
-- [ ] **Change or remove** `ADMIN_BOOTSTRAP_TOKEN` after creation
+After DNS migration is complete:
 
-### Final Verification
-
-After everything is configured:
-
-- [ ] Visit your website - homepage loads correctly
+- [ ] Visit `https://rubikiailux.lt` - website loads correctly
 - [ ] Test language switching (EN, LT, RU)
 - [ ] Select a property and check the calendar
-- [ ] Fill a test booking (don't complete payment yet)
-- [ ] Check admin panel - you can log in
-- [ ] View reservations in admin panel
-- [ ] Check email - confirmation emails arrive
-- [ ] Test a real booking with Stripe (use test card first if nervous)
-- [ ] Verify the booking appears in admin panel
-- [ ] Check that reminder cron job is configured in Vercel
+- [ ] Create admin account at `/en/admin/bootstrap`
+- [ ] Log in to admin panel
+- [ ] View reservations in admin panel (imported data)
+- [ ] Test a real booking with real payment
+- [ ] Verify confirmation emails arrive from `info@rubikiailux.lt`
+- [ ] Check that reminder cron job is working
 
 ### Optional but Recommended
 
-- [ ] Enable Google Analytics (Section 13)
-- [ ] Set `CRON_SECRET` for extra security
+- [ ] Enable Google Analytics (Section 12)
 - [ ] Review all page content for accuracy
-- [ ] Test on mobile devices
+- [ ] Test on mobile devices after migration
 - [ ] Check all images load correctly
 
-**✅ Once all required items are checked, you're ready to go live!**
+**✅ Once all required items are checked, you're ready for the migration!**
 
 ---
 
-## 21. Maintenance and Updates
+## 20. Maintenance and Updates
 
 ### Regular Tasks
 
@@ -2080,7 +1938,7 @@ If you receive a security warning from GitHub or npm:
 
 ---
 
-## 22. Important Notes
+## 21. Important Notes
 
 ### What You Own
 
@@ -2129,7 +1987,7 @@ This project is built with:
 
 ---
 
-## 23. Final Words
+## 22. Final Words
 
 **Congratulations!** You now have complete control over your website.
 
@@ -2160,7 +2018,7 @@ If you have questions about specific features or need clarification on any step,
 
 ---
 
-**Document Version**: 1.0
+**Document Version**: 2.0 - Production Migration
 **Last Updated**: January 2026
 **Project**: RubikiAI Lux
 **Framework**: Next.js 15.5.7
@@ -2201,7 +2059,7 @@ npm outdated
 
 ---
 
-## 24. Glossary of Technical Terms
+## 23. Glossary of Technical Terms
 
 If you're not familiar with programming, here's what these terms mean:
 
@@ -2235,7 +2093,7 @@ If you're not familiar with programming, here's what these terms mean:
 
 ---
 
-## 25. How to Modify Translations
+## 24. How to Modify Translations
 
 The website supports 3 languages: Lithuanian (lt), English (en), and Russian (ru).
 
@@ -2272,7 +2130,7 @@ All translations are in the `messages/` folder:
 
 ---
 
-## 26. Managing Your Website (Admin Panel)
+## 25. Managing Your Website (Admin Panel)
 
 ### Accessing the Admin Panel
 
@@ -2310,7 +2168,7 @@ Property prices are stored in Firebase. To change prices:
 
 ---
 
-## 27. Common Tasks (Quick Reference)
+## 26. Common Tasks (Quick Reference)
 
 ### "I need to change the email that receives booking notifications"
 
@@ -2357,13 +2215,13 @@ Property prices are stored in Firebase. To change prices:
 
 ---
 
-## 28. Quick Start Summary (One Page Reference)
+## 27. Quick Start Summary (One Page Reference)
 
 For those who want a condensed version:
 
 ---
 
-### Phase 1-5: Setup and Testing (Does NOT affect live site)
+### Phase 1-3: Setup and Configuration (Does NOT affect live site)
 
 #### Step 1: Create Required Accounts
 - [ ] Firebase (https://firebase.google.com)
@@ -2381,58 +2239,53 @@ For those who want a condensed version:
 - [ ] Generate Admin SDK service account JSON
 - [ ] **Fill Firebase variables in `.env.local`**
 
-#### Step 3: Configure Resend (NO DNS changes yet)
-- [ ] Create account
-- [ ] Get API key
-- [ ] Add domain (rubikiailux.lt) - note the DNS records for later
-- [ ] **⚠️ DO NOT add DNS records in Hostinger yet!**
+#### Step 3: Configure Services
+- [ ] Create Resend account → Get API key
+- [ ] Note Resend DNS records (will add during migration)
+- [ ] Get Stripe API keys from your dashboard
+- [ ] Get Montonio API keys from your dashboard
 
-#### Step 4: Deploy to Vercel (Get .vercel.app URL)
+#### Step 4: Deploy to Vercel
 - [ ] Push code to GitHub (private repository)
 - [ ] Import project in Vercel
 - [ ] Add ALL environment variables
-- [ ] Deploy → Get your `https://xxx.vercel.app` URL
-- [ ] Update `NEXT_PUBLIC_APP_URL` to your .vercel.app URL
-
-#### Step 5: Test Everything on .vercel.app
-- [ ] Create admin account on your .vercel.app URL
-- [ ] Log in to admin panel
-- [ ] Test booking flow (with test card: `4242 4242 4242 4242`)
-- [ ] Verify everything works
+- [ ] Deploy the project
+- [ ] Add domain in Vercel (rubikiailux.lt)
+- [ ] **⚠️ DO NOT change DNS yet!**
+- [ ] Update `NEXT_PUBLIC_APP_URL` to `https://rubikiailux.lt`
+- [ ] Redeploy
 
 ---
 
-### Phase 6: Final Transition (AFFECTS live site!)
+### Phase 4: Final Transition (AFFECTS live site!)
 
-**⚠️ Only proceed when ALL Phase 1-5 tests pass!**
+**⚠️ Only proceed when ALL Phase 1-3 steps are complete!**
 
-#### Step 6: Contact Developer
+#### Step 5: Contact Developer
 - [ ] Coordinate a transition time
 - [ ] Receive fresh `firestore-backup.json` from developer
 
-#### Step 7: Import Database
+#### Step 6: Import Database
 - [ ] Run import script with fresh backup file
 - [ ] Verify data in Firebase console
 
-#### Step 8: Change DNS (THIS SWITCHES THE LIVE SITE!)
-- [ ] Add domain in Vercel
+#### Step 7: Change DNS (THIS SWITCHES THE LIVE SITE!)
 - [ ] Change DNS in Hostinger (A record, CNAME)
 - [ ] Add Resend DNS records (SPF, DKIM, DMARC)
-- [ ] Wait for propagation
+- [ ] Wait for propagation (check dnschecker.org)
 
-#### Step 9: Final Configuration
-- [ ] Verify domain in Vercel (green checkmark)
-- [ ] Verify domain in Resend (green checkmark)
-- [ ] Update `NEXT_PUBLIC_APP_URL` to `https://rubikiailux.lt`
-- [ ] Update Stripe webhook URL to real domain
-- [ ] Update Montonio webhook URL to real domain
-- [ ] Redeploy
+#### Step 8: Configure Webhooks
+- [ ] Configure Stripe webhook to `https://rubikiailux.lt/api/stripe/webhook`
+- [ ] Configure Montonio webhook to `https://rubikiailux.lt/api/montonio/webhook`
+- [ ] Update webhook secrets in Vercel if needed
+- [ ] Redeploy if needed
 
-#### Step 10: Verify & Confirm
+#### Step 9: Create Admin & Verify
+- [ ] Create admin account at `https://rubikiailux.lt/en/admin/bootstrap`
 - [ ] Test website on `https://rubikiailux.lt`
 - [ ] Test admin panel
-- [ ] Test booking flow
-- [ ] Test email delivery
+- [ ] Test real booking with real payment
+- [ ] Verify email delivery
 - [ ] Inform developer transition is complete
 
 ---

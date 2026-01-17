@@ -59,13 +59,11 @@ If you change DNS records before everything is ready:
 3. **Change DNS records** in Hostinger (this switches the live site to YOUR servers)
 4. **Verify everything works** on the real domain
 
-**This transition should take less than 1 hour if everything is prepared.**
-
 ---
 
 ## ⚠️ IMPORTANT NOTICE - YOUR RESPONSIBILITIES
 
-**After the transition, this project is fully under your control and responsibility.**
+**This project is fully under your control and responsibility.**
 
 This means:
 - ✅ You have complete ownership of the source code
@@ -177,7 +175,7 @@ You will need to create accounts on these services:
 
 1. Go to https://vercel.com/
 2. Click "Sign Up"
-3. Sign up with your GitHub, GitLab, or Bitbucket account (recommended)
+3. Sign up with your GitHub account (recommended)
    - Or use email if you prefer
 4. Complete the verification process
 5. You'll see your Vercel dashboard
@@ -377,7 +375,7 @@ OWNER_EMAIL=info@rubikiailux.lt
 ```
 ADMIN_BOOTSTRAP_TOKEN=MySecretToken2024_RandomString_XYZ123
 ```
-(Create a long random string - you'll use this once to create your admin account)
+(Create a long random password - you'll use this once to create your admin account)
 
 ### 4.5 Variables You'll Fill Later
 
@@ -673,13 +671,6 @@ Firebase is your database where all reservation data, user accounts, and other i
 
 ### 5.3 Configure Firestore Security Rules
 
-⚠️ **CRITICAL SECURITY STEP - Don't skip this!**
-
-These rules are specifically designed for this project. They allow:
-- **Public read** for `houses` (to display property information)
-- **Public read** for `reservations` (to check availability in the booking calendar)
-- **Everything else is closed** - all writes and other reads go through the admin API
-
 1. In Firestore Database, click on the "Rules" tab
 2. **Delete everything** in the rules editor
 3. Copy and paste these rules **EXACTLY**:
@@ -698,6 +689,8 @@ service cloud.firestore {
 
 4. Click "Publish"
 5. Wait for "Rules published successfully" message
+
+⚠️ **CRITICAL SECURITY STEP - Don't skip this!**
 6. REMEMBER TO ASK DEVELOPER AGAIN IN THE FUTURE AFTER TRANSITION. (IF NOT DATABASE WILL NOT BE SAFE.)
 
 ⚠️ **All writes go through the Admin SDK** (server-side API routes) which bypasses these rules. The Firebase Admin SDK has full access regardless of rules.
@@ -854,7 +847,7 @@ The database import will be done in **Section 15 (Phase 6 - Final Transition)**.
 
 ---
 
-### 5.7 (For Project Owner) How to Export Database Before Delivery
+### 5.7 DONT NEED TO READ (This is for creator developer) How to Export Database Before Delivery
 
 ⚠️ **This section is for the project owner/developer who is delivering the project.**
 
@@ -1779,7 +1772,7 @@ rubikiai_lux/
 | `src/lib/firebase-admin.ts` | Server-side Firebase. Deleting = API fails |
 | `src/lib/firestore.ts` | Client-side Firebase. Deleting = website fails |
 
-### Files You CAN Safely Modify
+### Files You CAN Safely Modify (IF YOU KNOW WHAT YOU ARE DOING)
 
 | Location | What You Can Change |
 |----------|---------------------|

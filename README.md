@@ -716,8 +716,8 @@ Indexes make your database queries fast. You need to create these manually.
 - Collection ID: `reservations`
 - Fields:
   1. `status` → Ascending
-  2. `createdAt` → Ascending
-  3. `__name__` → Ascending
+  2. `createdAt` → Descending
+  3. `__name__` → Descending
 - Query scope: Collection
 - Click "Create"
 
@@ -726,8 +726,8 @@ Indexes make your database queries fast. You need to create these manually.
 - Fields:
   1. `houseId` → Ascending
   2. `status` → Ascending
-  3. `createdAt` → Ascending
-  4. `__name__` → Ascending
+  3. `createdAt` → Descending
+  4. `__name__` → Descending
 - Query scope: Collection
 - Click "Create"
 
@@ -764,8 +764,8 @@ Indexes make your database queries fast. You need to create these manually.
 - Collection ID: `coupon_orders`
 - Fields:
   1. `status` → Ascending
-  2. `completedAt` → Ascending
-  3. `__name__` → Ascending
+  2. `completedAt` → Descending
+  3. `__name__` → Descending
 - Query scope: Collection
 - Click "Create"
 

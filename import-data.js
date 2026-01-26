@@ -21,6 +21,34 @@ admin.initializeApp({
 
 const db = admin.firestore();
 
+// Function to convert special Firestore types
+function convertFirestoreTypes(obj) {
+  if (obj === null || obj === undefined) return obj;
+
+  // Check if it's a Firestore Timestamp
+  if (obj._seconds !== undefined && obj._nanoseconds !== undefined) {
+    return admin.firestore.Timestamp.fromMillis(
+      obj._seconds * 1000 + Math.floor(obj._nanoseconds / 1000000)
+    );
+  }
+
+  // Check if it's an array
+  if (Array.isArray(obj)) {
+    return obj.map(item => convertFirestoreTypes(item));
+  }
+
+  // Check if it's an object
+  if (typeof obj === 'object') {
+    const converted = {};
+    for (const [key, value] of Object.entries(obj)) {
+      converted[key] = convertFirestoreTypes(value);
+    }
+    return converted;
+  }
+
+  return obj;
+}
+
 async function importData() {
   try {
     // Read the backup file
@@ -36,18 +64,40 @@ async function importData() {
       // Skip metadata
       if (collectionName === '_metadata') continue;
 
-      // Check if this is a subcollection (format: parentCollection_subcollection)
-      if (collectionName.includes('_')) {
+      // Detect if this is a subcollection by checking the data structure
+      // A subcollection has nested objects: { parentDocId: { subDocId: {...} } }
+      // A regular collection has: { docId: {...} }
+      const firstKey = Object.keys(documents)[0];
+      const firstValue = documents[firstKey];
+
+      let isSubcollection = false;
+      if (collectionName.includes('_') && typeof firstValue === 'object' && firstValue !== null) {
+        // Check if the first value contains objects (potential subcollection)
+        const nestedKeys = Object.keys(firstValue);
+        if (nestedKeys.length > 0) {
+          const firstNestedValue = firstValue[nestedKeys[0]];
+          // If it's an object and not a timestamp, it's likely a subcollection
+          if (typeof firstNestedValue === 'object' &&
+              firstNestedValue !== null &&
+              !Array.isArray(firstNestedValue) &&
+              firstNestedValue._seconds === undefined) {
+            isSubcollection = true;
+          }
+        }
+      }
+
+      if (isSubcollection) {
         const [parentCollection, subcollection] = collectionName.split('_');
         console.log(`Importing subcollection: ${parentCollection}/*/${subcollection}`);
 
         for (const [parentDocId, subDocs] of Object.entries(documents)) {
           for (const [subDocId, subDocData] of Object.entries(subDocs)) {
+            const convertedData = convertFirestoreTypes(subDocData);
             await db.collection(parentCollection)
               .doc(parentDocId)
               .collection(subcollection)
               .doc(subDocId)
-              .set(subDocData);
+              .set(convertedData);
             console.log(`  ✓ ${parentDocId}/${subDocId}`);
           }
         }
@@ -56,7 +106,8 @@ async function importData() {
         console.log(`Importing collection: ${collectionName}`);
 
         for (const [docId, docData] of Object.entries(documents)) {
-          await db.collection(collectionName).doc(docId).set(docData);
+          const convertedData = convertFirestoreTypes(docData);
+          await db.collection(collectionName).doc(docId).set(convertedData);
           console.log(`  ✓ ${docId}`);
         }
       }

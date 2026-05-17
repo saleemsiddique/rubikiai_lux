@@ -256,19 +256,6 @@ export async function POST(req: Request) {
 
     const secret = new TextEncoder().encode(MONTONIO_SECRET_KEY);
 
-    // DEBUG: print minimal info at start
-    console.log("---- Montonio webhook: headers ----");
-    console.log(Object.fromEntries(req.headers.entries()));
-    const rawText1 = await req.text().catch(() => "");
-    console.log(
-      "---- Montonio webhook: raw body length ----",
-      rawText1?.length
-    );
-    console.log(
-      "---- Montonio webhook: raw body preview ----",
-      (rawText1 || "").slice(0, 1000)
-    );
-
     let payload: any;
     try {
       const verified = await jwtVerify(token, secret);
@@ -277,11 +264,6 @@ export async function POST(req: Request) {
       console.error("Invalid orderToken signature", err);
       return NextResponse.json({ error: "invalid_token" }, { status: 401 });
     }
-
-    console.log(
-      "📩 Montonio webhook payload completo:",
-      JSON.stringify(payload, null, 2)
-    );
 
     const merchantReference: string | undefined =
       payload?.merchantReference ||

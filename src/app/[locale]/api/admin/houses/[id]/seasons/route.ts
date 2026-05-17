@@ -1,6 +1,19 @@
 // app/api/admin/houses/[id]/seasons/route.ts
 import { NextResponse, NextRequest } from "next/server";
 import admin from "@/lib/firebase-admin";
+import { cookies } from "next/headers";
+
+async function requireAdmin() {
+  const session = (await cookies()).get("session")?.value;
+  if (!session) return null;
+  try {
+    const decoded = await admin.auth().verifySessionCookie(session, false);
+    if (!(decoded as any).admin) return null;
+    return decoded;
+  } catch {
+    return null;
+  }
+}
 
 type Weekday =
   | "monday"
@@ -107,6 +120,11 @@ export async function POST(
   req: NextRequest,
   context: { params: any } // dejamos broad y resolvemos en runtime
 ) {
+  const user = await requireAdmin();
+  if (!user) {
+    return NextResponse.json({ error: "No autorizado." }, { status: 401 });
+  }
+
   try {
     const params = await resolveParams(context.params);
     const houseId: string | undefined = params?.id;
@@ -214,6 +232,11 @@ export async function DELETE(
   req: NextRequest,
   context: { params: any } // igual que en POST
 ) {
+  const user = await requireAdmin();
+  if (!user) {
+    return NextResponse.json({ error: "No autorizado." }, { status: 401 });
+  }
+
   try {
     const params = await resolveParams(context.params);
     const houseId: string | undefined = params?.id;

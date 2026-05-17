@@ -1,6 +1,19 @@
 // app/api/houses/lookup/route.ts
 import { NextResponse } from "next/server";
 import admin from "@/lib/firebase-admin";
+import { cookies } from "next/headers";
+
+async function requireAdmin() {
+  const session = (await cookies()).get("session")?.value;
+  if (!session) return null;
+  try {
+    const decoded = await admin.auth().verifySessionCookie(session, false);
+    if (!(decoded as any).admin) return null;
+    return decoded;
+  } catch {
+    return null;
+  }
+}
 
 type Weekday =
   | "monday"
@@ -123,6 +136,11 @@ function cleanSeasons(raw: unknown): Season[] {
 }
 
 export async function GET(req: Request) {
+  const user = await requireAdmin();
+  if (!user) {
+    return NextResponse.json({ error: "No autorizado." }, { status: 401 });
+  }
+
   try {
     const { searchParams } = new URL(req.url);
     const q = (searchParams.get("q") || "").trim();

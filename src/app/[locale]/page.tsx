@@ -75,7 +75,7 @@ export default function HomePage() {
         <div
           className="hidden md:block fixed md:absolute top-0 left-0 w-full h-screen md:h-[150vh]"
           style={{
-            backgroundImage: 'url("/home/IMG_6656-1.jpeg")',
+            backgroundImage: 'url("/home/rubikiai-summer1.jpeg")',
             backgroundSize: 'cover',
             backgroundPosition: 'center bottom',
             backgroundAttachment: 'scroll',
@@ -104,7 +104,7 @@ export default function HomePage() {
               minHeight: '100%',
             }}
           >
-            <source src="/home/rubikiailux_home.mp4" type="video/mp4" />
+            <source src="/home/summer-rubikiai.mp4" type="video/mp4" />
           </video>
         </div>
 

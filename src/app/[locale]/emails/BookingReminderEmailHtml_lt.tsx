@@ -112,7 +112,7 @@ export function BookingReminderEmailHtml_lt(params: BookingReminderParams): stri
             <tr>
               <td style="padding:14px 22px 6px;">
                 <div style="font:500 15px Inter,Arial,sans-serif;color:#334155;line-height:1.6;">
-                  Džiaugiamės galėdami jus priimti <strong>${displayName}</strong> <strong>${checkInFmt}</strong>${checkOut ? ` iki ${checkOutFmt}` : ""}. Rekomenduojame atsivežti gumines (paplūdimio) tapkutes terasoje nueiti iki jacuzzi. Ar naudosite grilių, 10€ (malkos, anglys, grotelės, iešmai, įrankiai...)? Važiuokite atsargiai, mūsų apylinkėse daug laukinių gyvūnų. <br/><br/>Prašome peržiūrėti namų informaciją ir taisykles žemiau.
+                  Džiaugiamės galėdami jus priimti <strong>${displayName}</strong> <strong>${checkInFmt}</strong>${checkOut ? ` iki ${checkOutFmt}` : ""}. Rekomenduojame atsivežti gumines (paplūdimio) tapkutes terasoje nueiti iki jacuzzi. Ar naudosite grilių, 10€ (malkos, anglys, grotelės, iešmai, įrankiai...)? Važiuokite atsargiai, mūsų apylinkėse daug laukinių gyvūnų. Šiltuoju metu nuomojame valtį, vandens dviratį, baidares. Padidėjus uodų, musių ir kitų vabzdžių srautui, prašome pasirūpinti tam tikromis priemonėmis. <br/><br/>Prašome peržiūrėti namų informaciją ir taisykles žemiau.
                 </div>
               </td>
             </tr>

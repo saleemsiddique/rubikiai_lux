@@ -1,8 +1,25 @@
 // app/api/houses/list/route.ts
 import { NextResponse } from "next/server";
 import admin from "@/lib/firebase-admin";
+import { cookies } from "next/headers";
+
+async function requireAdmin() {
+  const session = (await cookies()).get("session")?.value;
+  if (!session) return null;
+  try {
+    const decoded = await admin.auth().verifySessionCookie(session, false);
+    if (!(decoded as any).admin) return null;
+    return decoded;
+  } catch {
+    return null;
+  }
+}
 
 export async function GET() {
+  const user = await requireAdmin();
+  if (!user) {
+    return NextResponse.json({ error: "No autorizado." }, { status: 401 });
+  }
   try {
     const db = admin.firestore();
 

@@ -111,7 +111,7 @@ export function BookingReminderEmailHtml_en(params: BookingReminderParams): stri
             <tr>
               <td style="padding:14px 22px 6px;">
                 <div style="font:500 15px Inter,Arial,sans-serif;color:#334155;line-height:1.6;">
-                  We're excited to host you at <strong>${displayName}</strong> on <strong>${checkInFmt}</strong>${checkOut ? ` until ${checkOutFmt}` : ""}. We recommend bringing rubber (beach) slippers to walk on the terrace to the jacuzzi. Will you be using the grill, 10€ (firewood, coal, grates, skewers, tools...)? Drive carefully, there are many wild animals in our area. <br/><br/>Please review the house information and rules below.
+                  We're excited to host you at <strong>${displayName}</strong> on <strong>${checkInFmt}</strong>${checkOut ? ` until ${checkOutFmt}` : ""}. We recommend bringing rubber (beach) slippers to walk on the terrace to the jacuzzi. Will you be using the grill, 10€ (firewood, coal, grates, skewers, tools...)? Drive carefully, there are many wild animals in our area. During the warm season, we rent boats, pedal boats, and kayaks. Due to the increased number of mosquitoes, flies, and other insects, please take certain precautions. <br/><br/>Please review the house information and rules below.
                 </div>
               </td>
             </tr>
